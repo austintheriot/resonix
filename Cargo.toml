@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 rand = "0.8.5"
 rodio = "0.15.0"
+cpal = "0.13.5"
