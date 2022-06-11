@@ -79,10 +79,12 @@ where
 {
     let file = File::open("src/pater_emon.mp3")?;
 
-    let runtime_seconds = 30.0;
     let sample_rate = config.sample_rate.0 as f32;
     let channels = config.channels as usize;
-    let envolope_samples_len = (sample_rate / 10.0) as usize;
+    let envelope_len_ms_min = 1.0;
+    let envelope_len_ms_max = 100.0;
+    let envelope_len_samples_min = (sample_rate / (1000.0 / envelope_len_ms_min)) as usize;
+    let envelope_len_samples_max = (sample_rate / (1000.0 / envelope_len_ms_max)) as usize;
 
     let mp3_source = Decoder::new(file).unwrap();
     let mp3_source_data: Vec<f32> = i16_array_to_f32(mp3_source.collect());
@@ -96,18 +98,21 @@ where
     let mut next_value = move || {
         let mut rng = rand::thread_rng();
 
+        
         // if no more samples, add audio to the channel & a matching envolope
         if let None = channel_1.first() {
-            let random_index = rng.gen_range(0..(mp3_source_data.len() - envolope_samples_len));
+            let envolope_len_samples = rng.gen_range(envelope_len_samples_min..envelope_len_samples_max);
+            let random_index = rng.gen_range(0..(mp3_source_data.len() - envolope_len_samples));
             channel_1.extend_from_slice(
-                &mp3_source_data[random_index..(random_index + envolope_samples_len)],
+                &mp3_source_data[random_index..(random_index + envolope_len_samples)],
             );
             channel_1_envelope = generate_envolope_of_len(channel_1.len())
         }
         if let None = channel_2.first() {
-            let random_index = rng.gen_range(0..(mp3_source_data.len() - envolope_samples_len));
+            let envolope_len_samples = rng.gen_range(envelope_len_samples_min..envelope_len_samples_max);
+            let random_index = rng.gen_range(0..(mp3_source_data.len() - envolope_len_samples));
             channel_2.extend_from_slice(
-                &mp3_source_data[random_index..(random_index + envolope_samples_len)],
+                &mp3_source_data[random_index..(random_index + envolope_len_samples)],
             );
             channel_2_envelope = generate_envolope_of_len(channel_2.len())
         }
@@ -130,7 +135,8 @@ where
 
     stream.play()?;
 
-    std::thread::sleep(std::time::Duration::from_secs_f32(runtime_seconds));
+    // sleep indefinitely
+    std::thread::sleep(std::time::Duration::MAX);
 
     Ok(())
 }
