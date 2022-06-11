@@ -2,7 +2,6 @@ extern crate anyhow;
 extern crate clap;
 extern crate cpal;
 
-use audio::clock::Clock;
 use clap::arg;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rand::prelude::*;
@@ -24,14 +23,24 @@ impl Opt {
 }
 
 /// Called periodically to fill a buffer with data
-fn write_data<T>(output_data: &mut [T], channels: usize, next_sample: &mut dyn FnMut() -> f32)
-where
+fn write_data<T>(
+    output_data: &mut [T],
+    channels: usize,
+    next_sample: &mut dyn FnMut() -> (f32, f32),
+) where
     T: cpal::Sample,
 {
     for frame in output_data.chunks_mut(channels) {
-        let value: T = cpal::Sample::from::<f32>(&next_sample());
-        for sample in frame.iter_mut() {
-            *sample = value;
+        let (left_sample, right_sample) = next_sample();
+        let left_sample = cpal::Sample::from::<f32>(&left_sample);
+        let right_sample = cpal::Sample::from::<f32>(&right_sample);
+
+        for (i, sample) in frame.iter_mut().enumerate() {
+            if i % 2 == 0 {
+                *sample = left_sample;
+            } else {
+                *sample = right_sample;
+            }
         }
     }
 }
@@ -42,35 +51,21 @@ fn generate_sine(sample_tick: f64, frequency: f64, frequency_modulation: f64) ->
 
 /// Generates only the top portion of a sine wave (good envelope for granular synthesis)
 ///
-/// The sine index is assumed to range from 0.0 -> 1.0
+/// The sine index (`current_index`) is assumed to range from 0.0 -> 1.0
 fn generate_sine_envelope(current_index: f32) -> f32 {
     (current_index * std::f32::consts::PI).sin()
-}
-
-/// Shuffles mp3 data in "chunks" -- good for a "faked" granular synthesis
-fn shuffle_mp3_data<T: Clone>(data: &Vec<T>, shuffle_size: usize) -> Vec<T> {
-    let mut rng = rand::thread_rng();
-
-    let mut chunked_data: Vec<&[T]> = data.chunks(shuffle_size).collect();
-    chunked_data.shuffle(&mut rng);
-    let mut shuffled_data = Vec::with_capacity(data.len());
-    for a in chunked_data.iter_mut() {
-        shuffled_data.extend_from_slice(a);
-    }
-
-    shuffled_data
 }
 
 fn i16_array_to_f32(data: Vec<i16>) -> Vec<f32> {
     data.into_iter().map(|el| el as f32 / 65536.0).collect()
 }
 
-fn generate_envolopes(len: usize, envolope_samples_len: usize) -> Vec<f32> {
+/// Generates a sine envolope (a Vec) with a length of `len`
+fn generate_envolope_of_len(len: usize) -> Vec<f32> {
     let mut envelope_data = Vec::with_capacity(len);
-    for (i, _) in (0..len).enumerate() {
-        let i = i % envolope_samples_len;
-        let percentage = i as f32 / envolope_samples_len as f32;
-        envelope_data.push(generate_sine_envelope(percentage));
+    for i in 0..len {
+        let percent_complete = i as f32 / len as f32;
+        envelope_data.push(generate_sine_envelope(percent_complete));
     }
     envelope_data
 }
@@ -78,7 +73,6 @@ fn generate_envolopes(len: usize, envolope_samples_len: usize) -> Vec<f32> {
 pub fn run<T>(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
-    clock: Clock,
 ) -> Result<(), anyhow::Error>
 where
     T: cpal::Sample,
@@ -92,23 +86,36 @@ where
 
     let mp3_source = Decoder::new(file).unwrap();
     let mp3_source_data: Vec<f32> = i16_array_to_f32(mp3_source.collect());
-    let mut mp3_data_1 = shuffle_mp3_data(&mp3_source_data, envolope_samples_len).into_iter();
-    let mut mp3_data_2 = shuffle_mp3_data(&mp3_source_data, envolope_samples_len).into_iter();
-    let mut envelope_data = generate_envolopes(mp3_data_1.len(), envolope_samples_len).into_iter();
+
+    let mut channel_1 = Vec::new();
+    let mut channel_1_envelope = Vec::new();
+    let mut channel_2 = Vec::new();
+    let mut channel_2_envelope = Vec::new();
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
-        let frame_1 = mp3_data_1.next();
-        let frame_2 = mp3_data_2.next();
-        let envolope_volume = envelope_data.next();
+        let mut rng = rand::thread_rng();
 
-        return if let (Some(frame_1),Some(frame_2), Some(envelope_gain)) = (frame_1, frame_2, envolope_volume) {
-            let frame_1 = frame_1 * 0.5;
-            let frame_2 = frame_2 * 0.5;
-            ((frame_1 + frame_2) * envelope_gain).clamp(-0.75, 0.75)
-        } else {
-            0.0
-        };
+        // if no more samples, add audio to the channel & a matching envolope
+        if let None = channel_1.first() {
+            let random_index = rng.gen_range(0..(mp3_source_data.len() - envolope_samples_len));
+            channel_1.extend_from_slice(
+                &mp3_source_data[random_index..(random_index + envolope_samples_len)],
+            );
+            channel_1_envelope = generate_envolope_of_len(channel_1.len())
+        }
+        if let None = channel_2.first() {
+            let random_index = rng.gen_range(0..(mp3_source_data.len() - envolope_samples_len));
+            channel_2.extend_from_slice(
+                &mp3_source_data[random_index..(random_index + envolope_samples_len)],
+            );
+            channel_2_envelope = generate_envolope_of_len(channel_2.len())
+        }
+
+        let frame_1 = channel_1.remove(0) * channel_1_envelope.remove(0);
+        let frame_2 = channel_2.remove(0) * channel_2_envelope.remove(0);
+
+        (frame_1, frame_2)
     };
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
@@ -144,11 +151,9 @@ fn main() -> anyhow::Result<()> {
     let config = device.default_output_config().unwrap();
     println!("Default output config: {:#?}", config);
 
-    let clock = Clock::default();
-
     match config.sample_format() {
-        cpal::SampleFormat::F32 => run::<f32>(&device, &config.into(), clock),
-        cpal::SampleFormat::I16 => run::<i16>(&device, &config.into(), clock),
-        cpal::SampleFormat::U16 => run::<u16>(&device, &config.into(), clock),
+        cpal::SampleFormat::F32 => run::<f32>(&device, &config.into()),
+        cpal::SampleFormat::I16 => run::<i16>(&device, &config.into()),
+        cpal::SampleFormat::U16 => run::<u16>(&device, &config.into()),
     }
 }
