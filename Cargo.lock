@@ -48,6 +48,7 @@ dependencies = [
  "anyhow",
  "clap",
  "cpal",
+ "minimp3",
  "rand",
  "rodio",
 ]
