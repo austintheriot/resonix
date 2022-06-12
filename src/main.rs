@@ -6,7 +6,7 @@ use clap::arg;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rand::prelude::*;
 use rodio::Decoder;
-use std::{f64::consts::PI, fs::File};
+use std::{env, f64::consts::PI, fs::File};
 
 #[derive(Debug)]
 struct Opt {
@@ -52,22 +52,63 @@ fn generate_sine(sample_tick: f64, frequency: f64, frequency_modulation: f64) ->
 /// Generates only the top portion of a sine wave (good envelope for granular synthesis)
 ///
 /// The sine index (`current_index`) is assumed to range from 0.0 -> 1.0
-fn generate_envelope_value_from_percent(current_index: f32) -> f32 {
+fn generate_sine_envelope_value_from_percent(current_index: f32) -> f32 {
     (current_index * std::f32::consts::PI).sin()
+}
+
+/// The sine index (`current_index`) is assumed to range from 0.0 -> 1.0
+fn generate_triangle_envelope_value_from_percent(current_index: f32) -> f32 {
+    (((current_index - 0.5).abs() * -1.0) + 0.5) * 2.0
 }
 
 fn i16_array_to_f32(data: Vec<i16>) -> Vec<f32> {
     data.into_iter().map(|el| el as f32 / 65536.0).collect()
 }
 
-/// Generates a sine envolope (a Vec) with a length of `len` in samples
-fn generate_envolope_from_len_in_samples(len: usize) -> Vec<f32> {
-    let mut envelope_data = Vec::with_capacity(len);
-    for i in 0..len {
-        let percent_complete = i as f32 / len as f32;
-        envelope_data.push(generate_envelope_value_from_percent(percent_complete));
+
+pub struct Grain {
+    pub start_frame: usize,
+    pub end_frame: usize,
+    pub current_frame: usize,
+    pub finished: bool,
+    pub len: usize,
+}
+
+impl Default for Grain {
+    fn default() -> Self {
+        Self {
+            start_frame: 0,
+            current_frame: 0,
+            end_frame: 0,
+            finished: true,
+            len: 0,
+        }
     }
-    envelope_data
+}
+
+impl Grain {
+    pub fn new(start_frame: usize, end_frame: usize) -> Self {
+        debug_assert!(start_frame < end_frame);
+        Grain {
+            start_frame,
+            current_frame: start_frame,
+            end_frame,
+            finished: false,
+            len: end_frame - start_frame,
+        }
+    }
+    pub fn get_next_frame(&mut self) -> Option<usize> {
+        if self.finished {
+            return None;
+        }
+
+        self.current_frame += 1;
+        if self.current_frame == self.end_frame {
+            self.finished = true;
+        }
+
+        Some(self.current_frame)
+    }
 }
 
 pub fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> Result<(), anyhow::Error>
@@ -78,26 +119,19 @@ where
 
     let sample_rate = config.sample_rate.0 as f32;
     let channels = config.channels as usize;
-    let envelope_len_ms_min = 10.0;
-    let envelope_len_ms_max = 100.0;
+    let envelope_len_ms_min = 100.0;
+    let envelope_len_ms_max = 1000.0;
     let envelope_len_samples_min = (sample_rate / (1000.0 / envelope_len_ms_min)) as usize;
     let envelope_len_samples_max = (sample_rate / (1000.0 / envelope_len_ms_max)) as usize;
 
     let mp3_source = Decoder::new(file).unwrap();
     let mp3_source_data: Vec<f32> = i16_array_to_f32(mp3_source.collect());
 
-    const NUM_CHANNELS: usize = 5;
+    const NUM_CHANNELS: usize = 500;
 
-    let mut channel_samples: Vec<Vec<f32>> = Vec::with_capacity(NUM_CHANNELS);
+    let mut channels_grains: Vec<Grain> = Vec::with_capacity(NUM_CHANNELS);
     for _ in 0..NUM_CHANNELS {
-        let channel_data = Vec::new();
-        channel_samples.push(channel_data);
-    }
-
-    let mut channel_envelopes: Vec<Vec<f32>> = Vec::with_capacity(NUM_CHANNELS);
-    for _ in 0..NUM_CHANNELS {
-        let envelope_data = Vec::new();
-        channel_envelopes.push(envelope_data);
+        channels_grains.push(Grain::default());
     }
 
     // Called for every audio frame to generate appropriate sample
@@ -107,60 +141,54 @@ where
         // grain length should not exceed max mp3 source data length
         debug_assert!(mp3_source_data.len() > envelope_len_samples_max);
 
-        for (i, channel) in channel_samples.iter_mut().enumerate() {
+        for grain in channels_grains.iter_mut() {
             // if no more samples, add audio to the channel & a matching grain envolope
-            if let None = channel.first() {
-                debug_assert!(channel.len() == 0);
-
+            if grain.finished {
                 let envolope_len_samples =
                     rng.gen_range(envelope_len_samples_min..envelope_len_samples_max);
-                let random_index = rng.gen_range(0..(mp3_source_data.len() - envolope_len_samples));
+                let max_index = mp3_source_data.len() - envolope_len_samples;
+                let start_frame = rng.gen_range(0..max_index);
+                let end_frame = start_frame + envolope_len_samples;
 
-                debug_assert!(random_index < mp3_source_data.len());
+                debug_assert!(start_frame > 0);
+                debug_assert!(end_frame > 0);
+                debug_assert!(start_frame < mp3_source_data.len());
+                debug_assert!(end_frame < mp3_source_data.len());
 
-                let grain_sample_data = &mp3_source_data[random_index..(random_index + envolope_len_samples)];
-                debug_assert!(grain_sample_data.len() > 0);
-                channel.extend_from_slice(grain_sample_data);
-                debug_assert!(channel.len() > 0);
-                channel_envelopes[i] = generate_envolope_from_len_in_samples(channel.len());
-                debug_assert_eq!(channel.len(), channel_envelopes[i].len());
+                let new_grain = Grain::new(start_frame, end_frame);
+                *grain = new_grain;
             }
         }
 
-        debug_assert_eq!(channel_samples.len(), NUM_CHANNELS);
-        debug_assert!(channel_samples[0].len() > 0);
-        debug_assert_eq!(channel_envelopes.len(), NUM_CHANNELS);
-        debug_assert!(channel_envelopes[0].len() > 0);
+        debug_assert_eq!(channels_grains.len(), NUM_CHANNELS);
 
-        let frame_samples = channel_samples
-        .iter_mut()
-        .map(|channel| {
-            debug_assert!(channel.len() > 0);
-            channel.remove(0)
-        })
-        .collect::<Vec<f32>>();
-
-        let frame_envelopes = channel_envelopes
-        .iter_mut()
-        .map(|channel| {
-            debug_assert!(channel.len() > 0);
-            channel.remove(0)
-        })
-        .collect::<Vec<f32>>();
-
+        let frame_samples = channels_grains
+            .iter_mut()
+            .map(|grain| {
+                debug_assert_eq!(grain.finished, false);
+                debug_assert_eq!(grain.finished, false);
+                let envelope_percent =
+                    ((grain.current_frame - grain.start_frame) as f32) / (grain.len as f32);
+                debug_assert!(envelope_percent >= 0.0, "{}", envelope_percent);
+                debug_assert!(envelope_percent < 1.0, "{}", envelope_percent);
+                let envelope_value = generate_triangle_envelope_value_from_percent(envelope_percent);
+                let frame_index = grain
+                    .get_next_frame()
+                    .expect("Grain should have another frame available");
+                (mp3_source_data[frame_index], envelope_value)
+            })
+            .collect::<Vec<(f32, f32)>>();
 
         let mut left = 0.0;
-        for (i, sample) in frame_samples.iter().enumerate() {
+        for (i, (sample, envelope)) in frame_samples.iter().enumerate() {
             let spatialization_percent = 1.0 - (i as f32) / (frame_samples.len() as f32);
-            let envelope = frame_envelopes[i];
             let value_to_add = (sample * envelope * spatialization_percent) / (NUM_CHANNELS as f32);
             left += value_to_add;
         }
 
         let mut right = 0.0;
-        for (i, sample) in frame_samples.iter().enumerate() {
+        for (i, (sample, envelope)) in frame_samples.iter().enumerate() {
             let spatialization_percent = (i as f32) / (frame_samples.len() as f32);
-            let envelope = frame_envelopes[i];
             let value_to_add = (sample * envelope * spatialization_percent) / (NUM_CHANNELS as f32);
             right += value_to_add;
         }
