@@ -7,8 +7,7 @@ use common::{grain_sample::GrainSample, grain::Grain};
 use clap::arg;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rand::prelude::*;
-use rodio::Decoder;
-use std::{fs::File};
+use rodio::{Decoder};
 
 #[derive(Debug)]
 struct Opt {
@@ -63,7 +62,7 @@ pub fn run_audio<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> Resul
 where
     T: cpal::Sample,
 {
-    const NUM_CHANNELS: usize = 100;
+    const NUM_CHANNELS: usize = 20;
     const ENVELOPE_LEN_MS_MIN: f32 = 1.0;
     const ENVELOPE_LEN_MS_MAX: f32 = 100.0;
 
@@ -72,9 +71,9 @@ where
     let envelope_len_samples_min = (sample_rate / (1000.0 / ENVELOPE_LEN_MS_MIN)) as usize;
     let envelope_len_samples_max = (sample_rate / (1000.0 / ENVELOPE_LEN_MS_MAX)) as usize;
 
-    // get audio file data
-    let file = File::open("../audio/pater_emon.mp3")?;
-    let mp3_source = Decoder::new(file).unwrap();
+    // get audio file data as compile time
+    let audio_file_slice = std::io::Cursor::new(include_bytes!("..\\..\\audio\\pater_emon.mp3").as_ref());
+    let mp3_source = Decoder::new(audio_file_slice).unwrap();
     let mp3_source_data: Vec<f32> = i16_array_to_f32(mp3_source.collect());
 
     // associates each grain's sample value with it's envelope value
