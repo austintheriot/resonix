@@ -73,7 +73,7 @@ where
     let envelope_len_samples_max = (sample_rate / (1000.0 / ENVELOPE_LEN_MS_MAX)) as usize;
 
     // get audio file data
-    let file = File::open("src/pater_emon.mp3")?;
+    let file = File::open("../audio/pater_emon.mp3")?;
     let mp3_source = Decoder::new(file).unwrap();
     let mp3_source_data: Vec<f32> = i16_array_to_f32(mp3_source.collect());
 
