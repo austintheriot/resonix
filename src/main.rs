@@ -78,15 +78,15 @@ where
 
     let sample_rate = config.sample_rate.0 as f32;
     let channels = config.channels as usize;
-    let envelope_len_ms_min = 100.0;
-    let envelope_len_ms_max = 1000.0;
+    let envelope_len_ms_min = 10.0;
+    let envelope_len_ms_max = 100.0;
     let envelope_len_samples_min = (sample_rate / (1000.0 / envelope_len_ms_min)) as usize;
     let envelope_len_samples_max = (sample_rate / (1000.0 / envelope_len_ms_max)) as usize;
 
     let mp3_source = Decoder::new(file).unwrap();
     let mp3_source_data: Vec<f32> = i16_array_to_f32(mp3_source.collect());
 
-    const NUM_CHANNELS: usize = 2;
+    const NUM_CHANNELS: usize = 5;
 
     let mut channel_samples: Vec<Vec<f32>> = Vec::with_capacity(NUM_CHANNELS);
     for _ in 0..NUM_CHANNELS {
