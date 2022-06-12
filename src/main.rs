@@ -2,11 +2,12 @@ extern crate anyhow;
 extern crate clap;
 extern crate cpal;
 
+use audio::{grain_sample::GrainSample, grain::Grain};
 use clap::arg;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rand::prelude::*;
 use rodio::Decoder;
-use std::{env, f64::consts::PI, fs::File};
+use std::{fs::File};
 
 #[derive(Debug)]
 struct Opt {
@@ -35,6 +36,7 @@ fn write_data<T>(
         let left_sample = cpal::Sample::from::<f32>(&left_sample);
         let right_sample = cpal::Sample::from::<f32>(&right_sample);
 
+        // assume a 2-channel system and just map to evens and odds if there are more channels
         for (i, sample) in frame.iter_mut().enumerate() {
             if i % 2 == 0 {
                 *sample = left_sample;
@@ -45,18 +47,9 @@ fn write_data<T>(
     }
 }
 
-fn generate_sine(sample_tick: f64, frequency: f64, frequency_modulation: f64) -> f64 {
-    (2.0 * PI * (frequency * sample_tick + frequency_modulation)).sin()
-}
-
-/// Generates only the top portion of a sine wave (good envelope for granular synthesis)
-///
-/// The sine index (`current_index`) is assumed to range from 0.0 -> 1.0
-fn generate_sine_envelope_value_from_percent(current_index: f32) -> f32 {
-    (current_index * std::f32::consts::PI).sin()
-}
-
-/// The sine index (`current_index`) is assumed to range from 0.0 -> 1.0
+/// Creates a linear ramp from 0.0 -> 1.0 -> 0.0
+/// 
+/// The `current_index` is assumed to range from 0.0 -> 1.0
 fn generate_triangle_envelope_value_from_percent(current_index: f32) -> f32 {
     (((current_index - 0.5).abs() * -1.0) + 0.5) * 2.0
 }
@@ -65,70 +58,32 @@ fn i16_array_to_f32(data: Vec<i16>) -> Vec<f32> {
     data.into_iter().map(|el| el as f32 / 65536.0).collect()
 }
 
-
-pub struct Grain {
-    pub start_frame: usize,
-    pub end_frame: usize,
-    pub current_frame: usize,
-    pub finished: bool,
-    pub len: usize,
-}
-
-impl Default for Grain {
-    fn default() -> Self {
-        Self {
-            start_frame: 0,
-            current_frame: 0,
-            end_frame: 0,
-            finished: true,
-            len: 0,
-        }
-    }
-}
-
-impl Grain {
-    pub fn new(start_frame: usize, end_frame: usize) -> Self {
-        debug_assert!(start_frame < end_frame);
-        Grain {
-            start_frame,
-            current_frame: start_frame,
-            end_frame,
-            finished: false,
-            len: end_frame - start_frame,
-        }
-    }
-    pub fn get_next_frame(&mut self) -> Option<usize> {
-        if self.finished {
-            return None;
-        }
-
-        self.current_frame += 1;
-        if self.current_frame == self.end_frame {
-            self.finished = true;
-        }
-
-        Some(self.current_frame)
-    }
-}
-
-pub fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> Result<(), anyhow::Error>
+pub fn run_audio<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> Result<(), anyhow::Error>
 where
     T: cpal::Sample,
 {
-    let file = File::open("src/pater_emon.mp3")?;
+    const NUM_CHANNELS: usize = 100;
+    const ENVELOPE_LEN_MS_MIN: f32 = 1.0;
+    const ENVELOPE_LEN_MS_MAX: f32 = 100.0;
 
     let sample_rate = config.sample_rate.0 as f32;
     let channels = config.channels as usize;
-    let envelope_len_ms_min = 100.0;
-    let envelope_len_ms_max = 1000.0;
-    let envelope_len_samples_min = (sample_rate / (1000.0 / envelope_len_ms_min)) as usize;
-    let envelope_len_samples_max = (sample_rate / (1000.0 / envelope_len_ms_max)) as usize;
+    let envelope_len_samples_min = (sample_rate / (1000.0 / ENVELOPE_LEN_MS_MIN)) as usize;
+    let envelope_len_samples_max = (sample_rate / (1000.0 / ENVELOPE_LEN_MS_MAX)) as usize;
 
+    // get audio file data
+    let file = File::open("src/pater_emon.mp3")?;
     let mp3_source = Decoder::new(file).unwrap();
     let mp3_source_data: Vec<f32> = i16_array_to_f32(mp3_source.collect());
 
-    const NUM_CHANNELS: usize = 500;
+    // associates each grain's sample value with it's envelope value
+    // instantiated here to prevent allocations during audio calculations
+    let mut frame_samples_and_envelopes = Vec::with_capacity(NUM_CHANNELS);
+    for _ in 0..NUM_CHANNELS {
+        frame_samples_and_envelopes.push(GrainSample::default());
+    }
 
+    // keeps track of where each grain should be in the buffer
     let mut channels_grains: Vec<Grain> = Vec::with_capacity(NUM_CHANNELS);
     for _ in 0..NUM_CHANNELS {
         channels_grains.push(Grain::default());
@@ -141,8 +96,8 @@ where
         // grain length should not exceed max mp3 source data length
         debug_assert!(mp3_source_data.len() > envelope_len_samples_max);
 
+        // create new grains for any that are finished
         for grain in channels_grains.iter_mut() {
-            // if no more samples, add audio to the channel & a matching grain envolope
             if grain.finished {
                 let envolope_len_samples =
                     rng.gen_range(envelope_len_samples_min..envelope_len_samples_max);
@@ -162,35 +117,54 @@ where
 
         debug_assert_eq!(channels_grains.len(), NUM_CHANNELS);
 
-        let frame_samples = channels_grains
+        // get value of each grain's current index in the buffer for each channel
+        channels_grains
             .iter_mut()
-            .map(|grain| {
+            .enumerate()
+            .for_each(|(i, grain)| {
                 debug_assert_eq!(grain.finished, false);
-                debug_assert_eq!(grain.finished, false);
+
                 let envelope_percent =
                     ((grain.current_frame - grain.start_frame) as f32) / (grain.len as f32);
                 debug_assert!(envelope_percent >= 0.0, "{}", envelope_percent);
                 debug_assert!(envelope_percent < 1.0, "{}", envelope_percent);
-                let envelope_value = generate_triangle_envelope_value_from_percent(envelope_percent);
-                let frame_index = grain
-                    .get_next_frame()
-                    .expect("Grain should have another frame available");
-                (mp3_source_data[frame_index], envelope_value)
-            })
-            .collect::<Vec<(f32, f32)>>();
 
+                let envelope_value =
+                    generate_triangle_envelope_value_from_percent(envelope_percent);
+                let frame_index = grain.current_frame;
+                let sample_value = mp3_source_data[frame_index];
+
+                frame_samples_and_envelopes[i].sample_value = sample_value;
+                frame_samples_and_envelopes[i].envelope_value = envelope_value;
+
+                grain.get_next_frame();
+            });
+
+        // mix frame channels down to 2 channels (spacialize from left to right)
         let mut left = 0.0;
-        for (i, (sample, envelope)) in frame_samples.iter().enumerate() {
-            let spatialization_percent = 1.0 - (i as f32) / (frame_samples.len() as f32);
-            let value_to_add = (sample * envelope * spatialization_percent) / (NUM_CHANNELS as f32);
-            left += value_to_add;
-        }
-
         let mut right = 0.0;
-        for (i, (sample, envelope)) in frame_samples.iter().enumerate() {
-            let spatialization_percent = (i as f32) / (frame_samples.len() as f32);
-            let value_to_add = (sample * envelope * spatialization_percent) / (NUM_CHANNELS as f32);
-            right += value_to_add;
+        for (i, grain_sample) in frame_samples_and_envelopes.iter().enumerate() {
+            // earlier indexes to later indexes == left to right spacialization
+            let left_spatialization_percent =
+                1.0 - (i as f32) / (frame_samples_and_envelopes.len() as f32);
+            let right_spatialization_percent =
+                (i as f32) / (frame_samples_and_envelopes.len() as f32);
+
+            // division by 0 will happen below if num of channels is less than 2
+            debug_assert!(NUM_CHANNELS >= 2);
+
+            // logarithmically scaling the volume seems to work well for very large numbers of voices
+            let left_value_to_add = (grain_sample.sample_value
+                * grain_sample.envelope_value
+                * left_spatialization_percent)
+                / (NUM_CHANNELS as f32).log(2.0);
+            let right_value_to_add = (grain_sample.sample_value
+                * grain_sample.envelope_value
+                * right_spatialization_percent)
+                / (NUM_CHANNELS as f32).log(2.0);
+
+            left += left_value_to_add;
+            right += right_value_to_add;
         }
 
         (left, right)
@@ -231,8 +205,8 @@ fn main() -> anyhow::Result<()> {
     println!("Default output config: {:#?}", config);
 
     match config.sample_format() {
-        cpal::SampleFormat::F32 => run::<f32>(&device, &config.into()),
-        cpal::SampleFormat::I16 => run::<i16>(&device, &config.into()),
-        cpal::SampleFormat::U16 => run::<u16>(&device, &config.into()),
+        cpal::SampleFormat::F32 => run_audio::<f32>(&device, &config.into()),
+        cpal::SampleFormat::I16 => run_audio::<i16>(&device, &config.into()),
+        cpal::SampleFormat::U16 => run_audio::<u16>(&device, &config.into()),
     }
 }
