@@ -1,0 +1,16 @@
+[package]
+name = "audio"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rand = "0.8.5"
+rodio = "0.15.0"
+cpal = "0.13.5"
+anyhow = "1.0.57"
+clap = "3.1.18"
+# Wrapper around the C library
+minimp3 = "0.5.1"
+common = {path = '../common'}

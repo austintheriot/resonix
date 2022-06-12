@@ -1,8 +1,9 @@
 extern crate anyhow;
 extern crate clap;
 extern crate cpal;
+extern crate common;
 
-use audio::{grain_sample::GrainSample, grain::Grain};
+use common::{grain_sample::GrainSample, grain::Grain};
 use clap::arg;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rand::prelude::*;
