@@ -1,13 +1,17 @@
 extern crate anyhow;
 extern crate clap;
-extern crate cpal;
 extern crate common;
+extern crate cpal;
 
-use common::{grain_sample::GrainSample, grain::Grain};
 use clap::arg;
+use common::{
+    grain::Grain,
+    grain_sample::GrainSample,
+    utils,
+};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rand::prelude::*;
-use rodio::{Decoder};
+use rodio::Decoder;
 
 #[derive(Debug)]
 struct Opt {
@@ -25,13 +29,13 @@ impl Opt {
 
 /// Called periodically to fill a buffer with data
 fn write_data<T>(
-    output_data: &mut [T],
+    output: &mut [T],
     channels: usize,
     next_sample: &mut dyn FnMut() -> (f32, f32),
 ) where
     T: cpal::Sample,
 {
-    for frame in output_data.chunks_mut(channels) {
+    for frame in output.chunks_mut(channels) {
         let (left_sample, right_sample) = next_sample();
         let left_sample = cpal::Sample::from::<f32>(&left_sample);
         let right_sample = cpal::Sample::from::<f32>(&right_sample);
@@ -47,18 +51,7 @@ fn write_data<T>(
     }
 }
 
-/// Creates a linear ramp from 0.0 -> 1.0 -> 0.0
-/// 
-/// The `current_index` is assumed to range from 0.0 -> 1.0
-fn generate_triangle_envelope_value_from_percent(current_index: f32) -> f32 {
-    (((current_index - 0.5).abs() * -1.0) + 0.5) * 2.0
-}
-
-fn i16_array_to_f32(data: Vec<i16>) -> Vec<f32> {
-    data.into_iter().map(|el| el as f32 / 65536.0).collect()
-}
-
-pub fn run_audio<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> Result<(), anyhow::Error>
+pub fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> Result<(), anyhow::Error>
 where
     T: cpal::Sample,
 {
@@ -72,9 +65,10 @@ where
     let envelope_len_samples_max = (sample_rate / (1000.0 / ENVELOPE_LEN_MS_MAX)) as usize;
 
     // get audio file data as compile time
-    let audio_file_slice = std::io::Cursor::new(include_bytes!("..\\..\\audio\\pater_emon.mp3").as_ref());
+    let audio_file_slice =
+        std::io::Cursor::new(include_bytes!("..\\..\\audio\\pater_emon.mp3").as_ref());
     let mp3_source = Decoder::new(audio_file_slice).unwrap();
-    let mp3_source_data: Vec<f32> = i16_array_to_f32(mp3_source.collect());
+    let mp3_source_data: Vec<f32> = utils::i16_array_to_f32(mp3_source.collect());
 
     // associates each grain's sample value with it's envelope value
     // instantiated here to prevent allocations during audio calculations
@@ -130,7 +124,7 @@ where
                 debug_assert!(envelope_percent < 1.0, "{}", envelope_percent);
 
                 let envelope_value =
-                    generate_triangle_envelope_value_from_percent(envelope_percent);
+                    utils::generate_triangle_envelope_value_from_percent(envelope_percent);
                 let frame_index = grain.current_frame;
                 let sample_value = mp3_source_data[frame_index];
 
@@ -205,8 +199,8 @@ fn main() -> anyhow::Result<()> {
     println!("Default output config: {:#?}", config);
 
     match config.sample_format() {
-        cpal::SampleFormat::F32 => run_audio::<f32>(&device, &config.into()),
-        cpal::SampleFormat::I16 => run_audio::<i16>(&device, &config.into()),
-        cpal::SampleFormat::U16 => run_audio::<u16>(&device, &config.into()),
+        cpal::SampleFormat::F32 => run::<f32>(&device, &config.into()),
+        cpal::SampleFormat::I16 => run::<i16>(&device, &config.into()),
+        cpal::SampleFormat::U16 => run::<u16>(&device, &config.into()),
     }
 }
