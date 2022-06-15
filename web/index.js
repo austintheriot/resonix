@@ -3,8 +3,8 @@ import './style.scss';
 import('./pkg').then((module) => {
     let handle = null;
     const play_button = document.getElementById("play");
-    play_button.addEventListener("click", (event) => {
-        handle = module.beep();
+    play_button.addEventListener("click", async (event) => {
+        handle = await module.beep();
     });
     const stop_button = document.getElementById("stop");
     stop_button.addEventListener("click", (event) => {

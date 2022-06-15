@@ -1,7 +1,6 @@
 use common::{grain::Grain, grain_sample::GrainSample, utils};
 use log::*;
 use rand::Rng;
-use wasm_bindgen::convert::FromWasmAbi;
 use wasm_bindgen::{prelude::*, JsCast};
 // use minimp3::{Decoder};
 
@@ -34,7 +33,7 @@ use cpal::Stream;
 pub struct Handle(Stream);
 
 #[wasm_bindgen]
-pub fn beep() -> Handle {
+pub async fn beep() -> Handle {
     let host = cpal::default_host();
     let device = host
         .default_output_device()
@@ -42,17 +41,20 @@ pub fn beep() -> Handle {
     let config = device.default_output_config().unwrap();
 
     Handle(match config.sample_format() {
-        cpal::SampleFormat::F32 => run::<f32>(&device, &config.into()).unwrap(),
-        cpal::SampleFormat::I16 => run::<i16>(&device, &config.into()).unwrap(),
-        cpal::SampleFormat::U16 => run::<u16>(&device, &config.into()).unwrap(),
+        cpal::SampleFormat::F32 => run::<f32>(&device, &config.into()).await.unwrap(),
+        cpal::SampleFormat::I16 => run::<i16>(&device, &config.into()).await.unwrap(),
+        cpal::SampleFormat::U16 => run::<u16>(&device, &config.into()).await.unwrap(),
     })
 }
 
-pub fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> Result<Stream, anyhow::Error>
+pub async fn run<T>(
+    device: &cpal::Device,
+    config: &cpal::StreamConfig,
+) -> Result<Stream, anyhow::Error>
 where
     T: cpal::Sample,
 {
-    const NUM_CHANNELS: usize = 20;
+    const NUM_CHANNELS: usize = 3;
     const ENVELOPE_LEN_MS_MIN: f32 = 1.0;
     const ENVELOPE_LEN_MS_MAX: f32 = 100.0;
 
@@ -61,32 +63,35 @@ where
     let envelope_len_samples_min = (sample_rate / (1000.0 / ENVELOPE_LEN_MS_MIN)) as usize;
     let envelope_len_samples_max = (sample_rate / (1000.0 / ENVELOPE_LEN_MS_MAX)) as usize;
 
-
     let audio_context =
         web_sys::AudioContext::new().expect("Browser should have AudioContext implemented");
-    info!("{:?}", audio_context);
 
-
-
-    // get audio file data as compile time
+    // get audio file data at compile time
     let mp3_file_bytes = include_bytes!("..\\..\\audio\\pater_emon.mp3");
-    let u_int8_array = unsafe { js_sys::Uint8Array::view(mp3_file_bytes) };
+
+    // this action is "unsafe" because it's creating a JavaScript view into wasm linear memory,
+    // but there's no risk in this case, because `mp3_file_bytes` is an array that is statically compiled
+    // into the wasm binary itself and will not be reallocated at runtime
+    let mp3_u_int8_array = unsafe { js_sys::Uint8Array::view(mp3_file_bytes) };
 
     // this data must be copied, because decodeAudioData() claims the ArrayBuffer it receives
-    let u_int8_array_copy = u_int8_array.slice(0, u_int8_array.length());
-    let handle_success = Closure::wrap(Box::new(|buffer: web_sys::AudioBuffer| {
-        info!("Running handle_sucess. Here's some audio data: {:?}", &buffer.get_channel_data(0).unwrap()[0..10]);
-    }) as Box<dyn FnMut(web_sys::AudioBuffer)>);
-    audio_context.decode_audio_data_with_success_callback(
-        &u_int8_array_copy.buffer(),
-        handle_success.as_ref().unchecked_ref(),
-    );
-    std::mem::forget(u_int8_array_copy);
-    handle_success.forget();
+    let mp3_u_int8_array = mp3_u_int8_array.slice(0, mp3_u_int8_array.length());
 
-    let mp3_source_data = Vec::from([0.0; 48000]);
+    let decoded_audio_result = audio_context
+        .decode_audio_data(&mp3_u_int8_array.buffer())
+        .expect("Should succeed at decoding audio data");
+        
+    let audio_buffer: web_sys::AudioBuffer =
+        wasm_bindgen_futures::JsFuture::from(decoded_audio_result)
+            .await
+            .expect("Should convert decode_audio_data Promise into Future")
+            .dyn_into()
+            .expect("decode_audio_data should return a buffer of data on success");
 
-    // associates each g instantiated here to prevent allocations during audio calculations
+    let mp3_source_data = audio_buffer.get_channel_data(0).unwrap();
+
+    // associates each grain with the amplitude of it's envelope
+    // instantiated here to prevent allocations during audio calculations
     let mut frame_samples_and_envelopes = Vec::with_capacity(NUM_CHANNELS);
     for _ in 0..NUM_CHANNELS {
         frame_samples_and_envelopes.push(GrainSample::default());
