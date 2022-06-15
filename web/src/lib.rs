@@ -1,8 +1,8 @@
-use common::decode;
 use common::{grain::Grain, grain_sample::GrainSample, utils};
+use log::*;
 use rand::Rng;
-use wasm_bindgen::prelude::*;
-use web_sys::console;
+use wasm_bindgen::convert::FromWasmAbi;
+use wasm_bindgen::{prelude::*, JsCast};
 // use minimp3::{Decoder};
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global
@@ -20,6 +20,9 @@ pub fn main() -> Result<(), JsValue> {
     // It's disabled in release mode, so it doesn't bloat up the file size.
     #[cfg(debug_assertions)]
     console_error_panic_hook::set_once();
+
+    // enables using info!() macros
+    wasm_logger::init(wasm_logger::Config::default());
 
     Ok(())
 }
@@ -58,15 +61,32 @@ where
     let envelope_len_samples_min = (sample_rate / (1000.0 / ENVELOPE_LEN_MS_MIN)) as usize;
     let envelope_len_samples_max = (sample_rate / (1000.0 / ENVELOPE_LEN_MS_MAX)) as usize;
 
+
+    let audio_context =
+        web_sys::AudioContext::new().expect("Browser should have AudioContext implemented");
+    info!("{:?}", audio_context);
+
+
+
     // get audio file data as compile time
-    // let audio_file_slice = std::io::Cursor::new().as_ref());
-    // let mp3_file_bytes = include_bytes!("..\\..\\audio\\pater_emon.mp3");
-    
-    // buffer of silence
+    let mp3_file_bytes = include_bytes!("..\\..\\audio\\pater_emon.mp3");
+    let u_int8_array = unsafe { js_sys::Uint8Array::view(mp3_file_bytes) };
+
+    // this data must be copied, because decodeAudioData() claims the ArrayBuffer it receives
+    let u_int8_array_copy = u_int8_array.slice(0, u_int8_array.length());
+    let handle_success = Closure::wrap(Box::new(|buffer: web_sys::AudioBuffer| {
+        info!("Running handle_sucess. Here's some audio data: {:?}", &buffer.get_channel_data(0).unwrap()[0..10]);
+    }) as Box<dyn FnMut(web_sys::AudioBuffer)>);
+    audio_context.decode_audio_data_with_success_callback(
+        &u_int8_array_copy.buffer(),
+        handle_success.as_ref().unchecked_ref(),
+    );
+    std::mem::forget(u_int8_array_copy);
+    handle_success.forget();
+
     let mp3_source_data = Vec::from([0.0; 48000]);
 
-    // associates each grain's sample value with it's envelope value
-    // instantiated here to prevent allocations during audio calculations
+    // associates each g instantiated here to prevent allocations during audio calculations
     let mut frame_samples_and_envelopes = Vec::with_capacity(NUM_CHANNELS);
     for _ in 0..NUM_CHANNELS {
         frame_samples_and_envelopes.push(GrainSample::default());
