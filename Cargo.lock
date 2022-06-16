@@ -193,6 +193,10 @@ dependencies = [
 [[package]]
 name = "common"
 version = "0.1.0"
+dependencies = [
+ "getrandom",
+ "rand",
+]
 
 [[package]]
 name = "console_error_panic_hook"

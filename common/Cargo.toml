@@ -6,3 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+rand = { version = "0.8.4" }
+# This dependency is not directly used, but enabling "js"
+# Tells `getrandom` that `rand` should with wasm/js features enabled
+getrandom = { version = "0.2.6", features = ["js"] }

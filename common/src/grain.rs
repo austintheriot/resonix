@@ -1,5 +1,6 @@
 
 /// Contains information about where in a buffer the grain should sample from
+#[derive(Clone,Copy,Debug)]
 pub struct Grain {
     pub start_frame: usize,
     pub end_frame: usize,
