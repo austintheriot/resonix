@@ -1,26 +1,40 @@
-use std::sync::Arc;
 use crate::grain::Grain;
 use crate::utils;
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
+use std::sync::Arc;
 
-/// Accepts a reference to any type of buffer than can be indexed
+/// Accepts a reference to a buffer of Vec<f32> audio sample data.
 ///
-pub struct GranularSynthesizer<const C: usize = 2> {
+/// Generates random multi-channel audio grain output.
+pub struct GranularSynthesizer<const NUM_CHANNELS: usize = 2> {
     sample_rate: u32,
     buffer: Arc<Vec<f32>>,
-    grains: [Grain; C],
+    /// List of grains and their current progress through the buffer.
+    ///
+    /// 1 array element = 1 grain = 1 channel of audio
+    grains: [Grain; NUM_CHANNELS],
     /// used to generate random indexes
     rng: StdRng,
     /// length in samples
     grain_len_min: u32,
     /// length in samples
     grain_len_max: u32,
-    buffer_samples: [f32; C],
-    envelope_samples: [f32; C],
+    /// Samples that have been copied over from the audio buffer.
+    ///
+    /// each array value = 1 channel
+    output_buffer_samples: [f32; NUM_CHANNELS],
+    /// Envelope values that have been copied over to match the
+    /// current progress of a grain.
+    ///
+    /// each array value = 1 channel
+    output_env_samples: [f32; NUM_CHANNELS],
 }
 
-/// Produces an unitialized grain for filling the initial Grain array
+/// Produces an unitialized grain for filling the initial array of Grains
+///
+/// Once it is time to actually produce an audio sample from the buffer,
+/// each grain will be initialized with a randaom start/end index, etc.
 const fn new_grain() -> Grain {
     Grain {
         current_frame: 0,
@@ -32,6 +46,7 @@ const fn new_grain() -> Grain {
 }
 
 impl<const C: usize> GranularSynthesizer<C> {
+    /// Creates a new Granular Synthesizer instance
     pub fn new(buffer: Arc<Vec<f32>>, sample_rate: u32) -> Self {
         let buffer_len = buffer.len();
         GranularSynthesizer {
@@ -41,11 +56,13 @@ impl<const C: usize> GranularSynthesizer<C> {
             rng: rand::rngs::StdRng::from_entropy(),
             grain_len_min: 1,
             grain_len_max: buffer_len as u32,
-            buffer_samples: [0.0; C],
-            envelope_samples: [0.0; C],
+            output_buffer_samples: [0.0; C],
+            output_env_samples: [0.0; C],
         }
     }
 
+    /// The smallest possible grain length is 1 ms,
+    /// and the min grain length and can never exceed the max.
     pub fn set_grain_len_min(mut self, input_len_in_ms: usize) -> Self {
         // the smallest accetable length
         let min_len_in_ms = 1;
@@ -61,6 +78,8 @@ impl<const C: usize> GranularSynthesizer<C> {
         self
     }
 
+    /// The maximum grain length is the size of the buffer itself,
+    /// and max grain length can never be lower than the min width (or 1ms--whichever is higher)
     pub fn set_grain_len_max(mut self, input_len_in_ms: usize) -> Self {
         let input_len_in_samples = self.sample_rate / (1000 / input_len_in_ms as u32);
         self.grain_len_max = input_len_in_samples
@@ -71,8 +90,8 @@ impl<const C: usize> GranularSynthesizer<C> {
         self
     }
 
-    /// Iterates through array of grains (1 for each channel), and refreshes any
-    /// grains that are now finished.
+    /// Iterates through array of grains (1 grain for each channel), and refreshes any
+    /// grains that were previously finished with a new range of buffer indexes.
     fn refresh_grains(&mut self) {
         for grain in self.grains.iter_mut() {
             if grain.finished {
@@ -96,6 +115,9 @@ impl<const C: usize> GranularSynthesizer<C> {
 
     /// Fills in buffer & envelope sample data for each channel
     /// based on the current state of the grain for each channel.
+    ///
+    /// Each buffer sample and envelope sample must be coordinated/aligned to prevent
+    /// audio clipping and/or unexpected audio results.
     fn fill_buffer_and_env_samples(&mut self) {
         // get value of each grain's current index in the buffer for each channel
         self.grains.iter_mut().enumerate().for_each(|(i, grain)| {
@@ -111,24 +133,26 @@ impl<const C: usize> GranularSynthesizer<C> {
             let frame_index = grain.current_frame;
             let sample_value = self.buffer[frame_index];
 
-            self.buffer_samples[i] = sample_value;
-            self.envelope_samples[i] = envelope_value;
+            self.output_buffer_samples[i] = sample_value;
+            self.output_env_samples[i] = envelope_value;
 
             grain.get_next_frame();
         });
     }
 
-    /// Uses current buffer and envelope sample values to calculate a frame
+    /// Combines current buffer and envelope sample values to calculate a full audio frame
+    /// (where each channel gets a single audio output value).
     fn get_frame_data(&self) -> [f32; C] {
         let mut frame_data = [0.0; C];
         for (i, channel) in frame_data.iter_mut().enumerate() {
-            *channel = self.buffer_samples[i] * self.envelope_samples[i];
+            *channel = self.output_buffer_samples[i] * self.output_env_samples[i];
         }
         frame_data
     }
 
-    /// returns the next frame for each channel,
-    /// where each channel's value represents a value in the array
+    /// Returns a full audio frame (1 array element = 1 audio channel value),
+    /// where each channel gets its own, indepedent value
+    /// based on the progression of that audio channel's grain.
     pub fn next_frame(&mut self) -> [f32; C] {
         self.refresh_grains();
         self.fill_buffer_and_env_samples();

@@ -1,6 +1,8 @@
 /// Creates a linear ramp from 0.0 -> 1.0 -> 0.0
 /// 
 /// The `current_index` is assumed to range from 0.0 -> 1.0
+/// 
+/// This method of generating envelope values is much faster than using a sine wave calculation.
 pub fn generate_triangle_envelope_value_from_percent(current_index: f32) -> f32 {
     (((current_index - 0.5).abs() * -1.0) + 0.5) * 2.0
 }

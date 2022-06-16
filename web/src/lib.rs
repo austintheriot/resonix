@@ -1,6 +1,10 @@
 use common::granular_synthesizer::GranularSynthesizer;
+use cpal::{
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    Stream,
+};
 use log::*;
-use std::sync::{Arc};
+use std::sync::Arc;
 use wasm_bindgen::{prelude::*, JsCast};
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global
@@ -11,7 +15,6 @@ use wasm_bindgen::{prelude::*, JsCast};
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-// This is like the `main` function, except for JavaScript.
 #[wasm_bindgen(start)]
 pub fn main() -> Result<(), JsValue> {
     // This provides better error messages in debug mode.
@@ -25,9 +28,6 @@ pub fn main() -> Result<(), JsValue> {
     Ok(())
 }
 
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Stream};
-
 #[wasm_bindgen]
 pub struct Handle(Stream);
 
@@ -35,12 +35,15 @@ const NUM_CHANNELS: usize = 5;
 const GRAIN_LEN_MIN_IN_MS: usize = 1;
 const GRAIN_LEN_MAX_IN_MS: usize = 100;
 
-/// Converts default mp3 file to raw audio sampple data
+/// Converts default mp3 file to raw audio sample data
 async fn get_default_audio() -> Arc<Vec<f32>> {
     let audio_context =
         web_sys::AudioContext::new().expect("Browser should have AudioContext implemented");
 
-    info!("Sample Rate of Audio Context = {}", audio_context.sample_rate());
+    info!(
+        "Sample Rate of Audio Context = {}",
+        audio_context.sample_rate()
+    );
 
     // get audio file data at compile time
     let mp3_file_bytes = include_bytes!("..\\..\\audio\\pater_emon.mp3");
@@ -63,8 +66,11 @@ async fn get_default_audio() -> Arc<Vec<f32>> {
             .expect("Should convert decode_audio_data Promise into Future")
             .dyn_into()
             .expect("decode_audio_data should return a buffer of data on success");
-    
-    info!("Sample Rate of Default Audio File = {}", audio_buffer.sample_rate());
+
+    info!(
+        "Sample Rate of Default Audio File = {}",
+        audio_buffer.sample_rate()
+    );
 
     let mp3_source_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
 
@@ -104,10 +110,11 @@ where
     let channels = stream_config.channels as usize;
 
     let mp3_source_data = get_default_audio().await;
-  
-    let mut granular_synth: GranularSynthesizer<NUM_CHANNELS> = GranularSynthesizer::new(mp3_source_data, sample_rate)
-        .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
-        .set_grain_len_max(GRAIN_LEN_MAX_IN_MS);
+
+    let mut granular_synth: GranularSynthesizer<NUM_CHANNELS> =
+        GranularSynthesizer::new(mp3_source_data, sample_rate)
+            .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
+            .set_grain_len_max(GRAIN_LEN_MAX_IN_MS);
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
@@ -167,4 +174,3 @@ pub async fn play() -> Handle {
         cpal::SampleFormat::U16 => run::<u16>(&device, &config.into()).await.unwrap(),
     })
 }
-
