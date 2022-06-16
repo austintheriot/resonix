@@ -31,7 +31,7 @@ use cpal::{Stream};
 #[wasm_bindgen]
 pub struct Handle(Stream);
 
-const NUM_CHANNELS: usize = 3;
+const NUM_CHANNELS: usize = 5;
 const GRAIN_LEN_MIN_IN_MS: usize = 1;
 const GRAIN_LEN_MAX_IN_MS: usize = 100;
 
@@ -39,6 +39,8 @@ const GRAIN_LEN_MAX_IN_MS: usize = 100;
 async fn get_default_audio() -> Arc<Vec<f32>> {
     let audio_context =
         web_sys::AudioContext::new().expect("Browser should have AudioContext implemented");
+
+    info!("Sample Rate of Audio Context = {}", audio_context.sample_rate());
 
     // get audio file data at compile time
     let mp3_file_bytes = include_bytes!("..\\..\\audio\\pater_emon.mp3");
@@ -62,7 +64,7 @@ async fn get_default_audio() -> Arc<Vec<f32>> {
             .dyn_into()
             .expect("decode_audio_data should return a buffer of data on success");
     
-    info!("Sample Rate = {}", audio_buffer.sample_rate());
+    info!("Sample Rate of Default Audio File = {}", audio_buffer.sample_rate());
 
     let mp3_source_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
 
