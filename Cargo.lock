@@ -1055,6 +1055,7 @@ dependencies = [
  "cpal",
  "getrandom",
  "js-sys",
+ "lazy_static",
  "log",
  "rand",
  "wasm-bindgen",

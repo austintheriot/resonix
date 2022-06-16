@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::grain::Grain;
 use crate::utils;
 use rand::prelude::{StdRng};
@@ -6,15 +8,16 @@ use rand::{Rng, SeedableRng};
 /// Accepts a reference to any type of buffer than can be indexed
 ///
 pub struct GranularSynthesizer<const C: usize = 2>
-{
-    buffer: Vec<f32>,
+{   
+    sample_rate: u32,
+    buffer: Arc<Vec<f32>>,
     grains: [Grain; C],
     /// used to generate random indexes
     rng: StdRng,
     /// length in samples
-    env_len_min: usize,
+    grain_len_min: u32,
     /// length in samples
-    env_len_max: usize,
+    grain_len_max: u32,
     buffer_samples: [f32; C],
     envelope_samples: [f32; C]
 }
@@ -32,18 +35,35 @@ const fn new_grain() -> Grain {
 
 impl<const C: usize> GranularSynthesizer<C>
      {
-    pub fn new(buffer: Vec<f32>) -> Self {
-        let buffer_len = buffer.len();
+    pub fn new(buffer: Arc<Vec<f32>>, sample_rate: u32) -> Self {
+        let buffer_len =  buffer.len();
         GranularSynthesizer {
-            buffer,
+            sample_rate,
+            buffer: buffer,
             grains: [new_grain(); C],
             rng: rand::rngs::StdRng::from_entropy(),
-            env_len_min: 1,
-            env_len_max: buffer_len,
+            grain_len_min: 1,
+            grain_len_max: buffer_len as u32,
             buffer_samples: [0.0; C],
             envelope_samples: [0.0; C],
         }
     }
+
+    pub fn set_grain_len_min(mut self, input_len_in_ms: usize) -> Self {
+        let min_len_in_ms = 1;
+        let min_len_in_samples = self.sample_rate / (1000 / min_len_in_ms);
+
+        let input_len_in_samples = self.sample_rate / (1000 / input_len_in_ms as u32);
+        self.grain_len_min = input_len_in_samples.max(min_len_in_samples);
+        self
+    }
+
+    pub fn set_grain_len_max(mut self, input_len_in_ms: usize) -> Self {
+        let input_len_in_samples = self.sample_rate / (1000 / input_len_in_ms as u32);
+        self.grain_len_max = input_len_in_samples.min(self.buffer.len() as u32);
+        self
+    }
+    
 
     /// Iterates through array of grains (1 for each channel), and refreshes any
     /// grains that are now finished.
@@ -51,9 +71,9 @@ impl<const C: usize> GranularSynthesizer<C>
         for grain in self.grains.iter_mut() {
             if grain.finished {
                 let envolope_len_samples =
-                self.rng.gen_range(self.env_len_min..self.env_len_max);
+                self.rng.gen_range(self.grain_len_min as usize..self.grain_len_max as usize);
             let max_index = self.buffer.len() - envolope_len_samples;
-            let start_frame = self.rng.gen_range(0..max_index);
+            let start_frame = self.rng.gen_range(0..max_index as usize);
             let end_frame = start_frame + envolope_len_samples;
 
             debug_assert!(start_frame > 0);
@@ -61,7 +81,7 @@ impl<const C: usize> GranularSynthesizer<C>
             debug_assert!(start_frame < self.buffer.len());
             debug_assert!(end_frame < self.buffer.len());
 
-            let new_grain = Grain::new(start_frame, end_frame);
+            let new_grain = Grain::new(start_frame as usize, end_frame as usize);
             *grain = new_grain;
             }
         }

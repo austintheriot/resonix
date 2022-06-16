@@ -33,6 +33,7 @@ getrandom = { version = "0.2.6", features = ["js"] }
 # These two crates enable the info!() logging macro, etc.
 log = "0.4"
 wasm-logger = "0.2.0"
+lazy_static = "1.4.0"
 
 # `wee_alloc` is a tiny allocator for wasm that is only ~1K in code size
 # compared to the default allocator's ~10K. However, it is slower than the default

@@ -1,16 +1,16 @@
 import './style.scss';
 
 import('./pkg').then((module) => {
-    let handle = null;
+    let playHandle = null;
     const play_button = document.getElementById("play");
     play_button.addEventListener("click", async (event) => {
-        handle = await module.beep();
+        playHandle = await module.play();
     });
     const stop_button = document.getElementById("stop");
     stop_button.addEventListener("click", (event) => {
-        if (handle != null) {
-            handle.free();
-	        handle = null;
+        if (playHandle != null) {
+            playHandle.free();
+	        playHandle = null;
         }
     });
 })
