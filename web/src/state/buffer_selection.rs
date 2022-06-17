@@ -8,10 +8,16 @@ pub const MIN_BUFFER_SELECTION_SIZE: f32 = 0.01;
 /// ranging from 0.0 (start) to 1.0 (end).
 #[derive(Clone, PartialEq, Debug, Serialize)]
 pub struct BufferSelection {
-    /// the start of the current selection inside the audio buffer
-    pub start: f32,
-    /// the end of the current selectino inside the audio buffer
-    pub end: f32,
+    /// The start of the current mouse selection inside the audio buffer.
+    /// 
+    /// Because it's possile to select a buffer from right to left,
+    /// the mouse start position may be GREATER than the mouse end position.
+    pub mouse_start: f32,
+    /// The end of the current mouse selection inside the audio buffer
+    /// 
+    /// Because it's possile to select a buffer from right to left,
+    /// the mouse end position may be LESS than the mouse start position.
+    pub mouse_end: f32,
     /// reflects whether the mouse is currently being dragged inside the buffer
     pub mouse_down: bool,
 }
@@ -19,8 +25,8 @@ pub struct BufferSelection {
 impl Default for BufferSelection {
     fn default() -> Self {
         Self {
-            start: BUFFER_SELECTION_MIN,
-            end: BUFFER_SELECTION_MAX,
+            mouse_start: BUFFER_SELECTION_MIN,
+            mouse_end: BUFFER_SELECTION_MAX,
             mouse_down: false,
         }
     }
@@ -28,27 +34,35 @@ impl Default for BufferSelection {
 
 impl BufferSelection {
     pub fn set_start(mut self, start: f32) -> Self {
-        let sanitized_start = start
-            .min(self.end - MIN_BUFFER_SELECTION_SIZE)
-            .min(BUFFER_SELECTION_MAX - MIN_BUFFER_SELECTION_SIZE)
-            .max(BUFFER_SELECTION_MIN);
-
-        self.start = sanitized_start;
-
+        self.mouse_start = start.max(BUFFER_SELECTION_MIN).min(BUFFER_SELECTION_MAX);
         self
     }
     pub fn set_end(mut self, end: f32) -> Self {
-        let sanitized_end = end
-            .max(self.start + MIN_BUFFER_SELECTION_SIZE)
-            .max(BUFFER_SELECTION_MIN + MIN_BUFFER_SELECTION_SIZE)
-            .min(BUFFER_SELECTION_MAX);
-
-        self.end = sanitized_end;
-
+        self.mouse_end = end.max(BUFFER_SELECTION_MIN).min(BUFFER_SELECTION_MAX);
         self
     }
     pub fn set_mouse_down(mut self, mouse_down: bool) -> Self {
         self.mouse_down = mouse_down;
         self
+    }
+
+    /// Returns the mouse start / mouse end poisition in the correct order
+    /// (i.e. from least to greatest / from left to right)
+    /// 
+    /// This does not guarantee that the start and end are not the SAME number.
+    pub fn get_buffer_start_and_end(&self) -> (f32, f32) {
+        if self.mouse_start > self.mouse_end {
+            (self.mouse_end, self.mouse_start)
+        } else {
+            (self.mouse_start, self.mouse_end)
+        }
+    }
+
+    pub fn get_buffer_start(&self) -> f32 {
+        self.get_buffer_start_and_end().0
+    }
+
+    pub fn get_buffer_end(&self) -> f32 {
+        self.get_buffer_start_and_end().1
     }
 }

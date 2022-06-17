@@ -69,7 +69,7 @@ impl Reducible for AppState {
             }
         }
 
-        utils::log_state_update(action, (*self).clone(), next_state.clone());
+        // utils::log_state_update(action, (*self).clone(), next_state.clone());
         Rc::new(next_state)
     }
 }
