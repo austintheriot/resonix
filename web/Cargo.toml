@@ -1,5 +1,5 @@
 [package]
-name = "web-yew"
+name = "web"
 description = "Web executable for granular synthesis"
 version = "0.1.0"
 edition = "2021"

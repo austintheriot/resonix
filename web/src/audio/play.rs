@@ -11,7 +11,7 @@ const GRAIN_LEN_MIN_IN_MS: usize = 1;
 const GRAIN_LEN_MAX_IN_MS: usize = 100;
 
 /// Converts default mp3 file to raw audio sample data
-async fn get_default_audio(app_state_handle: UseReducerHandle<AppState>) -> Arc<Vec<f32>> {
+async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Arc<Vec<f32>> {
     let audio_context =
         web_sys::AudioContext::new().expect("Browser should have AudioContext implemented");
 
@@ -86,7 +86,12 @@ where
     let sample_rate = stream_config.sample_rate.0;
     let channels = stream_config.channels as usize;
 
-    let mp3_source_data = get_default_audio(app_state_handle).await;
+    // only load new buffer if current one is empty
+    let mp3_source_data = if app_state_handle.buffer.data.is_empty() {
+        load_default_buffer(app_state_handle).await
+    } else {
+        Arc::clone(&app_state_handle.buffer.data)
+    };
 
     let mut granular_synth: GranularSynthesizer<NUM_CHANNELS> =
         GranularSynthesizer::new(mp3_source_data, sample_rate)

@@ -1,4 +1,3 @@
-use log::info;
 use yew::{function_component, html, prelude::*};
 use crate::{
     audio::{self},
@@ -16,7 +15,7 @@ pub fn audio_controls() -> Html {
         Callback::from(move |_: MouseEvent| {
             let state_handle = state_handle.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                let new_stream_handle = audio::controls::play(state_handle.clone()).await;
+                let new_stream_handle = audio::play::play(state_handle.clone()).await;
                 // save the audio stream handle so that playback continues
                 // (once the handle is dropped, the stream will stop playing)
                 state_handle.dispatch(AppAction::SetStreamHandle(Some(new_stream_handle)));

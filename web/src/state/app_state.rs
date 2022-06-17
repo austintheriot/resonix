@@ -1,21 +1,13 @@
-use std::{sync::Arc, rc::Rc};
+use std::{rc::Rc};
 use yew::Reducible;
+use crate::audio::buffer::Buffer;
 use crate::audio::stream_handle::StreamHandle;
 use crate::state::app_action::AppAction;
 
-#[derive(Clone, Debug, PartialEq )]
+#[derive(Clone, Debug, PartialEq, Default )]
 pub struct AppState {
-    pub buffer: Arc<Vec<f32>>,
+    pub buffer: Buffer,
     pub stream_handle: Option<StreamHandle>
-}
-
-impl Default for AppState {
-    fn default() -> Self {
-        Self { 
-            buffer: Arc::new(Vec::new()),
-            stream_handle: None,
-        }
-    }
 }
 
 impl Reducible for AppState {
@@ -27,7 +19,7 @@ impl Reducible for AppState {
             let action = action.clone();
             match action {
                 AppAction::SetBuffer(buffer) => {
-                    next_state.buffer = buffer;
+                    next_state.buffer = Buffer::new(buffer);
                 }
                 AppAction::SetStreamHandle(stream_handle) => {
                     next_state.stream_handle = stream_handle;
