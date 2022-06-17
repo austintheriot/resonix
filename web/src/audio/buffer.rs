@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 use std::sync::Arc;
+use serde::{Serialize, ser::SerializeStruct};
 use uuid::Uuid;
 
 /// Adds a Uuid to Buffer to make `PartialEq` diffs faster
@@ -8,6 +9,18 @@ use uuid::Uuid;
 pub struct Buffer {
     pub data: Arc<Vec<f32>>,
     uuid: Uuid,
+}
+
+/// This is only serialized for state update logging purposes
+impl Serialize for Buffer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+            // 3 is the number of fields in the struct.
+            let mut state = serializer.serialize_struct("Buffer", 1)?;
+            state.serialize_field("uuid", &self.uuid.to_string())?;
+            state.end()
+    }
 }
 
 impl PartialEq for Buffer {

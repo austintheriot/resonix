@@ -1,60 +1,76 @@
+use crate::components::buffer_selection::BufferSelectionVisualizer;
+use crate::state::app_action::AppAction;
 use crate::state::app_context::{AppContext, AppContextError};
-use std::ops::Mul;
+use wasm_bindgen::JsCast;
+use web_sys::HtmlDivElement;
 use yew::{function_component, html, prelude::*};
 
-/// This represents the number of elements to use when showing a buffer sample representation.
-/// 
-/// This many divs is slow in development but shows no noticable when running in production mode.
-/// 
-/// Other render methods to consider:
-/// - Use .svg path <-- this would probably actually be pretty straightforward?
-///     - Just use straight vertical lines with a certain thickness?
-/// - Use canvas to render
-/// - Use css gradient
-const NUM_AUDIO_DATA_POINTS: usize = 100;
-
+/// A wrapper around the audio buffer visualization
+///
+/// This component is responsible for handling all the mouse / touch interactions
 #[function_component(BufferVisualizer)]
 pub fn buffer_visualizer() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
-    
-    // empty buffer
-    if app_context.state_handle.buffer.data.is_empty() {
-        return html! {
-            <div class="buffer-visualizer">
-                {(0..NUM_AUDIO_DATA_POINTS).into_iter().map(|_| {
-                    html!{
-                        <div class="buffer-visualizer__audio-bar buffer-empty" />
-                    }
-                }).collect::<Html>()}
-            </div>
-        };
-    }
+    let div_ref = use_node_ref();
 
-    // buffer has audio data: display it
-    let iteration_group_size = app_context.state_handle.buffer.data.len() / NUM_AUDIO_DATA_POINTS;
-    let sample_averages: Vec<String> = app_context
-        .state_handle
-        .buffer
-        .data
-        .chunks(iteration_group_size)
-        .map(|samples| {
-            let sum = samples.iter().map(|sample| sample.abs()).sum::<f32>();
-            let average_percent = (sum / samples.len() as f32).mul(100.0).min(100.0).max(0.0);
-            let formatted_percent = format!("{:.1}", average_percent);
-            formatted_percent
+    let handle_mouse_down = {
+        let state_handle = app_context.state_handle.clone();
+        let div_ref = div_ref.clone();
+        Callback::from(move |e: MouseEvent| {
+            let div = div_ref.get().unwrap().dyn_into::<HtmlDivElement>().unwrap();
+            let buffer_selection_start = (e.offset_x() as f32) / (div.client_width() as f32);
+            state_handle.dispatch(AppAction::SetBufferSelectionStart(buffer_selection_start));
+            state_handle.dispatch(AppAction::SetBufferSelectionMouseDown(true));
         })
-        .collect();
+    };
+
+    let handle_mouse_up = {
+        let state_handle = app_context.state_handle.clone();
+        let div_ref = div_ref.clone();
+        Callback::from(move |e: MouseEvent| {
+            let div = div_ref.get().unwrap().dyn_into::<HtmlDivElement>().unwrap();
+            let buffer_selection_end = (e.offset_x() as f32) / (div.client_width() as f32);
+            state_handle.dispatch(AppAction::SetBufferSelectionEnd(buffer_selection_end));
+            state_handle.dispatch(AppAction::SetBufferSelectionMouseDown(false));
+        })
+    };
+
+    let handle_mouse_leave = {
+        let state_handle = app_context.state_handle.clone();
+        Callback::from(move |_: MouseEvent| {
+            state_handle.dispatch(AppAction::SetBufferSelectionMouseDown(false));
+        })
+    };
+
+    let handle_mouse_move = {
+        let state_handle = app_context.state_handle.clone();
+        let div_ref = div_ref.clone();
+        Callback::from(move |e: MouseEvent| {
+            let is_mouse_down = state_handle.buffer_selection.as_ref().map(|buffer_selection| {
+                buffer_selection.mouse_down
+            }).unwrap_or(false);
+
+            if is_mouse_down {
+                let div = div_ref.get().unwrap().dyn_into::<HtmlDivElement>().unwrap();
+                let buffer_selection_end = (e.offset_x() as f32) / (div.client_width() as f32);
+                state_handle.dispatch(AppAction::SetBufferSelectionEnd(buffer_selection_end));
+            }
+        })
+    };
+
+    let div_ref_prop = div_ref.clone();
 
     html! {
-        <div class="buffer-visualizer">
-            {sample_averages.iter().map(|percent_string| {
-                html!{
-                    <div 
-                        class="buffer-visualizer__audio-bar" 
-                        style={format!("transform: scaleY({}%);", percent_string)} 
-                    />
-                }
-            }).collect::<Html>()}
+        <div
+            class="buffer-visualizer"
+            onmousedown={handle_mouse_down}
+            onmouseup={handle_mouse_up}
+            onmouseleave={handle_mouse_leave}
+            onmousemove={handle_mouse_move}
+            ref={div_ref}
+        >
+            <BufferSelectionVisualizer div_ref={div_ref_prop} />
+            // <BufferSampleBars />
         </div>
     }
 }

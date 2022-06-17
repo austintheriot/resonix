@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use cpal::Stream;
+use serde::{Serialize, ser::SerializeStruct};
 use std::fmt::Debug;
 use uuid::Uuid;
 
@@ -9,6 +10,18 @@ use uuid::Uuid;
 pub struct StreamHandle {
     _stream: Arc<Stream>,
     uuid: Uuid,
+}
+
+/// This is only serialized for state update logging purposes
+impl Serialize for StreamHandle {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+            // 3 is the number of fields in the struct.
+            let mut state = serializer.serialize_struct("StreamHandle", 1)?;
+            state.serialize_field("uuid", &self.uuid.to_string())?;
+            state.end()
+    }
 }
 
 impl PartialEq for StreamHandle {

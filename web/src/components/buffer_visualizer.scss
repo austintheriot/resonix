@@ -7,6 +7,17 @@
     display: flex;
     justify-content: space-evenly;
     align-items: center;
+    position: relative;
+}
+
+.buffer-visualizer-selection {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+    background-color: red;
+    transform-origin: center left;
 }
 
 .buffer-visualizer__audio-bar {
@@ -14,6 +25,7 @@
     width: 100%;
     background-color: black;
     transition: transform 0.2s;
+    pointer-events: none;
 }
 
 .buffer-visualizer__audio-bar.buffer-empty {
