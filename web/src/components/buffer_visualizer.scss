@@ -10,6 +10,12 @@
 }
 
 .buffer-visualizer__audio-bar {
+    height: 100%;
+    width: 100%;
     background-color: black;
-    min-height: 1px;
+    transition: transform 0.2s;
+}
+
+.buffer-visualizer__audio-bar.buffer-empty {
+    transform: scaleY(1%);
 }

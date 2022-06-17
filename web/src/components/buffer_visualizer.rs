@@ -2,12 +2,11 @@ use crate::state::app_context::{AppContext, AppContextError};
 use std::ops::Mul;
 use yew::{function_component, html, prelude::*};
 
-const NUM_AUDIO_DATA_POINTS: usize = 50;
+const NUM_AUDIO_DATA_POINTS: usize = 100;
 
 #[function_component(BufferVisualizer)]
 pub fn buffer_visualizer() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
-    let audio_bar_width = format!("{:.1}", (100.0 / (NUM_AUDIO_DATA_POINTS as f32)));    
     
     // empty buffer
     if app_context.state_handle.buffer.data.is_empty() {
@@ -15,10 +14,7 @@ pub fn buffer_visualizer() -> Html {
             <div class="buffer-visualizer">
                 {(0..NUM_AUDIO_DATA_POINTS).into_iter().map(|_| {
                     html!{
-                        <div 
-                            class="buffer-visualizer__audio-bar" 
-                            style={format!("height: 1px; width: {}%;", audio_bar_width)}
-                        />
+                        <div class="buffer-visualizer__audio-bar buffer-empty" />
                     }
                 }).collect::<Html>()}
             </div>
@@ -46,7 +42,7 @@ pub fn buffer_visualizer() -> Html {
                 html!{
                     <div 
                         class="buffer-visualizer__audio-bar" 
-                        style={format!("height: {}%; width: {}%;", percent_string, audio_bar_width)} 
+                        style={format!("transform: scaleY({}%);", percent_string)} 
                     />
                 }
             }).collect::<Html>()}
