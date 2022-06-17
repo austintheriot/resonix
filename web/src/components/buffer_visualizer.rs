@@ -2,6 +2,15 @@ use crate::state::app_context::{AppContext, AppContextError};
 use std::ops::Mul;
 use yew::{function_component, html, prelude::*};
 
+/// This represents the number of elements to use when showing a buffer sample representation.
+/// 
+/// This many divs is slow in development but shows no noticable when running in production mode.
+/// 
+/// Other render methods to consider:
+/// - Use .svg path <-- this would probably actually be pretty straightforward?
+///     - Just use straight vertical lines with a certain thickness?
+/// - Use canvas to render
+/// - Use css gradient
 const NUM_AUDIO_DATA_POINTS: usize = 100;
 
 #[function_component(BufferVisualizer)]
