@@ -1,8 +1,7 @@
 use std::{sync::Arc, rc::Rc};
 use yew::Reducible;
 use crate::audio::stream_handle::StreamHandle;
-
-use super::app_action::AppAction;
+use crate::state::app_action::AppAction;
 
 #[derive(Clone, Debug, PartialEq )]
 pub struct AppState {

@@ -1,11 +1,4 @@
-use common::granular_synthesizer::GranularSynthesizer;
-use cpal::{
-    traits::{DeviceTrait, HostTrait, StreamTrait},
-    Stream,
-};
-use log::*;
-use std::sync::Arc;
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::{prelude::*};
 
 pub mod components;
 pub mod state;

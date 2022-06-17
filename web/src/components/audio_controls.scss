@@ -1,0 +1,33 @@
+.audio-controls {
+    min-height: 10rem;
+    max-width: 600px;
+    margin: 2rem auto;
+    border: 1px solid black;
+    border-radius: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.audio-controls__play, .audio-controls__stop {
+    padding: 0.25rem 1.5rem;
+    background-color: #eee;
+    border-radius: 100px;
+    border: 1px solid black;
+    width: fit-content;
+    height: fit-content;
+    outline: 2px solid transparent;
+    outline-offset: 0.5rem;
+    transition: outline 0.1s, outline-offset 0.1s;
+
+    &:hover {
+        background-color: #ddd;
+    }
+
+    &:focus {
+        outline: 2px solid blue;
+        outline-offset: 0.25rem;
+    }
+}

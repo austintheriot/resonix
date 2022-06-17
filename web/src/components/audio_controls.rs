@@ -31,19 +31,21 @@ pub fn audio_controls() -> Html {
     };
 
     html! {
-        <>
+        <div class="audio-controls">
             <button
                 id="play"
+                class="audio-controls__play"
                 onclick={handle_play}
             >
                 {"Play"}
             </button>
             <button
                 id="stop"
+                class="audio-controls__stop"
                 onclick={handle_stop}
             >
                 {"Stop"}
             </button>
-        </>
+        </div>
     }
 }
