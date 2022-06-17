@@ -27,7 +27,7 @@ impl Reducible for AppState {
             let action = action.clone();
             match action {
                 AppAction::SetBuffer(buffer) => {
-                    next_state.buffer = Arc::new(buffer);
+                    next_state.buffer = buffer;
                 }
                 AppAction::SetStreamHandle(stream_handle) => {
                     next_state.stream_handle = stream_handle;

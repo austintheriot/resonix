@@ -2,11 +2,9 @@ use std::sync::Arc;
 
 use cpal::{Stream};
 use uuid::Uuid;
-use wasm_bindgen::prelude::wasm_bindgen;
 use std::fmt::Debug;
 
 /// A wrapper around `cpal`'s Stream type for implementing `PartialEq`, etc.
-#[wasm_bindgen]
 #[derive(Clone)]
 pub struct StreamHandle {
     stream: Arc<Stream>,

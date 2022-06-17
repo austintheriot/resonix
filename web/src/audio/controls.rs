@@ -2,15 +2,16 @@ use std::sync::Arc;
 use common::granular_synthesizer::GranularSynthesizer;
 use cpal::{Stream, traits::{DeviceTrait, HostTrait, StreamTrait}};
 use log::*;
-use wasm_bindgen::{prelude::wasm_bindgen, JsCast};
-use crate::audio::stream_handle::StreamHandle;
+use wasm_bindgen::{JsCast};
+use yew::{UseReducerHandle};
+use crate::{audio::stream_handle::StreamHandle, state::{app_action::AppAction, app_state::AppState}};
 
 const NUM_CHANNELS: usize = 5;
 const GRAIN_LEN_MIN_IN_MS: usize = 1;
 const GRAIN_LEN_MAX_IN_MS: usize = 100;
 
 /// Converts default mp3 file to raw audio sample data
-async fn get_default_audio() -> Arc<Vec<f32>> {
+async fn get_default_audio(app_state_handle: UseReducerHandle<AppState>) -> Arc<Vec<f32>> {
     let audio_context =
         web_sys::AudioContext::new().expect("Browser should have AudioContext implemented");
 
@@ -47,6 +48,7 @@ async fn get_default_audio() -> Arc<Vec<f32>> {
     );
 
     let mp3_source_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
+    app_state_handle.dispatch(AppAction::SetBuffer(Arc::clone(&mp3_source_data)));
 
     mp3_source_data
 }
@@ -74,6 +76,7 @@ where
 
 /// Setup all audio data and processes and begin playing
 pub async fn run<T>(
+    app_state_handle: UseReducerHandle<AppState>,
     device: &cpal::Device,
     stream_config: &cpal::StreamConfig,
 ) -> Result<Stream, anyhow::Error>
@@ -83,7 +86,7 @@ where
     let sample_rate = stream_config.sample_rate.0;
     let channels = stream_config.channels as usize;
 
-    let mp3_source_data = get_default_audio().await;
+    let mp3_source_data = get_default_audio(app_state_handle).await;
 
     let mut granular_synth: GranularSynthesizer<NUM_CHANNELS> =
         GranularSynthesizer::new(mp3_source_data, sample_rate)
@@ -133,8 +136,7 @@ where
     Ok(stream)
 }
 
-#[wasm_bindgen]
-pub async fn play() -> StreamHandle {
+pub async fn play(app_state_handle: UseReducerHandle<AppState>) -> StreamHandle {
     let host = cpal::default_host();
     let device = host
         .default_output_device()
@@ -143,8 +145,8 @@ pub async fn play() -> StreamHandle {
     let sample_format = config.sample_format();
 
     StreamHandle::new(match sample_format {
-        cpal::SampleFormat::F32 => run::<f32>(&device, &config.into()).await.unwrap(),
-        cpal::SampleFormat::I16 => run::<i16>(&device, &config.into()).await.unwrap(),
-        cpal::SampleFormat::U16 => run::<u16>(&device, &config.into()).await.unwrap(),
+        cpal::SampleFormat::F32 => run::<f32>(app_state_handle, &device, &config.into()).await.unwrap(),
+        cpal::SampleFormat::I16 => run::<i16>(app_state_handle, &device, &config.into()).await.unwrap(),
+        cpal::SampleFormat::U16 => run::<u16>(app_state_handle, &device, &config.into()).await.unwrap(),
     })
 }

@@ -1,0 +1,15 @@
+.buffer-visualizer {
+    height: 5rem;
+    width: 100%;
+    margin: 1rem auto;
+    border: 1px solid black;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+}
+
+.buffer-visualizer__audio-bar {
+    background-color: black;
+    min-height: 1px;
+}

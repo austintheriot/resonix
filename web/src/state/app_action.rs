@@ -1,7 +1,9 @@
+use std::sync::Arc;
+
 use crate::audio::stream_handle::StreamHandle;
 
 #[derive(Debug, Clone)]
 pub enum AppAction {
-    SetBuffer(Vec<f32>),
+    SetBuffer(Arc<Vec<f32>>),
     SetStreamHandle(Option<StreamHandle>)
 }
