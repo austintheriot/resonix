@@ -4,5 +4,4 @@ members = [
     "cli",
     "common",
     "web",
-    "web-yew"
 ]

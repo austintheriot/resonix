@@ -1,13 +1,9 @@
 use std::sync::Arc;
-
 use common::granular_synthesizer::GranularSynthesizer;
 use cpal::{Stream, traits::{DeviceTrait, HostTrait, StreamTrait}};
 use log::*;
 use wasm_bindgen::{prelude::wasm_bindgen, JsCast};
-
 use crate::audio::stream_handle::StreamHandle;
-
-
 
 const NUM_CHANNELS: usize = 5;
 const GRAIN_LEN_MIN_IN_MS: usize = 1;
@@ -145,7 +141,7 @@ pub async fn play() -> StreamHandle {
         .expect("failed to find a default output device");
     let config = device.default_output_config().unwrap();
     let sample_format = config.sample_format();
-    
+
     StreamHandle::new(match sample_format {
         cpal::SampleFormat::F32 => run::<f32>(&device, &config.into()).await.unwrap(),
         cpal::SampleFormat::I16 => run::<i16>(&device, &config.into()).await.unwrap(),
