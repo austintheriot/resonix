@@ -12,26 +12,24 @@ pub struct BufferSelectionProps {
 #[function_component(BufferSelectionVisualizer)]
 pub fn buffer_selection_visualizer(props: &BufferSelectionProps) -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
+    let (start, end) = &app_context
+        .state_handle
+        .buffer_selection
+        .get_buffer_start_and_end();
 
-    return if let Some(buffer_selection) = &app_context.state_handle.buffer_selection {
-        let (start, end) = buffer_selection.get_buffer_start_and_end();
-        
-        let div_width = if let Some(div) = props.div_ref.get() {
-            div.dyn_into::<HtmlDivElement>().unwrap().client_width() as f32
-        } else {
-            0.0
-        };
-        let translate_x_in_px = format!("{:.2}", start * div_width);
-        let scale_x_in_percent = format!("{:.3}", end.sub(start));
-        let selection_style = format!(
-            "transform: translateX({}px) scale({}, 1.0);",
-            translate_x_in_px, scale_x_in_percent
-        );
-
-        html! {
-            <div class="buffer-visualizer-selection" style={selection_style} />
-        }
+    let div_width = if let Some(div) = props.div_ref.get() {
+        div.dyn_into::<HtmlDivElement>().unwrap().client_width() as f32
     } else {
-        html! {}
+        0.0
     };
+    let translate_x_in_px = format!("{:.2}", start * div_width);
+    let scale_x_in_percent = format!("{:.3}", end.sub(start));
+    let selection_style = format!(
+        "transform: translateX({}px) scale({}, 1.0);",
+        translate_x_in_px, scale_x_in_percent
+    );
+
+    html! {
+        <div class="buffer-visualizer-selection" style={selection_style} />
+    }
 }

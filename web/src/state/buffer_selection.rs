@@ -33,15 +33,15 @@ impl Default for BufferSelection {
 }
 
 impl BufferSelection {
-    pub fn set_start(mut self, start: f32) -> Self {
+    pub fn set_start(&mut self, start: f32) -> &mut Self {
         self.mouse_start = start.max(BUFFER_SELECTION_MIN).min(BUFFER_SELECTION_MAX);
         self
     }
-    pub fn set_end(mut self, end: f32) -> Self {
+    pub fn set_end(&mut self, end: f32) -> &mut Self {
         self.mouse_end = end.max(BUFFER_SELECTION_MIN).min(BUFFER_SELECTION_MAX);
         self
     }
-    pub fn set_mouse_down(mut self, mouse_down: bool) -> Self {
+    pub fn set_mouse_down(&mut self, mouse_down: bool) -> &mut Self {
         self.mouse_down = mouse_down;
         self
     }

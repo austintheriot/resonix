@@ -52,10 +52,8 @@ pub fn buffer_container() -> Html {
         let state_handle = app_context.state_handle.clone();
         Callback::from(move |e: MouseEvent| {
             let mouse_down = state_handle
-                .buffer_selection
-                .as_ref()
-                .map(|buffer_selection| buffer_selection.mouse_down)
-                .unwrap_or(false);
+                .buffer_selection.mouse_down;
+                
             if mouse_down {
                 let div = div_ref.get().unwrap().dyn_into::<HtmlDivElement>().unwrap();
                 let end_point = (e.offset_x() as f32) / (div.client_width() as f32);
@@ -76,7 +74,7 @@ pub fn buffer_container() -> Html {
             onmousemove={handle_mouse_move}
             ref={div_ref}
         >
-        <BufferSelectionVisualizer div_ref={div_ref_prop} />
+            <BufferSelectionVisualizer div_ref={div_ref_prop} />
             <BufferSampleBars />
         </div>
     }

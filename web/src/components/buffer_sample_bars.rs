@@ -41,7 +41,7 @@ pub fn buffer_sample_bars() -> Html {
         .chunks(iteration_group_size)
         .map(|samples| {
             let sum = samples.iter().map(|sample| sample.abs()).sum::<f32>();
-            let average_percent = (sum / samples.len() as f32).mul(100.0).min(100.0).max(0.0);
+            let average_percent = (sum / samples.len() as f32).mul(100.0).min(100.0).max(1.0);
             let formatted_percent = format!("{:.1}", average_percent);
             formatted_percent
         })
