@@ -1,10 +1,16 @@
-use std::sync::Arc;
+use crate::{
+    audio::stream_handle::StreamHandle,
+    state::{app_action::AppAction, app_state::AppState},
+};
 use common::granular_synthesizer::GranularSynthesizer;
-use cpal::{Stream, traits::{DeviceTrait, HostTrait, StreamTrait}};
+use cpal::{
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    Stream,
+};
 use log::*;
-use wasm_bindgen::{JsCast};
-use yew::{UseReducerHandle};
-use crate::{audio::stream_handle::StreamHandle, state::{app_action::AppAction, app_state::AppState}};
+use std::sync::Arc;
+use wasm_bindgen::JsCast;
+use yew::UseReducerHandle;
 
 const NUM_CHANNELS: usize = 5;
 const GRAIN_LEN_MIN_IN_MS: usize = 1;
@@ -88,18 +94,31 @@ where
 
     // only load new buffer if current one is empty
     let mp3_source_data = if app_state_handle.buffer.data.is_empty() {
+        let app_state_handle = app_state_handle.clone();
         load_default_buffer(app_state_handle).await
     } else {
         Arc::clone(&app_state_handle.buffer.data)
     };
 
     let mut granular_synth: GranularSynthesizer<NUM_CHANNELS> =
-        GranularSynthesizer::new(mp3_source_data, sample_rate)
-            .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
-            .set_grain_len_max(GRAIN_LEN_MAX_IN_MS);
+        GranularSynthesizer::new(mp3_source_data, sample_rate);
+
+    // this data does not need to be current (for now)
+    granular_synth
+        .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
+        .set_grain_len_max(GRAIN_LEN_MAX_IN_MS);
+
+    let buffer_selection = Arc::clone(&app_state_handle.buffer_handle.buffer_selection);
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
+        // always keep granular_synth up-to-date with buffer selection from UI
+        let (selection_start, selection_end) =
+            buffer_selection.lock().unwrap().get_buffer_start_and_end();
+        granular_synth
+            .set_selection_start(selection_start)
+            .set_selection_end(selection_end);
+
         let frame = granular_synth.next_frame();
 
         // mix frame channels down to 2 channels (spacialize from left to right)
@@ -150,8 +169,14 @@ pub async fn play(app_state_handle: UseReducerHandle<AppState>) -> StreamHandle 
     let sample_format = config.sample_format();
 
     StreamHandle::new(match sample_format {
-        cpal::SampleFormat::F32 => run::<f32>(app_state_handle, &device, &config.into()).await.unwrap(),
-        cpal::SampleFormat::I16 => run::<i16>(app_state_handle, &device, &config.into()).await.unwrap(),
-        cpal::SampleFormat::U16 => run::<u16>(app_state_handle, &device, &config.into()).await.unwrap(),
+        cpal::SampleFormat::F32 => run::<f32>(app_state_handle, &device, &config.into())
+            .await
+            .unwrap(),
+        cpal::SampleFormat::I16 => run::<i16>(app_state_handle, &device, &config.into())
+            .await
+            .unwrap(),
+        cpal::SampleFormat::U16 => run::<u16>(app_state_handle, &device, &config.into())
+            .await
+            .unwrap(),
     })
 }

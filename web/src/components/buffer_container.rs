@@ -52,7 +52,11 @@ pub fn buffer_container() -> Html {
         let state_handle = app_context.state_handle.clone();
         Callback::from(move |e: MouseEvent| {
             let mouse_down = state_handle
-                .buffer_selection.mouse_down;
+                .buffer_handle
+                .buffer_selection
+                .lock()
+                .unwrap()
+                .mouse_down;
                 
             if mouse_down {
                 let div = div_ref.get().unwrap().dyn_into::<HtmlDivElement>().unwrap();

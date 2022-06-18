@@ -29,6 +29,12 @@ pub struct GranularSynthesizer<const NUM_CHANNELS: usize = 2> {
     ///
     /// each array value = 1 channel
     output_env_samples: [f32; NUM_CHANNELS],
+    /// The minimum index that samples can be taken from, 
+    /// ranging from 0.0 -> 1.0 (i.e. percentage of the buffer)
+    selection_start: f32,
+    /// The maximum index that samples can be taken from, 
+    /// ranging from 0.0 -> 1.0 (i.e. percentage of the buffer)
+    selection_end: f32,
 }
 
 /// Produces an unitialized grain for filling the initial array of Grains
@@ -58,12 +64,34 @@ impl<const C: usize> GranularSynthesizer<C> {
             grain_len_max: buffer_len as u32,
             output_buffer_samples: [0.0; C],
             output_env_samples: [0.0; C],
+            selection_start: 0.0,
+            selection_end: 0.0
         }
+    }
+
+    pub fn set_selection_start(&mut self, start: f32) -> &mut Self {
+        let sanitized_start = start.max(0.0).min(1.0);
+        self.selection_start = sanitized_start;
+        if sanitized_start > self.selection_end {
+            // move end to "catch up" to the beginning
+            self.selection_end = sanitized_start;
+        }
+        self
+    }
+
+    pub fn set_selection_end(&mut self, start: f32) -> &mut Self {
+        let sanitized_end = start.max(0.0).min(1.0);
+        self.selection_end = sanitized_end;
+        if sanitized_end < self.selection_start {
+            // move beginning to be before the ending
+            self.selection_start = sanitized_end;
+        }
+        self
     }
 
     /// The smallest possible grain length is 1 ms,
     /// and the min grain length and can never exceed the max.
-    pub fn set_grain_len_min(mut self, input_len_in_ms: usize) -> Self {
+    pub fn set_grain_len_min(&mut self, input_len_in_ms: usize) -> &mut Self {
         // the smallest accetable length
         let min_len_in_ms = 1;
         let min_len_in_samples = self.sample_rate / (1000 / min_len_in_ms);
@@ -80,7 +108,7 @@ impl<const C: usize> GranularSynthesizer<C> {
 
     /// The maximum grain length is the size of the buffer itself,
     /// and max grain length can never be lower than the min width (or 1ms--whichever is higher)
-    pub fn set_grain_len_max(mut self, input_len_in_ms: usize) -> Self {
+    pub fn set_grain_len_max(&mut self, input_len_in_ms: usize) -> &mut Self {
         let input_len_in_samples = self.sample_rate / (1000 / input_len_in_ms as u32);
         self.grain_len_max = input_len_in_samples
             // max should be greater than existing min

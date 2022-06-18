@@ -1,19 +1,22 @@
-use super::{buffer_selection::BufferSelection};
+use super::{buffer_handle::BufferHandle, buffer_selection::BufferSelection};
 use crate::audio::buffer::Buffer;
 use crate::audio::stream_handle::StreamHandle;
 use crate::state::app_action::AppAction;
-use serde::{Serialize};
-use std::rc::Rc;
+use log::info;
+use std::{
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
 use yew::Reducible;
 
-#[derive(Clone, Debug, PartialEq, Default, Serialize)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct AppState {
     /// the currently loaded audio buffer
     pub buffer: Buffer,
     /// a handle to the audio context stream (keeps audio playing & stops audio when dropped)
     pub stream_handle: Option<StreamHandle>,
     /// represents what portion of the audio buffer is currently selected
-    pub buffer_selection: BufferSelection,
+    pub buffer_handle: BufferHandle,
 }
 
 impl Reducible for AppState {
@@ -31,17 +34,49 @@ impl Reducible for AppState {
                     next_state.stream_handle = stream_handle;
                 }
                 AppAction::SetBufferSelectionStart(start) => {
-                    next_state.buffer_selection.set_start(start);
+                    next_state
+                        .buffer_handle
+                        .buffer_selection
+                        .lock()
+                        .unwrap()
+                        .set_start(start);
+
+                    // assume that the date changed inside the buffer selection
+                    next_state.buffer_handle = next_state.buffer_handle.clone_with_new_id();
                 }
                 AppAction::SetBufferSelectionEnd(end) => {
-                    next_state.buffer_selection.set_end(end);
+                    next_state
+                        .buffer_handle
+                        .buffer_selection
+                        .lock()
+                        .unwrap()
+                        .set_end(end);
+
+                    // assume that the date changed inside the buffer selection
+                    next_state.buffer_handle = next_state.buffer_handle.clone_with_new_id();
                 }
                 AppAction::SetBufferSelectionMouseDown(mouse_down) => {
-                    next_state.buffer_selection.set_mouse_down(mouse_down);
+                    next_state
+                        .buffer_handle
+                        .buffer_selection
+                        .lock()
+                        .unwrap()
+                        .set_mouse_down(mouse_down);
+
+                    // assume that the date changed inside the buffer selection
+                    next_state.buffer_handle = next_state.buffer_handle.clone_with_new_id();
                 }
             }
         }
 
-        Rc::new(next_state)
+        // info!(
+        //     "Update: Action = {:#?}\n\nprev_state = {:#?}\n\nnext_state = {:#?}",
+        //     action, self, next_state
+        // );
+
+        let next_state = Rc::new(next_state);
+        info!("prev_state == next_state {}", self == next_state);
+
+        next_state
     }
 }

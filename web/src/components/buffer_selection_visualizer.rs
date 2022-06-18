@@ -14,7 +14,10 @@ pub fn buffer_selection_visualizer(props: &BufferSelectionProps) -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
     let (start, end) = &app_context
         .state_handle
+        .buffer_handle
         .buffer_selection
+        .lock()
+        .unwrap()
         .get_buffer_start_and_end();
 
     let div_width = if let Some(div) = props.div_ref.get() {
