@@ -11,9 +11,9 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use yew::UseReducerHandle;
 
-const NUM_CHANNELS: usize = 5;
-const GRAIN_LEN_MIN_IN_MS: usize = 1;
-const GRAIN_LEN_MAX_IN_MS: usize = 100;
+const NUM_CHANNELS: usize = 250;
+const GRAIN_LEN_MIN_IN_MS: usize = 10;
+const GRAIN_LEN_MAX_IN_MS: usize = 1000;
 
 /// Converts default mp3 file to raw audio sample data
 async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Arc<Vec<f32>> {
@@ -21,7 +21,7 @@ async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Ar
         web_sys::AudioContext::new().expect("Browser should have AudioContext implemented");
 
     // get audio file data at compile time
-    let mp3_file_bytes = include_bytes!("..\\..\\..\\audio\\pater_emon.mp3");
+    let mp3_file_bytes = include_bytes!("..\\..\\..\\audio\\ecce_nova_3.mp3");
 
     // this action is "unsafe" because it's creating a JavaScript view into wasm linear memory,
     // but there's no risk in this case, because `mp3_file_bytes` is an array that is statically compiled
