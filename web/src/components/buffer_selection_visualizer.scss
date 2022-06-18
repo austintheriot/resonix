@@ -1,0 +1,10 @@
+.buffer-selection-visualizer {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    top: 0;
+    left: 0;
+    background-color: rgb(47, 241, 255);
+    transform-origin: center left;
+    pointer-events: none;
+}

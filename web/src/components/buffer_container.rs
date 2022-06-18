@@ -2,7 +2,6 @@ use crate::components::buffer_sample_bars::BufferSampleBars;
 use crate::components::buffer_selection_visualizer::BufferSelectionVisualizer;
 use crate::state::app_action::AppAction;
 use crate::state::app_context::{AppContext, AppContextError};
-use log::info;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlDivElement;
 use yew::{function_component, html, prelude::*};
@@ -71,7 +70,7 @@ pub fn buffer_container() -> Html {
 
     html! {
         <div
-            class="buffer-visualizer"
+            class="buffer-container"
             onmousedown={handle_mouse_down}
             onmouseup={handle_mouse_up}
             onmouseleave={handle_mouse_leave}

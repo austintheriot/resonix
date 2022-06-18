@@ -1,4 +1,4 @@
-.buffer-visualizer {
+.buffer-container {
     height: 5rem;
     width: 100%;
     margin: 1rem auto;
@@ -9,27 +9,4 @@
     align-items: center;
     position: relative;
     overflow: hidden;
-}
-
-.buffer-visualizer-selection {
-    position: absolute;
-    height: 100%;
-    width: 100%;
-    top: 0;
-    left: 0;
-    background-color: rgb(47, 241, 255);
-    transform-origin: center left;
-    pointer-events: none;
-}
-
-.buffer-visualizer__audio-bar {
-    height: 100%;
-    width: 100%;
-    background-color: black;
-    transition: transform 0.2s;
-    pointer-events: none;
-}
-
-.buffer-visualizer__audio-bar.buffer-empty {
-    transform: scaleY(1%);
 }

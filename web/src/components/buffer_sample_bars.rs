@@ -25,7 +25,7 @@ pub fn buffer_sample_bars() -> Html {
             <>
                 {(0..NUM_AUDIO_DATA_POINTS).into_iter().map(|_| {
                     html!{
-                        <div class="buffer-visualizer__audio-bar buffer-empty" />
+                        <div class="buffer-sample-bar empty" />
                     }
                 }).collect::<Html>()}
             </>
@@ -52,7 +52,7 @@ pub fn buffer_sample_bars() -> Html {
             {sample_averages.iter().map(|percent_string| {
                 html!{
                     <div 
-                        class="buffer-visualizer__audio-bar" 
+                        class="buffer-sample-bar" 
                         style={format!("transform: scaleY({}%);", percent_string)} 
                     />
                 }

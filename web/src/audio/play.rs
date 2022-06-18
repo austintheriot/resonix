@@ -7,7 +7,6 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Stream,
 };
-use log::*;
 use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use yew::UseReducerHandle;
@@ -20,11 +19,6 @@ const GRAIN_LEN_MAX_IN_MS: usize = 100;
 async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Arc<Vec<f32>> {
     let audio_context =
         web_sys::AudioContext::new().expect("Browser should have AudioContext implemented");
-
-    info!(
-        "Sample Rate of Audio Context = {}",
-        audio_context.sample_rate()
-    );
 
     // get audio file data at compile time
     let mp3_file_bytes = include_bytes!("..\\..\\..\\audio\\pater_emon.mp3");
@@ -47,11 +41,6 @@ async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Ar
             .expect("Should convert decode_audio_data Promise into Future")
             .dyn_into()
             .expect("decode_audio_data should return a buffer of data on success");
-
-    info!(
-        "Sample Rate of Default Audio File = {}",
-        audio_buffer.sample_rate()
-    );
 
     let mp3_source_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
     app_state_handle.dispatch(AppAction::SetBuffer(Arc::clone(&mp3_source_data)));

@@ -33,6 +33,6 @@ pub fn buffer_selection_visualizer(props: &BufferSelectionProps) -> Html {
     );
 
     html! {
-        <div class="buffer-visualizer-selection" style={selection_style} />
+        <div class="buffer-selection-visualizer" style={selection_style} />
     }
 }

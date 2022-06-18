@@ -1,7 +1,7 @@
 # Rust Audio
 
 ## Todos:
-- Fixes:
+- General Fixes:
     - Correct sample rate for mp3 audio for both CLI and web.
 
 - Refactor for shared code in `/common`
@@ -13,9 +13,11 @@
 
 - Web
     - Build Interactive UI
-        - Refactor visual representation of current audio buffer to use an svg <path /> element
-        - Get mouse input from buffer representation to select grain location
+        - Refactor visual representation of current audio buffer to use an svg <path /> element?
         - Create a dropdown for switching out audio buffers
-        - Allow slidable / interactive window for sampling grains
+        - Create sliders/knobs for adjust grain length
+        - Make nicer styles
+    - Fixes:
+        - Clean up logic around buffer selection ranges -- ensure no empty ranges
 
 - Add reverb (and other effects)

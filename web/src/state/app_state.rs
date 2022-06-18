@@ -1,11 +1,8 @@
-use super::{buffer_handle::BufferHandle};
+use super::buffer_handle::BufferHandle;
 use crate::audio::buffer::Buffer;
 use crate::audio::stream_handle::StreamHandle;
 use crate::state::app_action::AppAction;
-use log::info;
-use std::{
-    rc::Rc,
-};
+use std::rc::Rc;
 use yew::Reducible;
 
 #[derive(Clone, Debug, PartialEq, Default)]
