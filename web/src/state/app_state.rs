@@ -1,11 +1,10 @@
-use super::{buffer_handle::BufferHandle, buffer_selection::BufferSelection};
+use super::{buffer_handle::BufferHandle};
 use crate::audio::buffer::Buffer;
 use crate::audio::stream_handle::StreamHandle;
 use crate::state::app_action::AppAction;
 use log::info;
 use std::{
     rc::Rc,
-    sync::{Arc, Mutex},
 };
 use yew::Reducible;
 
@@ -69,14 +68,6 @@ impl Reducible for AppState {
             }
         }
 
-        // info!(
-        //     "Update: Action = {:#?}\n\nprev_state = {:#?}\n\nnext_state = {:#?}",
-        //     action, self, next_state
-        // );
-
-        let next_state = Rc::new(next_state);
-        info!("prev_state == next_state {}", self == next_state);
-
-        next_state
+        Rc::new(next_state)
     }
 }

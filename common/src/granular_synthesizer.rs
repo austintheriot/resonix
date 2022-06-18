@@ -4,6 +4,9 @@ use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
 use std::sync::Arc;
 
+/// the smallest possible length of grain, given in samples
+pub const GRAIN_MIN_LEN_IN_MS: u32 = 1;
+
 /// Accepts a reference to a buffer of Vec<f32> audio sample data.
 ///
 /// Generates random multi-channel audio grain output.
@@ -29,10 +32,10 @@ pub struct GranularSynthesizer<const NUM_CHANNELS: usize = 2> {
     ///
     /// each array value = 1 channel
     output_env_samples: [f32; NUM_CHANNELS],
-    /// The minimum index that samples can be taken from, 
+    /// The minimum index that samples can be taken from,
     /// ranging from 0.0 -> 1.0 (i.e. percentage of the buffer)
     selection_start: f32,
-    /// The maximum index that samples can be taken from, 
+    /// The maximum index that samples can be taken from,
     /// ranging from 0.0 -> 1.0 (i.e. percentage of the buffer)
     selection_end: f32,
 }
@@ -60,47 +63,58 @@ impl<const C: usize> GranularSynthesizer<C> {
             buffer: buffer,
             grains: [new_grain(); C],
             rng: rand::rngs::StdRng::from_entropy(),
-            grain_len_min: 1,
+            grain_len_min: sample_rate / (1000 / GRAIN_MIN_LEN_IN_MS),
             grain_len_max: buffer_len as u32,
             output_buffer_samples: [0.0; C],
             output_env_samples: [0.0; C],
             selection_start: 0.0,
-            selection_end: 0.0
+            selection_end: 0.0,
         }
     }
 
+    /// Returns min grain length as a percentage of the buffer length (between 0.0 and 1.0)
+    pub fn get_grain_len_min_decimal(&self) -> f32 {
+        self.grain_len_min as f32 / self.buffer.len() as f32
+    }
+
+    /// Returns min grain length as a a number of samples
+    pub fn get_grain_len_smallest_samples(&self) -> u32 {
+        self.sample_rate  / (1000 / GRAIN_MIN_LEN_IN_MS)
+    }
+
     pub fn set_selection_start(&mut self, start: f32) -> &mut Self {
-        let sanitized_start = start.max(0.0).min(1.0);
+        let grain_len_min_decimal = self.get_grain_len_min_decimal();
+        let sanitized_start = start.max(0.0).min(1.0).min(1.0 - grain_len_min_decimal);
         self.selection_start = sanitized_start;
         if sanitized_start > self.selection_end {
             // move end to "catch up" to the beginning
-            self.selection_end = sanitized_start;
+            self.set_selection_end(sanitized_start + grain_len_min_decimal);
         }
         self
     }
 
     pub fn set_selection_end(&mut self, start: f32) -> &mut Self {
-        let sanitized_end = start.max(0.0).min(1.0);
+        let grain_len_min_decimal = self.get_grain_len_min_decimal();
+        let sanitized_end = start.max(0.0).min(1.0).max(0.0 + grain_len_min_decimal);
         self.selection_end = sanitized_end;
         if sanitized_end < self.selection_start {
             // move beginning to be before the ending
-            self.selection_start = sanitized_end;
+            self.set_selection_start(sanitized_end - grain_len_min_decimal);
         }
         self
     }
 
     /// The smallest possible grain length is 1 ms,
     /// and the min grain length and can never exceed the max.
-    pub fn set_grain_len_min(&mut self, input_len_in_ms: usize) -> &mut Self {
+    pub fn set_grain_len_min(&mut self, input_min_len_in_ms: usize) -> &mut Self {
         // the smallest accetable length
-        let min_len_in_ms = 1;
-        let min_len_in_samples = self.sample_rate / (1000 / min_len_in_ms);
+        let min_len_in_samples = self.get_grain_len_smallest_samples();
 
-        let input_len_in_samples = self.sample_rate / (1000 / input_len_in_ms as u32);
-        self.grain_len_min = input_len_in_samples
+        let input_min_len_in_samples = self.sample_rate / (1000 / input_min_len_in_ms as u32);
+        self.grain_len_min = input_min_len_in_samples
             // min should be less than existing max
-            .min(self.grain_len_max - 1)
-            // min should not be less than the equivalent of 1ms in samples
+            .min(self.grain_len_max - GRAIN_MIN_LEN_IN_MS)
+            // min len should not be less than the end of the smallest possible grain
             .max(min_len_in_samples);
 
         self
@@ -108,12 +122,12 @@ impl<const C: usize> GranularSynthesizer<C> {
 
     /// The maximum grain length is the size of the buffer itself,
     /// and max grain length can never be lower than the min width (or 1ms--whichever is higher)
-    pub fn set_grain_len_max(&mut self, input_len_in_ms: usize) -> &mut Self {
-        let input_len_in_samples = self.sample_rate / (1000 / input_len_in_ms as u32);
-        self.grain_len_max = input_len_in_samples
+    pub fn set_grain_len_max(&mut self, input_max_len_in_ms: usize) -> &mut Self {
+        let input_max_len_in_samples = self.sample_rate / (1000 / input_max_len_in_ms as u32);
+        self.grain_len_max = input_max_len_in_samples
             // max should be greater than existing min
-            .max(self.grain_len_min + 1)
-            // max should not be longer than the length of the buffer
+            .max(self.grain_len_min + GRAIN_MIN_LEN_IN_MS)
+            // max len should not be longer than the length of the buffer
             .min(self.buffer.len() as u32);
         self
     }
@@ -123,11 +137,30 @@ impl<const C: usize> GranularSynthesizer<C> {
     fn refresh_grains(&mut self) {
         for grain in self.grains.iter_mut() {
             if grain.finished {
+                let selection_start_in_samples = ((self.selection_start * self.buffer.len() as f32)
+                    as usize)
+                    .min(self.buffer.len() - self.grain_len_min as usize);
+                let selection_end_in_samples = ((self.selection_end * self.buffer.len() as f32)
+                    as usize)
+                    .max(selection_start_in_samples + self.grain_len_min as usize);
+
+                let smallest_range = if (self.grain_len_max as usize - self.grain_len_min as usize)
+                    < selection_end_in_samples - selection_start_in_samples
+                {
+                    self.grain_len_min as usize..self.grain_len_max as usize
+                } else {
+                    selection_start_in_samples..selection_end_in_samples
+                };
+
                 let envolope_len_samples = self
                     .rng
-                    .gen_range(self.grain_len_min as usize..self.grain_len_max as usize);
-                let max_index = self.buffer.len() - envolope_len_samples;
-                let start_frame = self.rng.gen_range(0..max_index as usize);
+                    .gen_range(smallest_range)
+                    .min(selection_end_in_samples - selection_start_in_samples);
+
+                let max_index_by_len = self.buffer.len() - envolope_len_samples;
+                let max_index = max_index_by_len.min(selection_end_in_samples);
+
+                let start_frame = self.rng.gen_range(selection_start_in_samples..max_index);
                 let end_frame = start_frame + envolope_len_samples;
 
                 debug_assert!(start_frame > 0);
