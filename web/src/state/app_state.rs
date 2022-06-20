@@ -1,7 +1,7 @@
 use crate::audio::buffer::Buffer;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
 use crate::audio::current_status_handle::CurrentStatusHandle;
-use crate::audio::gain::Gain;
+use crate::audio::gain_handle::GainHandle;
 use crate::audio::stream_handle::StreamHandle;
 use crate::components::buffer_sample_bars::get_buffer_maxes;
 use crate::state::app_action::AppAction;
@@ -24,7 +24,7 @@ pub struct AppState {
     /// Represents what portion of the audio buffer is currently selected
     pub buffer_selection_handle: BufferSelectionHandle,
     /// Overall audio gain for output audio
-    pub gain: Gain,
+    pub gain_handle: GainHandle,
     /// Current play / pause status
     pub current_status_handle: CurrentStatusHandle,
 }
@@ -54,7 +54,7 @@ impl Reducible for AppState {
                     next_state.buffer_selection_handle.set_mouse_down(mouse_down);
                 }
                 AppAction::SetGain(gain) => {
-                    next_state.gain.set(gain);
+                    next_state.gain_handle.set(gain);
                 }
                 AppAction::SetStatus(current_status) => {
                     next_state.current_status_handle.set(current_status);

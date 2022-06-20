@@ -26,10 +26,11 @@ pub fn get_buffer_maxes(buffer: &Arc<Vec<f32>>) -> Vec<String> {
         .chunks(iteration_group_size)
         .map(|samples| {
             let max = samples
-                .to_owned()
-                .into_iter()
-                .map(f32::abs)
-                .reduce(f32::max)
+                .iter()
+                .map(|sample| f32::abs(*sample))
+                .reduce(|accum, el| {
+                    f32::max(accum, el)
+                })
                 .unwrap()
                 .mul(100.0);
             let formatted_max = format!("{:.1}", max);
@@ -48,7 +49,7 @@ pub fn buffer_sample_bars() -> Html {
     let buffer_maxes = &app_context.state_handle.buffer_maxes;
 
     // empty buffer
-    if app_context.state_handle.buffer.data.is_empty() {
+    if app_context.state_handle.buffer.get_data().is_empty() {
         return html! {
             <>
                 {buffer_maxes.iter().map(|_| {

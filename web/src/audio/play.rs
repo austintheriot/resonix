@@ -84,11 +84,12 @@ where
     let channels = stream_config.channels as usize;
 
     // only load new buffer if current one is empty
-    let mp3_source_data = if app_state_handle.buffer.data.is_empty() {
+    let existing_buffer_data = app_state_handle.buffer.get_data();
+    let mp3_source_data = if existing_buffer_data.is_empty() {
         let app_state_handle = app_state_handle.clone();
         load_default_buffer(app_state_handle).await
     } else {
-        Arc::clone(&app_state_handle.buffer.data)
+        existing_buffer_data
     };
 
     let mut granular_synth: GranularSynthesizer<NUM_CHANNELS> =
@@ -100,7 +101,7 @@ where
         .set_grain_len_max(GRAIN_LEN_MAX_IN_MS);
 
     let buffer_handle = app_state_handle.buffer_selection_handle.clone();
-    let gain = app_state_handle.gain.clone();
+    let gain_handle = app_state_handle.gain_handle.clone();
     let status = app_state_handle.current_status_handle.clone();
 
     // Called for every audio frame to generate appropriate sample
@@ -139,7 +140,7 @@ where
             right += right_value_to_add;
         }
 
-        let gain = gain.get();
+        let gain = gain_handle.get();
         let (left, right) = (left * gain, right * gain);
 
         (left, right)

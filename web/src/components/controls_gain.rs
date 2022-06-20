@@ -1,5 +1,5 @@
 use crate::{
-    audio::gain::GAIN_MAX,
+    audio::gain_handle::GAIN_MAX,
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
@@ -11,7 +11,7 @@ use yew::{function_component, html, prelude::*};
 #[function_component(ControlsGain)]
 pub fn controls_gain() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
-    let gain = app_context.state_handle.gain.get();
+    let gain = app_context.state_handle.gain_handle.get();
 
     let handle_change = {
         let state_handle = app_context.state_handle.clone();
