@@ -2,7 +2,7 @@
 
 ## Todos:
 - Web
-    - Create deployable version
+    - Add mobile / touch support
 
     - Make play/pause/load separate actions & events:
         - Initialize audio right away
