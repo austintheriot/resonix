@@ -11,7 +11,7 @@ use yew::{function_component, html, prelude::*};
 #[function_component(ControlsStatus)]
 pub fn controls_status() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
-    let current_status = app_context.state_handle.status.get();
+    let current_status = app_context.state_handle.current_status_handle.get();
 
     let handle_change = {
         let state_handle = app_context.state_handle.clone();

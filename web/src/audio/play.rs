@@ -99,9 +99,9 @@ where
         .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
         .set_grain_len_max(GRAIN_LEN_MAX_IN_MS);
 
-    let buffer_selection = Arc::clone(&app_state_handle.buffer_handle.buffer_selection);
+    let buffer_handle = app_state_handle.buffer_selection_handle.clone();
     let gain = app_state_handle.gain.clone();
-    let status = app_state_handle.status.clone();
+    let status = app_state_handle.current_status_handle.clone();
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
@@ -111,8 +111,7 @@ where
         }
 
         // always keep granular_synth up-to-date with buffer selection from UI
-        let (selection_start, selection_end) =
-            buffer_selection.lock().unwrap().get_buffer_start_and_end();
+        let (selection_start, selection_end) = buffer_handle.get_buffer_start_and_end();
         granular_synth
             .set_selection_start(selection_start)
             .set_selection_end(selection_end);

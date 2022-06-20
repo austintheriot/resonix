@@ -50,13 +50,8 @@ pub fn buffer_container() -> Html {
         let div_ref = div_ref.clone();
         let state_handle = app_context.state_handle.clone();
         Callback::from(move |e: MouseEvent| {
-            let mouse_down = state_handle
-                .buffer_handle
-                .buffer_selection
-                .lock()
-                .unwrap()
-                .mouse_down;
-                
+            let mouse_down = state_handle.buffer_selection_handle.get_mouse_down();
+
             if mouse_down {
                 let div = div_ref.get().unwrap().dyn_into::<HtmlDivElement>().unwrap();
                 let end_point = (e.offset_x() as f32) / (div.client_width() as f32);

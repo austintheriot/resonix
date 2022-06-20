@@ -1,18 +1,16 @@
-use std::sync::{Arc, Mutex};
-use uuid::Uuid;
-
 use super::current_status::CurrentStatus;
+use std::sync::{Arc, Mutex};
 
 /// Current play/pause status -- for use in both UI and audio processing
 #[derive(Clone, Debug)]
 pub struct CurrentStatusHandle {
     current_status: Arc<Mutex<CurrentStatus>>,
-    uuid: Uuid,
+    counter: u32,
 }
 
 impl PartialEq for CurrentStatusHandle {
     fn eq(&self, other: &Self) -> bool {
-        self.get() == other.get() && self.uuid == other.uuid
+        self.counter == other.counter && self.get() == other.get()
     }
 }
 
@@ -20,16 +18,22 @@ impl Default for CurrentStatusHandle {
     fn default() -> Self {
         Self {
             current_status: Arc::new(Mutex::new(CurrentStatus::PAUSE)),
-            uuid: Default::default(),
+            counter: Default::default(),
         }
     }
 }
 
 impl CurrentStatusHandle {
+    /// Bumps up counter so that Yew knows interanal state has changed,
+    /// even when the internal current_status points to the same memory
+    fn bump_counter(&mut self) {
+        self.counter = self.counter.wrapping_add(1);
+    }
+
     pub fn new(current_status: CurrentStatus) -> Self {
         CurrentStatusHandle {
             current_status: Arc::new(Mutex::new(current_status)),
-            uuid: Uuid::new_v4(),
+            counter: Default::default(),
         }
     }
 
@@ -37,7 +41,8 @@ impl CurrentStatusHandle {
         *self.current_status.lock().unwrap()
     }
 
-    pub fn set(&self, status: CurrentStatus) {
+    pub fn set(&mut self, status: CurrentStatus) {
         *self.current_status.lock().unwrap() = status;
+        self.bump_counter();
     }
 }
