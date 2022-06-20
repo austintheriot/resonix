@@ -33,6 +33,7 @@ module.exports = (env, argv) => {
       new CopyWebpackPlugin({
         patterns: [
           { from: './static', to: distPath },
+          { from: '../audio', to: distPath },
         ],
       }),
       new WasmPackPlugin({
