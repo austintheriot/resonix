@@ -1,5 +1,6 @@
 use super::buffer_handle::BufferHandle;
 use crate::audio::buffer::Buffer;
+use crate::audio::gain::Gain;
 use crate::audio::stream_handle::StreamHandle;
 use crate::components::buffer_sample_bars::get_buffer_maxes;
 use crate::state::app_action::AppAction;
@@ -21,6 +22,8 @@ pub struct AppState {
     pub stream_handle: Option<StreamHandle>,
     /// represents what portion of the audio buffer is currently selected
     pub buffer_handle: BufferHandle,
+    /// Overall audio gain for output audio
+    pub gain: Gain,
 }
 
 impl Reducible for AppState {
@@ -71,6 +74,9 @@ impl Reducible for AppState {
                     // assume that the date changed inside the buffer selection
                     next_state.buffer_handle = next_state.buffer_handle.clone_with_new_id();
                 }
+                AppAction::SetGain(gain) => {
+                    next_state.gain.set(gain);
+                },
             }
         }
 

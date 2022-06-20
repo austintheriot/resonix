@@ -11,7 +11,7 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use yew::UseReducerHandle;
 
-const NUM_CHANNELS: usize = 250;
+const NUM_CHANNELS: usize = 3;
 const GRAIN_LEN_MIN_IN_MS: usize = 10;
 const GRAIN_LEN_MAX_IN_MS: usize = 1000;
 
@@ -98,6 +98,7 @@ where
         .set_grain_len_max(GRAIN_LEN_MAX_IN_MS);
 
     let buffer_selection = Arc::clone(&app_state_handle.buffer_handle.buffer_selection);
+    let gain = app_state_handle.gain.clone();
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
@@ -130,6 +131,9 @@ where
             left += left_value_to_add;
             right += right_value_to_add;
         }
+
+        let gain = gain.get();
+        let (left, right) = (left * gain, right * gain);
 
         (left, right)
     };

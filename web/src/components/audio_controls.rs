@@ -2,7 +2,8 @@ use yew::{function_component, html, prelude::*};
 use crate::{
     audio::{self},
     state::{app_context::{AppContext, AppContextError}, app_action::AppAction},
-    components::buffer_container::BufferContainer
+    components::buffer_container::BufferContainer,
+    components::gain_control::GainControl,
 };
 
 
@@ -48,6 +49,7 @@ pub fn audio_controls() -> Html {
                 {"Stop"}
             </button>
 
+            <GainControl />
             <BufferContainer />
         </div>
     }
