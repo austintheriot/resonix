@@ -8,3 +8,7 @@
     transform-origin: center left;
     pointer-events: none;
 }
+
+.buffer-container[data-disabled=true] .buffer-selection-visualizer {
+    background-color: #eee;
+}

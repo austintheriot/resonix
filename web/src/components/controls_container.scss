@@ -13,7 +13,7 @@
     flex-wrap: wrap;
 }
 
-.controls-container__play, .controls-container__stop {
+.controls-container__enable-audio {
     padding: 0.25rem 1.5rem;
     background-color: #eee;
     border-radius: 100px;
@@ -31,5 +31,11 @@
     &:focus {
         outline: 2px solid blue;
         outline-offset: 0.25rem;
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        background-color: #aaa;
+        color: #333;
     }
 }

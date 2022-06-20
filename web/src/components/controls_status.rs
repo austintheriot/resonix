@@ -1,8 +1,9 @@
 use crate::{
-    audio::{current_status::CurrentStatus},
+    audio::current_status::CurrentStatus,
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
+        app_selector::AppSelector,
     },
 };
 use web_sys::HtmlInputElement;
@@ -12,6 +13,7 @@ use yew::{function_component, html, prelude::*};
 pub fn controls_status() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
     let current_status = app_context.state_handle.current_status_handle.get();
+    let input_disabled = app_context.state_handle.get_is_play_input_disabled();
 
     let handle_change = {
         let state_handle = app_context.state_handle.clone();
@@ -28,7 +30,7 @@ pub fn controls_status() -> Html {
     html! {
         <>
             <label for="controls-status">
-                {"Is Playing"}
+                {"Play"}
             </label>
             <input
                 id="controls-status"
@@ -36,6 +38,7 @@ pub fn controls_status() -> Html {
                 type="checkbox"
                 oninput={handle_change}
                 checked={current_status.into()}
+                disabled={input_disabled}
             />
         </>
     }

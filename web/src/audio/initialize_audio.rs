@@ -161,7 +161,8 @@ where
     Ok(stream)
 }
 
-pub async fn play(app_state_handle: UseReducerHandle<AppState>) -> StreamHandle {
+pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> StreamHandle {
+    app_state_handle.dispatch(AppAction::SetAudioInitialized(false));
     let host = cpal::default_host();
     let device = host
         .default_output_device()

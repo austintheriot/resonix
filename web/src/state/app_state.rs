@@ -27,6 +27,9 @@ pub struct AppState {
     pub gain_handle: GainHandle,
     /// Current play / pause status
     pub current_status_handle: CurrentStatusHandle,
+    /// Has audio been initialized yet? Audio interactions must be initiated from 
+    /// a user touch / interaction. 
+    pub audio_initialized: bool,
 }
 
 impl Reducible for AppState {
@@ -59,6 +62,9 @@ impl Reducible for AppState {
                 AppAction::SetStatus(current_status) => {
                     next_state.current_status_handle.set(current_status);
                 }
+                AppAction::SetAudioInitialized(is_initialized) => {
+                    next_state.audio_initialized = is_initialized;
+                },
             }
         }
 

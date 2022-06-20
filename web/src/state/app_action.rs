@@ -10,4 +10,5 @@ pub enum AppAction {
     SetBufferSelectionMouseDown(bool),
     SetGain(f32),
     SetStatus(CurrentStatus),
+    SetAudioInitialized(bool),
 }
