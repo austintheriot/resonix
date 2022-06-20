@@ -2,8 +2,6 @@
 
 ## Todos:
 - Web
-    - Add mobile / touch support
-
     - Make play/pause/load separate actions & events:
         - Initialize audio right away
         - Make play / pause use the current_status as the default mechanism for starting/stopping playback
