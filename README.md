@@ -1,6 +1,10 @@
 # Rust Audio
 
 ## Todos:
+
+- Show loading state when initializing audio
+- Enable draggging the current buffer selection window
+
 - Web
     - Make play/pause/load separate actions & events:
         - Initialize audio right away

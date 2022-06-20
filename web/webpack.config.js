@@ -4,10 +4,14 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 
 const distPath = path.resolve(__dirname, "dist");
+const devPath = path.resolve(__dirname, "pkg");
+const staticFilesSrc = path.resolve(__dirname, "static");
+const audioFilesSrc = path.resolve(__dirname, "../audio");
+
 module.exports = (env, argv) => {
   return {
     devServer: {
-      contentBase: argv.mode === 'production' ? distPath : path.resolve(__dirname, "pkg"),
+      contentBase: argv.mode === 'production' ? distPath : devPath,
       compress: argv.mode === 'production',
       port: 8000,
     },
@@ -32,8 +36,10 @@ module.exports = (env, argv) => {
     plugins: [
       new CopyWebpackPlugin({
         patterns: [
-          { from: './static', to: distPath },
-          { from: '../audio', to: distPath },
+          { from: staticFilesSrc, to: distPath },
+          { from: audioFilesSrc, to: distPath },
+          { from: staticFilesSrc, to: devPath },
+          { from: audioFilesSrc, to: devPath },
         ],
       }),
       new WasmPackPlugin({

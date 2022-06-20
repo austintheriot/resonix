@@ -7,6 +7,7 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Stream,
 };
+use gloo_net::http::Request;
 use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use yew::UseReducerHandle;
@@ -22,13 +23,20 @@ async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Ar
     let audio_context =
         web_sys::AudioContext::new().expect("Browser should have AudioContext implemented");
 
-    // get audio file data at compile time
-    let mp3_file_bytes = include_bytes!("..\\..\\..\\audio\\ecce_nova_3.mp3");
+    // audio files are copied into static director for web (same directory as source wasm file)
+    // fetch a default audio file at initialization time
+    let mp3_file_bytes = Request::get("./ecce_nova_3.mp3")
+        .send()
+        .await
+        .unwrap()
+        .binary()
+        .await
+        .unwrap();
 
     // this action is "unsafe" because it's creating a JavaScript view into wasm linear memory,
     // but there's no risk in this case, because `mp3_file_bytes` is an array that is statically compiled
     // into the wasm binary itself and will not be reallocated at runtime
-    let mp3_u_int8_array = unsafe { js_sys::Uint8Array::view(mp3_file_bytes) };
+    let mp3_u_int8_array = unsafe { js_sys::Uint8Array::view(mp3_file_bytes.as_slice()) };
 
     // this data must be copied, because decodeAudioData() claims the ArrayBuffer it receives
     let mp3_u_int8_array = mp3_u_int8_array.slice(0, mp3_u_int8_array.length());
