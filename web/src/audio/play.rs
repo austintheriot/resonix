@@ -11,6 +11,8 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use yew::UseReducerHandle;
 
+use super::current_status::CurrentStatus;
+
 const NUM_CHANNELS: usize = 3;
 const GRAIN_LEN_MIN_IN_MS: usize = 10;
 const GRAIN_LEN_MAX_IN_MS: usize = 1000;
@@ -99,9 +101,15 @@ where
 
     let buffer_selection = Arc::clone(&app_state_handle.buffer_handle.buffer_selection);
     let gain = app_state_handle.gain.clone();
+    let status = app_state_handle.status.clone();
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
+        // if paused, do not process any audio, just return silence
+        if let CurrentStatus::PAUSE = status.get() {
+            return (0.0, 0.0);
+        }
+
         // always keep granular_synth up-to-date with buffer selection from UI
         let (selection_start, selection_end) =
             buffer_selection.lock().unwrap().get_buffer_start_and_end();

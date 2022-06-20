@@ -3,12 +3,13 @@ use crate::{
     audio::{self},
     state::{app_context::{AppContext, AppContextError}, app_action::AppAction},
     components::buffer_container::BufferContainer,
-    components::gain_control::GainControl,
+    components::controls_gain::ControlsGain,
+    components::controls_status::ControlsStatus,
 };
 
 
-#[function_component(AudioControls)]
-pub fn audio_controls() -> Html {
+#[function_component(ControlsContainer)]
+pub fn controls_container() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
 
     let handle_play = {
@@ -33,23 +34,24 @@ pub fn audio_controls() -> Html {
     };
 
     html! {
-        <div class="audio-controls">
+        <div class="controls-container">
             <button
                 id="play"
-                class="audio-controls__play"
+                class="controls-container__play"
                 onclick={handle_play}
             >
                 {"Play"}
             </button>
             <button
                 id="stop"
-                class="audio-controls__stop"
+                class="controls-container__stop"
                 onclick={handle_stop}
             >
                 {"Stop"}
             </button>
 
-            <GainControl />
+            <ControlsStatus />
+            <ControlsGain />
             <BufferContainer />
         </div>
     }

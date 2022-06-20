@@ -1,4 +1,4 @@
-.audio-controls {
+.controls-container {
     min-height: 10rem;
     width: calc(100% - 2rem);
     max-width: 600px;
@@ -13,7 +13,7 @@
     flex-wrap: wrap;
 }
 
-.audio-controls__play, .audio-controls__stop {
+.controls-container__play, .controls-container__stop {
     padding: 0.25rem 1.5rem;
     background-color: #eee;
     border-radius: 100px;

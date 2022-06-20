@@ -8,8 +8,8 @@ use crate::{
 use web_sys::HtmlInputElement;
 use yew::{function_component, html, prelude::*};
 
-#[function_component(GainControl)]
-pub fn gain_control() -> Html {
+#[function_component(ControlsGain)]
+pub fn controls_gain() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
     let gain = app_context.state_handle.gain.get();
 
@@ -26,12 +26,12 @@ pub fn gain_control() -> Html {
 
     html! {
         <>
-            <label for="gain-control">
+            <label for="controls-gain">
                 {"Gain"}
             </label>
             <input
-                id="gain-control"
-                class="gain-control"
+                id="controls-gain"
+                class="controls-gain"
                 type="range"
                 min={0.0}
                 max={GAIN_MAX.to_string()}

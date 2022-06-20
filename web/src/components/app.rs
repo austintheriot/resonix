@@ -1,5 +1,5 @@
 use crate::{
-    components::audio_controls::AudioControls,
+    components::controls_container::ControlsContainer,
     state::{app_context::AppContext, app_state::AppState},
 };
 use yew::{function_component, html, prelude::*};
@@ -16,7 +16,7 @@ pub fn app() -> Html {
 
     html! {
         <ContextProvider<AppContext> context={app_context}>
-           <AudioControls />
+           <ControlsContainer />
         </ContextProvider<AppContext>>
     }
 }
