@@ -2,6 +2,7 @@
 
 ## Todos:
 - Enable draggging the current buffer selection window
+- Share a single audio context that is initialized (?) at init time?
 
 - Web
    - Create a dropdown for switching out audio buffers

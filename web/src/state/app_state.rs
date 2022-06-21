@@ -1,4 +1,4 @@
-use crate::audio::buffer::Buffer;
+use crate::audio::buffer_handle::BufferHandle;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
 use crate::audio::current_status_handle::CurrentStatusHandle;
 use crate::audio::gain_handle::GainHandle;
@@ -11,7 +11,7 @@ use yew::Reducible;
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct AppState {
     /// The currently loaded audio buffer
-    pub buffer: Buffer,
+    pub buffer: BufferHandle,
     /// A list with a set length of max amplitudes from the original audio buffer
     /// this makes re-rendering the audio buffer visualization O(1) instead of O(n),
     /// where n is the length of buffer samples.
@@ -44,7 +44,7 @@ impl Reducible for AppState {
             match action {
                 AppAction::SetBuffer(buffer) => {
                     next_state.buffer_maxes = get_buffer_maxes(&buffer);
-                    next_state.buffer = Buffer::new(buffer);
+                    next_state.buffer = BufferHandle::new(buffer);
                 }
                 AppAction::SetStreamHandle(stream_handle) => {
                     next_state.stream_handle = stream_handle;

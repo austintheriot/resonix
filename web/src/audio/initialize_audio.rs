@@ -12,7 +12,7 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use yew::UseReducerHandle;
 
-use super::current_status::CurrentStatus;
+use super::{current_status::CurrentStatus, decode_bytes};
 
 const NUM_CHANNELS: usize = 3;
 const GRAIN_LEN_MIN_IN_MS: usize = 10;
@@ -33,25 +33,7 @@ async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Ar
         .await
         .unwrap();
 
-    // this action is "unsafe" because it's creating a JavaScript view into wasm linear memory,
-    // but there's no risk in this case, because `mp3_file_bytes` is an array that is statically compiled
-    // into the wasm binary itself and will not be reallocated at runtime
-    let mp3_u_int8_array = unsafe { js_sys::Uint8Array::view(mp3_file_bytes.as_slice()) };
-
-    // this data must be copied, because decodeAudioData() claims the ArrayBuffer it receives
-    let mp3_u_int8_array = mp3_u_int8_array.slice(0, mp3_u_int8_array.length());
-
-    let decoded_audio_result = audio_context
-        .decode_audio_data(&mp3_u_int8_array.buffer())
-        .expect("Should succeed at decoding audio data");
-
-    let audio_buffer: web_sys::AudioBuffer =
-        wasm_bindgen_futures::JsFuture::from(decoded_audio_result)
-            .await
-            .expect("Should convert decode_audio_data Promise into Future")
-            .dyn_into()
-            .expect("decode_audio_data should return a buffer of data on success");
-
+    let audio_buffer = decode_bytes::decode_bytes(&audio_context, &mp3_file_bytes).await;
     let mp3_source_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
     app_state_handle.dispatch(AppAction::SetBuffer(Arc::clone(&mp3_source_data)));
 
@@ -79,6 +61,18 @@ where
     }
 }
 
+fn init_granular_synth<const C: usize>(mp3_source_data: Arc<Vec<f32>>, sample_rate: u32) -> GranularSynthesizer<C> {
+    let mut granular_synth: GranularSynthesizer<C> =
+        GranularSynthesizer::new(mp3_source_data, sample_rate);
+
+    // this data does not need to be current (for now)
+    granular_synth
+        .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
+        .set_grain_len_max(GRAIN_LEN_MAX_IN_MS);
+
+    granular_synth
+}
+
 /// Setup all audio data and processes and begin playing
 pub async fn run<T>(
     app_state_handle: UseReducerHandle<AppState>,
@@ -100,17 +94,13 @@ where
         existing_buffer_data
     };
 
-    let mut granular_synth: GranularSynthesizer<NUM_CHANNELS> =
-        GranularSynthesizer::new(mp3_source_data, sample_rate);
+    let mut prev_buffer = Arc::clone(&mp3_source_data);
+    let mut granular_synth = init_granular_synth::<NUM_CHANNELS>(mp3_source_data, sample_rate);
 
-    // this data does not need to be current (for now)
-    granular_synth
-        .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
-        .set_grain_len_max(GRAIN_LEN_MAX_IN_MS);
-
-    let buffer_handle = app_state_handle.buffer_selection_handle.clone();
+    let buffer_selection_handle = app_state_handle.buffer_selection_handle.clone();
     let gain_handle = app_state_handle.gain_handle.clone();
     let status = app_state_handle.current_status_handle.clone();
+    let buffer_handle = app_state_handle.buffer.clone();
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
@@ -119,8 +109,16 @@ where
             return (0.0, 0.0);
         }
 
+        // check if buffer has changed:
+        // if so, replace granular synth with one that has the udpated buffer
+        let new_buffer = buffer_handle.get_data();
+        if !new_buffer.is_empty() && new_buffer != prev_buffer {
+            prev_buffer = Arc::clone(&new_buffer);
+            granular_synth = init_granular_synth::<NUM_CHANNELS>(new_buffer, sample_rate);
+        }
+
         // always keep granular_synth up-to-date with buffer selection from UI
-        let (selection_start, selection_end) = buffer_handle.get_buffer_start_and_end();
+        let (selection_start, selection_end) = buffer_selection_handle.get_buffer_start_and_end();
         granular_synth
             .set_selection_start(selection_start)
             .set_selection_end(selection_end);
