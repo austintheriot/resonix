@@ -25,7 +25,7 @@ pub fn controls_select_buffer() -> Html {
     let handle_change = {
         let state_handle = app_context.state_handle.clone();
         let select_ref = select_ref.clone();
-        Callback::from(move |e: Event| {
+        Callback::from(move |_: Event| {
             let state_handle = state_handle.clone();
             let select_ref = select_ref.clone();
             wasm_bindgen_futures::spawn_local(async move {
@@ -35,13 +35,9 @@ pub fn controls_select_buffer() -> Html {
                     .dyn_into::<HtmlSelectElement>()
                     .unwrap();
                 let selected_index = select_element.selected_index();
-
-                println!("selected_index = {}", selected_index);
-
                 let request_url = format!("./{}", AUDIO_FILES[selected_index as usize]);
 
-                // audio files are copied into static director for web (same directory as source wasm file)
-                // fetch a default audio file at initialization time
+                // audio files are copied into static directory for web (same directory asthe source wasm file)
                 let mp3_file_bytes = Request::get(&request_url)
                     .send()
                     .await
@@ -50,12 +46,13 @@ pub fn controls_select_buffer() -> Html {
                     .await
                     .unwrap();
 
+                // @todo: initialize a single audio_context at the top level of the app
                 let audio_context = web_sys::AudioContext::new()
                     .expect("Browser should have AudioContext implemented");
                 let audio_buffer =
                     decode_bytes::decode_bytes(&audio_context, &mp3_file_bytes).await;
                 let buffer_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
-                state_handle.dispatch(AppAction::SetBuffer(buffer_data));
+                state_handle.dispatch(AppAction::SetBuffer(buffer_data, None));
             })
         })
     };

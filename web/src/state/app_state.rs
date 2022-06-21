@@ -2,16 +2,22 @@ use crate::audio::buffer_handle::BufferHandle;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
 use crate::audio::current_status_handle::CurrentStatusHandle;
 use crate::audio::gain_handle::GainHandle;
+use crate::audio::granular_synthesizer_handle::GranularSynthesizerHandle;
 use crate::audio::stream_handle::StreamHandle;
 use crate::components::buffer_sample_bars::get_buffer_maxes;
 use crate::state::app_action::AppAction;
 use std::rc::Rc;
+use std::sync::Arc;
 use yew::Reducible;
 
-#[derive(Clone, Debug, PartialEq, Default)]
+pub const FALLBACK_SAMPLE_RATE: u32 = 44100;
+
+pub type SampleRate = u32;
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct AppState {
     /// The currently loaded audio buffer
-    pub buffer: BufferHandle,
+    pub buffer_handle: BufferHandle,
     /// A list with a set length of max amplitudes from the original audio buffer
     /// this makes re-rendering the audio buffer visualization O(1) instead of O(n),
     /// where n is the length of buffer samples.
@@ -27,11 +33,40 @@ pub struct AppState {
     pub gain_handle: GainHandle,
     /// Current play / pause status
     pub current_status_handle: CurrentStatusHandle,
-    /// Has audio been initialized yet? Audio interactions must be initiated from 
-    /// a user touch / interaction. 
+    /// Has audio been initialized yet? Audio interactions must be initiated from
+    /// a user touch / interaction.
     pub audio_initialized: bool,
     /// If audio currently being initialized?
     pub audio_loading: bool,
+    /// Enables updating GranularSynthesizerData from the UI while also getting
+    /// audio frames / mutating internal state from the audio thread.
+    pub granular_synthesizer_handle: GranularSynthesizerHandle,
+    /// Sample rate is instantiated with a fallback sample rate,
+    /// but this rate should be updated at audio initialization time.
+    pub sample_rate: SampleRate,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        // Set up a bogus / empty buffer and granular synthesizer for now.
+        // Audio context can't be setup until the user interacts with a UI element.
+        let buffer_handle = BufferHandle::default();
+        let granular_synthesizer_handle =
+            GranularSynthesizerHandle::new(buffer_handle.get_data(), 48000);
+
+        Self {
+            buffer_handle: buffer_handle.clone(),
+            buffer_maxes: Default::default(),
+            stream_handle: Default::default(),
+            buffer_selection_handle: Default::default(),
+            gain_handle: Default::default(),
+            current_status_handle: Default::default(),
+            audio_initialized: Default::default(),
+            audio_loading: Default::default(),
+            sample_rate: FALLBACK_SAMPLE_RATE,
+            granular_synthesizer_handle,
+        }
+    }
 }
 
 impl Reducible for AppState {
@@ -42,9 +77,13 @@ impl Reducible for AppState {
         {
             let action = action.clone();
             match action {
-                AppAction::SetBuffer(buffer) => {
+                AppAction::SetBuffer(buffer, sample_rate_option) => {
+                    // if no sample rate is supplied, default to the one currently in state
+                    let sample_rate = sample_rate_option.unwrap_or(next_state.sample_rate);
+
                     next_state.buffer_maxes = get_buffer_maxes(&buffer);
-                    next_state.buffer = BufferHandle::new(buffer);
+                    next_state.granular_synthesizer_handle.replace(Arc::clone(&buffer), sample_rate);
+                    next_state.buffer_handle = BufferHandle::new(buffer);
                 }
                 AppAction::SetStreamHandle(stream_handle) => {
                     next_state.stream_handle = stream_handle;
@@ -56,7 +95,9 @@ impl Reducible for AppState {
                     next_state.buffer_selection_handle.set_mouse_end(end);
                 }
                 AppAction::SetBufferSelectionMouseDown(mouse_down) => {
-                    next_state.buffer_selection_handle.set_mouse_down(mouse_down);
+                    next_state
+                        .buffer_selection_handle
+                        .set_mouse_down(mouse_down);
                 }
                 AppAction::SetGain(gain) => {
                     next_state.gain_handle.set(gain);
@@ -66,9 +107,12 @@ impl Reducible for AppState {
                 }
                 AppAction::SetAudioInitialized(is_initialized) => {
                     next_state.audio_initialized = is_initialized;
-                },
+                }
                 AppAction::SetAudioLoading(loading) => {
                     next_state.audio_loading = loading;
+                }
+                AppAction::SetSampleRate(sample_rate) => {
+                    next_state.sample_rate = sample_rate;
                 },
             }
         }

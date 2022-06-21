@@ -79,7 +79,7 @@ impl<const C: usize> GranularSynthesizer<C> {
 
     /// Returns min grain length as a a number of samples
     pub fn get_grain_len_smallest_samples(&self) -> u32 {
-        self.sample_rate  / (1000 / GRAIN_MIN_LEN_IN_MS)
+        self.sample_rate / (1000 / GRAIN_MIN_LEN_IN_MS)
     }
 
     pub fn set_selection_start(&mut self, start: f32) -> &mut Self {

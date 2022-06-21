@@ -49,7 +49,7 @@ pub fn buffer_sample_bars() -> Html {
     let buffer_maxes = &app_context.state_handle.buffer_maxes;
 
     // empty buffer
-    if app_context.state_handle.buffer.get_data().is_empty() {
+    if app_context.state_handle.buffer_handle.get_data().is_empty() {
         return html! {
             <>
                 {buffer_maxes.iter().map(|_| {

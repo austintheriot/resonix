@@ -6,5 +6,6 @@ pub mod current_status_handle;
 pub mod decode_bytes;
 pub mod gain;
 pub mod gain_handle;
+pub mod granular_synthesizer_handle;
 pub mod initialize_audio;
 pub mod stream_handle;
