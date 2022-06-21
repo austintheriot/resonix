@@ -9,7 +9,7 @@ pub trait AppSelector {
 
 impl AppSelector for AppState {
     fn get_is_enable_audio_button_disabled(&self) -> bool {
-        self.audio_initialized
+        self.audio_initialized || self.audio_loading
     }
 
     fn get_is_play_input_disabled(&self) -> bool {

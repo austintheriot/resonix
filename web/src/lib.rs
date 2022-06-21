@@ -30,6 +30,7 @@ pub fn main() -> Result<(), JsValue> {
         .query_selector("#app")
         .unwrap()
         .unwrap();
+        
     yew::start_app_in_element::<components::app::App>(app_div);
 
     Ok(())

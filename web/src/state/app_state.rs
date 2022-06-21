@@ -30,6 +30,8 @@ pub struct AppState {
     /// Has audio been initialized yet? Audio interactions must be initiated from 
     /// a user touch / interaction. 
     pub audio_initialized: bool,
+    /// If audio currently being initialized?
+    pub audio_loading: bool,
 }
 
 impl Reducible for AppState {
@@ -64,6 +66,9 @@ impl Reducible for AppState {
                 }
                 AppAction::SetAudioInitialized(is_initialized) => {
                     next_state.audio_initialized = is_initialized;
+                },
+                AppAction::SetAudioLoading(loading) => {
+                    next_state.audio_loading = loading;
                 },
             }
         }

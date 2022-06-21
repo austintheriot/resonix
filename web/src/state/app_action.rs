@@ -11,4 +11,5 @@ pub enum AppAction {
     SetGain(f32),
     SetStatus(CurrentStatus),
     SetAudioInitialized(bool),
+    SetAudioLoading(bool)
 }
