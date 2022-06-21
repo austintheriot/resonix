@@ -3,25 +3,25 @@ use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
-pub const NUM_CHANNELS: usize = 3;
+pub const NUM_CHANNELS: usize = 150;
 pub const GRAIN_LEN_MIN_IN_MS: usize = 10;
 pub const GRAIN_LEN_MAX_IN_MS: usize = 1000;
 
 
 #[derive(Clone)]
-pub struct GranularSynthesizerHandle<const N: usize = 2> {
+pub struct GranularSynthesizerHandle<const N: usize> {
     granular_synthesizer: Arc<Mutex<GranularSynthesizer<N>>>,
     counter: u8,
     uuid: Uuid,
 }
 
-impl PartialEq for GranularSynthesizerHandle {
+impl<const N: usize> PartialEq for GranularSynthesizerHandle<N> {
     fn eq(&self, other: &Self) -> bool {
         self.counter == other.counter && self.uuid == other.uuid
     }
 }
 
-impl Debug for GranularSynthesizerHandle {
+impl<const N: usize> Debug for GranularSynthesizerHandle<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GranularSynthesizerHandle")
             .field("counter", &self.counter)

@@ -2,7 +2,7 @@ use crate::audio::buffer_handle::BufferHandle;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
 use crate::audio::current_status_handle::CurrentStatusHandle;
 use crate::audio::gain_handle::GainHandle;
-use crate::audio::granular_synthesizer_handle::GranularSynthesizerHandle;
+use crate::audio::granular_synthesizer_handle::{GranularSynthesizerHandle, NUM_CHANNELS};
 use crate::audio::stream_handle::StreamHandle;
 use crate::components::buffer_sample_bars::get_buffer_maxes;
 use crate::state::app_action::AppAction;
@@ -40,7 +40,7 @@ pub struct AppState {
     pub audio_loading: bool,
     /// Enables updating GranularSynthesizerData from the UI while also getting
     /// audio frames / mutating internal state from the audio thread.
-    pub granular_synthesizer_handle: GranularSynthesizerHandle,
+    pub granular_synthesizer_handle: GranularSynthesizerHandle<NUM_CHANNELS>,
     /// Sample rate is instantiated with a fallback sample rate,
     /// but this rate should be updated at audio initialization time.
     pub sample_rate: SampleRate,
