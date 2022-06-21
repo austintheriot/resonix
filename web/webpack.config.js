@@ -9,10 +9,11 @@ const staticFilesSrc = path.resolve(__dirname, "static");
 const audioFilesSrc = path.resolve(__dirname, "../audio");
 
 module.exports = (env, argv) => {
+  const isProduction = argv.mode === 'production';
   return {
     devServer: {
-      contentBase: argv.mode === 'production' ? distPath : devPath,
-      compress: argv.mode === 'production',
+      contentBase: isProduction ? distPath : devPath,
+      compress: isProduction,
       port: 8000,
     },
     entry: './index.js',
@@ -36,10 +37,14 @@ module.exports = (env, argv) => {
     plugins: [
       new CopyWebpackPlugin({
         patterns: [
-          { from: staticFilesSrc, to: distPath },
-          { from: audioFilesSrc, to: distPath },
-          { from: staticFilesSrc, to: devPath },
-          { from: audioFilesSrc, to: devPath },
+          ...(
+            isProduction ? [
+              { from: staticFilesSrc, to: distPath },
+              { from: audioFilesSrc, to: distPath }
+            ] : [
+              { from: staticFilesSrc, to: devPath },
+              { from: audioFilesSrc, to: devPath },
+            ])
         ],
       }),
       new WasmPackPlugin({
