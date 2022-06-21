@@ -1,19 +1,13 @@
 # Rust Audio
 
 ## Todos:
-
-- Show loading state when initializing audio
 - Enable draggging the current buffer selection window
 
 - Web
-    - Make play/pause/load separate actions & events:
-        - Initialize audio right away
-        - Make play / pause use the current_status as the default mechanism for starting/stopping playback
-        - Do not include mp3 data in binary: fetch at runtime once a sound file has been selected (fetch default at runtime too)
+   - Create a dropdown for switching out audio buffers
 
     - Build Interactive UI
         - Refactor visual representation of current audio buffer to use an svg <path /> element?
-        - Create a dropdown for switching out audio buffers
         - Create sliders/knobs for adjust grain length
         - Make nicer styles
     - Fixes:
