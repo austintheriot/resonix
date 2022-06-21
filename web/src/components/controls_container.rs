@@ -3,6 +3,7 @@ use crate::{
     components::buffer_container::BufferContainer,
     components::controls_gain::ControlsGain,
     components::controls_status::ControlsStatus,
+    components::controls_select_buffer::ControlsSelectBuffer,
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
@@ -58,6 +59,7 @@ pub fn controls_container() -> Html {
             }}
             <ControlsStatus />
             <ControlsGain />
+            <ControlsSelectBuffer />
             <BufferContainer />
         </div>
     }
