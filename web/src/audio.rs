@@ -4,6 +4,8 @@ pub mod buffer_selection_handle;
 pub mod current_status;
 pub mod current_status_handle;
 pub mod decode_bytes;
+pub mod density;
+pub mod density_handle;
 pub mod gain;
 pub mod gain_handle;
 pub mod granular_synthesizer_handle;

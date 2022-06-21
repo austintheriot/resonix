@@ -1,5 +1,5 @@
 use crate::{
-    audio::{granular_synthesizer_handle::NUM_CHANNELS, stream_handle::StreamHandle},
+    audio::{granular_synthesizer_handle::MAX_NUM_CHANNELS, stream_handle::StreamHandle},
     state::{app_action::AppAction, app_state::AppState},
 };
 use cpal::{
@@ -112,13 +112,13 @@ where
             let right_spatialization_percent = (i as f32) / (frame.len() as f32);
 
             // division by 0 will happen below if num of channels is less than 2
-            debug_assert!(NUM_CHANNELS >= 2);
+            debug_assert!(MAX_NUM_CHANNELS >= 2);
 
             // logarithmically scaling the volume seems to work well for very large numbers of voices
             let left_value_to_add =
-                (channel_value * left_spatialization_percent) / (NUM_CHANNELS as f32).log(2.0);
+                (channel_value * left_spatialization_percent) / (MAX_NUM_CHANNELS as f32).log(2.0);
             let right_value_to_add =
-                (channel_value * right_spatialization_percent) / (NUM_CHANNELS as f32).log(2.0);
+                (channel_value * right_spatialization_percent) / (MAX_NUM_CHANNELS as f32).log(2.0);
 
             left += left_value_to_add;
             right += right_value_to_add;

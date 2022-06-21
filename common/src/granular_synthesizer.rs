@@ -4,37 +4,55 @@ use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
 use std::sync::Arc;
 
-/// the smallest possible length of grain, given in samples
-pub const GRAIN_MIN_LEN_IN_MS: u32 = 1;
-
 /// Accepts a reference to a buffer of Vec<f32> audio sample data.
 ///
 /// Generates random multi-channel audio grain output.
-pub struct GranularSynthesizer<const NUM_CHANNELS: usize = 2> {
+pub struct GranularSynthesizer {
+    /// The maximum number of channels that can be generating samples via grains at a time.
+    /// This can be used in conjunction with `density` to alter the number of playing grains
+    /// during runtime.
+    max_num_channels: usize,
+
+    /// How many channels of grains to generate per frame (0.0 -> 1.0)
+    /// A value of 1.0 corresponds to `max_num_channels` and a value of 0.o corresponds to no channels.
+    density: f32,
+
     sample_rate: u32,
     buffer: Arc<Vec<f32>>,
+
     /// List of grains and their current progress through the buffer.
     ///
     /// 1 array element = 1 grain = 1 channel of audio
-    grains: [Grain; NUM_CHANNELS],
+    grains: Vec<Grain>,
+
     /// used to generate random indexes
     rng: StdRng,
+
     /// length in samples
     grain_len_min: u32,
+
     /// length in samples
     grain_len_max: u32,
+
     /// Samples that have been copied over from the audio buffer.
+    /// This value gets multiplied with its corresponding `output_env_samples`
+    /// to produce the final sample value.
     ///
     /// each array value = 1 channel
-    output_buffer_samples: [f32; NUM_CHANNELS],
+    output_buffer_samples: Vec<f32>,
+
     /// Envelope values that have been copied over to match the
     /// current progress of a grain.
+    /// This value gets multiplied with its corresponding `output_buffer_samples`
+    /// to produce the final sample value.
     ///
     /// each array value = 1 channel
-    output_env_samples: [f32; NUM_CHANNELS],
+    output_env_samples: Vec<f32>,
+
     /// The minimum index that samples can be taken from,
     /// ranging from 0.0 -> 1.0 (i.e. percentage of the buffer)
     selection_start: f32,
+
     /// The maximum index that samples can be taken from,
     /// ranging from 0.0 -> 1.0 (i.e. percentage of the buffer)
     selection_end: f32,
@@ -54,21 +72,30 @@ const fn new_grain() -> Grain {
     }
 }
 
-impl<const C: usize> GranularSynthesizer<C> {
+impl GranularSynthesizer {
+    pub const DENSITY_MAX: f32 = 1.0;
+    pub const DENSITY_MIN: f32 = 0.0;
+    pub const DEFAULT_NUM_CHANNELS: usize = 2;
+    pub const DEFAULT_DENSITY: f32 = 1.0;
+    /// the smallest possible length of grain, given in samples
+    pub const GRAIN_MIN_LEN_IN_MS: u32 = 1;
+
     /// Creates a new Granular Synthesizer instance
     pub fn new(buffer: Arc<Vec<f32>>, sample_rate: u32) -> Self {
         let buffer_len = buffer.len();
         GranularSynthesizer {
             sample_rate,
             buffer: buffer,
-            grains: [new_grain(); C],
+            grains: vec![new_grain(); GranularSynthesizer::DEFAULT_NUM_CHANNELS],
             rng: rand::rngs::StdRng::from_entropy(),
-            grain_len_min: sample_rate / (1000 / GRAIN_MIN_LEN_IN_MS),
+            grain_len_min: sample_rate / (1000 / GranularSynthesizer::GRAIN_MIN_LEN_IN_MS),
             grain_len_max: buffer_len as u32,
-            output_buffer_samples: [0.0; C],
-            output_env_samples: [0.0; C],
+            output_buffer_samples: vec![0.0; GranularSynthesizer::DEFAULT_NUM_CHANNELS],
+            output_env_samples: vec![0.0; GranularSynthesizer::DEFAULT_NUM_CHANNELS],
             selection_start: 0.0,
             selection_end: 0.0,
+            max_num_channels: GranularSynthesizer::DEFAULT_NUM_CHANNELS,
+            density: GranularSynthesizer::DEFAULT_DENSITY,
         }
     }
 
@@ -79,7 +106,7 @@ impl<const C: usize> GranularSynthesizer<C> {
 
     /// Returns min grain length as a a number of samples
     pub fn get_grain_len_smallest_samples(&self) -> u32 {
-        self.sample_rate / (1000 / GRAIN_MIN_LEN_IN_MS)
+        self.sample_rate / (1000 / GranularSynthesizer::GRAIN_MIN_LEN_IN_MS)
     }
 
     pub fn set_selection_start(&mut self, start: f32) -> &mut Self {
@@ -113,7 +140,7 @@ impl<const C: usize> GranularSynthesizer<C> {
         let input_min_len_in_samples = self.sample_rate / (1000 / input_min_len_in_ms as u32);
         self.grain_len_min = input_min_len_in_samples
             // min should be less than existing max
-            .min(self.grain_len_max - GRAIN_MIN_LEN_IN_MS)
+            .min(self.grain_len_max - GranularSynthesizer::GRAIN_MIN_LEN_IN_MS)
             // min len should not be less than the end of the smallest possible grain
             .max(min_len_in_samples);
 
@@ -126,10 +153,48 @@ impl<const C: usize> GranularSynthesizer<C> {
         let input_max_len_in_samples = self.sample_rate / (1000 / input_max_len_in_ms as u32);
         self.grain_len_max = input_max_len_in_samples
             // max should be greater than existing min
-            .max(self.grain_len_min + GRAIN_MIN_LEN_IN_MS)
+            .max(self.grain_len_min + GranularSynthesizer::GRAIN_MIN_LEN_IN_MS)
             // max len should not be longer than the length of the buffer
             .min(self.buffer.len() as u32);
+
         self
+    }
+
+    pub fn set_max_number_of_channels(&mut self, max_num_channels: usize) {
+        self.max_num_channels = max_num_channels;
+
+        // assumption: it's ok for the `grains`, `output_buffer_samples`, and `output_env_samples`
+        // vectors to be LONGER than `max_num_channels`, because they are not used as the basis of iteration
+
+        // extend grains to be as long as max number of channels
+        if max_num_channels > self.grains.len() {
+            let num_extra_samples = max_num_channels - self.grains.len();
+            self.grains.extend(vec![new_grain(); num_extra_samples]);
+        }
+
+        // extend samples buffer to be as long as max number of channels
+        if max_num_channels > self.output_buffer_samples.len() {
+            let num_extra_samples = max_num_channels - self.output_buffer_samples.len();
+            self.output_buffer_samples
+                .extend(vec![0.0; num_extra_samples]);
+        }
+
+        // extend envelope buffer to be as long as max number of channels
+        if max_num_channels > self.output_env_samples.len() {
+            let num_extra_samples = max_num_channels - self.output_env_samples.len();
+            self.output_env_samples.extend(vec![0.0; num_extra_samples]);
+        }
+    }
+
+    /// Returns a density value within an acceptable range
+    pub fn sanitize_density(density: f32) -> f32 {
+        density
+            .max(GranularSynthesizer::DENSITY_MIN)
+            .min(GranularSynthesizer::DENSITY_MAX)
+    }
+
+    pub fn set_density(&mut self, density: f32) {
+        self.density = GranularSynthesizer::sanitize_density(density);
     }
 
     /// Iterates through array of grains (1 grain for each channel), and refreshes any
@@ -163,11 +228,6 @@ impl<const C: usize> GranularSynthesizer<C> {
                 let start_frame = self.rng.gen_range(selection_start_in_samples..max_index);
                 let end_frame = start_frame + envolope_len_samples;
 
-                debug_assert!(start_frame > 0);
-                debug_assert!(end_frame > 0);
-                debug_assert!(start_frame < self.buffer.len());
-                debug_assert!(end_frame < self.buffer.len());
-
                 let new_grain = Grain::new(start_frame as usize, end_frame as usize);
                 *grain = new_grain;
             }
@@ -182,12 +242,8 @@ impl<const C: usize> GranularSynthesizer<C> {
     fn fill_buffer_and_env_samples(&mut self) {
         // get value of each grain's current index in the buffer for each channel
         self.grains.iter_mut().enumerate().for_each(|(i, grain)| {
-            debug_assert_eq!(grain.finished, false);
-
             let envelope_percent =
                 ((grain.current_frame - grain.start_frame) as f32) / (grain.len as f32);
-            debug_assert!(envelope_percent >= 0.0, "{}", envelope_percent);
-            debug_assert!(envelope_percent < 1.0, "{}", envelope_percent);
 
             let envelope_value =
                 utils::generate_triangle_envelope_value_from_percent(envelope_percent);
@@ -201,12 +257,32 @@ impl<const C: usize> GranularSynthesizer<C> {
         });
     }
 
+    /// this represents the number of channels actually in use
+    fn get_num_channels_for_frame(&self) -> usize {
+        let num_channels = (self.max_num_channels as f32 * self.density) as usize;
+        num_channels
+    }
+
     /// Combines current buffer and envelope sample values to calculate a full audio frame
     /// (where each channel gets a single audio output value).
-    fn get_frame_data(&self) -> [f32; C] {
-        let mut frame_data = [0.0; C];
+    fn get_frame_data(&self) -> Vec<f32> {
+        let num_channels_for_frame = self.get_num_channels_for_frame();
+        let mut frame_data = vec![0.0; num_channels_for_frame];
         for (i, channel) in frame_data.iter_mut().enumerate() {
-            *channel = self.output_buffer_samples[i] * self.output_env_samples[i];
+            let buffer_sample = self
+                .output_buffer_samples
+                .get(i)
+                .map(|value| *value)
+                .expect("output_buffer_samples length should match max number of grains");
+
+            let envelope_sample = self
+                .output_env_samples
+                .get(i)
+                .map(|value| *value)
+                .expect("output_env_samples length should match max number of grains");
+
+            // if these buffers have not been filled up yet, just return 0.0
+            *channel = buffer_sample * envelope_sample;
         }
         frame_data
     }
@@ -214,7 +290,7 @@ impl<const C: usize> GranularSynthesizer<C> {
     /// Returns a full audio frame (1 array element = 1 audio channel value),
     /// where each channel gets its own, indepedent value
     /// based on the progression of that audio channel's grain.
-    pub fn next_frame(&mut self) -> [f32; C] {
+    pub fn next_frame(&mut self) -> Vec<f32> {
         self.refresh_grains();
         self.fill_buffer_and_env_samples();
         self.get_frame_data()

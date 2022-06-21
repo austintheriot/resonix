@@ -1,8 +1,9 @@
 use crate::audio::buffer_handle::BufferHandle;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
 use crate::audio::current_status_handle::CurrentStatusHandle;
+use crate::audio::density_handle::DensityHandle;
 use crate::audio::gain_handle::GainHandle;
-use crate::audio::granular_synthesizer_handle::{GranularSynthesizerHandle, NUM_CHANNELS};
+use crate::audio::granular_synthesizer_handle::GranularSynthesizerHandle;
 use crate::audio::stream_handle::StreamHandle;
 use crate::components::buffer_sample_bars::get_buffer_maxes;
 use crate::state::app_action::AppAction;
@@ -40,10 +41,13 @@ pub struct AppState {
     pub audio_loading: bool,
     /// Enables updating GranularSynthesizerData from the UI while also getting
     /// audio frames / mutating internal state from the audio thread.
-    pub granular_synthesizer_handle: GranularSynthesizerHandle<NUM_CHANNELS>,
+    pub granular_synthesizer_handle: GranularSynthesizerHandle,
     /// Sample rate is instantiated with a fallback sample rate,
     /// but this rate should be updated at audio initialization time.
     pub sample_rate: SampleRate,
+    /// Corresponds to the percentage of channels that will output samples
+    /// from the `GranularSynthesizer` on every frame (0.0 -> 1.0)
+    pub density_handle: DensityHandle,
 }
 
 impl Default for AppState {
@@ -55,7 +59,6 @@ impl Default for AppState {
             GranularSynthesizerHandle::new(buffer_handle.get_data(), 48000);
 
         Self {
-            buffer_handle: buffer_handle.clone(),
             buffer_maxes: Default::default(),
             stream_handle: Default::default(),
             buffer_selection_handle: Default::default(),
@@ -63,7 +66,11 @@ impl Default for AppState {
             current_status_handle: Default::default(),
             audio_initialized: Default::default(),
             audio_loading: Default::default(),
+            density_handle: Default::default(),
+
+            // non-default implementations
             sample_rate: FALLBACK_SAMPLE_RATE,
+            buffer_handle: buffer_handle.clone(),
             granular_synthesizer_handle,
         }
     }
@@ -82,7 +89,9 @@ impl Reducible for AppState {
                     let sample_rate = sample_rate_option.unwrap_or(next_state.sample_rate);
 
                     next_state.buffer_maxes = get_buffer_maxes(&buffer);
-                    next_state.granular_synthesizer_handle.replace(Arc::clone(&buffer), sample_rate);
+                    next_state
+                        .granular_synthesizer_handle
+                        .replace(Arc::clone(&buffer), sample_rate);
                     next_state.buffer_handle = BufferHandle::new(buffer);
                 }
                 AppAction::SetStreamHandle(stream_handle) => {
@@ -113,6 +122,10 @@ impl Reducible for AppState {
                 }
                 AppAction::SetSampleRate(sample_rate) => {
                     next_state.sample_rate = sample_rate;
+                }
+                AppAction::SetDensity(density) => {
+                    next_state.density_handle.set(density);
+                    next_state.granular_synthesizer_handle.set_density(density);
                 },
             }
         }
