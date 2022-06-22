@@ -4,9 +4,8 @@ use web_sys::AudioContext;
 
 /// Decodes raw bytes into a JavaScript AudioBuffer, using the browser's built-in `decode_audio_data` functionality.
 pub async fn decode_bytes(audio_context: &AudioContext, bytes: &[u8]) -> web_sys::AudioBuffer {
-    // this action is "unsafe" because it's creating a JavaScript view into wasm linear memory,
-    // but there's no risk in this case, because `mp3_file_bytes` is an array that is statically compiled
-    // into the wasm binary itself and will not be reallocated at runtime
+    // This action is "unsafe" because it's creating a JavaScript view into wasm linear memory.
+    // This is low risk as long as no allocations are made between this call and `decode_audio_data`.
     let mp3_u_int8_array = unsafe { js_sys::Uint8Array::view(bytes) };
 
     // this data must be copied, because decodeAudioData() claims the ArrayBuffer it receives

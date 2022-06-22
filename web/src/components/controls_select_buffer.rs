@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    audio::decode_bytes,
+    audio::decode,
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError}, app_selector::AppSelector,
@@ -18,7 +18,7 @@ use yew::{function_component, html, prelude::*};
 include!(concat!(env!("OUT_DIR"), "/audio_files.rs"));
 
 /// This is the audio file that is loaded by default at initialization time
-pub const DEFAULT_AUDIO_FILE: &'static str = AUDIO_FILES[2];
+pub const DEFAULT_AUDIO_FILE: &'static str = AUDIO_FILES[3];
 
 #[function_component(ControlsSelectBuffer)]
 pub fn controls_select_buffer() -> Html {
@@ -54,7 +54,7 @@ pub fn controls_select_buffer() -> Html {
                 let audio_context = web_sys::AudioContext::new()
                     .expect("Browser should have AudioContext implemented");
                 let audio_buffer =
-                    decode_bytes::decode_bytes(&audio_context, &mp3_file_bytes).await;
+                    decode::decode_bytes(&audio_context, &mp3_file_bytes).await;
                 let buffer_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
                 state_handle.dispatch(AppAction::SetBuffer(buffer_data, None));
             })

@@ -10,7 +10,7 @@ use gloo_net::http::Request;
 use std::sync::Arc;
 use yew::UseReducerHandle;
 
-use super::{current_status::CurrentStatus, decode_bytes};
+use super::{current_status::CurrentStatus, decode, gain_action::GainAction};
 
 /// Converts default mp3 file to raw audio sample data
 async fn load_default_buffer(
@@ -30,7 +30,7 @@ async fn load_default_buffer(
         .await
         .unwrap();
 
-    let audio_buffer = decode_bytes::decode_bytes(&audio_context, &mp3_file_bytes).await;
+    let audio_buffer = decode::decode_bytes(&audio_context, &mp3_file_bytes).await;
     let mp3_source_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
     app_state_handle.dispatch(AppAction::SetBuffer(
         Arc::clone(&mp3_source_data),

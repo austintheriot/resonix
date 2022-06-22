@@ -29,7 +29,7 @@ pub fn controls_container() -> Html {
             wasm_bindgen_futures::spawn_local(async move {
                 state_handle.dispatch(AppAction::SetAudioLoading(true));
                 let new_stream_handle =
-                    audio::initialize_audio::initialize_audio(state_handle.clone()).await;
+                    audio::initialize::initialize_audio(state_handle.clone()).await;
                 // save the audio stream handle so that playback continues
                 // (once the handle is dropped, the stream will stop playing)
                 state_handle.dispatch(AppAction::SetAudioLoading(false));

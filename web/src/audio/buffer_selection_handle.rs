@@ -1,4 +1,4 @@
-use super::buffer_selection::{BufferSelection, BUFFER_SELECTION_MAX, BUFFER_SELECTION_MIN};
+use super::buffer_selection::BufferSelection;
 use std::sync::{Arc, Mutex};
 
 /// This is an `Arc` wrapper around `BufferSelection`
@@ -33,7 +33,7 @@ impl BufferSelectionHandle {
 
     pub fn set_mouse_start(&mut self, start: f32) -> &mut Self {
         self.buffer_selection.lock().unwrap().mouse_start =
-            start.max(BUFFER_SELECTION_MIN).min(BUFFER_SELECTION_MAX);
+            BufferSelection::sanitize_selection(start);
 
         self.bump_counter();
 
@@ -41,8 +41,7 @@ impl BufferSelectionHandle {
     }
 
     pub fn set_mouse_end(&mut self, end: f32) -> &mut Self {
-        self.buffer_selection.lock().unwrap().mouse_end =
-            end.max(BUFFER_SELECTION_MIN).min(BUFFER_SELECTION_MAX);
+        self.buffer_selection.lock().unwrap().mouse_end = BufferSelection::sanitize_selection(end);
 
         self.bump_counter();
 

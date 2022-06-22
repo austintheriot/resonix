@@ -1,0 +1,1 @@
+pub const FALLBACK_SAMPLE_RATE: u32 = 44100;

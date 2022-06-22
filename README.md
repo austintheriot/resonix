@@ -1,7 +1,7 @@
 # Rust Audio
 
 ## Todos:
-- Enable draggging the current buffer selection window
+- Enable draggging the current buffer selection window?
 - Share a single audio context that is initialized (?) at init time?
 - Move GranularSynthesizer `impl` functions into their own `trait`, and then
     implement that trait in `GranularSynthesizerHandle`.
