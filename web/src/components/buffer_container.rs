@@ -25,7 +25,7 @@ pub fn get_touch_percent_x(div_ref: &NodeRef, touch_client_x: i32) -> f32 {
 #[function_component(BufferContainer)]
 pub fn buffer_container() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
-    let buffer_selector_disabled = app_context.state_handle.get_is_buffer_selection_visualizer_disabled();
+    let buffer_selector_disabled = app_context.state_handle.get_are_audio_controls_disabled();
     let div_ref = use_node_ref();
 
     let handle_mouse_down = {

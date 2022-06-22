@@ -9,7 +9,7 @@ use yew::{function_component, html, prelude::*};
 #[function_component(ControlsDensity)]
 pub fn controls_density() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
-    let density_input_disabled = app_context.state_handle.get_is_density_input_disabled();
+    let density_input_disabled = app_context.state_handle.get_are_audio_controls_disabled();
     let density = app_context.state_handle.density_handle.get();
 
     let handle_change = {

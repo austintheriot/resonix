@@ -13,7 +13,7 @@ use yew::{function_component, html, prelude::*};
 pub fn controls_status() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
     let current_status = app_context.state_handle.current_status_handle.get();
-    let input_disabled = app_context.state_handle.get_is_play_input_disabled();
+    let input_disabled = app_context.state_handle.get_are_audio_controls_disabled();
 
     let handle_change = {
         let state_handle = app_context.state_handle.clone();

@@ -12,7 +12,7 @@ use yew::{function_component, html, prelude::*};
 #[function_component(ControlsGain)]
 pub fn controls_gain() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
-    let gain_input_disabled = app_context.state_handle.get_is_gain_input_disabled();
+    let gain_input_disabled = app_context.state_handle.get_are_audio_controls_disabled();
     let gain = app_context.state_handle.gain_handle.get();
 
     let handle_change = {

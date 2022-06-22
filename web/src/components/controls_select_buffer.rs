@@ -4,7 +4,7 @@ use crate::{
     audio::decode_bytes,
     state::{
         app_action::AppAction,
-        app_context::{AppContext, AppContextError},
+        app_context::{AppContext, AppContextError}, app_selector::AppSelector,
     },
 };
 use gloo_net::http::Request;
@@ -17,10 +17,14 @@ use yew::{function_component, html, prelude::*};
 // of files available from the `audio` directory
 include!(concat!(env!("OUT_DIR"), "/audio_files.rs"));
 
+/// This is the audio file that is loaded by default at initialization time
+pub const DEFAULT_AUDIO_FILE: &'static str = AUDIO_FILES[2];
+
 #[function_component(ControlsSelectBuffer)]
 pub fn controls_select_buffer() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
     let select_ref = use_node_ref();
+    let select_element_disabled = app_context.state_handle.get_are_audio_controls_disabled();
 
     let handle_change = {
         let state_handle = app_context.state_handle.clone();
@@ -60,17 +64,18 @@ pub fn controls_select_buffer() -> Html {
     html! {
         <>
             <label for="controls-select-buffer">
-                {"Play"}
+                {"Select File"}
             </label>
             <select
                 id="controls-select-buffer"
                 class="controls-select-buffer"
                 onchange={handle_change}
                 ref={select_ref}
+                disabled={select_element_disabled}
             >
                 {AUDIO_FILES.iter().map(|file_name| {
                     html!{
-                        <option>
+                        <option selected={file_name == &DEFAULT_AUDIO_FILE}>
                             {file_name}
                         </option>
                     }

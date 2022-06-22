@@ -1,6 +1,6 @@
 use crate::{
     audio::{granular_synthesizer_handle::MAX_NUM_CHANNELS, stream_handle::StreamHandle},
-    state::{app_action::AppAction, app_state::AppState},
+    state::{app_action::AppAction, app_state::AppState}, components::controls_select_buffer::DEFAULT_AUDIO_FILE,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -22,7 +22,7 @@ async fn load_default_buffer(
 
     // audio files are copied into static director for web (same directory as source wasm file)
     // fetch a default audio file at initialization time
-    let mp3_file_bytes = Request::get("./ecce_nova_3.mp3")
+    let mp3_file_bytes = Request::get(&format!("./{}", DEFAULT_AUDIO_FILE))
         .send()
         .await
         .unwrap()
@@ -70,18 +70,10 @@ pub async fn run<T>(
 where
     T: cpal::Sample,
 {
+    // this is the config of the output audio
     let sample_rate = stream_config.sample_rate.0;
-
-    app_state_handle.dispatch(AppAction::SetSampleRate(sample_rate));
-
-    // will likely use this eventually
     let channels = stream_config.channels as usize;
-
-    // only load new buffer if current one is empty
-    let existing_buffer_data = app_state_handle.buffer_handle.get_data();
-    if existing_buffer_data.is_empty() {
-        load_default_buffer(app_state_handle.clone(), sample_rate).await;
-    }
+    load_default_buffer(app_state_handle.clone(), sample_rate).await;
 
     let buffer_selection_handle = app_state_handle.buffer_selection_handle.clone();
     let gain_handle = app_state_handle.gain_handle.clone();
@@ -153,6 +145,8 @@ pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> S
         .expect("failed to find a default output device");
     let config = device.default_output_config().unwrap();
     let sample_format = config.sample_format();
+    let sample_rate = config.sample_rate().0;
+    app_state_handle.dispatch(AppAction::SetSampleRate(sample_rate));
 
     StreamHandle::new(match sample_format {
         cpal::SampleFormat::F32 => run::<f32>(app_state_handle, &device, &config.into())
