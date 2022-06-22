@@ -1,7 +1,10 @@
 use crate::audio::buffer_handle::BufferHandle;
+use crate::audio::buffer_selection_action::BufferSelectionAction;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
+use crate::audio::current_status_action::CurrentStatusAction;
 use crate::audio::current_status_handle::CurrentStatusHandle;
 use crate::audio::defaults::FALLBACK_SAMPLE_RATE;
+use crate::audio::density_action::DensityAction;
 use crate::audio::density_handle::DensityHandle;
 use crate::audio::gain_action::GainAction;
 use crate::audio::gain_handle::GainHandle;
@@ -15,26 +18,25 @@ use yew::Reducible;
 
 pub type SampleRate = u32;
 
-
-/// Global app-level state. 
-/// 
+/// Global app-level state.
+///
 /// There are two approaches that are used to update state in this struct:
-/// 
+///
 /// ## Replace
 /// This is the default apprach that is used to update UI state.
 /// Any updated state is entirely replaced (i.e. not mutated) with an updated struct.
 /// This is similar to appraches like Redux reducers.
-/// 
+///
 /// ## Update in place
 /// This is default approach for state that is accessed from the audio thread.
 /// Because the audio thread needs a handle to a stable location in memory,
 /// these values cannot be replaced. They must be updated in place. The outer handle is cloned, while
 /// the inner memory remains consistent. Then, on any state updates, an internal counter in the handle itself
 /// is modified so that Yew can compare the previous handle to the new handle and see that the object was updated.
-/// 
+///
 /// If we did not update the handle's internal state in some way, Yew would have no way of comparing
 /// previous Handles to new Handles, because the outer Handle would be identical in both, and the internal
-/// memory/pointer would also be identical. 
+/// memory/pointer would also be identical.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AppState {
     /// The currently loaded audio buffer

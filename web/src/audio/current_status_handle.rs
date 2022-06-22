@@ -1,4 +1,4 @@
-use super::current_status::CurrentStatus;
+use super::{current_status::CurrentStatus, current_status_action::CurrentStatusAction, bump_counter::BumpCounter};
 use std::sync::{Arc, Mutex};
 
 /// Current play/pause status -- for use in both UI and audio processing
@@ -6,6 +6,30 @@ use std::sync::{Arc, Mutex};
 pub struct CurrentStatusHandle {
     current_status: Arc<Mutex<CurrentStatus>>,
     counter: u32,
+}
+
+impl CurrentStatusAction for CurrentStatusHandle {
+    fn new(current_status: CurrentStatus) -> Self {
+        CurrentStatusHandle {
+            current_status: Arc::new(Mutex::new(current_status)),
+            counter: Default::default(),
+        }
+    }
+
+    fn get(&self) -> CurrentStatus {
+        *self.current_status.lock().unwrap()
+    }
+
+    fn set(&mut self, status: CurrentStatus) {
+        *self.current_status.lock().unwrap() = status;
+        self.bump_counter();
+    }
+}
+
+impl BumpCounter for CurrentStatusHandle {
+    fn bump_counter(&mut self) {
+        self.counter = self.counter.wrapping_add(1);
+    }
 }
 
 impl PartialEq for CurrentStatusHandle {
@@ -20,29 +44,5 @@ impl Default for CurrentStatusHandle {
             current_status: Arc::new(Mutex::new(CurrentStatus::PAUSE)),
             counter: Default::default(),
         }
-    }
-}
-
-impl CurrentStatusHandle {
-    /// Bumps up counter so that Yew knows interanal state has changed,
-    /// even when the internal current_status points to the same memory
-    fn bump_counter(&mut self) {
-        self.counter = self.counter.wrapping_add(1);
-    }
-
-    pub fn new(current_status: CurrentStatus) -> Self {
-        CurrentStatusHandle {
-            current_status: Arc::new(Mutex::new(current_status)),
-            counter: Default::default(),
-        }
-    }
-
-    pub fn get(&self) -> CurrentStatus {
-        *self.current_status.lock().unwrap()
-    }
-
-    pub fn set(&mut self, status: CurrentStatus) {
-        *self.current_status.lock().unwrap() = status;
-        self.bump_counter();
     }
 }

@@ -1,8 +1,8 @@
-use crate::state::{
+use crate::{state::{
     app_action::AppAction,
     app_context::{AppContext, AppContextError},
     app_selector::AppSelector,
-};
+}, audio::density_action::DensityAction};
 use web_sys::HtmlInputElement;
 use yew::{function_component, html, prelude::*};
 

@@ -1,4 +1,3 @@
-use serde::{ser::SerializeStruct, Serialize};
 use std::fmt::Debug;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -13,19 +12,6 @@ use uuid::Uuid;
 pub struct BufferHandle {
     data: Arc<Vec<f32>>,
     uuid: Uuid,
-}
-
-/// This is only serialized for state update logging purposes
-impl Serialize for BufferHandle {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        // 3 is the number of fields in the struct.
-        let mut state = serializer.serialize_struct("Buffer", 1)?;
-        state.serialize_field("uuid", &self.uuid.to_string())?;
-        state.end()
-    }
 }
 
 impl PartialEq for BufferHandle {

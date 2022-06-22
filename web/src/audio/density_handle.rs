@@ -1,8 +1,6 @@
-use std::sync::{Arc, Mutex};
-
+use super::{bump_counter::BumpCounter, density::Density, density_action::DensityAction};
 use common::granular_synthesizer::GranularSynthesizer;
-
-use super::density::Density;
+use std::sync::{Arc, Mutex};
 
 /// Wrapper around `Density`, which makes it possible to access
 /// the data from the audio thread, while also updating the value from the UI.
@@ -10,6 +8,32 @@ use super::density::Density;
 pub struct DensityHandle {
     density: Arc<Mutex<Density>>,
     counter: u32,
+}
+
+impl DensityAction for DensityHandle {
+    const DEFAULT_DENSITY: f32 = GranularSynthesizer::DEFAULT_DENSITY;
+
+    fn new(density: f32) -> Self {
+        DensityHandle {
+            density: Arc::new(Mutex::new(Density::new(density))),
+            counter: Default::default(),
+        }
+    }
+
+    fn get(&self) -> f32 {
+        self.density.lock().unwrap().get()
+    }
+
+    fn set(&mut self, density: f32) {
+        self.density.lock().unwrap().set(density);
+        self.bump_counter();
+    }
+}
+
+impl BumpCounter for DensityHandle {
+    fn bump_counter(&mut self) {
+        self.counter = self.counter.wrapping_add(1);
+    }
 }
 
 impl PartialEq for DensityHandle {
@@ -24,34 +48,5 @@ impl Default for DensityHandle {
             density: Arc::new(Mutex::new(Density::default())),
             counter: Default::default(),
         }
-    }
-}
-
-impl DensityHandle {
-    /// Bumps up counter so that Yew knows interanal state has changed,
-    /// even when the internal ```density``` points to the same memory
-    ///
-    /// (i.e. now the external handle wrapper has a different count than
-    /// handle that it was cloned from, so they will no longer be ==)
-    fn bump_counter(&mut self) {
-        self.counter = self.counter.wrapping_add(1);
-    }
-
-    pub fn new(density: f32) -> Self {
-        DensityHandle {
-            density: Arc::new(Mutex::new(Density::new(
-                GranularSynthesizer::sanitize_density(density),
-            ))),
-            counter: Default::default(),
-        }
-    }
-
-    pub fn get(&self) -> f32 {
-        self.density.lock().unwrap().0
-    }
-
-    pub fn set(&mut self, density: f32) {
-        self.density.lock().unwrap().0 = GranularSynthesizer::sanitize_density(density);
-        self.bump_counter();
     }
 }

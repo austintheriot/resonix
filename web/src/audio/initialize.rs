@@ -1,6 +1,11 @@
+use super::{
+    buffer_selection_action::BufferSelectionAction, current_status::CurrentStatus,
+    current_status_action::CurrentStatusAction, decode, gain_action::GainAction,
+};
 use crate::{
-    audio::{granular_synthesizer_handle::MAX_NUM_CHANNELS, stream_handle::StreamHandle},
-    state::{app_action::AppAction, app_state::AppState}, components::controls_select_buffer::DEFAULT_AUDIO_FILE,
+    audio::{defaults::MAX_NUM_CHANNELS, stream_handle::StreamHandle},
+    components::controls_select_buffer::DEFAULT_AUDIO_FILE,
+    state::{app_action::AppAction, app_state::AppState},
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -9,8 +14,6 @@ use cpal::{
 use gloo_net::http::Request;
 use std::sync::Arc;
 use yew::UseReducerHandle;
-
-use super::{current_status::CurrentStatus, decode, gain_action::GainAction};
 
 /// Converts default mp3 file to raw audio sample data
 async fn load_default_buffer(

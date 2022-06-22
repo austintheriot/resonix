@@ -1,4 +1,7 @@
-use super::buffer_selection::BufferSelection;
+use super::{
+    buffer_selection::BufferSelection, buffer_selection_action::BufferSelectionAction,
+    bump_counter::BumpCounter,
+};
 use std::sync::{Arc, Mutex};
 
 /// This is an `Arc` wrapper around `BufferSelection`
@@ -6,7 +9,7 @@ use std::sync::{Arc, Mutex};
 /// Wrapping `BufferSelection` in an `Arc` allows up-to-date state in BufferSelection to be
 /// accesed from within the separate audio thread for up-to-date audio processing.
 ///
-/// When the `BufferHandle` is `Clone`d on global state updates, it's clone is the
+/// When the `BufferHandle` is `Clone`d on global state updates, its clone is the
 /// identical object to the original, because the `buffer_selection`'s `Arc` is simply cloned,
 /// and the outer struct frame (with the `counter`) is identical.
 ///
@@ -24,77 +27,57 @@ pub struct BufferSelectionHandle {
     counter: u32,
 }
 
-impl BufferSelectionHandle {
-    /// Bumps up counter so that Yew knows interanal state has changed,
-    /// even when the internal buffer_selection points to the same memory
+impl BumpCounter for BufferSelectionHandle {
     fn bump_counter(&mut self) {
         self.counter = self.counter.wrapping_add(1);
     }
+}
 
-    pub fn set_mouse_start(&mut self, start: f32) -> &mut Self {
-        self.buffer_selection.lock().unwrap().mouse_start =
-            BufferSelection::sanitize_selection(start);
+impl BufferSelectionAction for BufferSelectionHandle {
+    const BUFFER_SELECTION_END: f32 = BufferSelection::BUFFER_SELECTION_END;
+    const BUFFER_SELECTION_START: f32 = BufferSelection::BUFFER_SELECTION_START;
+    const BUFFER_SELECTION_MIN_LEN: f32 = BufferSelection::BUFFER_SELECTION_MIN_LEN;
 
+    fn set_mouse_start(&mut self, start: f32) -> &mut Self {
+        self.buffer_selection.lock().unwrap().set_mouse_start(start);
         self.bump_counter();
 
         self
     }
 
-    pub fn set_mouse_end(&mut self, end: f32) -> &mut Self {
-        self.buffer_selection.lock().unwrap().mouse_end = BufferSelection::sanitize_selection(end);
-
+    fn set_mouse_end(&mut self, end: f32) -> &mut Self {
+        self.buffer_selection.lock().unwrap().set_mouse_end(end);
         self.bump_counter();
 
         self
     }
 
-    pub fn set_mouse_down(&mut self, mouse_down: bool) -> &mut Self {
-        self.buffer_selection.lock().unwrap().mouse_down = mouse_down;
-
+    fn set_mouse_down(&mut self, mouse_down: bool) -> &mut Self {
+        self.buffer_selection.lock().unwrap().set_mouse_down(mouse_down);
         self.bump_counter();
 
         self
     }
 
-    pub fn get_mouse_down(&self) -> bool {
-        self.buffer_selection.lock().unwrap().mouse_down
+    fn get_mouse_down(&self) -> bool {
+        self.buffer_selection.lock().unwrap().get_mouse_down()
     }
 
-    pub fn get_mouse_start(&self) -> f32 {
-        self.buffer_selection.lock().unwrap().mouse_start
+    fn get_mouse_start(&self) -> f32 {
+        self.buffer_selection.lock().unwrap().get_buffer_start()
     }
 
-    pub fn get_mouse_end(&self) -> f32 {
-        self.buffer_selection.lock().unwrap().mouse_end
+    fn get_mouse_end(&self) -> f32 {
+        self.buffer_selection.lock().unwrap().get_mouse_end()
     }
 
     /// Copies the existing buffer selection struct out
-    pub fn get_buffer_selection(&self) -> BufferSelection {
-        *self.buffer_selection.lock().unwrap()
+    fn get_buffer_selection(&self) -> BufferSelection {
+        self.buffer_selection.lock().unwrap().get_buffer_selection()
     }
 
-    /// Returns the mouse start / mouse end poisition in the correct order
-    /// (i.e. from least to greatest / from left to right)
-    ///
-    /// This does not guarantee that the start and end are not the SAME number.
-    pub fn get_buffer_start_and_end(&self) -> (f32, f32) {
-        let buffer_selection = self.get_buffer_selection();
-
-        if buffer_selection.mouse_start > buffer_selection.mouse_end {
-            (buffer_selection.mouse_end, buffer_selection.mouse_start)
-        } else {
-            (buffer_selection.mouse_start, buffer_selection.mouse_end)
-        }
-    }
-
-    /// Returns the mouse start position (this number is guarnateed to be <= the end position)
-    pub fn get_buffer_start(&self) -> f32 {
-        self.get_buffer_start_and_end().0
-    }
-
-    /// Returns the mouse end poisitino (this number is guarnateed to be >= the start position)
-    pub fn get_buffer_end(&self) -> f32 {
-        self.get_buffer_start_and_end().1
+    fn get_buffer_start_and_end(&self) -> (f32, f32) {
+        self.buffer_selection.lock().unwrap().get_buffer_start_and_end()
     }
 }
 

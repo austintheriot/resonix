@@ -3,9 +3,7 @@ use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
-pub const MAX_NUM_CHANNELS: usize = 250;
-pub const GRAIN_LEN_MIN_IN_MS: usize = 10;
-pub const GRAIN_LEN_MAX_IN_MS: usize = 1000;
+use super::defaults::{GRAIN_LEN_MIN_IN_MS, GRAIN_LEN_MAX_IN_MS, MAX_NUM_CHANNELS};
 
 #[derive(Clone)]
 pub struct GranularSynthesizerHandle {
@@ -29,6 +27,7 @@ impl Debug for GranularSynthesizerHandle {
     }
 }
 
+/// Creates a new GranularSynthesizer instance and updates it with any necessary defaults
 pub fn init_granular_synth(
     mp3_source_data: Arc<Vec<f32>>,
     sample_rate: u32,

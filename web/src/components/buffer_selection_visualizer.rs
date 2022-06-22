@@ -1,4 +1,7 @@
-use crate::state::app_context::{AppContext, AppContextError};
+use crate::{
+    audio::buffer_selection_action::BufferSelectionAction,
+    state::app_context::{AppContext, AppContextError},
+};
 use std::ops::Sub;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlDivElement;

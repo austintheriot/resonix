@@ -1,5 +1,5 @@
 use crate::{
-    audio::current_status::CurrentStatus,
+    audio::{current_status::CurrentStatus, current_status_action::CurrentStatusAction},
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},

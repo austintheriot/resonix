@@ -1,4 +1,3 @@
-
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
 pub enum CurrentStatus {
     PLAY,
