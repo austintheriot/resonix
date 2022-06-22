@@ -43,6 +43,16 @@ pub trait GranularSynthesizerAction {
 
     fn set_density(&mut self, density: f32) -> &mut Self;
 
+    /// Replace the internal buffer reference with a different one.
+    /// 
+    /// Any existing / currently playing grains that extend past the new buffer
+    /// will be replaced with new ones on the next call to `next_frame`.
+    /// 
+    /// Any existing / current playing grains that are compatible with new buffer
+    /// length will keep their internal state unchanged and will sample from the 
+    /// new buffer on the next frame. 
+    fn set_buffer(&mut self, buffer: Arc<Vec<f32>>) -> &mut Self;
+
     /// Returns a full audio frame (1 array element = 1 audio channel value),
     /// where each channel gets its own, indepedent value
     /// based on the progression of that audio channel's grain.
@@ -52,6 +62,9 @@ pub trait GranularSynthesizerAction {
     fn sanitize_density(density: f32) -> f32 {
         density.max(Self::DENSITY_MIN).min(Self::DENSITY_MAX)
     }
+
+    /// This should be set BEFORE calling `set_grain_len_min` or `set_grain_len_max`
+    fn set_sample_rate(&mut self, sample_rate: u32) -> &mut Self;
 
     /// Produces an unitialized grain for filling the initial array of Grains
     ///

@@ -78,7 +78,10 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         GranularSynthesizer {
             sample_rate,
             buffer: buffer,
-            grains: vec![GranularSynthesizer::new_grain(); GranularSynthesizer::DEFAULT_NUM_CHANNELS],
+            grains: vec![
+                GranularSynthesizer::new_grain();
+                GranularSynthesizer::DEFAULT_NUM_CHANNELS
+            ],
             rng: rand::rngs::StdRng::from_entropy(),
             grain_len_min: sample_rate / (1000 / GranularSynthesizer::GRAIN_MIN_LEN_IN_MS),
             grain_len_max: buffer_len as u32,
@@ -155,7 +158,8 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         // extend grains to be as long as max number of channels
         if max_num_channels > self.grains.len() {
             let num_extra_samples = max_num_channels - self.grains.len();
-            self.grains.extend(vec![GranularSynthesizer::new_grain(); num_extra_samples]);
+            self.grains
+                .extend(vec![GranularSynthesizer::new_grain(); num_extra_samples]);
         }
 
         // extend samples buffer to be as long as max number of channels
@@ -180,10 +184,40 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         self
     }
 
+    fn set_buffer(&mut self, buffer: Arc<Vec<f32>>) -> &mut Self {
+        let buffer_len = self.buffer.len();
+        
+        // replace any buffers that extend past the current buffer length
+        for grain in &mut self.grains {
+            if grain.end_frame > buffer_len
+            || grain.start_frame > buffer_len
+            || grain.len > buffer_len
+            || grain.current_frame > buffer_len
+            {
+                grain.finished = true;
+            }
+        }
+        
+        self.grain_len_max = buffer_len as u32;
+        self.buffer = buffer;
+
+        self
+    }
+
     fn next_frame(&mut self) -> Vec<f32> {
         self.refresh_grains();
         self.fill_buffer_and_env_samples();
         self.get_frame_data()
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: u32) -> &mut Self {
+        self.sample_rate = sample_rate;
+
+        // @todo: update min/max sample length here once
+        // original min/max length inputs are saved?
+        // (to prevent having to reinitialize every time)
+
+        self
     }
 }
 

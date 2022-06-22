@@ -1,6 +1,10 @@
 use super::{
-    buffer_selection_action::BufferSelectionAction, current_status::CurrentStatus,
-    current_status_action::CurrentStatusAction, decode, gain_action::GainAction,
+    buffer_selection_action::BufferSelectionAction,
+    current_status::CurrentStatus,
+    current_status_action::CurrentStatusAction,
+    decode,
+    defaults::{GRAIN_LEN_MAX_IN_MS, GRAIN_LEN_MIN_IN_MS},
+    gain_action::GainAction,
 };
 use crate::{
     audio::{defaults::MAX_NUM_CHANNELS, stream_handle::StreamHandle},
@@ -17,10 +21,7 @@ use std::sync::Arc;
 use yew::UseReducerHandle;
 
 /// Converts default mp3 file to raw audio sample data
-async fn load_default_buffer(
-    app_state_handle: UseReducerHandle<AppState>,
-    sample_rate: u32,
-) -> Arc<Vec<f32>> {
+async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Arc<Vec<f32>> {
     let audio_context =
         web_sys::AudioContext::new().expect("Browser should have AudioContext implemented");
 
@@ -36,10 +37,7 @@ async fn load_default_buffer(
 
     let audio_buffer = decode::decode_bytes(&audio_context, &mp3_file_bytes).await;
     let mp3_source_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
-    app_state_handle.dispatch(AppAction::SetBuffer(
-        Arc::clone(&mp3_source_data),
-        Some(sample_rate),
-    ));
+    app_state_handle.dispatch(AppAction::SetBuffer(Arc::clone(&mp3_source_data)));
 
     mp3_source_data
 }
@@ -77,12 +75,20 @@ where
     // this is the config of the output audio
     let sample_rate = stream_config.sample_rate.0;
     let channels = stream_config.channels as usize;
-    load_default_buffer(app_state_handle.clone(), sample_rate).await;
+    load_default_buffer(app_state_handle.clone()).await;
 
     let buffer_selection_handle = app_state_handle.buffer_selection_handle.clone();
     let gain_handle = app_state_handle.gain_handle.clone();
     let status = app_state_handle.current_status_handle.clone();
     let mut granular_synthesizer_handle = app_state_handle.granular_synthesizer_handle.clone();
+
+    // make sure granular synthesizer's internal state is current with audio context state
+    granular_synthesizer_handle
+        .set_sample_rate(sample_rate)
+        // these have to be set again after updating sample rate
+        .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
+        .set_grain_len_max(GRAIN_LEN_MAX_IN_MS)
+        .set_max_number_of_channels(MAX_NUM_CHANNELS);
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {

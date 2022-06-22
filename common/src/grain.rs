@@ -6,6 +6,7 @@ pub struct Grain {
     pub end_frame: usize,
     pub current_frame: usize,
     pub finished: bool,
+    /// the number of frames between `start_frame` and `end_frame`
     pub len: usize,
 }
 

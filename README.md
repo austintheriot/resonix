@@ -1,6 +1,8 @@
 # Rust Audio
 
 ## Todos:
+- Save original `ms` grain length min and max in GranularSynthesizer
+- Memoize decoded audio from previous files? To prevent stutter on change?
 - Extract bump_counter to a trait
 - Enable draggging the current buffer selection window?
 - Share a single audio context that is initialized (?) at init time?

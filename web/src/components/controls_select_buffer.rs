@@ -56,7 +56,7 @@ pub fn controls_select_buffer() -> Html {
                 let audio_buffer =
                     decode::decode_bytes(&audio_context, &mp3_file_bytes).await;
                 let buffer_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
-                state_handle.dispatch(AppAction::SetBuffer(buffer_data, None));
+                state_handle.dispatch(AppAction::SetBuffer(buffer_data));
             })
         })
     };

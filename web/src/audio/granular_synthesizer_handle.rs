@@ -14,15 +14,6 @@ pub struct GranularSynthesizerHandle {
 }
 
 impl GranularSynthesizerHandle {
-    /// Replaces the current granular synthesizer with a new one, based on a new buffer and/or sample rate.
-    ///
-    /// This is useful, because it allows the audio thread to know which granular synthesizer to pull frames from,
-    /// and also allows the UI to update the buffer / granular synthesizer that is being read from.
-    pub fn replace(&self, buffer: Arc<Vec<f32>>, sample_rate: u32) {
-        *self.granular_synthesizer.lock().unwrap() =
-            Self::new_granular_synthesizer_with_defaults(buffer, sample_rate);
-    }
-
     /// Creates a new GranularSynthesizer instance and updates it with any necessary defaults
     pub fn new_granular_synthesizer_with_defaults(
         mp3_source_data: Arc<Vec<f32>>,
@@ -63,6 +54,20 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         }
     }
 
+    fn get_grain_len_min_decimal(&self) -> f32 {
+        self.granular_synthesizer
+            .lock()
+            .unwrap()
+            .get_grain_len_min_decimal()
+    }
+
+    fn get_grain_len_smallest_samples(&self) -> u32 {
+        self.granular_synthesizer
+            .lock()
+            .unwrap()
+            .get_grain_len_smallest_samples()
+    }
+
     fn set_selection_start(&mut self, start: f32) -> &mut Self {
         self.granular_synthesizer
             .lock()
@@ -79,33 +84,6 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
             .set_selection_end(end);
 
         self
-    }
-
-    fn set_density(&mut self, density: f32) -> &mut Self {
-        self.granular_synthesizer
-            .lock()
-            .unwrap()
-            .set_density(density);
-
-        self
-    }
-
-    fn next_frame(&mut self) -> Vec<f32> {
-        self.granular_synthesizer.lock().unwrap().next_frame()
-    }
-
-    fn get_grain_len_min_decimal(&self) -> f32 {
-        self.granular_synthesizer
-            .lock()
-            .unwrap()
-            .get_grain_len_min_decimal()
-    }
-
-    fn get_grain_len_smallest_samples(&self) -> u32 {
-        self.granular_synthesizer
-            .lock()
-            .unwrap()
-            .get_grain_len_smallest_samples()
     }
 
     fn set_grain_len_min(&mut self, input_min_len_in_ms: usize) -> &mut Self {
@@ -131,6 +109,31 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
             .lock()
             .unwrap()
             .set_max_number_of_channels(max_num_channels);
+
+        self
+    }
+
+    fn set_density(&mut self, density: f32) -> &mut Self {
+        self.granular_synthesizer
+            .lock()
+            .unwrap()
+            .set_density(density);
+
+        self
+    }
+
+    fn set_buffer(&mut self, buffer: Arc<Vec<f32>>) -> &mut Self {
+        self.granular_synthesizer.lock().unwrap().set_buffer(buffer);
+
+        self
+    }
+
+    fn next_frame(&mut self) -> Vec<f32> {
+        self.granular_synthesizer.lock().unwrap().next_frame()
+    }
+
+    fn set_sample_rate(&mut self, sample_rate: u32) -> &mut Self {
+        self.granular_synthesizer.lock().unwrap().set_sample_rate(sample_rate);
 
         self
     }

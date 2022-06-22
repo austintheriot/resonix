@@ -3,7 +3,9 @@ use crate::audio::buffer_selection_action::BufferSelectionAction;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
 use crate::audio::current_status_action::CurrentStatusAction;
 use crate::audio::current_status_handle::CurrentStatusHandle;
-use crate::audio::defaults::FALLBACK_SAMPLE_RATE;
+use crate::audio::defaults::{
+    FALLBACK_SAMPLE_RATE, GRAIN_LEN_MAX_IN_MS, GRAIN_LEN_MIN_IN_MS, MAX_NUM_CHANNELS,
+};
 use crate::audio::density_action::DensityAction;
 use crate::audio::density_handle::DensityHandle;
 use crate::audio::gain_action::GainAction;
@@ -118,14 +120,15 @@ impl Reducible for AppState {
         {
             let action = action.clone();
             match action {
-                AppAction::SetBuffer(buffer, sample_rate_option) => {
-                    // if no sample rate is supplied, default to the one currently in state
-                    let sample_rate = sample_rate_option.unwrap_or(next_state.sample_rate);
-
+                AppAction::SetBuffer(buffer) => {
                     next_state.buffer_maxes = get_buffer_maxes(&buffer);
                     next_state
                         .granular_synthesizer_handle
-                        .replace(Arc::clone(&buffer), sample_rate);
+                        .set_buffer(Arc::clone(&buffer))
+                        .set_sample_rate(next_state.sample_rate)
+                        .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
+                        .set_grain_len_max(GRAIN_LEN_MAX_IN_MS)
+                        .set_max_number_of_channels(MAX_NUM_CHANNELS);
                     next_state.buffer_handle = BufferHandle::new(buffer);
                 }
                 AppAction::SetStreamHandle(stream_handle) => {
@@ -156,6 +159,14 @@ impl Reducible for AppState {
                 }
                 AppAction::SetSampleRate(sample_rate) => {
                     next_state.sample_rate = sample_rate;
+
+                    next_state
+                        .granular_synthesizer_handle
+                        .set_sample_rate(sample_rate)
+                        // these have to be set again after updating sample rate
+                        .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
+                        .set_grain_len_max(GRAIN_LEN_MAX_IN_MS)
+                        .set_max_number_of_channels(MAX_NUM_CHANNELS);
                 }
                 AppAction::SetDensity(density) => {
                     next_state.density_handle.set(density);
