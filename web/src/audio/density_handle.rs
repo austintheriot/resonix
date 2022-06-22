@@ -1,5 +1,8 @@
 use super::{bump_counter::BumpCounter, density::Density, density_action::DensityAction};
-use common::granular_synthesizer::GranularSynthesizer;
+use common::{
+    granular_synthesizer::GranularSynthesizer,
+    granular_synthesizer_action::GranularSynthesizerAction,
+};
 use std::sync::{Arc, Mutex};
 
 /// Wrapper around `Density`, which makes it possible to access

@@ -7,6 +7,7 @@ use crate::{
     components::controls_select_buffer::DEFAULT_AUDIO_FILE,
     state::{app_action::AppAction, app_state::AppState},
 };
+use common::granular_synthesizer_action::GranularSynthesizerAction;
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Stream,
@@ -81,7 +82,7 @@ where
     let buffer_selection_handle = app_state_handle.buffer_selection_handle.clone();
     let gain_handle = app_state_handle.gain_handle.clone();
     let status = app_state_handle.current_status_handle.clone();
-    let granular_synthesizer_handle = app_state_handle.granular_synthesizer_handle.clone();
+    let mut granular_synthesizer_handle = app_state_handle.granular_synthesizer_handle.clone();
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {

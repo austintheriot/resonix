@@ -1,4 +1,7 @@
-use common::granular_synthesizer::GranularSynthesizer;
+use common::{
+    granular_synthesizer::GranularSynthesizer,
+    granular_synthesizer_action::GranularSynthesizerAction,
+};
 
 pub trait DensityAction {
     const DEFAULT_DENSITY: f32;

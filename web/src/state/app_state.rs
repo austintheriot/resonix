@@ -12,6 +12,7 @@ use crate::audio::granular_synthesizer_handle::GranularSynthesizerHandle;
 use crate::audio::stream_handle::StreamHandle;
 use crate::components::buffer_sample_bars::get_buffer_maxes;
 use crate::state::app_action::AppAction;
+use common::granular_synthesizer_action::GranularSynthesizerAction;
 use std::rc::Rc;
 use std::sync::Arc;
 use yew::Reducible;
