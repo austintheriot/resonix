@@ -1,11 +1,11 @@
 use crate::{
     audio::{self},
+    icons::power::IconPower,
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
         app_selector::AppSelector,
     },
-    icons::power::IconPower,
 };
 use yew::{function_component, html, prelude::*};
 
@@ -35,23 +35,21 @@ pub fn controls_enable_audio() -> Html {
         })
     };
 
-    if !audio_is_initialized {
-        html! {
-            <button
-                class="controls-enable-audio"
-                onclick={handle_click}
-                disabled={enable_audio_button_disabled}
-            >
-                {if audio_is_loading {
-                    html!{ "Loading" }
-                } else {
-                    html!{
-                        <IconPower />
-                    }
-                }}
-            </button>
-        }
+    let default_class = "controls-enable-audio";
+    let audio_loading_class = if audio_is_loading { "loading" } else { "" };
+    let audio_initialized_class = if audio_is_initialized {
+        "initialized"
     } else {
-        html! {}
+        ""
+    };
+
+    html! {
+        <button
+            class={classes!(default_class, audio_loading_class, audio_initialized_class)}
+            onclick={handle_click}
+            disabled={enable_audio_button_disabled}
+        >
+            <IconPower />
+        </button>
     }
 }

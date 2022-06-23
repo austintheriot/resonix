@@ -1,7 +1,7 @@
 .controls-enable-audio {
     width: fit-content;
     height: fit-content;
-    transition: outline 0.1s, outline-offset 0.1s;
+    transition: outline 0.1s, outline-offset 0.1s, color 0.5s;
     padding: 1rem;
     border: none;
 
@@ -9,6 +9,14 @@
     background: linear-gradient(145deg, #f0f0f0, #cacaca);
     box-shadow:  5px 5px 10px #b3b3b3,
                 -5px -5px 10px #ffffff;
+
+    &.loading {
+        color: #aaa;
+    }
+    
+    &.initialized {
+        color: var(--electric-blue);
+    }
 
     &:hover {
         background-color: #ddd;
@@ -21,7 +29,5 @@
 
     &:disabled {
         cursor: not-allowed;
-        background-color: #aaa;
-        color: #333;
     }
 }
