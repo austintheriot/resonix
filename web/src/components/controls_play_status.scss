@@ -1,0 +1,21 @@
+.controls-play-status {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.5rem;
+    border-radius: 10px;
+    background: linear-gradient(145deg, #f0f0f0, #cacaca);
+    box-shadow:  5px 5px 10px #b3b3b3,
+                -5px -5px 10px #ffffff;
+    border: none;
+    margin: 1rem 0;
+
+    .play {
+        position: relative;
+        left: 0.35rem;
+    }
+
+    .pause {
+
+    }
+}

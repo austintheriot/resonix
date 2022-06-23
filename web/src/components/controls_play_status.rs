@@ -1,5 +1,6 @@
 use crate::{
     audio::{play_status::PlayStatus, play_status_action::PlayStatusAction},
+    icons::{pause::IconPause, play::IconPlay},
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
@@ -28,28 +29,26 @@ pub fn controls_play_status() -> Html {
         })
     };
 
-    html! {
-        <div class="controls-play-status">
-            {match play_status {
-                PlayStatus::PLAY => html!{
-                    <button
-                        type="button"
-                        onclick={handle_pause}
-                        disabled={button_disabled}
-                    >
-                        {"Pause"}
-                    </button>
-                },
-                PlayStatus::PAUSE => html!{
-                    <button
-                        type="button"
-                        onclick={handle_play}
-                        disabled={button_disabled}
-                    >
-                        {"Play"}
-                    </button>
-                },
-            }}
-        </div>
+    match play_status {
+        PlayStatus::PLAY => html! {
+            <button
+                class="controls-play-status pause"
+                type="button"
+                onclick={handle_pause}
+                disabled={button_disabled}
+            >
+                <IconPause />
+            </button>
+        },
+        PlayStatus::PAUSE => html! {
+            <button
+                class="controls-play-status play"
+                type="button"
+                onclick={handle_play}
+                disabled={button_disabled}
+            >
+                <IconPlay />
+            </button>
+        },
     }
 }

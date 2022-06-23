@@ -1,11 +1,20 @@
-@use './src/components/controls_container.scss';
 @use './src/components/buffer_container.scss';
 @use './src/components/buffer_sample_bars.scss';
 @use './src/components/buffer_selection_visualizer.scss';
+@use './src/components/controls_container.scss';
+@use './src/components/controls_density.scss';
+@use './src/components/controls_enable_audio.scss';
+@use './src/components/controls_gain.scss';
+@use './src/components/controls_play_status.scss';
+@use './src/components/controls_select_buffer.scss';
 
 * {
   font-family: 'Roboto', sans-serif;
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+body {
+  background-color: rgb(224, 224, 224);
 }
