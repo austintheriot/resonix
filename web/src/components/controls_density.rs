@@ -5,6 +5,7 @@ use crate::{
         app_context::{AppContext, AppContextError},
         app_selector::AppSelector,
     },
+    components::input_range::InputRange
 };
 use web_sys::HtmlInputElement;
 use yew::{function_component, html, prelude::*};
@@ -15,7 +16,7 @@ pub fn controls_density() -> Html {
     let density_input_disabled = app_context.state_handle.get_are_audio_controls_disabled();
     let density = app_context.state_handle.density_handle.get();
 
-    let handle_change = {
+    let handle_input = {
         let state_handle = app_context.state_handle;
         Callback::from(move |e: InputEvent| {
             if state_handle.get_are_audio_controls_disabled() {
@@ -30,28 +31,16 @@ pub fn controls_density() -> Html {
         })
     };
 
-    let disabled_class = if density_input_disabled {
-        "disabled"
-    } else {
-        ""
-    };
-
     html! {
-        <div class={classes!("controls-density", disabled_class)}>
-            <label for="controls-density-input">
-                {"Density"}
-            </label>
-            <input
-                id="controls-density-input"
-                orient="vertical"
-                type="range"
-                min={0.0}
-                max={1.0}
-                step={0.001}
-                oninput={handle_change}
-                value={density.to_string()}
-                disabled={density_input_disabled}
-            />
-        </div>
+        <InputRange
+            label="Density"
+            id="controls-density-input"
+            min="0.0"
+            max="1.0"
+            step="0.001"
+            oninput={handle_input}
+            value={density.to_string()}
+            disabled={density_input_disabled}
+        />
     }
 }

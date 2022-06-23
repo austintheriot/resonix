@@ -8,3 +8,4 @@ pub mod controls_enable_audio;
 pub mod controls_gain;
 pub mod controls_play_status;
 pub mod controls_select_buffer;
+pub mod input_range;

@@ -1,5 +1,6 @@
 use crate::{
     audio::{gain::Gain, gain_action::GainAction},
+    components::input_range::InputRange,
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
@@ -15,7 +16,7 @@ pub fn controls_gain() -> Html {
     let gain_input_disabled = app_context.state_handle.get_are_audio_controls_disabled();
     let gain = app_context.state_handle.gain_handle.get();
 
-    let handle_change = {
+    let handle_input = {
         let state_handle = app_context.state_handle;
         Callback::from(move |e: InputEvent| {
             if state_handle.get_are_audio_controls_disabled() {
@@ -30,24 +31,16 @@ pub fn controls_gain() -> Html {
         })
     };
 
-    let disabled_class = if gain_input_disabled { "disabled" } else { "" };
-
     html! {
-        <div class={classes!("controls-gain", disabled_class)}>
-            <label for="controls-gain-input">
-                {"Gain"}
-            </label>
-            <input
-                id="controls-gain-input"
-                orient="vertical"
-                type="range"
-                min={Gain::GAIN_MIN.to_string()}
-                max={Gain::GAIN_MAX.to_string()}
-                step={0.001}
-                oninput={handle_change}
-                value={gain.to_string()}
-                disabled={gain_input_disabled}
-            />
-        </div>
+        <InputRange
+            label="Gain"
+            id="controls-gain-input"
+            min={Gain::GAIN_MIN.to_string()}
+            max={Gain::GAIN_MAX.to_string()}
+            step="0.001"
+            oninput={handle_input}
+            value={gain.to_string()}
+            disabled={gain_input_disabled}
+        />
     }
 }
