@@ -1,4 +1,4 @@
-use crate::state::app_context::{self, AppContext, AppContextError};
+use crate::state::app_context::{AppContext, AppContextError, self};
 use std::{ops::Mul, sync::Arc};
 use yew::{function_component, html, prelude::*};
 
@@ -50,7 +50,7 @@ pub fn buffer_sample_bars() -> Html {
         return html! {};
     }
 
-    if app_context.state_handle.buffer_handle.get_data().is_empty() {
+    if app_context.state_handle.buffer_handle.get_data().is_empty() || app_context.state_handle.audio_loading {
         return html! {
             <>
                 {buffer_maxes.iter().map(|_| {

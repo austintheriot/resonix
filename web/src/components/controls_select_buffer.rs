@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    audio::decode,
+    audio::{decode, play_status::PlayStatus},
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
@@ -34,10 +34,13 @@ pub fn controls_select_buffer() -> Html {
              if state_handle.get_are_audio_controls_disabled() {
                 return;
             }
-            
+
             let state_handle = state_handle.clone();
             let select_ref = select_ref.clone();
             wasm_bindgen_futures::spawn_local(async move {
+                state_handle.dispatch(AppAction::SetAudioLoading(true));
+                state_handle.dispatch(AppAction::SetPlayStatus(PlayStatus::PAUSE));
+
                 let select_element = select_ref
                     .get()
                     .unwrap()
@@ -60,7 +63,9 @@ pub fn controls_select_buffer() -> Html {
                     .expect("Browser should have AudioContext implemented");
                 let audio_buffer = decode::decode_bytes(&audio_context, &mp3_file_bytes).await;
                 let buffer_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
+
                 state_handle.dispatch(AppAction::SetBuffer(buffer_data));
+                state_handle.dispatch(AppAction::SetAudioLoading(false));
             })
         })
     };

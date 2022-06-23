@@ -6,6 +6,6 @@ pub trait AppSelector {
 
 impl AppSelector for AppState {
     fn get_are_audio_controls_disabled(&self) -> bool {
-        !self.audio_initialized
+        !self.audio_initialized || self.audio_loading
     }
 }
