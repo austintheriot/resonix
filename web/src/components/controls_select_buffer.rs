@@ -62,13 +62,12 @@ pub fn controls_select_buffer() -> Html {
     };
 
     html! {
-        <>
-            <label for="controls-select-buffer">
+        <div class="controls-select-buffer">
+            <label for="controls-select-buffer-select">
                 {"Select File"}
             </label>
             <select
-                id="controls-select-buffer"
-                class="controls-select-buffer"
+                id="controls-select-buffer-select"
                 onchange={handle_change}
                 ref={select_ref}
                 disabled={select_element_disabled}
@@ -81,6 +80,6 @@ pub fn controls_select_buffer() -> Html {
                     }
                 }).collect::<Html>()}
             </select>
-        </>
+        </div>
     }
 }

@@ -27,13 +27,12 @@ pub fn controls_gain() -> Html {
     };
 
     html! {
-        <>
-            <label for="controls-gain">
+        <div class="controls-gain">
+            <label for="controls-gain-input">
                 {"Gain"}
             </label>
             <input
-                id="controls-gain"
-                class="controls-gain"
+                id="controls-gain-input"
                 type="range"
                 min={Gain::GAIN_MIN.to_string()}
                 max={Gain::GAIN_MAX.to_string()}
@@ -42,6 +41,6 @@ pub fn controls_gain() -> Html {
                 value={gain.to_string()}
                 disabled={gain_input_disabled}
             />
-        </>
+        </div>
     }
 }

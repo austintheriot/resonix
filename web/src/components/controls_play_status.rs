@@ -28,18 +28,17 @@ pub fn controls_play_status() -> Html {
     };
 
     html! {
-        <>
-            <label for="controls-play-status">
+        <div class="controls-play-status">
+            <label for="controls-play-status-input">
                 {"Play"}
             </label>
             <input
-                id="controls-play-status"
-                class="controls-play-status"
+                id="controls-play-status-input"
                 type="checkbox"
                 oninput={handle_change}
                 checked={play_status.into()}
                 disabled={input_disabled}
             />
-        </>
+        </div>
     }
 }

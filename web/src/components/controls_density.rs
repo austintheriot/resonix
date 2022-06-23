@@ -27,13 +27,12 @@ pub fn controls_density() -> Html {
     };
 
     html! {
-        <>
-            <label for="controls-density">
+        <div class="controls-density">
+            <label for="controls-density-input">
                 {"Density"}
             </label>
             <input
-                id="controls-density"
-                class="controls-density"
+                id="controls-density-input"
                 type="range"
                 min={0.0}
                 max={1.0}
@@ -42,6 +41,6 @@ pub fn controls_density() -> Html {
                 value={density.to_string()}
                 disabled={density_input_disabled}
             />
-        </>
+        </div>
     }
 }
