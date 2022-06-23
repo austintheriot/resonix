@@ -2,6 +2,8 @@
 
 ## Todos:
 - Create a Slider component with consistent styles
+- Add an audio loading / initialization state style / animation
+- Make initial load much faster - save a raw audio Vec for direct access at initialization
 
 - Memoize decoded audio from previous files? To prevent stutter on change?
 - Enable draggging the current buffer selection window?
