@@ -20,8 +20,6 @@
     border: 1px solid black;
     width: fit-content;
     height: fit-content;
-    outline: 2px solid transparent;
-    outline-offset: 0.5rem;
     transition: outline 0.1s, outline-offset 0.1s;
 
     &:hover {

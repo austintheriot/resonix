@@ -6,39 +6,50 @@ use crate::{
         app_selector::AppSelector,
     },
 };
-use web_sys::HtmlInputElement;
 use yew::{function_component, html, prelude::*};
 
 #[function_component(ControlsPlayStatus)]
 pub fn controls_play_status() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
     let play_status = app_context.state_handle.play_status_handle.get();
-    let input_disabled = app_context.state_handle.get_are_audio_controls_disabled();
+    let button_disabled = app_context.state_handle.get_are_audio_controls_disabled();
 
-    let handle_change = {
+    let handle_play = {
+        let state_handle = app_context.state_handle.clone();
+        Callback::from(move |_: MouseEvent| {
+            state_handle.dispatch(AppAction::SetPlayStatus(PlayStatus::PLAY));
+        })
+    };
+
+    let handle_pause = {
         let state_handle = app_context.state_handle;
-        Callback::from(move |e: InputEvent| {
-            let checked = e.target_dyn_into::<HtmlInputElement>().unwrap().checked();
-            let play_status = match checked {
-                true => PlayStatus::PLAY,
-                false => PlayStatus::PAUSE,
-            };
-            state_handle.dispatch(AppAction::SetPlayStatus(play_status));
+        Callback::from(move |_: MouseEvent| {
+            state_handle.dispatch(AppAction::SetPlayStatus(PlayStatus::PAUSE));
         })
     };
 
     html! {
         <div class="controls-play-status">
-            <label for="controls-play-status-input">
-                {"Play"}
-            </label>
-            <input
-                id="controls-play-status-input"
-                type="checkbox"
-                oninput={handle_change}
-                checked={play_status.into()}
-                disabled={input_disabled}
-            />
+            {match play_status {
+                PlayStatus::PLAY => html!{
+                    <button
+                        type="button"
+                        onclick={handle_pause}
+                        disabled={button_disabled}
+                    >
+                        {"Pause"}
+                    </button>
+                },
+                PlayStatus::PAUSE => html!{
+                    <button
+                        type="button"
+                        onclick={handle_play}
+                        disabled={button_disabled}
+                    >
+                        {"Play"}
+                    </button>
+                },
+            }}
         </div>
     }
 }
