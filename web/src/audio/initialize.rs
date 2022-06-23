@@ -1,10 +1,6 @@
 use super::{
-    buffer_selection_action::BufferSelectionAction,
-    current_status::CurrentStatus,
-    current_status_action::CurrentStatusAction,
-    decode,
-    defaults::{GRAIN_LEN_MAX_IN_MS, GRAIN_LEN_MIN_IN_MS},
-    gain_action::GainAction,
+    buffer_selection_action::BufferSelectionAction, current_status::CurrentStatus,
+    current_status_action::CurrentStatusAction, decode, gain_action::GainAction,
 };
 use crate::{
     audio::{defaults::MAX_NUM_CHANNELS, stream_handle::StreamHandle},
@@ -83,12 +79,7 @@ where
     let mut granular_synthesizer_handle = app_state_handle.granular_synthesizer_handle.clone();
 
     // make sure granular synthesizer's internal state is current with audio context state
-    granular_synthesizer_handle
-        .set_sample_rate(sample_rate)
-        // these have to be set again after updating sample rate
-        .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
-        .set_grain_len_max(GRAIN_LEN_MAX_IN_MS)
-        .set_max_number_of_channels(MAX_NUM_CHANNELS);
+    granular_synthesizer_handle.set_sample_rate(sample_rate);
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {

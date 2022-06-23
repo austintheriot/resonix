@@ -12,7 +12,7 @@ pub struct GranularSynthesizer {
     /// The maximum number of channels that can be generating samples via grains at a time.
     /// This can be used in conjunction with `density` to alter the number of playing grains
     /// during runtime.
-    max_num_channels: usize,
+    max_num_channels: u32,
 
     /// How many channels of grains to generate per frame (0.0 -> 1.0)
     /// A value of 1.0 corresponds to `max_num_channels` and a value of 0.o corresponds to no channels.
@@ -32,11 +32,17 @@ pub struct GranularSynthesizer {
     /// used to generate random indexes
     rng: StdRng,
 
-    /// length in samples
+    /// length in milliseconds
     grain_len_min: u32,
 
-    /// length in samples
+    /// original user input
+    grain_len_min_raw: u32,
+
+    /// length in milliseconds
     grain_len_max: u32,
+
+    // original user input
+    grain_len_max_raw: u32,
 
     /// Samples that have been copied over from the audio buffer.
     /// This value gets multiplied with its corresponding `output_env_samples`
@@ -67,39 +73,35 @@ impl GranularSynthesizerAction for GranularSynthesizer {
 
     const DENSITY_MIN: f32 = 0.0;
 
-    const DEFAULT_NUM_CHANNELS: usize = 2;
+    const DEFAULT_NUM_CHANNELS: u32 = 2;
 
     const DEFAULT_DENSITY: f32 = 1.0;
 
-    const GRAIN_MIN_LEN_IN_MS: u32 = 1;
+    const GRAIN_LEN_ABSOLUTE_MIN_IN_MS: u32 = 1;
 
     fn new(buffer: Arc<Vec<f32>>, sample_rate: u32) -> Self {
         let buffer_len = buffer.len();
+        let grain_len_min_default = GranularSynthesizer::GRAIN_LEN_ABSOLUTE_MIN_IN_MS;
+        let grain_len_max_deafult = buffer_len as u32;
         GranularSynthesizer {
             sample_rate,
             buffer: buffer,
             grains: vec![
                 GranularSynthesizer::new_grain();
-                GranularSynthesizer::DEFAULT_NUM_CHANNELS
+                GranularSynthesizer::DEFAULT_NUM_CHANNELS as usize
             ],
             rng: rand::rngs::StdRng::from_entropy(),
-            grain_len_min: sample_rate / (1000 / GranularSynthesizer::GRAIN_MIN_LEN_IN_MS),
-            grain_len_max: buffer_len as u32,
-            output_buffer_samples: vec![0.0; GranularSynthesizer::DEFAULT_NUM_CHANNELS],
-            output_env_samples: vec![0.0; GranularSynthesizer::DEFAULT_NUM_CHANNELS],
+            grain_len_min: grain_len_min_default,
+            grain_len_min_raw: grain_len_min_default,
+            grain_len_max: grain_len_max_deafult,
+            grain_len_max_raw: grain_len_max_deafult,
+            output_buffer_samples: vec![0.0; GranularSynthesizer::DEFAULT_NUM_CHANNELS as usize],
+            output_env_samples: vec![0.0; GranularSynthesizer::DEFAULT_NUM_CHANNELS as usize],
             selection_start: 0.0,
-            selection_end: 0.0,
+            selection_end: 1.0,
             max_num_channels: GranularSynthesizer::DEFAULT_NUM_CHANNELS,
             density: GranularSynthesizer::DEFAULT_DENSITY,
         }
-    }
-
-    fn get_grain_len_min_decimal(&self) -> f32 {
-        self.grain_len_min as f32 / self.buffer.len() as f32
-    }
-
-    fn get_grain_len_smallest_samples(&self) -> u32 {
-        self.sample_rate / (1000 / GranularSynthesizer::GRAIN_MIN_LEN_IN_MS)
     }
 
     fn set_selection_start(&mut self, start: f32) -> &mut Self {
@@ -124,36 +126,48 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         self
     }
 
-    fn set_grain_len_min(&mut self, input_min_len_in_ms: usize) -> &mut Self {
-        // the smallest accetable length
-        let min_len_in_samples = self.get_grain_len_smallest_samples();
+    fn set_grain_len_min(&mut self, grain_len_min_in_ms: u32) -> &mut Self {
+        self.grain_len_min_raw = grain_len_min_in_ms;
 
-        let input_min_len_in_samples = self.sample_rate / (1000 / input_min_len_in_ms as u32);
-        self.grain_len_min = input_min_len_in_samples
-            // min should be less than existing max
-            .min(self.grain_len_max - GranularSynthesizer::GRAIN_MIN_LEN_IN_MS)
-            // min len should not be less than the end of the smallest possible grain
-            .max(min_len_in_samples);
+        let sanitized_min = self.sanitize_grain_len_min(grain_len_min_in_ms as u32);
 
-        self
-    }
+        // increase current grain length max to be greater than new min
+        if sanitized_min > self.grain_len_max {
+            self.set_grain_len_max(
+                sanitized_min + GranularSynthesizer::GRAIN_LEN_ABSOLUTE_MIN_IN_MS,
+            );
+        }
 
-    fn set_grain_len_max(&mut self, input_max_len_in_ms: usize) -> &mut Self {
-        let input_max_len_in_samples = self.sample_rate / (1000 / input_max_len_in_ms as u32);
-        self.grain_len_max = input_max_len_in_samples
-            // max should be greater than existing min
-            .max(self.grain_len_min + GranularSynthesizer::GRAIN_MIN_LEN_IN_MS)
-            // max len should not be longer than the length of the buffer
-            .min(self.buffer.len() as u32);
+        self.grain_len_min = sanitized_min;
 
         self
     }
 
-    fn set_max_number_of_channels(&mut self, max_num_channels: usize) -> &mut Self {
+    fn set_grain_len_max(&mut self, grain_len_max_in_ms: u32) -> &mut Self {
+        self.grain_len_max_raw;
+
+        let sanitized_max = self.sanitize_grain_len_max(grain_len_max_in_ms as u32);
+
+        // decrease current grain length min to be less than the new max
+        if sanitized_max < self.grain_len_min {
+            self.set_grain_len_min(
+                sanitized_max - GranularSynthesizer::GRAIN_LEN_ABSOLUTE_MIN_IN_MS,
+            );
+        }
+
+        self.grain_len_max = sanitized_max;
+
+        self
+    }
+
+    fn set_max_number_of_channels(&mut self, max_num_channels: u32) -> &mut Self {
         self.max_num_channels = max_num_channels;
 
         // assumption: it's ok for the `grains`, `output_buffer_samples`, and `output_env_samples`
         // vectors to be LONGER than `max_num_channels`, because they are not used as the basis of iteration
+        // i.e. we only ever iterate using `max_num_channels`, so `max_num_channels` can be <= the other vectors
+
+        let max_num_channels = max_num_channels as usize;
 
         // extend grains to be as long as max number of channels
         if max_num_channels > self.grains.len() {
@@ -185,21 +199,24 @@ impl GranularSynthesizerAction for GranularSynthesizer {
     }
 
     fn set_buffer(&mut self, buffer: Arc<Vec<f32>>) -> &mut Self {
-        let buffer_len = self.buffer.len();
-        
+        let buffer_len = buffer.len();
+        self.buffer = buffer;
+
         // replace any buffers that extend past the current buffer length
         for grain in &mut self.grains {
             if grain.end_frame > buffer_len
-            || grain.start_frame > buffer_len
-            || grain.len > buffer_len
-            || grain.current_frame > buffer_len
+                || grain.start_frame > buffer_len
+                || grain.len > buffer_len
+                || grain.current_frame > buffer_len
             {
                 grain.finished = true;
             }
         }
-        
-        self.grain_len_max = buffer_len as u32;
-        self.buffer = buffer;
+
+        // reinitialize grain lengths constraints since buffer length could now be different
+        self.set_grain_len_max(self.grain_len_max_raw);
+
+        self.set_grain_len_min(self.grain_len_min_raw);
 
         self
     }
@@ -213,32 +230,63 @@ impl GranularSynthesizerAction for GranularSynthesizer {
     fn set_sample_rate(&mut self, sample_rate: u32) -> &mut Self {
         self.sample_rate = sample_rate;
 
-        // @todo: update min/max sample length here once
-        // original min/max length inputs are saved?
-        // (to prevent having to reinitialize every time)
-
         self
     }
 }
 
 // internal logic to support public GranularSynthesizer interface
 impl GranularSynthesizer {
+    fn sanitize_grain_len_min(&self, grain_len_min: u32) -> u32 {
+        grain_len_min
+            // if new min is greater than current max, max will get moved
+            // --
+            // shold be >= smallest possible length
+            .max(Self::GRAIN_LEN_ABSOLUTE_MIN_IN_MS)
+    }
+
+    fn sanitize_grain_len_max(&self, grain_len_max: u32) -> u32 {
+        debug_assert!(self.buffer.len() > 0);
+
+        grain_len_max
+            // if max is less than current min, min will get moved
+            // --
+            // new max len should not be longer than the length of the buffer
+            .min(self.buffer.len() as u32)
+            // new max should be greater than the smallest possible min length
+            .max(Self::GRAIN_LEN_ABSOLUTE_MIN_IN_MS + Self::GRAIN_LEN_ABSOLUTE_MIN_IN_MS)
+    }
+
+    fn get_grain_len_min_samples(&self) -> u32 {
+        self.sample_rate / (1000 / self.grain_len_min)
+    }
+
+    fn get_grain_len_max_samples(&self) -> u32 {
+        self.sample_rate / (1000 / self.grain_len_max)
+    }
+
+    fn get_grain_len_min_decimal(&self) -> f32 {
+        self.grain_len_min as f32 / self.buffer.len() as f32
+    }
+
     /// Iterates through array of grains (1 grain for each channel), and refreshes any
     /// grains that were previously finished with a new range of buffer indexes.
     fn refresh_grains(&mut self) {
+        let grain_len_min_samples = self.get_grain_len_min_samples();
+        let grain_len_max_samples = self.get_grain_len_max_samples();
         for grain in self.grains.iter_mut() {
             if grain.finished {
                 let selection_start_in_samples = ((self.selection_start * self.buffer.len() as f32)
                     as usize)
-                    .min(self.buffer.len() - self.grain_len_min as usize);
+                    .min(self.buffer.len() - grain_len_min_samples as usize);
                 let selection_end_in_samples = ((self.selection_end * self.buffer.len() as f32)
                     as usize)
-                    .max(selection_start_in_samples + self.grain_len_min as usize);
+                    .max(selection_start_in_samples + grain_len_min_samples as usize);
 
-                let smallest_range = if (self.grain_len_max as usize - self.grain_len_min as usize)
+                let smallest_range = if (grain_len_max_samples as usize
+                    - grain_len_min_samples as usize)
                     < selection_end_in_samples - selection_start_in_samples
                 {
-                    self.grain_len_min as usize..self.grain_len_max as usize
+                    grain_len_min_samples as usize..grain_len_max_samples as usize
                 } else {
                     selection_start_in_samples..selection_end_in_samples
                 };

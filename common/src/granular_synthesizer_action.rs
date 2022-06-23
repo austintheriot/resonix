@@ -11,21 +11,15 @@ pub trait GranularSynthesizerAction {
 
     const DENSITY_MIN: f32 = 0.0;
 
-    const DEFAULT_NUM_CHANNELS: usize = 2;
+    const DEFAULT_NUM_CHANNELS: u32 = 2;
 
     const DEFAULT_DENSITY: f32 = 1.0;
 
     /// the smallest possible length of grain, given in samples
-    const GRAIN_MIN_LEN_IN_MS: u32 = 1;
+    const GRAIN_LEN_ABSOLUTE_MIN_IN_MS: u32 = 1;
 
     /// Creates a new GranularSynthesizer instance
     fn new(buffer: Arc<Vec<f32>>, sample_rate: u32) -> Self;
-
-    /// Returns min grain length as a percentage of the buffer length (between 0.0 and 1.0)
-    fn get_grain_len_min_decimal(&self) -> f32;
-
-    /// Returns min grain length as a a number of samples
-    fn get_grain_len_smallest_samples(&self) -> u32;
 
     fn set_selection_start(&mut self, start: f32) -> &mut Self;
 
@@ -33,13 +27,13 @@ pub trait GranularSynthesizerAction {
 
     /// The smallest possible grain length is 1 ms,
     /// and the min grain length and can never exceed the max.
-    fn set_grain_len_min(&mut self, input_min_len_in_ms: usize) -> &mut Self;
+    fn set_grain_len_min(&mut self, input_min_len_in_ms: u32) -> &mut Self;
 
     /// The maximum grain length is the size of the buffer itself,
     /// and max grain length can never be lower than the min width (or 1ms--whichever is higher)
-    fn set_grain_len_max(&mut self, input_max_len_in_ms: usize) -> &mut Self;
+    fn set_grain_len_max(&mut self, input_max_len_in_ms: u32) -> &mut Self;
 
-    fn set_max_number_of_channels(&mut self, max_num_channels: usize) -> &mut Self;
+    fn set_max_number_of_channels(&mut self, max_num_channels: u32) -> &mut Self;
 
     fn set_density(&mut self, density: f32) -> &mut Self;
 

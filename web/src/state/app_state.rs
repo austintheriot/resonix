@@ -3,9 +3,7 @@ use crate::audio::buffer_selection_action::BufferSelectionAction;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
 use crate::audio::current_status_action::CurrentStatusAction;
 use crate::audio::current_status_handle::CurrentStatusHandle;
-use crate::audio::defaults::{
-    FALLBACK_SAMPLE_RATE, GRAIN_LEN_MAX_IN_MS, GRAIN_LEN_MIN_IN_MS, MAX_NUM_CHANNELS,
-};
+use crate::audio::defaults::FALLBACK_SAMPLE_RATE;
 use crate::audio::density_action::DensityAction;
 use crate::audio::density_handle::DensityHandle;
 use crate::audio::gain_action::GainAction;
@@ -88,11 +86,11 @@ pub struct AppState {
 
 impl Default for AppState {
     fn default() -> Self {
-        // Set up a bogus / empty buffer and granular synthesizer for now.
+        // Set up a buffer with some silent data and a granular synthesizer for now.
         // Audio context can't be setup until the user interacts with a UI element.
-        let buffer_handle = BufferHandle::default();
+        let buffer_handle = BufferHandle::new_with_silent_buffer();
         let granular_synthesizer_handle =
-            GranularSynthesizerHandle::new(buffer_handle.get_data(), 48000);
+            GranularSynthesizerHandle::new_with_app_defaults(buffer_handle.get_data(), 48000);
 
         Self {
             buffer_maxes: Default::default(),
@@ -124,11 +122,7 @@ impl Reducible for AppState {
                     next_state.buffer_maxes = get_buffer_maxes(&buffer);
                     next_state
                         .granular_synthesizer_handle
-                        .set_buffer(Arc::clone(&buffer))
-                        .set_sample_rate(next_state.sample_rate)
-                        .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
-                        .set_grain_len_max(GRAIN_LEN_MAX_IN_MS)
-                        .set_max_number_of_channels(MAX_NUM_CHANNELS);
+                        .set_buffer(Arc::clone(&buffer));
                     next_state.buffer_handle = BufferHandle::new(buffer);
                 }
                 AppAction::SetStreamHandle(stream_handle) => {
@@ -162,11 +156,7 @@ impl Reducible for AppState {
 
                     next_state
                         .granular_synthesizer_handle
-                        .set_sample_rate(sample_rate)
-                        // these have to be set again after updating sample rate
-                        .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
-                        .set_grain_len_max(GRAIN_LEN_MAX_IN_MS)
-                        .set_max_number_of_channels(MAX_NUM_CHANNELS);
+                        .set_sample_rate(sample_rate);
                 }
                 AppAction::SetDensity(density) => {
                     next_state.density_handle.set(density);

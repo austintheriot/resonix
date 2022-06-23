@@ -15,7 +15,7 @@ pub struct GranularSynthesizerHandle {
 
 impl GranularSynthesizerHandle {
     /// Creates a new GranularSynthesizer instance and updates it with any necessary defaults
-    pub fn new_granular_synthesizer_with_defaults(
+    pub fn new_granular_synthesizer_with_app_defaults(
         mp3_source_data: Arc<Vec<f32>>,
         sample_rate: u32,
     ) -> GranularSynthesizer {
@@ -30,18 +30,33 @@ impl GranularSynthesizerHandle {
 
         granular_synth
     }
+
+    /// Sets up a buffer with some data that is just a silent buffer
+    /// (this prevents empty buffer errors while setting up initial/temporary state)
+    pub fn new_with_app_defaults(buffer: Arc<Vec<f32>>, sample_rate: u32) -> GranularSynthesizerHandle {
+        Self {
+            granular_synthesizer: Arc::new(Mutex::new(
+                GranularSynthesizerHandle::new_granular_synthesizer_with_app_defaults(
+                    buffer,
+                    sample_rate,
+                ),
+            )),
+            counter: Default::default(),
+            uuid: Uuid::new_v4(),
+        }
+    }
 }
 
 impl GranularSynthesizerAction for GranularSynthesizerHandle {
-    const DENSITY_MAX: f32 = 1.0;
+    const DENSITY_MAX: f32 = GranularSynthesizer::DENSITY_MAX;
 
-    const DENSITY_MIN: f32 = 0.0;
+    const DENSITY_MIN: f32 = GranularSynthesizer::DENSITY_MIN;
 
-    const DEFAULT_NUM_CHANNELS: usize = 2;
+    const DEFAULT_NUM_CHANNELS: u32 = GranularSynthesizer::DEFAULT_NUM_CHANNELS;
 
-    const DEFAULT_DENSITY: f32 = 1.0;
+    const DEFAULT_DENSITY: f32 = GranularSynthesizer::DEFAULT_DENSITY;
 
-    const GRAIN_MIN_LEN_IN_MS: u32 = 1;
+    const GRAIN_LEN_ABSOLUTE_MIN_IN_MS: u32 = GranularSynthesizer::GRAIN_LEN_ABSOLUTE_MIN_IN_MS;
 
     fn new(buffer: Arc<Vec<f32>>, sample_rate: u32) -> GranularSynthesizerHandle {
         Self {
@@ -52,20 +67,6 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
             counter: Default::default(),
             uuid: Uuid::new_v4(),
         }
-    }
-
-    fn get_grain_len_min_decimal(&self) -> f32 {
-        self.granular_synthesizer
-            .lock()
-            .unwrap()
-            .get_grain_len_min_decimal()
-    }
-
-    fn get_grain_len_smallest_samples(&self) -> u32 {
-        self.granular_synthesizer
-            .lock()
-            .unwrap()
-            .get_grain_len_smallest_samples()
     }
 
     fn set_selection_start(&mut self, start: f32) -> &mut Self {
@@ -86,7 +87,7 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn set_grain_len_min(&mut self, input_min_len_in_ms: usize) -> &mut Self {
+    fn set_grain_len_min(&mut self, input_min_len_in_ms: u32) -> &mut Self {
         self.granular_synthesizer
             .lock()
             .unwrap()
@@ -95,7 +96,7 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn set_grain_len_max(&mut self, input_max_len_in_ms: usize) -> &mut Self {
+    fn set_grain_len_max(&mut self, input_max_len_in_ms: u32) -> &mut Self {
         self.granular_synthesizer
             .lock()
             .unwrap()
@@ -104,7 +105,7 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn set_max_number_of_channels(&mut self, max_num_channels: usize) -> &mut Self {
+    fn set_max_number_of_channels(&mut self, max_num_channels: u32) -> &mut Self {
         self.granular_synthesizer
             .lock()
             .unwrap()
@@ -133,7 +134,10 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
     }
 
     fn set_sample_rate(&mut self, sample_rate: u32) -> &mut Self {
-        self.granular_synthesizer.lock().unwrap().set_sample_rate(sample_rate);
+        self.granular_synthesizer
+            .lock()
+            .unwrap()
+            .set_sample_rate(sample_rate);
 
         self
     }

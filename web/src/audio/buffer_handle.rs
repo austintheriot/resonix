@@ -14,6 +14,27 @@ pub struct BufferHandle {
     uuid: Uuid,
 }
 
+impl BufferHandle {
+    pub fn new(data: Arc<Vec<f32>>) -> Self {
+        BufferHandle {
+            data: Arc::clone(&data),
+            uuid: Uuid::new_v4(),
+        }
+    }
+
+    pub fn new_with_silent_buffer() -> Self {
+        BufferHandle {
+            data: Arc::new(vec![0.0; 1000]),
+            uuid: Uuid::new_v4(),
+        }
+    }
+
+    pub fn get_data(&self) -> Arc<Vec<f32>> {
+        Arc::clone(&self.data)
+    }
+}
+
+
 impl PartialEq for BufferHandle {
     fn eq(&self, other: &Self) -> bool {
         self.uuid == other.uuid
@@ -25,18 +46,5 @@ impl Eq for BufferHandle {}
 impl Debug for BufferHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Buffer").field("uuid", &self.uuid).finish()
-    }
-}
-
-impl BufferHandle {
-    pub fn new(data: Arc<Vec<f32>>) -> Self {
-        BufferHandle {
-            data: Arc::clone(&data),
-            uuid: Uuid::new_v4(),
-        }
-    }
-
-    pub fn get_data(&self) -> Arc<Vec<f32>> {
-        Arc::clone(&self.data)
     }
 }
