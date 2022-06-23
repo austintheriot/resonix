@@ -21,7 +21,7 @@ pub fn controls_gain() -> Html {
             if state_handle.get_are_audio_controls_disabled() {
                 return;
             }
-            
+
             let gain = e
                 .target_dyn_into::<HtmlInputElement>()
                 .unwrap()
@@ -30,13 +30,16 @@ pub fn controls_gain() -> Html {
         })
     };
 
+    let disabled_class = if gain_input_disabled { "disabled" } else { "" };
+
     html! {
-        <div class="controls-gain">
+        <div class={classes!("controls-gain", disabled_class)}>
             <label for="controls-gain-input">
                 {"Gain"}
             </label>
             <input
                 id="controls-gain-input"
+                orient="vertical"
                 type="range"
                 min={Gain::GAIN_MIN.to_string()}
                 max={Gain::GAIN_MAX.to_string()}

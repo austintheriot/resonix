@@ -27,7 +27,7 @@ pub fn mixdown(samples_in: &[f32], num_channels_out: u32) -> Vec<f32> {
     // 2 voices scaled to 500 voices should be amplified
     // and 500 voices scaled to 2 should be de-amplified
     // in my own aural experimentation, the `cbrt` function seems to approximate this relationship well
-    let scale_divisor =  (samples_in.len() as f32 / num_channels_out as f32).cbrt();
+    let scale_divisor = (samples_in.len() as f32 / num_channels_out as f32).cbrt();
     for sample in &mut samples_out {
         *sample = *sample / scale_divisor;
     }

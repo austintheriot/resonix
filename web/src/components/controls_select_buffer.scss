@@ -1,0 +1,10 @@
+.controls-select-buffer {
+    label {
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    &.disabled {
+        color: var(--disabled-text);
+    }
+}

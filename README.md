@@ -1,6 +1,8 @@
 # Rust Audio
 
 ## Todos:
+- Create a Slider component with consistent styles
+
 - Memoize decoded audio from previous files? To prevent stutter on change?
 - Enable draggging the current buffer selection window?
 - Share a single audio context that is initialized (?) at init time?

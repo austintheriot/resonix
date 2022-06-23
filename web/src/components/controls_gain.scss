@@ -1,0 +1,21 @@
+.controls-gain {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    text-align: center;
+
+    &.disabled {
+        color: var(--disabled-text);
+    }
+
+    label {
+        margin-bottom: 0.5rem;
+    }
+    
+    input {
+        -webkit-appearance: slider-vertical;
+        width: 2rem;
+        height: 100%;
+    }
+}

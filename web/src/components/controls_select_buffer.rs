@@ -31,7 +31,7 @@ pub fn controls_select_buffer() -> Html {
         let state_handle = app_context.state_handle;
         let select_ref = select_ref.clone();
         Callback::from(move |_: Event| {
-             if state_handle.get_are_audio_controls_disabled() {
+            if state_handle.get_are_audio_controls_disabled() {
                 return;
             }
 
@@ -70,8 +70,14 @@ pub fn controls_select_buffer() -> Html {
         })
     };
 
+    let disabled_class = if select_element_disabled {
+        "disabled"
+    } else {
+        ""
+    };
+
     html! {
-        <div class="controls-select-buffer">
+        <div class={classes!("controls-select-buffer", disabled_class)}>
             <label for="controls-select-buffer-select">
                 {"Select File"}
             </label>

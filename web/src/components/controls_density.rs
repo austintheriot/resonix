@@ -21,7 +21,7 @@ pub fn controls_density() -> Html {
             if state_handle.get_are_audio_controls_disabled() {
                 return;
             }
-            
+
             let density = e
                 .target_dyn_into::<HtmlInputElement>()
                 .unwrap()
@@ -30,13 +30,20 @@ pub fn controls_density() -> Html {
         })
     };
 
+    let disabled_class = if density_input_disabled {
+        "disabled"
+    } else {
+        ""
+    };
+
     html! {
-        <div class="controls-density">
+        <div class={classes!("controls-density", disabled_class)}>
             <label for="controls-density-input">
                 {"Density"}
             </label>
             <input
                 id="controls-density-input"
+                orient="vertical"
                 type="range"
                 min={0.0}
                 max={1.0}

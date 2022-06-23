@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{
     audio::{self, play_status::PlayStatus},
     icons::power::IconPower,
@@ -18,7 +16,7 @@ pub fn controls_enable_audio() -> Html {
 
     let handle_click = {
         let state_handle = app_context.state_handle;
-        Callback::from(move |_: MouseEvent| { 
+        Callback::from(move |_: MouseEvent| {
             let state_handle = state_handle.clone();
             if state_handle.audio_loading {
                 return;

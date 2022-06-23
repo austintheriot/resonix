@@ -10,10 +10,14 @@ use yew::{function_component, html};
 pub fn controls_container() -> Html {
     html! {
         <div class="controls-container">
-            <ControlsEnableAudio />
-            <ControlsPlayStatus />
-            <ControlsGain />
-            <ControlsDensity />
+            <div class="grid-button-container">
+                <ControlsEnableAudio />
+                <ControlsPlayStatus />
+            </div>
+            <div class="grid-slider-container">
+                <ControlsGain />
+                <ControlsDensity />
+            </div>
             <ControlsSelectBuffer />
             <BufferContainer />
         </div>

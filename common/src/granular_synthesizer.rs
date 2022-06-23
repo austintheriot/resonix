@@ -245,8 +245,6 @@ impl GranularSynthesizer {
     }
 
     fn sanitize_grain_len_max(&self, grain_len_max: u32) -> u32 {
-        debug_assert!(self.buffer.len() > 0);
-
         grain_len_max
             // if max is less than current min, min will get moved
             // --
