@@ -3,11 +3,11 @@ use super::{
     play_status::PlayStatus, play_status_action::PlayStatusAction,
 };
 use crate::{
-    audio::{global_defaults::MAX_NUM_CHANNELS, stream_handle::StreamHandle},
+    audio::stream_handle::StreamHandle,
     components::controls_select_buffer::DEFAULT_AUDIO_FILE,
     state::{app_action::AppAction, app_state::AppState},
 };
-use common::granular_synthesizer_action::GranularSynthesizerAction;
+use common::{granular_synthesizer_action::GranularSynthesizerAction, mixdown::mixdown};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Stream,
@@ -39,22 +39,15 @@ async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Ar
 }
 
 /// This function is called periodically to write audio data into an audio output buffer
-fn write_data<T>(output: &mut [T], channels: usize, next_sample: &mut dyn FnMut() -> (f32, f32))
+fn write_data<T>(output: &mut [T], channels: usize, next_sample: &mut dyn FnMut() -> Vec<f32>)
 where
     T: cpal::Sample,
 {
     for frame in output.chunks_mut(channels) {
-        let (left_sample, right_sample) = next_sample();
-        let left_sample = cpal::Sample::from::<f32>(&left_sample);
-        let right_sample = cpal::Sample::from::<f32>(&right_sample);
+        let output_samples = next_sample();
 
-        // assume a 2-channel system and just map to evens and odds if there are more channels
         for (i, sample) in frame.iter_mut().enumerate() {
-            if i % 2 == 0 {
-                *sample = left_sample;
-            } else {
-                *sample = right_sample;
-            }
+            *sample = cpal::Sample::from::<f32>(&output_samples[i]);
         }
     }
 }
@@ -69,8 +62,8 @@ where
     T: cpal::Sample,
 {
     // this is the config of the output audio
-    let sample_rate = stream_config.sample_rate.0;
-    let channels = stream_config.channels as usize;
+    let output_sample_rate = stream_config.sample_rate.0;
+    let output_num_channels = stream_config.channels as usize;
     load_default_buffer(app_state_handle.clone()).await;
 
     let buffer_selection_handle = app_state_handle.buffer_selection_handle.clone();
@@ -79,13 +72,13 @@ where
     let mut granular_synthesizer_handle = app_state_handle.granular_synthesizer_handle.clone();
 
     // make sure granular synthesizer's internal state is current with audio context state
-    granular_synthesizer_handle.set_sample_rate(sample_rate);
+    granular_synthesizer_handle.set_sample_rate(output_sample_rate);
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
         // if paused, do not process any audio, just return silence
         if let PlayStatus::PAUSE = status.get() {
-            return (0.0, 0.0);
+            return vec![0.0; output_num_channels];
         }
 
         // always keep granular_synth up-to-date with buffer selection from UI
@@ -94,33 +87,20 @@ where
             .set_selection_start(selection_start)
             .set_selection_end(selection_end);
 
+        // get next frame from granular synth
         let frame = granular_synthesizer_handle.next_frame();
 
-        // mix frame channels down to 2 channels (spacialize from left to right)
-        let mut left = 0.0;
-        let mut right = 0.0;
-        for (i, channel_value) in frame.iter().enumerate() {
-            // earlier indexes to later indexes == left to right spacialization
-            let left_spatialization_percent = 1.0 - (i as f32) / (frame.len() as f32);
-            let right_spatialization_percent = (i as f32) / (frame.len() as f32);
+        // mix multi-channel down to number of outputs
+        let output_frame = mixdown(&frame, output_num_channels as u32);
 
-            // division by 0 will happen below if num of channels is less than 2
-            debug_assert!(MAX_NUM_CHANNELS >= 2);
-
-            // logarithmically scaling the volume seems to work well for very large numbers of voices
-            let left_value_to_add =
-                (channel_value * left_spatialization_percent) / (MAX_NUM_CHANNELS as f32).log(2.0);
-            let right_value_to_add =
-                (channel_value * right_spatialization_percent) / (MAX_NUM_CHANNELS as f32).log(2.0);
-
-            left += left_value_to_add;
-            right += right_value_to_add;
-        }
-
+        // gate final output with global gain
         let gain = gain_handle.get();
-        let (left, right) = (left * gain, right * gain);
+        let output_frame: Vec<f32> = output_frame
+            .into_iter()
+            .map(|output| output * gain)
+            .collect();
 
-        (left, right)
+        output_frame
     };
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
@@ -128,7 +108,7 @@ where
     let stream = device.build_output_stream(
         stream_config,
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-            write_data(data, channels, &mut next_value)
+            write_data(data, output_num_channels, &mut next_value)
         },
         err_fn,
     )?;
