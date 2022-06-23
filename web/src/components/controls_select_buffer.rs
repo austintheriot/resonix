@@ -31,6 +31,10 @@ pub fn controls_select_buffer() -> Html {
         let state_handle = app_context.state_handle;
         let select_ref = select_ref.clone();
         Callback::from(move |_: Event| {
+             if state_handle.get_are_audio_controls_disabled() {
+                return;
+            }
+            
             let state_handle = state_handle.clone();
             let select_ref = select_ref.clone();
             wasm_bindgen_futures::spawn_local(async move {

@@ -1,21 +1,39 @@
 .controls-enable-audio {
     width: fit-content;
     height: fit-content;
-    transition: outline 0.1s, outline-offset 0.1s, color 0.5s;
+    transition: outline 0.1s, outline-offset 0.1s, color 0.2s;
     padding: 1rem;
     border: none;
+    cursor: pointer;
 
     border-radius: 10px;
     background: linear-gradient(145deg, #f0f0f0, #cacaca);
-    box-shadow:  5px 5px 10px #b3b3b3,
-                -5px -5px 10px #ffffff;
+    box-shadow: 5px 5px 10px #b3b3b3,
+        -5px -5px 10px #ffffff;
 
-    &.loading {
-        color: #aaa;
+    &:active:not(:disabled) {
+        color: var(--disabled-text);
+        background: linear-gradient(145deg, #cacaca, #f0f0f0);
+        box-shadow: 6px 6px 12px #d0d0d0,
+            -6px -6px 12px #f0f0f0;
     }
-    
+
+    &.loading,
     &.initialized {
-        color: var(--electric-blue);
+        color: var(--disabled-text);
+        background: linear-gradient(145deg, #cacaca, #f0f0f0);
+        box-shadow: 6px 6px 12px #d0d0d0,
+            -6px -6px 12px #f0f0f0;
+
+        &:active:not(:disabled) {
+            background: linear-gradient(145deg, #f0f0f0, #cacaca);
+            box-shadow: 5px 5px 10px #b3b3b3,
+                -5px -5px 10px #ffffff;
+        }
+    }
+
+    &:disabled {
+        cursor: auto;
     }
 
     &:hover {
@@ -23,11 +41,6 @@
     }
 
     &:focus {
-        outline: 2px solid blue;
-        outline-offset: 0.25rem;
-    }
-
-    &:disabled {
-        cursor: not-allowed;
+       // @todo
     }
 }

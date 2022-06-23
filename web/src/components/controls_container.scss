@@ -7,7 +7,16 @@
 
     // neumorphic styles
     border-radius: 20px;
-    background: linear-gradient(145deg, #f0f0f0, #cacaca);
-    box-shadow:  22px 22px 44px #a6a6a6,
-                -22px -22px 44px #ffffff;
+    background: #e0e0e0;
+    box-shadow: 9px 9px 18px #989898,
+        -9px -9px 18px #ffffff;
+}
+
+.buffer-container {
+    margin-top: 1rem;
+}
+
+.controls-select-buffer {
+    display: block;
+    margin: 1rem 0;
 }

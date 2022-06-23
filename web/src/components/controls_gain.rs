@@ -18,6 +18,10 @@ pub fn controls_gain() -> Html {
     let handle_change = {
         let state_handle = app_context.state_handle;
         Callback::from(move |e: InputEvent| {
+            if state_handle.get_are_audio_controls_disabled() {
+                return;
+            }
+            
             let gain = e
                 .target_dyn_into::<HtmlInputElement>()
                 .unwrap()
