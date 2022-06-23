@@ -1,17 +1,15 @@
 # Rust Audio
 
 ## Todos:
-- Save original `ms` grain length min and max in GranularSynthesizer
 - Memoize decoded audio from previous files? To prevent stutter on change?
-- Extract bump_counter to a trait
 - Enable draggging the current buffer selection window?
 - Share a single audio context that is initialized (?) at init time?
-- Move GranularSynthesizer `impl` functions into their own `trait`, and then
-    implement that trait in `GranularSynthesizerHandle`.
 - Fix HtmlSelectElement UI interaction:
     - Require a form submit
     - Make default audio the currently selected file in the select element
     - Disable when audio has not yet been enabled
+
+- add grain length sliders
 
 - Web
    - Create a dropdown for switching out audio buffers

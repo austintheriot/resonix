@@ -100,7 +100,7 @@ impl Default for AppState {
             play_status_handle: Default::default(),
             audio_initialized: Default::default(),
             audio_loading: Default::default(),
-            density_handle: Default::default(),
+            density_handle: DensityHandle::new(0.5),
 
             // non-default implementations
             sample_rate: FALLBACK_SAMPLE_RATE,
