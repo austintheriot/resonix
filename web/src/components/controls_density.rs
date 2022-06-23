@@ -16,7 +16,7 @@ pub fn controls_density() -> Html {
     let density = app_context.state_handle.density_handle.get();
 
     let handle_change = {
-        let state_handle = app_context.state_handle.clone();
+        let state_handle = app_context.state_handle;
         Callback::from(move |e: InputEvent| {
             let density = e
                 .target_dyn_into::<HtmlInputElement>()

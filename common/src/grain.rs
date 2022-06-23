@@ -1,6 +1,5 @@
-
 /// Contains information about where in a buffer the grain should sample from
-#[derive(Clone,Copy,Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Grain {
     pub start_frame: usize,
     pub end_frame: usize,
@@ -35,7 +34,7 @@ impl Grain {
     }
 
     /// Increments the current_frame and returns it.
-    /// 
+    ///
     /// If the grain is already finished, this is a no-op and `None` is returned.
     pub fn get_next_frame(&mut self) -> Option<usize> {
         if self.finished {

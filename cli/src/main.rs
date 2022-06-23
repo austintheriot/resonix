@@ -4,11 +4,7 @@ extern crate common;
 extern crate cpal;
 
 use clap::arg;
-use common::{
-    grain::Grain,
-    grain_sample::GrainSample,
-    utils,
-};
+use common::{grain::Grain, grain_sample::GrainSample, utils};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rand::prelude::*;
 use rodio::Decoder;
@@ -28,11 +24,8 @@ impl Opt {
 }
 
 /// Called periodically to fill a buffer with data
-fn write_data<T>(
-    output: &mut [T],
-    channels: usize,
-    next_sample: &mut dyn FnMut() -> (f32, f32),
-) where
+fn write_data<T>(output: &mut [T], channels: usize, next_sample: &mut dyn FnMut() -> (f32, f32))
+where
     T: cpal::Sample,
 {
     for frame in output.chunks_mut(channels) {

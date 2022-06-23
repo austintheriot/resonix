@@ -11,7 +11,7 @@ pub fn app() -> Html {
 
     // enables updating global state in child components
     let app_context = AppContext {
-        state_handle: app_reducer_handle.clone(),
+        state_handle: app_reducer_handle,
     };
 
     html! {

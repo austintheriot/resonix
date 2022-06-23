@@ -16,7 +16,7 @@ pub fn controls_gain() -> Html {
     let gain = app_context.state_handle.gain_handle.get();
 
     let handle_change = {
-        let state_handle = app_context.state_handle.clone();
+        let state_handle = app_context.state_handle;
         Callback::from(move |e: InputEvent| {
             let gain = e
                 .target_dyn_into::<HtmlInputElement>()

@@ -19,7 +19,7 @@ use yew::{function_component, html, prelude::*};
 include!(concat!(env!("OUT_DIR"), "/audio_files.rs"));
 
 /// This is the audio file that is loaded by default at initialization time
-pub const DEFAULT_AUDIO_FILE: &'static str = AUDIO_FILES[3];
+pub const DEFAULT_AUDIO_FILE: &str = AUDIO_FILES[3];
 
 #[function_component(ControlsSelectBuffer)]
 pub fn controls_select_buffer() -> Html {
@@ -28,7 +28,7 @@ pub fn controls_select_buffer() -> Html {
     let select_element_disabled = app_context.state_handle.get_are_audio_controls_disabled();
 
     let handle_change = {
-        let state_handle = app_context.state_handle.clone();
+        let state_handle = app_context.state_handle;
         let select_ref = select_ref.clone();
         Callback::from(move |_: Event| {
             let state_handle = state_handle.clone();

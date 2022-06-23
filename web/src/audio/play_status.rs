@@ -15,10 +15,9 @@ impl From<bool> for PlayStatus {
 
 impl From<PlayStatus> for bool {
     fn from(play_status: PlayStatus) -> Self {
-        let is_playing = match play_status {
+        match play_status {
             PlayStatus::PLAY => true,
             PlayStatus::PAUSE => false,
-        };
-        is_playing
+        }
     }
 }

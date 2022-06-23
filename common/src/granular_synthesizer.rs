@@ -85,7 +85,7 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         let grain_len_max_deafult = buffer_len as u32;
         GranularSynthesizer {
             sample_rate,
-            buffer: buffer,
+            buffer,
             grains: vec![
                 GranularSynthesizer::new_grain();
                 GranularSynthesizer::DEFAULT_NUM_CHANNELS as usize
@@ -144,7 +144,7 @@ impl GranularSynthesizerAction for GranularSynthesizer {
     }
 
     fn set_grain_len_max(&mut self, grain_len_max_in_ms: u32) -> &mut Self {
-        self.grain_len_max_raw;
+        self.grain_len_max_raw = grain_len_max_in_ms;
 
         let sanitized_max = self.sanitize_grain_len_max(grain_len_max_in_ms as u32);
 
@@ -333,8 +333,7 @@ impl GranularSynthesizer {
 
     /// this represents the number of channels actually in use
     fn get_num_channels_for_frame(&self) -> usize {
-        let num_channels = (self.max_num_channels as f32 * self.density) as usize;
-        num_channels
+        (self.max_num_channels as f32 * self.density) as usize
     }
 
     /// Combines current buffer and envelope sample values to calculate a full audio frame
@@ -346,13 +345,13 @@ impl GranularSynthesizer {
             let buffer_sample = self
                 .output_buffer_samples
                 .get(i)
-                .map(|value| *value)
+                .copied()
                 .expect("output_buffer_samples length should match max number of grains");
 
             let envelope_sample = self
                 .output_env_samples
                 .get(i)
-                .map(|value| *value)
+                .copied()
                 .expect("output_env_samples length should match max number of grains");
 
             // if these buffers have not been filled up yet, just return 0.0

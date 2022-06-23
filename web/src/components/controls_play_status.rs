@@ -16,7 +16,7 @@ pub fn controls_play_status() -> Html {
     let input_disabled = app_context.state_handle.get_are_audio_controls_disabled();
 
     let handle_change = {
-        let state_handle = app_context.state_handle.clone();
+        let state_handle = app_context.state_handle;
         Callback::from(move |e: InputEvent| {
             let checked = e.target_dyn_into::<HtmlInputElement>().unwrap().checked();
             let play_status = match checked {

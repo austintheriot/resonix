@@ -23,7 +23,7 @@ pub fn controls_container() -> Html {
     let audio_is_initialized = app_context.state_handle.audio_initialized;
 
     let handle_play = {
-        let state_handle = app_context.state_handle.clone();
+        let state_handle = app_context.state_handle;
         Callback::from(move |_: MouseEvent| {
             let state_handle = state_handle.clone();
             wasm_bindgen_futures::spawn_local(async move {

@@ -104,7 +104,7 @@ impl Default for AppState {
 
             // non-default implementations
             sample_rate: FALLBACK_SAMPLE_RATE,
-            buffer_handle: buffer_handle.clone(),
+            buffer_handle,
             granular_synthesizer_handle,
         }
     }
@@ -116,7 +116,7 @@ impl Reducible for AppState {
     fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
         let mut next_state = (*self).clone();
         {
-            let action = action.clone();
+            let action = action;
             match action {
                 AppAction::SetBuffer(buffer) => {
                     next_state.buffer_maxes = get_buffer_maxes(&buffer);

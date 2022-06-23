@@ -16,8 +16,8 @@ pub fn get_touch_percent_x(div_ref: &NodeRef, touch_client_x: i32) -> f32 {
     // the x coordinate of the touch, relative to the left edge of the div
     let touch_el_x = (touch_client_x as f32) - div_x;
     let div_width = div_rect.width() as f32;
-    let div_percent_x = touch_el_x / div_width;
-    div_percent_x
+
+    touch_el_x / div_width
 }
 
 /// A wrapper around the audio buffer visualization
@@ -131,7 +131,7 @@ pub fn buffer_container() -> Html {
 
     let handle_touch_move = {
         let div_ref = div_ref.clone();
-        let state_handle = app_context.state_handle.clone();
+        let state_handle = app_context.state_handle;
         Callback::from(move |e: TouchEvent| {
             if buffer_selector_disabled {
                 return;
