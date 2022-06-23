@@ -88,7 +88,7 @@ impl Default for AppState {
     fn default() -> Self {
         // Set up a buffer with some silent data and a granular synthesizer for now.
         // Audio context can't be setup until the user interacts with a UI element.
-        let buffer_handle = BufferHandle::new_with_silent_buffer();
+        let buffer_handle = BufferHandle::default();
         let granular_synthesizer_handle =
             GranularSynthesizerHandle::new_with_app_defaults(buffer_handle.get_data(), 48000);
 

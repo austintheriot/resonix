@@ -64,7 +64,11 @@ where
     // this is the config of the output audio
     let output_sample_rate = stream_config.sample_rate.0;
     let output_num_channels = stream_config.channels as usize;
-    load_default_buffer(app_state_handle.clone()).await;
+    
+    // only load if buffer hasn't been loaded
+    if app_state_handle.buffer_handle.get_data().is_empty() {
+        load_default_buffer(app_state_handle.clone()).await;
+    }
 
     let buffer_selection_handle = app_state_handle.buffer_selection_handle.clone();
     let gain_handle = app_state_handle.gain_handle.clone();

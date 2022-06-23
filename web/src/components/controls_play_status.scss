@@ -21,13 +21,12 @@
     }
 
     &.play {
-        position: relative;
-        left: 0.35rem;
+        
     }
 
     &.pause {
-        background: #e0e0e0;
-        box-shadow: inset 5px 5px 9px #d0d0d0,
-                    inset -5px -5px 9px #f0f0f0;
+        background: linear-gradient(145deg, #cacaca, #f0f0f0);
+        box-shadow: 5px 5px 9px #d0d0d0,
+            -5px -5px 9px #f0f0f0;
     }
 }

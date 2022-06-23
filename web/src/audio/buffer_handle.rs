@@ -22,13 +22,6 @@ impl BufferHandle {
         }
     }
 
-    pub fn new_with_silent_buffer() -> Self {
-        BufferHandle {
-            data: Arc::new(vec![0.0; 1000]),
-            uuid: Uuid::new_v4(),
-        }
-    }
-
     pub fn get_data(&self) -> Arc<Vec<f32>> {
         Arc::clone(&self.data)
     }

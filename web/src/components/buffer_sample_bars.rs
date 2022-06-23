@@ -1,4 +1,4 @@
-use crate::state::app_context::{AppContext, AppContextError};
+use crate::state::app_context::{self, AppContext, AppContextError};
 use std::{ops::Mul, sync::Arc};
 use yew::{function_component, html, prelude::*};
 
@@ -46,7 +46,10 @@ pub fn buffer_sample_bars() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
     let buffer_maxes = &app_context.state_handle.buffer_maxes;
 
-    // empty buffer
+    if !app_context.state_handle.audio_initialized {
+        return html! {};
+    }
+
     if app_context.state_handle.buffer_handle.get_data().is_empty() {
         return html! {
             <>

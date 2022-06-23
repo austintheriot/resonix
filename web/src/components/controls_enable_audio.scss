@@ -6,17 +6,12 @@
     border: none;
     cursor: pointer;
 
+    color: black;
     border-radius: 10px;
     background: linear-gradient(145deg, #f0f0f0, #cacaca);
     box-shadow: 5px 5px 10px #b3b3b3,
         -5px -5px 10px #ffffff;
-
-    &:active:not(:disabled) {
-        color: var(--disabled-text);
-        background: linear-gradient(145deg, #cacaca, #f0f0f0);
-        box-shadow: 6px 6px 12px #d0d0d0,
-            -6px -6px 12px #f0f0f0;
-    }
+        
 
     &.loading,
     &.initialized {
@@ -24,12 +19,6 @@
         background: linear-gradient(145deg, #cacaca, #f0f0f0);
         box-shadow: 6px 6px 12px #d0d0d0,
             -6px -6px 12px #f0f0f0;
-
-        &:active:not(:disabled) {
-            background: linear-gradient(145deg, #f0f0f0, #cacaca);
-            box-shadow: 5px 5px 10px #b3b3b3,
-                -5px -5px 10px #ffffff;
-        }
     }
 
     &:disabled {
