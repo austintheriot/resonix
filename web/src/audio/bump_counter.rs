@@ -1,6 +1,6 @@
 /// Increments an interanl counter so that Yew knows interanal state has changed,
 /// even when the internal state that is behind an `Arc` pointer still points to the same memory.
-/// 
+///
 /// When an audio Handle struct is `Clone`d on global state updates, its clone is the
 /// identical object to the original, because its internal `Arc` is simply cloned,
 /// and the outer struct frame (with the `counter`) is identical.

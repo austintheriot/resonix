@@ -1,4 +1,4 @@
-use super::defaults::{GRAIN_LEN_MAX_IN_MS, GRAIN_LEN_MIN_IN_MS, MAX_NUM_CHANNELS};
+use super::global_defaults::{GRAIN_LEN_MAX_IN_MS, GRAIN_LEN_MIN_IN_MS, MAX_NUM_CHANNELS};
 use common::granular_synthesizer::GranularSynthesizer;
 use common::granular_synthesizer_action::GranularSynthesizerAction;
 use std::fmt::Debug;
@@ -33,7 +33,10 @@ impl GranularSynthesizerHandle {
 
     /// Sets up a buffer with some data that is just a silent buffer
     /// (this prevents empty buffer errors while setting up initial/temporary state)
-    pub fn new_with_app_defaults(buffer: Arc<Vec<f32>>, sample_rate: u32) -> GranularSynthesizerHandle {
+    pub fn new_with_app_defaults(
+        buffer: Arc<Vec<f32>>,
+        sample_rate: u32,
+    ) -> GranularSynthesizerHandle {
         Self {
             granular_synthesizer: Arc::new(Mutex::new(
                 GranularSynthesizerHandle::new_granular_synthesizer_with_app_defaults(

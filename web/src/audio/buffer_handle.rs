@@ -34,7 +34,6 @@ impl BufferHandle {
     }
 }
 
-
 impl PartialEq for BufferHandle {
     fn eq(&self, other: &Self) -> bool {
         self.uuid == other.uuid

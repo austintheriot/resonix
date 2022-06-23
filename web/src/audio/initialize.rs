@@ -1,9 +1,9 @@
 use super::{
-    buffer_selection_action::BufferSelectionAction, current_status::CurrentStatus,
-    current_status_action::CurrentStatusAction, decode, gain_action::GainAction,
+    buffer_selection_action::BufferSelectionAction, decode, gain_action::GainAction,
+    play_status::PlayStatus, play_status_action::PlayStatusAction,
 };
 use crate::{
-    audio::{defaults::MAX_NUM_CHANNELS, stream_handle::StreamHandle},
+    audio::{global_defaults::MAX_NUM_CHANNELS, stream_handle::StreamHandle},
     components::controls_select_buffer::DEFAULT_AUDIO_FILE,
     state::{app_action::AppAction, app_state::AppState},
 };
@@ -75,7 +75,7 @@ where
 
     let buffer_selection_handle = app_state_handle.buffer_selection_handle.clone();
     let gain_handle = app_state_handle.gain_handle.clone();
-    let status = app_state_handle.current_status_handle.clone();
+    let status = app_state_handle.play_status_handle.clone();
     let mut granular_synthesizer_handle = app_state_handle.granular_synthesizer_handle.clone();
 
     // make sure granular synthesizer's internal state is current with audio context state
@@ -84,7 +84,7 @@ where
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
         // if paused, do not process any audio, just return silence
-        if let CurrentStatus::PAUSE = status.get() {
+        if let PlayStatus::PAUSE = status.get() {
             return (0.0, 0.0);
         }
 

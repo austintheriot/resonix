@@ -1,14 +1,14 @@
 use crate::audio::buffer_handle::BufferHandle;
 use crate::audio::buffer_selection_action::BufferSelectionAction;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
-use crate::audio::current_status_action::CurrentStatusAction;
-use crate::audio::current_status_handle::CurrentStatusHandle;
-use crate::audio::defaults::FALLBACK_SAMPLE_RATE;
 use crate::audio::density_action::DensityAction;
 use crate::audio::density_handle::DensityHandle;
 use crate::audio::gain_action::GainAction;
 use crate::audio::gain_handle::GainHandle;
+use crate::audio::global_defaults::FALLBACK_SAMPLE_RATE;
 use crate::audio::granular_synthesizer_handle::GranularSynthesizerHandle;
+use crate::audio::play_status_action::PlayStatusAction;
+use crate::audio::play_status_handle::PlayStatusHandle;
 use crate::audio::stream_handle::StreamHandle;
 use crate::components::buffer_sample_bars::get_buffer_maxes;
 use crate::state::app_action::AppAction;
@@ -61,7 +61,7 @@ pub struct AppState {
     pub gain_handle: GainHandle,
 
     /// Current play / pause status
-    pub current_status_handle: CurrentStatusHandle,
+    pub play_status_handle: PlayStatusHandle,
 
     /// Has audio been initialized yet? Audio interactions must be initiated from
     /// a user touch / interaction.
@@ -97,7 +97,7 @@ impl Default for AppState {
             stream_handle: Default::default(),
             buffer_selection_handle: Default::default(),
             gain_handle: Default::default(),
-            current_status_handle: Default::default(),
+            play_status_handle: Default::default(),
             audio_initialized: Default::default(),
             audio_loading: Default::default(),
             density_handle: Default::default(),
@@ -142,8 +142,8 @@ impl Reducible for AppState {
                 AppAction::SetGain(gain) => {
                     next_state.gain_handle.set(gain);
                 }
-                AppAction::SetStatus(current_status) => {
-                    next_state.current_status_handle.set(current_status);
+                AppAction::SetPlayStatus(play_status) => {
+                    next_state.play_status_handle.set(play_status);
                 }
                 AppAction::SetAudioInitialized(is_initialized) => {
                     next_state.audio_initialized = is_initialized;

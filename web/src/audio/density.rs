@@ -1,5 +1,8 @@
 use super::density_action::DensityAction;
-use common::{granular_synthesizer::GranularSynthesizer, granular_synthesizer_action::GranularSynthesizerAction};
+use common::{
+    granular_synthesizer::GranularSynthesizer,
+    granular_synthesizer_action::GranularSynthesizerAction,
+};
 
 /// Wrapper around raw `f32` value for access on the audio thread
 #[derive(Clone, Copy, Debug)]

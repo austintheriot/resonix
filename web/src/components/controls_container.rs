@@ -1,10 +1,10 @@
 use crate::{
     audio::{self},
     components::buffer_container::BufferContainer,
-    components::controls_gain::ControlsGain,
-    components::controls_status::ControlsStatus,
-    components::controls_select_buffer::ControlsSelectBuffer,
     components::controls_density::ControlsDensity,
+    components::controls_gain::ControlsGain,
+    components::controls_play_status::ControlsPlayStatus,
+    components::controls_select_buffer::ControlsSelectBuffer,
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
@@ -58,7 +58,7 @@ pub fn controls_container() -> Html {
             } else {
                 html!{}
             }}
-            <ControlsStatus />
+            <ControlsPlayStatus />
             <ControlsGain />
             <ControlsDensity />
             <ControlsSelectBuffer />

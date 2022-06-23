@@ -1,8 +1,8 @@
-use wasm_bindgen::{prelude::*};
+use wasm_bindgen::prelude::*;
 
+pub mod audio;
 pub mod components;
 pub mod state;
-pub mod audio;
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global
 // allocator.
@@ -30,7 +30,7 @@ pub fn main() -> Result<(), JsValue> {
         .query_selector("#app")
         .unwrap()
         .unwrap();
-        
+
     yew::start_app_in_element::<components::app::App>(app_div);
 
     Ok(())

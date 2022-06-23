@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use cpal::Stream;
 use std::fmt::Debug;
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// A wrapper around `cpal`'s Stream type for implementing `PartialEq`, etc.

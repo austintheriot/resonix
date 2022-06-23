@@ -53,7 +53,10 @@ impl BufferSelectionAction for BufferSelectionHandle {
     }
 
     fn set_mouse_down(&mut self, mouse_down: bool) -> &mut Self {
-        self.buffer_selection.lock().unwrap().set_mouse_down(mouse_down);
+        self.buffer_selection
+            .lock()
+            .unwrap()
+            .set_mouse_down(mouse_down);
         self.bump_counter();
 
         self
@@ -77,7 +80,10 @@ impl BufferSelectionAction for BufferSelectionHandle {
     }
 
     fn get_buffer_start_and_end(&self) -> (f32, f32) {
-        self.buffer_selection.lock().unwrap().get_buffer_start_and_end()
+        self.buffer_selection
+            .lock()
+            .unwrap()
+            .get_buffer_start_and_end()
     }
 }
 

@@ -5,7 +5,7 @@ use crate::state::app_action::AppAction;
 use crate::state::app_context::{AppContext, AppContextError};
 use crate::state::app_selector::AppSelector;
 use wasm_bindgen::JsCast;
-use web_sys::{HtmlDivElement};
+use web_sys::HtmlDivElement;
 use yew::{function_component, html, prelude::*};
 
 /// Calculate the current touch location within the div, as a percentage (0.0 -> 1.0)
@@ -97,7 +97,7 @@ pub fn buffer_container() -> Html {
             }
             let touch = e
                 .touches()
-                 // ignore any multi-touches
+                // ignore any multi-touches
                 .get(0)
                 .expect("There should be at least one touch in the touch list");
             let touch_client_x = touch.client_x();
@@ -118,7 +118,7 @@ pub fn buffer_container() -> Html {
             }
             let touch = e
                 .changed_touches()
-                 // ignore any multi-touches
+                // ignore any multi-touches
                 .get(0)
                 .expect("There should be at least one touch in the touch list");
             let touch_client_x = touch.client_x();

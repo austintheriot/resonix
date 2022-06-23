@@ -4,7 +4,8 @@ use crate::{
     audio::decode,
     state::{
         app_action::AppAction,
-        app_context::{AppContext, AppContextError}, app_selector::AppSelector,
+        app_context::{AppContext, AppContextError},
+        app_selector::AppSelector,
     },
 };
 use gloo_net::http::Request;
@@ -53,8 +54,7 @@ pub fn controls_select_buffer() -> Html {
                 // @todo: initialize a single audio_context at the top level of the app
                 let audio_context = web_sys::AudioContext::new()
                     .expect("Browser should have AudioContext implemented");
-                let audio_buffer =
-                    decode::decode_bytes(&audio_context, &mp3_file_bytes).await;
+                let audio_buffer = decode::decode_bytes(&audio_context, &mp3_file_bytes).await;
                 let buffer_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
                 state_handle.dispatch(AppAction::SetBuffer(buffer_data));
             })

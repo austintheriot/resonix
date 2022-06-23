@@ -6,7 +6,7 @@ fn get_audio_read_dir() -> ReadDir {
     fs::read_dir("../audio").unwrap()
 }
 
-// generates a list of audio files from the `audio` directory at compile time, 
+// generates a list of audio files from the `audio` directory at compile time,
 // which is then available in the app, so that default buffer lists are always
 // in sync with the actual `audio` directory
 fn build_audio_files_list() {
@@ -19,10 +19,7 @@ fn build_audio_files_list() {
     // get a basic list of file names from the `audio` directory
     let paths: Vec<_> = paths.map(|file| file.unwrap().file_name()).collect();
     // convert file names into strings with quotes
-    let paths: Vec<_> = paths
-        .iter()
-        .map(|path| format!(r#"{:?}"#, path))
-        .collect();
+    let paths: Vec<_> = paths.iter().map(|path| format!(r#"{:?}"#, path)).collect();
     // format file names with commas between them
     let paths = paths.join(", ");
 

@@ -28,9 +28,7 @@ pub fn get_buffer_maxes(buffer: &Arc<Vec<f32>>) -> Vec<String> {
             let max = samples
                 .iter()
                 .map(|sample| f32::abs(*sample))
-                .reduce(|accum, el| {
-                    f32::max(accum, el)
-                })
+                .reduce(|accum, el| f32::max(accum, el))
                 .unwrap()
                 .mul(100.0);
             let formatted_max = format!("{:.1}", max);

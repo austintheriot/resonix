@@ -1,8 +1,11 @@
-use crate::{state::{
-    app_action::AppAction,
-    app_context::{AppContext, AppContextError},
-    app_selector::AppSelector,
-}, audio::{gain::Gain, gain_action::GainAction}};
+use crate::{
+    audio::{gain::Gain, gain_action::GainAction},
+    state::{
+        app_action::AppAction,
+        app_context::{AppContext, AppContextError},
+        app_selector::AppSelector,
+    },
+};
 use web_sys::HtmlInputElement;
 use yew::{function_component, html, prelude::*};
 
