@@ -1,9 +1,8 @@
 use super::buffer_selection_action::BufferSelectionAction;
-use serde::Serialize;
 
 /// A represents what portion of an audio buffer is currently selected,
 /// ranging from 0.0 (start) to 1.0 (end).
-#[derive(Clone, Copy, PartialEq, Debug, Serialize)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct BufferSelection {
     /// The start of the current mouse selection inside the audio buffer.
     ///

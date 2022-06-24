@@ -2,6 +2,9 @@
 
 ## Todos:
 - Style the HtmlSelectElement for buffer selection
+- Move audio PROCESSING into a Web Worker thread so that `cpal` merely has to request audio data at the appropriate time
+    - Keeps main thread / audio processing from getting locked up by UI updates and vice versa
+    - Keeps WebAudio context on the main thread (where it has to be)
 - add grain length sliders
 - Make buffer selector cursor:pointer
 - Add an audio loading / initialization state style / animation
