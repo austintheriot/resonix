@@ -33,6 +33,8 @@ pub fn buffer_container() -> Html {
         let div_ref = div_ref.clone();
         let state_handle = app_context.state_handle.clone();
         Callback::from(move |e: MouseEvent| {
+            e.prevent_default();
+            
             if buffer_selector_disabled {
                 return;
             }
@@ -74,6 +76,8 @@ pub fn buffer_container() -> Html {
         let div_ref = div_ref.clone();
         let state_handle = app_context.state_handle.clone();
         Callback::from(move |e: MouseEvent| {
+            e.prevent_default();
+
             if buffer_selector_disabled {
                 return;
             }

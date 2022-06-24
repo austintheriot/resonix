@@ -7,8 +7,12 @@
     position: relative;
     overflow: hidden;
 
-    border-radius: 20px;
+    border-radius: var(--border-radius-lg);
     background: #e0e0e0;
     box-shadow: inset 5px 5px 12px #bcbcbc,
         inset -5px -5px 12px #ffffff;
+
+    &:not([data-disabled=true]) {
+        cursor: pointer;
+    }
 }

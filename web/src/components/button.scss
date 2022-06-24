@@ -7,7 +7,7 @@
     display: block;
 
     color: black;
-    border-radius: 10px;
+    border-radius: var(--border-radius-lg);
     background: linear-gradient(145deg, #f0f0f0, #cacaca);
     box-shadow: 5px 5px 10px #b3b3b3,
         -5px -5px 10px #ffffff;
@@ -22,6 +22,5 @@
 
     &:disabled {
         cursor: auto;
-        color: var(--disabled-text);
     }
 }

@@ -4,7 +4,27 @@
         margin-bottom: 0.5rem;
     }
 
+    select {
+        border-radius: var(--border-radius-lg);
+        background: #e0e0e0;
+        box-shadow: inset 3px 3px 6px #bebebe,
+            inset -3px -3px 6px #ffffff;
+
+        height: 2rem;
+        width: 100%;
+        max-width: 15rem;
+        padding: 0.25rem 1rem;
+        color: black;
+        outline: none;
+        border: none;
+        cursor: pointer;
+    }
+
     &.disabled {
-        color: var(--disabled-text);
+
+        select,
+        label {
+            color: var(--disabled-text);
+        }
     }
 }

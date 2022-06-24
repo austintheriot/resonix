@@ -10,15 +10,19 @@
 @use './src/components/controls_select_buffer.scss';
 @use './src/components/input_range.scss';
 
+:root {
+  --electric-blue-rgb: 31, 159, 209;
+  --electric-blue: rgb(var(--electric-blue-rgb));
+  --disabled-text: #ccc;
+
+  --border-radius-lg: 20px;
+}
+
 * {
   font-family: 'Roboto', sans-serif;
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-
-  --electric-blue-rgb: 31, 159, 209;
-  --electric-blue: rgb(var(--electric-blue-rgb));
-  --disabled-text: #ccc;
 }
 
 body {
