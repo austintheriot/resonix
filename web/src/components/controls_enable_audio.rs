@@ -1,5 +1,6 @@
 use crate::{
     audio::{self, play_status::PlayStatus},
+    components::button::Button,
     icons::power::IconPower,
     state::{
         app_action::AppAction,
@@ -7,6 +8,8 @@ use crate::{
     },
 };
 use yew::{function_component, html, prelude::*};
+
+use super::button::ButtonVariant;
 
 #[function_component(ControlsEnableAudio)]
 pub fn controls_enable_audio() -> Html {
@@ -55,14 +58,21 @@ pub fn controls_enable_audio() -> Html {
         "turn on audio"
     };
 
+    let button_variant = if audio_is_initialized || audio_is_loading {
+        ButtonVariant::Pressed
+    } else {
+        ButtonVariant::Unpressed
+    };
+
     html! {
-        <button
-            aria-label={aria_label}
+        <Button
+            aria_label={aria_label}
             disabled={button_disabled}
             class={classes!(default_class, audio_loading_class, audio_initialized_class)}
             onclick={handle_click}
+            variant={button_variant}
         >
             <IconPower />
-        </button>
+        </Button>
     }
 }

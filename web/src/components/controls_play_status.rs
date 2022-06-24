@@ -1,5 +1,7 @@
+use super::button::ButtonVariant;
 use crate::{
     audio::{play_status::PlayStatus, play_status_action::PlayStatusAction},
+    components::button::Button,
     icons::{pause::IconPause, play::IconPlay},
     state::{
         app_action::AppAction,
@@ -12,7 +14,7 @@ use yew::{function_component, html, prelude::*};
 #[function_component(ControlsPlayStatus)]
 pub fn controls_play_status() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
-    let play_status = app_context.state_handle.play_status_handle.get();
+    let current_play_status = app_context.state_handle.play_status_handle.get();
     let button_disabled = app_context.state_handle.get_are_audio_controls_disabled();
 
     let handle_play = {
@@ -35,28 +37,30 @@ pub fn controls_play_status() -> Html {
         })
     };
 
-    match play_status {
+    let default_class = "controls-play-status";
+
+    match current_play_status {
         PlayStatus::PLAY => html! {
-            <button
-                aria-label="pause audio"
-                class="controls-play-status pause"
-                type="button"
+            <Button
+                aria_label="pause audio"
+                class={classes!(default_class, "pause")}
                 onclick={handle_pause}
                 disabled={button_disabled}
+                variant={ButtonVariant::Pressed}
             >
                 <IconPause />
-            </button>
+            </Button>
         },
         PlayStatus::PAUSE => html! {
-            <button
-                aria-label="play audio"    
-                class="controls-play-status play"
-                type="button"
+            <Button
+                aria_label="play audio"
+                class={classes!(default_class, "play")}
                 onclick={handle_play}
                 disabled={button_disabled}
+                variant={ButtonVariant::Unpressed}
             >
                 <IconPlay />
-            </button>
+            </Button>
         },
     }
 }

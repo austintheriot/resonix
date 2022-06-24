@@ -2,6 +2,7 @@ pub mod app;
 pub mod buffer_container;
 pub mod buffer_sample_bars;
 pub mod buffer_selection_visualizer;
+pub mod button;
 pub mod controls_container;
 pub mod controls_density;
 pub mod controls_enable_audio;

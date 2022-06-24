@@ -16,7 +16,7 @@ pub struct InputProps {
     #[prop_or_default]
     pub oninput: Callback<InputEvent>,
     #[prop_or_default]
-    pub classes: Vec<String>,
+    pub class: Classes,
     #[prop_or_default]
     pub onblur: Callback<FocusEvent>,
     #[prop_or_default]
@@ -26,11 +26,9 @@ pub struct InputProps {
 #[function_component(InputRange)]
 pub fn input_range(props: &InputProps) -> Html {
     let disabled_class = if props.disabled { "disabled" } else { "" };
-    let mut classes = props.classes.clone();
-    classes.extend(["input-range".into(), disabled_class.into()]);
 
     html! {
-      <div class={classes}>
+      <div class={classes!("input-range", disabled_class, props.class.clone())}>
         <label for={props.id.clone()}>{&props.label}</label>
         <div class="input-range-input-container">
             <input
