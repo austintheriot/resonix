@@ -23,6 +23,7 @@
         width: 8rem;
         height: 1.5rem;
         background: transparent;
+        border-radius: var(--border-radius-lg);
 
         // hack: just a horizontal slider rotated 90deg,
         // since browser support here is limited
@@ -44,7 +45,8 @@
         }
 
         &:focus {
-            outline: none;
+            outline: var(--focus-outline);
+            outline-offset: var(--focus-outline-offset);
         }
 
         &:disabled::-webkit-slider-thumb {

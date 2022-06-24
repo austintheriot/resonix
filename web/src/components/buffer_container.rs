@@ -34,7 +34,7 @@ pub fn buffer_container() -> Html {
         let state_handle = app_context.state_handle.clone();
         Callback::from(move |e: MouseEvent| {
             e.prevent_default();
-            
+
             if buffer_selector_disabled {
                 return;
             }
@@ -153,6 +153,7 @@ pub fn buffer_container() -> Html {
     };
 
     let div_ref_prop = div_ref.clone();
+    let tab_index = if buffer_selector_disabled { "-1" } else { "0" };
 
     html! {
         <div
@@ -164,6 +165,7 @@ pub fn buffer_container() -> Html {
             ontouchstart={handle_touch_start}
             ontouchend={handle_touch_end}
             ontouchmove={handle_touch_move}
+            tabindex={tab_index}
             ref={div_ref}
             data-disabled={buffer_selector_disabled.to_string()}
         >
