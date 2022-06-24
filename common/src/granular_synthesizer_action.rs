@@ -18,8 +18,10 @@ pub trait GranularSynthesizerAction {
     /// the smallest possible length of grain, given in samples
     const GRAIN_LEN_ABSOLUTE_MIN_IN_MS: u32 = 1;
 
+    const DEFAULT_SAMPLE_RATE: u32 = 44100;
+
     /// Creates a new GranularSynthesizer instance
-    fn new(buffer: Arc<Vec<f32>>, sample_rate: u32) -> Self;
+    fn new() -> Self;
 
     fn set_selection_start(&mut self, start: f32) -> &mut Self;
 

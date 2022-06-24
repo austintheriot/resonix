@@ -1,11 +1,11 @@
 use crate::{
     audio::density_action::DensityAction,
+    components::input_range::InputRange,
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
         app_selector::AppSelector,
     },
-    components::input_range::InputRange
 };
 use web_sys::HtmlInputElement;
 use yew::{function_component, html, prelude::*};

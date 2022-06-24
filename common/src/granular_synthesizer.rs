@@ -69,38 +69,27 @@ pub struct GranularSynthesizer {
 }
 
 impl GranularSynthesizerAction for GranularSynthesizer {
-    const DENSITY_MAX: f32 = 1.0;
+    fn new() -> Self {
+        let default_buffer = Arc::new(Vec::new());
+        let grain_len_min_default = Self::GRAIN_LEN_ABSOLUTE_MIN_IN_MS;
+        let grain_len_max_deafult =
+            Self::GRAIN_LEN_ABSOLUTE_MIN_IN_MS + Self::GRAIN_LEN_ABSOLUTE_MIN_IN_MS;
 
-    const DENSITY_MIN: f32 = 0.0;
-
-    const DEFAULT_NUM_CHANNELS: u32 = 2;
-
-    const DEFAULT_DENSITY: f32 = 1.0;
-
-    const GRAIN_LEN_ABSOLUTE_MIN_IN_MS: u32 = 1;
-
-    fn new(buffer: Arc<Vec<f32>>, sample_rate: u32) -> Self {
-        let buffer_len = buffer.len();
-        let grain_len_min_default = GranularSynthesizer::GRAIN_LEN_ABSOLUTE_MIN_IN_MS;
-        let grain_len_max_deafult = buffer_len as u32;
-        GranularSynthesizer {
-            sample_rate,
-            buffer,
-            grains: vec![
-                GranularSynthesizer::new_grain();
-                GranularSynthesizer::DEFAULT_NUM_CHANNELS as usize
-            ],
+        Self {
+            sample_rate: Self::DEFAULT_SAMPLE_RATE,
+            buffer: default_buffer,
+            grains: vec![Self::new_grain(); Self::DEFAULT_NUM_CHANNELS as usize],
             rng: rand::rngs::StdRng::from_entropy(),
             grain_len_min: grain_len_min_default,
             grain_len_min_raw: grain_len_min_default,
             grain_len_max: grain_len_max_deafult,
             grain_len_max_raw: grain_len_max_deafult,
-            output_buffer_samples: vec![0.0; GranularSynthesizer::DEFAULT_NUM_CHANNELS as usize],
-            output_env_samples: vec![0.0; GranularSynthesizer::DEFAULT_NUM_CHANNELS as usize],
+            output_buffer_samples: vec![0.0; Self::DEFAULT_NUM_CHANNELS as usize],
+            output_env_samples: vec![0.0; Self::DEFAULT_NUM_CHANNELS as usize],
             selection_start: 0.0,
             selection_end: 1.0,
-            max_num_channels: GranularSynthesizer::DEFAULT_NUM_CHANNELS,
-            density: GranularSynthesizer::DEFAULT_DENSITY,
+            max_num_channels: Self::DEFAULT_NUM_CHANNELS,
+            density: Self::DEFAULT_DENSITY,
         }
     }
 

@@ -5,7 +5,6 @@ use crate::audio::density_action::DensityAction;
 use crate::audio::density_handle::DensityHandle;
 use crate::audio::gain_action::GainAction;
 use crate::audio::gain_handle::GainHandle;
-use crate::audio::global_defaults::FALLBACK_SAMPLE_RATE;
 use crate::audio::granular_synthesizer_handle::GranularSynthesizerHandle;
 use crate::audio::play_status_action::PlayStatusAction;
 use crate::audio::play_status_handle::PlayStatusHandle;
@@ -38,7 +37,7 @@ pub type SampleRate = u32;
 /// If we did not update the handle's internal state in some way, Yew would have no way of comparing
 /// previous Handles to new Handles, because the outer Handle would be identical in both, and the internal
 /// memory/pointer would also be identical.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct AppState {
     /// The currently loaded audio buffer
     pub buffer_handle: BufferHandle,
@@ -82,32 +81,6 @@ pub struct AppState {
     /// Corresponds to the percentage of channels that will output samples
     /// from the `GranularSynthesizer` on every frame (0.0 -> 1.0)
     pub density_handle: DensityHandle,
-}
-
-impl Default for AppState {
-    fn default() -> Self {
-        // Set up a buffer with some silent data and a granular synthesizer for now.
-        // Audio context can't be setup until the user interacts with a UI element.
-        let buffer_handle = BufferHandle::default();
-        let granular_synthesizer_handle =
-            GranularSynthesizerHandle::new_with_app_defaults(buffer_handle.get_data(), 48000);
-
-        Self {
-            buffer_maxes: Default::default(),
-            stream_handle: Default::default(),
-            buffer_selection_handle: Default::default(),
-            gain_handle: Default::default(),
-            play_status_handle: Default::default(),
-            audio_initialized: Default::default(),
-            audio_loading: Default::default(),
-            density_handle: DensityHandle::new(0.5),
-
-            // non-default implementations
-            sample_rate: FALLBACK_SAMPLE_RATE,
-            buffer_handle,
-            granular_synthesizer_handle,
-        }
-    }
 }
 
 impl Reducible for AppState {

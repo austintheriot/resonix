@@ -13,60 +13,10 @@ pub struct GranularSynthesizerHandle {
     uuid: Uuid,
 }
 
-impl GranularSynthesizerHandle {
-    /// Creates a new GranularSynthesizer instance and updates it with any necessary defaults
-    pub fn new_granular_synthesizer_with_app_defaults(
-        mp3_source_data: Arc<Vec<f32>>,
-        sample_rate: u32,
-    ) -> GranularSynthesizer {
-        let mut granular_synth: GranularSynthesizer =
-            GranularSynthesizer::new(mp3_source_data, sample_rate);
-
-        // this data does not need to be updated dynamically (for now at least)
-        granular_synth
-            .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
-            .set_grain_len_max(GRAIN_LEN_MAX_IN_MS)
-            .set_max_number_of_channels(MAX_NUM_CHANNELS);
-
-        granular_synth
-    }
-
-    /// Sets up a buffer with some data that is just a silent buffer
-    /// (this prevents empty buffer errors while setting up initial/temporary state)
-    pub fn new_with_app_defaults(
-        buffer: Arc<Vec<f32>>,
-        sample_rate: u32,
-    ) -> GranularSynthesizerHandle {
-        Self {
-            granular_synthesizer: Arc::new(Mutex::new(
-                GranularSynthesizerHandle::new_granular_synthesizer_with_app_defaults(
-                    buffer,
-                    sample_rate,
-                ),
-            )),
-            counter: Default::default(),
-            uuid: Uuid::new_v4(),
-        }
-    }
-}
-
 impl GranularSynthesizerAction for GranularSynthesizerHandle {
-    const DENSITY_MAX: f32 = GranularSynthesizer::DENSITY_MAX;
-
-    const DENSITY_MIN: f32 = GranularSynthesizer::DENSITY_MIN;
-
-    const DEFAULT_NUM_CHANNELS: u32 = GranularSynthesizer::DEFAULT_NUM_CHANNELS;
-
-    const DEFAULT_DENSITY: f32 = GranularSynthesizer::DEFAULT_DENSITY;
-
-    const GRAIN_LEN_ABSOLUTE_MIN_IN_MS: u32 = GranularSynthesizer::GRAIN_LEN_ABSOLUTE_MIN_IN_MS;
-
-    fn new(buffer: Arc<Vec<f32>>, sample_rate: u32) -> GranularSynthesizerHandle {
+    fn new() -> GranularSynthesizerHandle {
         Self {
-            granular_synthesizer: Arc::new(Mutex::new(GranularSynthesizer::new(
-                buffer,
-                sample_rate,
-            ))),
+            granular_synthesizer: Arc::new(Mutex::new(GranularSynthesizer::new())),
             counter: Default::default(),
             uuid: Uuid::new_v4(),
         }
@@ -143,6 +93,25 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
             .set_sample_rate(sample_rate);
 
         self
+    }
+}
+
+impl Default for GranularSynthesizerHandle {
+    /// Instantiate with global app audio defaults
+    fn default() -> GranularSynthesizerHandle {
+        let mut granular_synth: GranularSynthesizer = GranularSynthesizer::new();
+
+        // this data does not need to be updated dynamically (for now at least)
+        granular_synth
+            .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
+            .set_grain_len_max(GRAIN_LEN_MAX_IN_MS)
+            .set_max_number_of_channels(MAX_NUM_CHANNELS);
+
+        Self {
+            granular_synthesizer: Arc::new(Mutex::new(granular_synth)),
+            counter: Default::default(),
+            uuid: Uuid::new_v4(),
+        }
     }
 }
 
