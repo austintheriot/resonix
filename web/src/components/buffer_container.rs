@@ -163,8 +163,8 @@ pub fn buffer_container() -> Html {
             ref={div_ref}
             data-disabled={buffer_selector_disabled.to_string()}
         >
-            <BufferSelectionVisualizer div_ref={div_ref_prop} />
             <BufferSampleBars />
+            <BufferSelectionVisualizer div_ref={div_ref_prop} />
         </div>
     }
 }
