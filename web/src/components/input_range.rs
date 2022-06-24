@@ -32,19 +32,21 @@ pub fn input_range(props: &InputProps) -> Html {
     html! {
       <div class={classes}>
         <label for={props.id.clone()}>{&props.label}</label>
-        <input
-          id={props.id.clone()}
-          type="range"
-          orient="vertical"
-          min={props.min.clone()}
-          max={props.max.clone()}
-          step={props.step.clone()}
-          value={props.value.clone()}
-          oninput={&props.oninput}
-          onfocus={&props.onfocus}
-          onblur={&props.onblur}
-          disabled={props.disabled}
-        />
+        <div class="input-range-input-container">
+            <input
+                id={props.id.clone()}
+                type="range"
+                orient="vertical"
+                min={props.min.clone()}
+                max={props.max.clone()}
+                step={props.step.clone()}
+                value={props.value.clone()}
+                oninput={&props.oninput}
+                onfocus={&props.onfocus}
+                onblur={&props.onblur}
+                disabled={props.disabled}
+            />
+        </div>
       </div>
     }
 }

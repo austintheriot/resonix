@@ -15,7 +15,6 @@
 
     &.loading,
     &.initialized {
-        color: var(--disabled-text);
         background: linear-gradient(145deg, #cacaca, #f0f0f0);
         box-shadow: 6px 6px 12px #d0d0d0,
             -6px -6px 12px #f0f0f0;
@@ -23,13 +22,6 @@
 
     &:disabled {
         cursor: auto;
-    }
-
-    &:hover {
-        background-color: #ddd;
-    }
-
-    &:focus {
-       // @todo
+        color: var(--disabled-text);
     }
 }

@@ -38,6 +38,7 @@ pub fn controls_play_status() -> Html {
     match play_status {
         PlayStatus::PLAY => html! {
             <button
+                aria-label="pause audio"
                 class="controls-play-status pause"
                 type="button"
                 onclick={handle_pause}
@@ -48,6 +49,7 @@ pub fn controls_play_status() -> Html {
         },
         PlayStatus::PAUSE => html! {
             <button
+                aria-label="play audio"    
                 class="controls-play-status play"
                 type="button"
                 onclick={handle_play}

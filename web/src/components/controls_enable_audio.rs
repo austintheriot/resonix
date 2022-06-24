@@ -13,12 +13,13 @@ pub fn controls_enable_audio() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
     let audio_is_loading = app_context.state_handle.audio_loading;
     let audio_is_initialized = app_context.state_handle.audio_initialized;
+    let button_disabled = audio_is_loading;
 
     let handle_click = {
         let state_handle = app_context.state_handle;
         Callback::from(move |_: MouseEvent| {
             let state_handle = state_handle.clone();
-            if state_handle.audio_loading {
+            if button_disabled {
                 return;
             } else if state_handle.audio_initialized {
                 state_handle.dispatch(AppAction::SetAudioLoading(false));
@@ -48,8 +49,16 @@ pub fn controls_enable_audio() -> Html {
         ""
     };
 
+    let aria_label = if audio_is_initialized {
+        "turn off audio"
+    } else {
+        "turn on audio"
+    };
+
     html! {
         <button
+            aria-label={aria_label}
+            disabled={button_disabled}
             class={classes!(default_class, audio_loading_class, audio_initialized_class)}
             onclick={handle_click}
         >

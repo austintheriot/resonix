@@ -13,11 +13,18 @@
         margin-bottom: 0.5rem;
     }
 
-    input {
-        -webkit-appearance: slider-vertical;
+    .input-range-input-container {
         width: 1rem;
-        min-height: 8rem;
+        height: 8rem;
+    }
+
+    input {
+        -webkit-appearance: none;
+        width: 8rem;
+        height: 1rem;
         background: transparent;
+        transform-origin: top left;
+        transform: rotate(-90deg) translateX(-100%);
 
         &::-webkit-slider-runnable-track {
             -webkit-appearance: none;
@@ -31,19 +38,27 @@
             cursor: pointer;
         }
 
+        &:focus {
+            outline: none;
+        }
+
+        &:disabled::-webkit-slider-thumb {
+            background-color: var(--disabled-text);
+            box-shadow: none;
+        }
+
         // currently doesn't work because of `-webkit-appearance: slider-vertical` above
-        &::-webkit-slider-thumb,
-        &::-moz-range-thumb,
-        &::-ms-thumb {
+        &::-webkit-slider-thumb {
             -webkit-appearance: none;
             width: 1rem;
             height: 1rem;
             border-radius: 50%;
-            background: linear-gradient(145deg, #f0f0f0, #cacaca) !important;
-            box-shadow: 2px 2px 5px #d5d5d5,
-                -2px -2px 5px #ebebeb !important;
             cursor: pointer;
             border: none;
+            margin-top: 0px; // necessary in Chrome
+            background-color: var(--electric-blue);
+            position: relative;
+            box-shadow: 0 0 16px 8px rgba(var(--electric-blue-rgb), 0.15);
         }
     }
 }
