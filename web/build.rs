@@ -1,6 +1,10 @@
+use common::utils;
+use rodio::Decoder;
 use std::env;
-use std::fs::{self, ReadDir};
+use std::fs::{self, File, ReadDir};
 use std::path::Path;
+
+pub const DEFAULT_AUDIO_FILE_INDEX: usize = 3;
 
 fn get_audio_read_dir() -> ReadDir {
     fs::read_dir("../audio").unwrap()
@@ -24,15 +28,42 @@ fn build_audio_files_list() {
     let paths = paths.join(", ");
 
     let audio_file_string = format!(
-        r#"pub const AUDIO_FILES:  [&'static str; {}] = [{}];"#,
-        num_paths, paths
+        r#"
+        pub const AUDIO_FILES:  [&'static str; {}] = [{}];
+
+        pub const DEFAULT_AUDIO_FILE_INDEX: usize = {};
+
+        pub const DEFAULT_AUDIO_FILE: &str = AUDIO_FILES[DEFAULT_AUDIO_FILE_INDEX];
+        "#,
+        num_paths, paths, DEFAULT_AUDIO_FILE_INDEX
     );
 
     fs::write(&dest_path, audio_file_string).unwrap();
 }
 
+/// Pre-decodes initial audio data buffer so that the initial load can be as quick as possible
+fn build_decoded_audio_buffer() {
+    let out_dir = env::var_os("OUT_DIR").unwrap();
+    let dest_path = Path::new(&out_dir).join("audio_decoded.rs");
+    let input_audio_path = get_audio_read_dir()
+        .into_iter()
+        .enumerate()
+        .find(|(i, _)| *i == DEFAULT_AUDIO_FILE_INDEX)
+        .unwrap()
+        .1
+        .unwrap()
+        .path();
+    let input_audio_file = File::open(input_audio_path).unwrap();
+    let mp3_source = Decoder::new(input_audio_file).unwrap();
+    let mp3_source_data: Vec<f32> = utils::i16_array_to_f32(mp3_source.collect());
+    let encoded: Vec<u8> = bincode::serialize(&mp3_source_data).unwrap();
+
+    fs::write(&dest_path, encoded).unwrap();
+}
+
 fn main() {
     build_audio_files_list();
+    build_decoded_audio_buffer();
 
-    println!("cargo:rerun-if-changed=../audio");
+    // println!("cargo:rerun-if-changed=../audio");
 }

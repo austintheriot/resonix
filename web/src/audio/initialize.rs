@@ -1,10 +1,9 @@
 use super::{
-    buffer_selection_action::BufferSelectionAction, decode, gain_action::GainAction,
+    buffer_selection_action::BufferSelectionAction, gain_action::GainAction,
     play_status::PlayStatus, play_status_action::PlayStatusAction,
 };
 use crate::{
     audio::stream_handle::StreamHandle,
-    components::controls_select_buffer::DEFAULT_AUDIO_FILE,
     state::{app_action::AppAction, app_state::AppState},
 };
 use common::{granular_synthesizer_action::GranularSynthesizerAction, mixdown::mixdown};
@@ -12,7 +11,6 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Stream,
 };
-use gloo_net::http::Request;
 use std::sync::Arc;
 use yew::UseReducerHandle;
 
@@ -21,21 +19,13 @@ async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Ar
     let audio_context =
         web_sys::AudioContext::new().expect("Browser should have AudioContext implemented");
 
-    // audio files are copied into static director for web (same directory as source wasm file)
-    // fetch a default audio file at initialization time
-    let mp3_file_bytes = Request::get(&format!("./{}", DEFAULT_AUDIO_FILE))
-        .send()
-        .await
-        .unwrap()
-        .binary()
-        .await
-        .unwrap();
+    let decoded_audio_bytes = include_bytes!(concat!(env!("OUT_DIR"), "/audio_decoded.rs"));
+    let decoded_audio_buffer: Vec<f32> = bincode::deserialize(decoded_audio_bytes).unwrap();
+    let decoded_audio_buffer = Arc::new(decoded_audio_buffer);
 
-    let audio_buffer = decode::decode_bytes(&audio_context, &mp3_file_bytes).await;
-    let mp3_source_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
-    app_state_handle.dispatch(AppAction::SetBuffer(Arc::clone(&mp3_source_data)));
+    app_state_handle.dispatch(AppAction::SetBuffer(Arc::clone(&decoded_audio_buffer)));
 
-    mp3_source_data
+    decoded_audio_buffer
 }
 
 /// This function is called periodically to write audio data into an audio output buffer

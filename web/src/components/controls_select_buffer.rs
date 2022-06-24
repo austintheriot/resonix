@@ -18,9 +18,6 @@ use yew::{function_component, html, prelude::*};
 // of files available from the `audio` directory
 include!(concat!(env!("OUT_DIR"), "/audio_files.rs"));
 
-/// This is the audio file that is loaded by default at initialization time
-pub const DEFAULT_AUDIO_FILE: &str = AUDIO_FILES[3];
-
 #[function_component(ControlsSelectBuffer)]
 pub fn controls_select_buffer() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
