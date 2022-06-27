@@ -18,9 +18,14 @@ struct AppState {
 }
 
 #[tauri::command]
-fn increment(state: tauri::State<AppState>) {
+fn increment(state: tauri::State<AppState>) -> u32 {
     println!("Received increment command!");
-    *state.count.lock().unwrap() += 1;
+    let mut count_gaurd = state.count.lock().unwrap();
+    *count_gaurd += 1;
+
+    let new_count= *count_gaurd;
+    println!("new_count = {}", new_count);
+    new_count
 }
 
 fn main() {
@@ -34,7 +39,7 @@ fn main() {
             let id = app.listen_global("event-name", |event| {
                 println!("got event-name with payload {:?}", event.payload());
             });
-            
+
             // unlisten to the event using the `id` returned on the `listen_global` function
             // an `once_global` API is also exposed on the `App` struct
             // app.unlisten(id);
