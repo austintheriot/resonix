@@ -1878,6 +1878,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "native"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "common",
+ "console_error_panic_hook",
+ "cpal",
+ "getrandom 0.2.6",
+ "gloo-net",
+ "js-sys",
+ "lazy_static",
+ "log",
+ "rand 0.8.5",
+ "uuid 1.1.2",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-logger",
+ "web-sys",
+ "wee_alloc",
+ "yew",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"

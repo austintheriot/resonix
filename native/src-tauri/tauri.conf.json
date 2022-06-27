@@ -1,10 +1,11 @@
 {
   "$schema": "..\\node_modules/@tauri-apps/cli\\schema.json",
   "build": {
-    "beforeBuildCommand": "",
-    "beforeDevCommand": "",
-    "devPath": "../dist",
-    "distDir": "../dist"
+    "beforeBuildCommand": "cd src-ui && npm run build",
+    "beforeDevCommand": "cd src-ui && npm run start",
+    "devPath": "http://localhost:8000",
+    "distDir": "../src-ui/dist",
+    "withGlobalTauri": true
   },
   "package": {
     "productName": "native",

@@ -4,5 +4,6 @@ members = [
     "cli",
     "common",
     "web",
-    "native/src-tauri"
+    "native/src-tauri",
+    "native/src-ui"
 ]
