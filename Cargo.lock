@@ -79,6 +79,7 @@ checksum = "08f9b8508dccb7687a1d6c4ce66b2b0ecef467c94667de27d8d7fe1f8d2a9cdc"
 name = "app"
 version = "0.1.0"
 dependencies = [
+ "native_common",
  "serde",
  "serde_json",
  "tauri",
@@ -1890,7 +1891,9 @@ dependencies = [
  "js-sys",
  "lazy_static",
  "log",
+ "native_common",
  "rand 0.8.5",
+ "serde",
  "uuid 1.1.2",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -1916,6 +1919,14 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "tempfile",
+]
+
+[[package]]
+name = "native_common"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

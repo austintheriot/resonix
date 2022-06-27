@@ -23,9 +23,10 @@ codegen-units = 1
 
 [dependencies]
 cpal = { version = "0.13.5", features = ["wasm-bindgen"] }
-# The `wasm-bindgen` crate provides the bare minimum functionality needed
-# to interact with JavaScript.
-wasm-bindgen = "0.2.78"
+# The `wasm-bindgen` crate provides the bare minimum functionality needed to interact with JavaScript.
+# "serde-serialize" enables deserializing raw `JsValues` into Rust structs.
+wasm-bindgen = { version = "0.2.78", features = ["serde-serialize"] }
+serde = { version = "1.0", features = ["derive"] }
 wasm-bindgen-futures = "0.4.31"
 js-sys = "0.3.55"
 common = { path = '../../common' }
@@ -40,7 +41,8 @@ wasm-logger = "0.2.0"
 lazy_static = "1.4.0"
 yew = { version = "0.19" }
 uuid = { version = "1.1.2", features = ["v4"] }
-gloo-net = { version = "0.2.0", features = ["http"]}
+gloo-net = { version = "0.2.0", features = ["http"] }
+native_common = { path = "../native_common" }
 
 # `wee_alloc` is a tiny allocator for wasm that is only ~1K in code size
 # compared to the default allocator's ~10K. However, it is slower than the default
@@ -61,7 +63,7 @@ features = [
   "TouchList",
   "DomRect",
   "DomRectReadOnly",
-  "HtmlSelectElement"
+  "HtmlSelectElement",
 ]
 
 # The `console_error_panic_hook` crate provides better debugging of panics by

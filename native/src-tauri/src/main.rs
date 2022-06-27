@@ -3,14 +3,9 @@
     windows_subsystem = "windows"
 )]
 
-use std::sync::Mutex;
+use native_common::{AppEventName, AppPayload};
+use std::{borrow::Borrow, sync::Mutex};
 use tauri::Manager;
-
-// the payload type must implement `Serialize` and `Clone`.
-#[derive(Clone, serde::Serialize)]
-struct ExamplePayload {
-    message: String,
-}
 
 #[derive(Default)]
 struct AppState {
@@ -18,40 +13,41 @@ struct AppState {
 }
 
 #[tauri::command]
-fn increment(state: tauri::State<AppState>) -> u32 {
-    println!("Received increment command!");
-    let mut count_gaurd = state.count.lock().unwrap();
-    *count_gaurd += 1;
+fn increment_count(state: tauri::State<AppState>, app_handle: tauri::AppHandle) -> u32 {
+    println!("Received increment_count command!");
+    let mut count_guard = state.count.lock().unwrap();
+    *count_guard += 1;
 
-    let new_count= *count_gaurd;
+    // emit a global event in response to this event
+    app_handle
+        .emit_all(
+            AppEventName::CounterChanged.into(),
+            AppPayload::NewCount(*count_guard),
+        )
+        .unwrap();
+
+    let new_count = *count_guard;
     println!("new_count = {}", new_count);
     new_count
+}
+
+#[tauri::command]
+fn get_count(state: tauri::State<AppState>) -> u32 {
+    *state.count.lock().unwrap()
 }
 
 fn main() {
     let context = tauri::generate_context!();
     tauri::Builder::default()
         .manage(AppState::default())
-        .invoke_handler(tauri::generate_handler![increment])
+        .invoke_handler(tauri::generate_handler![increment_count, get_count])
         .menu(tauri::Menu::os_default(&context.package_info().name))
         .setup(|app| {
             // listen to the `event-name` (emitted on any window)
-            let id = app.listen_global("event-name", |event| {
+            app.listen_global("event-name", move |event| {
                 println!("got event-name with payload {:?}", event.payload());
             });
 
-            // unlisten to the event using the `id` returned on the `listen_global` function
-            // an `once_global` API is also exposed on the `App` struct
-            // app.unlisten(id);
-
-            // emit the `event-name` event to all webview windows on the frontend
-            app.emit_all(
-                "event-name",
-                ExamplePayload {
-                    message: "Tauri is awesome!".into(),
-                },
-            )
-            .unwrap();
             Ok(())
         })
         .run(context)
