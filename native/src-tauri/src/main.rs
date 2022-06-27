@@ -4,7 +4,7 @@
 )]
 
 use native_common::{AppEventName, AppPayload};
-use std::{borrow::Borrow, sync::Mutex};
+use std::{sync::Mutex};
 use tauri::Manager;
 
 #[derive(Default)]

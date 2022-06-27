@@ -31,6 +31,7 @@
 
 - Native
     - Make a Native app using Tauri that relies on current web view with Rust running natively under the hood?
+    - Use `serde_wasm_bindgen` instead of message passing between backend and front end to prevent JSON-ifying buffers?
 
 - More audio tools / effects:
     - Recording
