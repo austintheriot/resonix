@@ -42,7 +42,7 @@ pub fn controls_max_len() -> Html {
 
     html! {
         <InputRange
-            label="max grain length"
+            label="max"
             id="controls-max-length"
             min={min.to_string()}
             max={max.to_string()}

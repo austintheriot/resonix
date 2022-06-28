@@ -8,7 +8,6 @@ use crate::{
     components::buffer_sample_bars::get_buffer_maxes,
 };
 use common::granular_synthesizer_action::GranularSynthesizerAction;
-use log::info;
 use std::{rc::Rc, sync::Arc};
 use yew::Reducible;
 

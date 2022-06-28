@@ -15,6 +15,6 @@ impl AppSelector for AppState {
             return 0;
         }
 
-        self.buffer_handle.get_data().len() / self.sample_rate as usize
+        (self.buffer_handle.get_data().len() / self.sample_rate as usize) * 1000
     }
 }

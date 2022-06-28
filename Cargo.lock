@@ -462,7 +462,9 @@ name = "common"
 version = "0.1.0"
 dependencies = [
  "getrandom 0.2.6",
+ "log",
  "rand 0.8.5",
+ "wasm-logger",
 ]
 
 [[package]]

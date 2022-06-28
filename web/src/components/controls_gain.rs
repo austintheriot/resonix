@@ -33,7 +33,7 @@ pub fn controls_gain() -> Html {
 
     html! {
         <InputRange
-            label="Gain"
+            label="gain"
             id="controls-gain-input"
             min={Gain::GAIN_MIN.to_string()}
             max={Gain::GAIN_MAX.to_string()}

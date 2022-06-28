@@ -33,7 +33,7 @@ pub fn controls_density() -> Html {
 
     html! {
         <InputRange
-            label="Density"
+            label="density"
             id="controls-density-input"
             min="0.0"
             max="1.0"

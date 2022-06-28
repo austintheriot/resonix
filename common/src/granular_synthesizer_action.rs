@@ -59,6 +59,10 @@ pub trait GranularSynthesizerAction {
         density.max(Self::DENSITY_MIN).min(Self::DENSITY_MAX)
     }
 
+    fn sanitize_selection(selection: f32) -> f32 {
+        selection.min(1.0).max(0.0)
+    }
+
     /// This should be set BEFORE calling `set_grain_len_min` or `set_grain_len_max`
     fn set_sample_rate(&mut self, sample_rate: u32) -> &mut Self;
 
@@ -75,4 +79,8 @@ pub trait GranularSynthesizerAction {
             start_frame: 0,
         }
     }
+
+    fn get_grain_len_min(&self) -> u32;
+
+    fn get_grain_len_max(&self) -> u32;
 }

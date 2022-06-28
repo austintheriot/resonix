@@ -41,7 +41,7 @@ pub fn controls_min_len() -> Html {
 
     html! {
         <InputRange
-            label="min grain length"
+            label="min"
             id="controls-min-length"
             min={min.to_string()}
             max={max.to_string()}
