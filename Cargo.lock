@@ -79,7 +79,13 @@ checksum = "08f9b8508dccb7687a1d6c4ce66b2b0ecef467c94667de27d8d7fe1f8d2a9cdc"
 name = "app"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
+ "clap",
+ "common",
+ "cpal",
  "native_common",
+ "rand 0.8.5",
+ "rodio",
  "serde",
  "serde_json",
  "tauri",

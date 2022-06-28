@@ -48,7 +48,7 @@ pub fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> Result<(), 
 where
     T: cpal::Sample,
 {
-    const NUM_CHANNELS: usize = 20;
+    const NUM_CHANNELS: usize = 150;
     const ENVELOPE_LEN_MS_MIN: f32 = 1.0;
     const ENVELOPE_LEN_MS_MAX: f32 = 100.0;
 
@@ -59,7 +59,7 @@ where
 
     // get audio file data as compile time
     let audio_file_slice =
-        std::io::Cursor::new(include_bytes!("..\\..\\audio\\cyclus.mp3").as_ref());
+        std::io::Cursor::new(include_bytes!("..\\..\\audio\\ecce_nova_3.mp3").as_ref());
     let mp3_source = Decoder::new(audio_file_slice).unwrap();
     let mp3_source_data: Vec<f32> = utils::i16_array_to_f32(mp3_source.collect());
 
@@ -81,8 +81,6 @@ where
         let mut rng = rand::thread_rng();
 
         // grain length should not exceed max mp3 source data length
-        debug_assert!(mp3_source_data.len() > envelope_len_samples_max);
-
         // create new grains for any that are finished
         for grain in channels_grains.iter_mut() {
             if grain.finished {
@@ -91,11 +89,6 @@ where
                 let max_index = mp3_source_data.len() - envolope_len_samples;
                 let start_frame = rng.gen_range(0..max_index);
                 let end_frame = start_frame + envolope_len_samples;
-
-                debug_assert!(start_frame > 0);
-                debug_assert!(end_frame > 0);
-                debug_assert!(start_frame < mp3_source_data.len());
-                debug_assert!(end_frame < mp3_source_data.len());
 
                 let new_grain = Grain::new(start_frame, end_frame);
                 *grain = new_grain;
@@ -113,9 +106,6 @@ where
 
                 let envelope_percent =
                     ((grain.current_frame - grain.start_frame) as f32) / (grain.len as f32);
-                debug_assert!(envelope_percent >= 0.0, "{}", envelope_percent);
-                debug_assert!(envelope_percent < 1.0, "{}", envelope_percent);
-
                 let envelope_value =
                     utils::generate_triangle_envelope_value_from_percent(envelope_percent);
                 let frame_index = grain.current_frame;
@@ -138,8 +128,6 @@ where
                 (i as f32) / (frame_samples_and_envelopes.len() as f32);
 
             // division by 0 will happen below if num of channels is less than 2
-            debug_assert!(NUM_CHANNELS >= 2);
-
             // logarithmically scaling the volume seems to work well for very large numbers of voices
             let left_value_to_add = (grain_sample.sample_value
                 * grain_sample.envelope_value
