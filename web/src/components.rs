@@ -7,6 +7,8 @@ pub mod controls_container;
 pub mod controls_density;
 pub mod controls_enable_audio;
 pub mod controls_gain;
+pub mod controls_max_len;
+pub mod controls_min_len;
 pub mod controls_play_status;
 pub mod controls_select_buffer;
 pub mod input_range;

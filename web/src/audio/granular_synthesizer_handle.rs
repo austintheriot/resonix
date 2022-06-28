@@ -1,4 +1,4 @@
-use super::global_defaults::{GRAIN_LEN_MAX_IN_MS, GRAIN_LEN_MIN_IN_MS, MAX_NUM_CHANNELS};
+use super::global_defaults::MAX_NUM_CHANNELS;
 use common::granular_synthesizer::GranularSynthesizer;
 use common::granular_synthesizer_action::GranularSynthesizerAction;
 use std::fmt::Debug;
@@ -94,6 +94,20 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
 
         self
     }
+
+    fn get_grain_len_min(&self) -> u32 {
+        self.granular_synthesizer
+            .lock()
+            .unwrap()
+            .get_grain_len_min()
+    }
+
+    fn get_grain_len_max(&self) -> u32 {
+        self.granular_synthesizer
+            .lock()
+            .unwrap()
+            .get_grain_len_max()
+    }
 }
 
 impl Default for GranularSynthesizerHandle {
@@ -102,10 +116,7 @@ impl Default for GranularSynthesizerHandle {
         let mut granular_synth: GranularSynthesizer = GranularSynthesizer::new();
 
         // this data does not need to be updated dynamically (for now at least)
-        granular_synth
-            .set_grain_len_min(GRAIN_LEN_MIN_IN_MS)
-            .set_grain_len_max(GRAIN_LEN_MAX_IN_MS)
-            .set_max_number_of_channels(MAX_NUM_CHANNELS);
+        granular_synth.set_max_number_of_channels(MAX_NUM_CHANNELS);
 
         Self {
             granular_synthesizer: Arc::new(Mutex::new(granular_synth)),

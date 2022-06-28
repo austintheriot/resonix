@@ -13,6 +13,12 @@ pub struct DensityHandle {
     counter: u32,
 }
 
+impl From<f32> for DensityHandle {
+    fn from(density: f32) -> Self {
+        DensityHandle::new(density)
+    }
+}
+
 impl DensityAction for DensityHandle {
     const DEFAULT_DENSITY: f32 = GranularSynthesizer::DEFAULT_DENSITY;
 

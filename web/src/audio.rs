@@ -11,6 +11,7 @@ pub mod gain;
 pub mod gain_action;
 pub mod gain_handle;
 pub mod global_defaults;
+pub mod grain_len_handle;
 pub mod granular_synthesizer_handle;
 pub mod initialize;
 pub mod play_status;

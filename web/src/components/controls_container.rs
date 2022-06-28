@@ -3,6 +3,8 @@ use crate::{
     components::controls_enable_audio::ControlsEnableAudio,
     components::controls_gain::ControlsGain, components::controls_play_status::ControlsPlayStatus,
     components::controls_select_buffer::ControlsSelectBuffer,
+    components::controls_min_len::ControlsMinLen,
+    components::controls_max_len::ControlsMaxLen,
 };
 use yew::{function_component, html};
 
@@ -17,6 +19,8 @@ pub fn controls_container() -> Html {
             <div class="grid-slider-container">
                 <ControlsGain />
                 <ControlsDensity />
+                <ControlsMinLen />
+                <ControlsMaxLen />
             </div>
             <ControlsSelectBuffer />
             <BufferContainer />

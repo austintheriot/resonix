@@ -14,4 +14,6 @@ pub enum AppAction {
     SetAudioLoading(bool),
     SetSampleRate(u32),
     SetDensity(f32),
+    SetGrainLenMax(u32),
+    SetGrainLenMin(u32),
 }

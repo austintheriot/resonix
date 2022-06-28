@@ -1,20 +1,13 @@
+use common::granular_synthesizer_action::GranularSynthesizerAction;
+
 use crate::audio::buffer_handle::BufferHandle;
-use crate::audio::buffer_selection_action::BufferSelectionAction;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
-use crate::audio::density_action::DensityAction;
 use crate::audio::density_handle::DensityHandle;
-use crate::audio::gain_action::GainAction;
 use crate::audio::gain_handle::GainHandle;
+use crate::audio::grain_len_handle::GrainLenHandle;
 use crate::audio::granular_synthesizer_handle::GranularSynthesizerHandle;
-use crate::audio::play_status_action::PlayStatusAction;
 use crate::audio::play_status_handle::PlayStatusHandle;
 use crate::audio::stream_handle::StreamHandle;
-use crate::components::buffer_sample_bars::get_buffer_maxes;
-use crate::state::app_action::AppAction;
-use common::granular_synthesizer_action::GranularSynthesizerAction;
-use std::rc::Rc;
-use std::sync::Arc;
-use yew::Reducible;
 
 pub type SampleRate = u32;
 
@@ -37,7 +30,7 @@ pub type SampleRate = u32;
 /// If we did not update the handle's internal state in some way, Yew would have no way of comparing
 /// previous Handles to new Handles, because the outer Handle would be identical in both, and the internal
 /// memory/pointer would also be identical.
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AppState {
     /// The currently loaded audio buffer
     pub buffer_handle: BufferHandle,
@@ -81,63 +74,32 @@ pub struct AppState {
     /// Corresponds to the percentage of channels that will output samples
     /// from the `GranularSynthesizer` on every frame (0.0 -> 1.0)
     pub density_handle: DensityHandle,
+
+    /// This is the maximum length (in milliseconds) that a grain sample can play for
+    pub grain_len_max: GrainLenHandle,
+
+    /// This is the minimum length (in milliseconds) that a grain sample can play for
+    pub grain_len_min: GrainLenHandle,
 }
 
-impl Reducible for AppState {
-    type Action = AppAction;
-
-    fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
-        let mut next_state = (*self).clone();
-        {
-            let action = action;
-            match action {
-                AppAction::SetBuffer(buffer) => {
-                    next_state.buffer_maxes = get_buffer_maxes(&buffer);
-                    next_state
-                        .granular_synthesizer_handle
-                        .set_buffer(Arc::clone(&buffer));
-                    next_state.buffer_handle = BufferHandle::new(buffer);
-                }
-                AppAction::SetStreamHandle(stream_handle) => {
-                    next_state.stream_handle = stream_handle;
-                }
-                AppAction::SetBufferSelectionStart(start) => {
-                    next_state.buffer_selection_handle.set_mouse_start(start);
-                }
-                AppAction::SetBufferSelectionEnd(end) => {
-                    next_state.buffer_selection_handle.set_mouse_end(end);
-                }
-                AppAction::SetBufferSelectionMouseDown(mouse_down) => {
-                    next_state
-                        .buffer_selection_handle
-                        .set_mouse_down(mouse_down);
-                }
-                AppAction::SetGain(gain) => {
-                    next_state.gain_handle.set(gain);
-                }
-                AppAction::SetPlayStatus(play_status) => {
-                    next_state.play_status_handle.set(play_status);
-                }
-                AppAction::SetAudioInitialized(is_initialized) => {
-                    next_state.audio_initialized = is_initialized;
-                }
-                AppAction::SetAudioLoading(loading) => {
-                    next_state.audio_loading = loading;
-                }
-                AppAction::SetSampleRate(sample_rate) => {
-                    next_state.sample_rate = sample_rate;
-
-                    next_state
-                        .granular_synthesizer_handle
-                        .set_sample_rate(sample_rate);
-                }
-                AppAction::SetDensity(density) => {
-                    next_state.density_handle.set(density);
-                    next_state.granular_synthesizer_handle.set_density(density);
-                }
-            }
+impl Default for AppState {
+    fn default() -> Self {
+        let granular_synthesizer_handle = GranularSynthesizerHandle::default();
+        
+        Self {
+            buffer_handle: Default::default(),
+            buffer_maxes: Default::default(),
+            stream_handle: Default::default(),
+            buffer_selection_handle: Default::default(),
+            gain_handle: Default::default(),
+            play_status_handle: Default::default(),
+            audio_initialized: Default::default(),
+            audio_loading: Default::default(),
+            sample_rate: Default::default(),
+            density_handle: Default::default(),
+            grain_len_min: granular_synthesizer_handle.get_grain_len_min().into(),
+            grain_len_max: granular_synthesizer_handle.get_grain_len_max().into(),
+            granular_synthesizer_handle,
         }
-
-        Rc::new(next_state)
     }
 }
