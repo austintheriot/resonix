@@ -1,25 +1,25 @@
 # Rust Audio
 
+## About 
+
+This repo is a very WIP investigation into using Rust for creative coding on various platforms (e.g. desktop, web, etc.). Currently, the only demonstration that is even remotely in a working state is the web one, which still needs quite a bit of work to improve its performance.
+
 ## Todos:
-- Style the HtmlSelectElement for buffer selection
+- add grain length sliders
+- Add an audio loading / initialization state style / animation
+
 - Move audio PROCESSING into a Web Worker thread so that `cpal` merely has to request audio data at the appropriate time
     - Keeps main thread / audio processing from getting locked up by UI updates and vice versa
     - Keeps WebAudio context on the main thread (where it has to be)
-- add grain length sliders
-- Make buffer selector cursor:pointer
-- Add an audio loading / initialization state style / animation
-- Make initial load much faster - save a raw audio Vec for direct access at initialization
 
 - Share a single audio context that is initialized (?) at init time?
 - Memoize decoded audio from previous files? To prevent stutter on change?
 - Enable draggging the current buffer selection window?
-- Fix HtmlSelectElement UI interaction:
-    - Require a form submit
-    - Make default audio the currently selected file in the select element
-    - Disable when audio has not yet been enabled
 
 - Web
-    - Refactor visual representation of current audio buffer to use an svg <path /> element?
+    - Refactor visual representation of current audio buffer:
+        - use an svg <path /> element?
+        - probably would be best to use a canvas to do this
     - Clean up logic around buffer selection ranges -- ensure no empty ranges?
 
 - Common
