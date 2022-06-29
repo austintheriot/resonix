@@ -12,11 +12,11 @@ use common::{
 use web_sys::HtmlInputElement;
 use yew::{function_component, html, prelude::*};
 
-#[function_component(ControlsMaxLen)]
-pub fn controls_max_len() -> Html {
+#[function_component(ControlsRefreshInterval)]
+pub fn controls_refresh_interval() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
-    let max_len_input_disabled = app_context.state_handle.get_are_audio_controls_disabled();
-    let grain_len_max_value = app_context.state_handle.grain_len_max.get();
+    let refresh_interval_input_disabled = app_context.state_handle.get_are_audio_controls_disabled();
+    let refresh_interval = app_context.state_handle.refresh_interval.get();
 
     let handle_input = {
         let state_handle = app_context.state_handle;
@@ -25,24 +25,24 @@ pub fn controls_max_len() -> Html {
                 return;
             }
 
-            let new_grain_len_max = e
+            let refresh_interval = e
                 .target_dyn_into::<HtmlInputElement>()
                 .unwrap()
-                .value_as_number() as f32;
-            state_handle.dispatch(AppAction::SetGrainLenMax(new_grain_len_max));
+                .value_as_number() as u32;
+            state_handle.dispatch(AppAction::SetRefreshInterval(refresh_interval));
         })
     };
 
     html! {
         <InputRange
-            label="max\nlen"
-            id="controls-max-length"
-            min={GranularSynthesizer::GRAIN_LEN_MIN.to_string()}
-            max={GranularSynthesizer::GRAIN_LEN_MAX.to_string()}
-            step="0.001"
+            label="fade"
+            id="controls-refresh-interval"
+            min={GranularSynthesizer::REFRESH_INTERVAL_MIN.to_string()}
+            max={GranularSynthesizer::REFRESH_INTERVAL_MAX.to_string()}
+            step="1"
             oninput={handle_input}
-            value={grain_len_max_value.to_string()}
-            disabled={max_len_input_disabled}
+            value={refresh_interval.to_string()}
+            disabled={refresh_interval_input_disabled}
         />
     }
 }

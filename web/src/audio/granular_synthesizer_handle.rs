@@ -95,18 +95,31 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn get_grain_len_min(&self) -> f32 {
+    fn grain_len_min(&self) -> f32 {
         self.granular_synthesizer
             .lock()
             .unwrap()
-            .get_grain_len_min()
+            .grain_len_min()
     }
 
-    fn get_grain_len_max(&self) -> f32 {
+    fn grain_len_max(&self) -> f32 {
         self.granular_synthesizer
             .lock()
             .unwrap()
-            .get_grain_len_max()
+            .grain_len_max()
+    }
+
+    fn refresh_interval(&self) -> u32 {
+        self.granular_synthesizer.lock().unwrap().refresh_interval()
+    }
+
+    fn set_refresh_interval(&mut self, refresh_interval: u32) -> &mut Self {
+        self.granular_synthesizer
+            .lock()
+            .unwrap()
+            .set_refresh_interval(refresh_interval);
+
+        self
     }
 }
 

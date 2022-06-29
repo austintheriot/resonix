@@ -1,6 +1,3 @@
-use common::granular_synthesizer::GranularSynthesizer;
-use common::granular_synthesizer_action::GranularSynthesizerAction;
-
 use crate::audio::buffer_handle::BufferHandle;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
 use crate::audio::density_handle::DensityHandle;
@@ -8,7 +5,10 @@ use crate::audio::gain_handle::GainHandle;
 use crate::audio::grain_len_handle::GrainLenHandle;
 use crate::audio::granular_synthesizer_handle::GranularSynthesizerHandle;
 use crate::audio::play_status_handle::PlayStatusHandle;
+use crate::audio::refresh_interval_handle::RefreshIntervalHandle;
 use crate::audio::stream_handle::StreamHandle;
+use common::granular_synthesizer::GranularSynthesizer;
+use common::granular_synthesizer_action::GranularSynthesizerAction;
 
 pub type SampleRate = u32;
 
@@ -81,6 +81,8 @@ pub struct AppState {
 
     /// This is the minimum length (in milliseconds) that a grain sample can play for
     pub grain_len_min: GrainLenHandle,
+
+    pub refresh_interval: RefreshIntervalHandle,
 }
 
 impl Default for AppState {
@@ -99,6 +101,7 @@ impl Default for AppState {
             granular_synthesizer_handle: Default::default(),
             grain_len_min: GranularSynthesizer::GRAIN_LEN_MIN.into(),
             grain_len_max: GranularSynthesizer::GRAIN_LEN_MAX.into(),
+            refresh_interval: GranularSynthesizer::DEFAULT_REFRESH_INTERVAL.into(),
         }
     }
 }

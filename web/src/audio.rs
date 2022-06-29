@@ -17,4 +17,5 @@ pub mod initialize;
 pub mod play_status;
 pub mod play_status_action;
 pub mod play_status_handle;
+pub mod refresh_interval_handle;
 pub mod stream_handle;

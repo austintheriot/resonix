@@ -67,18 +67,34 @@ impl Reducible for AppState {
                     next_state
                         .granular_synthesizer_handle
                         .set_grain_len_max(max_len);
+                    next_state
+                        .grain_len_min
+                        .set(next_state.granular_synthesizer_handle.grain_len_min());
+                    next_state
+                        .grain_len_max
+                        .set(next_state.granular_synthesizer_handle.grain_len_max());
                 }
                 AppAction::SetGrainLenMin(min_len) => {
                     next_state
                         .granular_synthesizer_handle
                         .set_grain_len_min(min_len);
+                    next_state
+                        .grain_len_min
+                        .set(next_state.granular_synthesizer_handle.grain_len_min());
+                    next_state
+                        .grain_len_max
+                        .set(next_state.granular_synthesizer_handle.grain_len_max());
+                }
+                AppAction::SetRefreshInterval(refresh_interval) => {
+                    next_state
+                        .granular_synthesizer_handle
+                        .set_refresh_interval(refresh_interval);
+                    next_state
+                        .refresh_interval
+                        .set(next_state.granular_synthesizer_handle.refresh_interval());
                 }
             }
         }
-
-        // keep grain length in sync (cheap operation, so fine to do on every state update)
-        next_state.grain_len_min.set(next_state.granular_synthesizer_handle.get_grain_len_min());
-        next_state.grain_len_max.set(next_state.granular_synthesizer_handle.get_grain_len_max());
 
         Rc::new(next_state)
     }

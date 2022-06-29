@@ -23,6 +23,14 @@ pub trait GranularSynthesizerAction {
 
     const DEFAULT_SAMPLE_RATE: u32 = 44100;
 
+    /// This is the sample interval at which grains are filtered / refreshed.
+    /// Using a prime number leads to the least periodic overlap in grains.
+    const DEFAULT_REFRESH_INTERVAL: u32 = 271;
+    
+    const REFRESH_INTERVAL_MIN: u32 = 17;
+
+    const REFRESH_INTERVAL_MAX: u32 = 1009;
+
     /// Creates a new GranularSynthesizer instance
     fn new() -> Self;
 
@@ -37,6 +45,14 @@ pub trait GranularSynthesizerAction {
     fn set_max_number_of_channels(&mut self, max_num_channels: u32) -> &mut Self;
 
     fn set_density(&mut self, density: f32) -> &mut Self;
+
+    fn sanitize_refresh_interval(refresh_interval: u32) -> u32 {
+        refresh_interval.max(Self::REFRESH_INTERVAL_MIN).min(Self::REFRESH_INTERVAL_MAX)
+    }
+
+    fn refresh_interval(&self) -> u32;
+
+    fn set_refresh_interval(&mut self, refresh_interval: u32) -> &mut Self;
 
     /// Replace the internal buffer reference with a different one.
     ///
@@ -79,7 +95,7 @@ pub trait GranularSynthesizerAction {
         }
     }
 
-    fn get_grain_len_min(&self) -> f32;
+    fn grain_len_min(&self) -> f32;
 
-    fn get_grain_len_max(&self) -> f32;
+    fn grain_len_max(&self) -> f32;
 }

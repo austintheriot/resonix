@@ -35,7 +35,7 @@ pub fn controls_min_len() -> Html {
 
     html! {
         <InputRange
-            label="min"
+            label="min\nlen"
             id="controls-min-length"
             min={GranularSynthesizer::GRAIN_LEN_MIN.to_string()}
             max={GranularSynthesizer::GRAIN_LEN_MAX.to_string()}

@@ -65,6 +65,18 @@ pub struct GranularSynthesizer {
     /// This allows performing some actions (such as replacing grains) to occur
     /// only so often.
     refresh_counter: u32,
+
+    /// This determines the interval (in samples) at which too-long grains are marked `finished` 
+    /// and `finished` grains are replaced with new ones. 
+    /// 
+    /// A higher interval produces a slower transition to new selected regions.
+    /// 
+    /// A lower interval produces a faster transition to new selected regions.
+    /// 
+    /// It is preferred for this interval to be a prime number to minimize the amount of 
+    /// sample overlap, where one grain is exactly in-sync with another, producing a unified 
+    /// and/or chorus effect (or exaggerated amplification).
+    refresh_interval: u32,
 }
 
 impl GranularSynthesizerAction for GranularSynthesizer {
@@ -87,6 +99,7 @@ impl GranularSynthesizerAction for GranularSynthesizer {
             max_num_channels: Self::DEFAULT_NUM_CHANNELS,
             density: Self::DEFAULT_DENSITY,
             refresh_counter: 0,
+            refresh_interval: Self::DEFAULT_REFRESH_INTERVAL,
         }
     }
 
@@ -190,10 +203,20 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         self
     }
 
+    fn refresh_interval(&self) -> u32 {
+        self.refresh_interval
+    }
+
+    fn set_refresh_interval(&mut self, refresh_interval: u32) -> &mut Self {
+        self.refresh_interval = Self::sanitize_refresh_interval(refresh_interval);
+
+        self
+    }
+
     fn next_frame(&mut self) -> Vec<f32> {
         // buy only filtering/refreshing grains at an interval, it blends one sound into the other
         // decrease speed of refreshes to blend sounds together
-        if self.refresh_counter % Self::REFRESH_INTERVAL == 0 {
+        if self.refresh_counter % self.refresh_interval() == 0 {
             self.filter_long_grain();
             self.refresh_grain();
         }
@@ -210,21 +233,17 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         self
     }
 
-    fn get_grain_len_min(&self) -> f32 {
+    fn grain_len_min(&self) -> f32 {
         self.grain_len_min
     }
 
-    fn get_grain_len_max(&self) -> f32 {
+    fn grain_len_max(&self) -> f32 {
         self.grain_len_max
     }
 }
 
 // internal logic to support public GranularSynthesizer interface
 impl GranularSynthesizer {
-    /// This is the sample interval at which grains are filtered / refreshed.
-    /// Using a prime number leads to the least periodic overlap in grains.
-    pub const REFRESH_INTERVAL: u32 = 271;
-
     fn sanitize_grain_len_min(&self, grain_len_min: f32) -> f32 {
         grain_len_min
             // should be smaller than existing max
