@@ -5,27 +5,27 @@ use std::sync::{Arc, Mutex};
 /// the data from the audio thread, while also updating the value from the UI.
 #[derive(Clone, Debug)]
 pub struct GrainLenHandle {
-    grain_len: Arc<Mutex<u32>>,
+    grain_len: Arc<Mutex<f32>>,
     counter: u32,
 }
 
-impl From<u32> for GrainLenHandle {
-    fn from(grain_len: u32) -> Self {
+impl From<f32> for GrainLenHandle {
+    fn from(grain_len: f32) -> Self {
         GrainLenHandle::new(grain_len)
     }
 }
 
 impl GrainLenHandle {
-    pub fn get(&self) -> u32 {
+    pub fn get(&self) -> f32 {
         *self.grain_len.lock().unwrap()
     }
 
-    pub fn set(&mut self, grain_len: u32) {
+    pub fn set(&mut self, grain_len: f32) {
         *self.grain_len.lock().unwrap() = grain_len;
         self.bump_counter();
     }
 
-    pub fn new(grain_len: u32) -> Self {
+    pub fn new(grain_len: f32) -> Self {
         GrainLenHandle {
             grain_len: Arc::new(Mutex::new(grain_len)),
             counter: Default::default(),

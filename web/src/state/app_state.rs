@@ -1,3 +1,4 @@
+use common::granular_synthesizer::GranularSynthesizer;
 use common::granular_synthesizer_action::GranularSynthesizerAction;
 
 use crate::audio::buffer_handle::BufferHandle;
@@ -84,8 +85,6 @@ pub struct AppState {
 
 impl Default for AppState {
     fn default() -> Self {
-        let granular_synthesizer_handle = GranularSynthesizerHandle::default();
-        
         Self {
             buffer_handle: Default::default(),
             buffer_maxes: Default::default(),
@@ -97,9 +96,9 @@ impl Default for AppState {
             audio_loading: Default::default(),
             sample_rate: Default::default(),
             density_handle: Default::default(),
-            grain_len_min: granular_synthesizer_handle.get_grain_len_min().into(),
-            grain_len_max: granular_synthesizer_handle.get_grain_len_max().into(),
-            granular_synthesizer_handle,
+            granular_synthesizer_handle: Default::default(),
+            grain_len_min: GranularSynthesizer::GRAIN_LEN_MIN.into(),
+            grain_len_max: GranularSynthesizer::GRAIN_LEN_MAX.into(),
         }
     }
 }

@@ -16,6 +16,7 @@ This repo is a very WIP investigation into using Rust for creative coding on var
  - Filter long grains GRADUALLY to make selection transitions less abrupt
     - On each frame, prune exactly 1 grain whose length exceeds the current selection size should be marked "finished"
     - This also should be more efficient
+ - Probably don't need to save grain_len_min_raw anymore
  - Improve which `rand` function we're using for better efficiency
  - Use newtype-style units to disambiguate calculations
 

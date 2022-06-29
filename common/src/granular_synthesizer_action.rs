@@ -15,8 +15,11 @@ pub trait GranularSynthesizerAction {
 
     const DEFAULT_DENSITY: f32 = 1.0;
 
-    /// the smallest possible length of grain, given in samples
-    const GRAIN_LEN_ABSOLUTE_MIN_IN_MS: u32 = 1;
+    /// the smallest possible length of grain, given as a percentage of the currently selected audio
+    const GRAIN_LEN_MIN: f32 = 0.0;
+    
+     /// the largest possible length of grain, given as a percentage of the currently selected audio
+    const GRAIN_LEN_MAX: f32 = 1.0;
 
     const DEFAULT_SAMPLE_RATE: u32 = 44100;
 
@@ -27,13 +30,9 @@ pub trait GranularSynthesizerAction {
 
     fn set_selection_end(&mut self, start: f32) -> &mut Self;
 
-    /// The smallest possible grain length is 1 ms,
-    /// and the min grain length and can never exceed the max.
-    fn set_grain_len_min(&mut self, input_min_len_in_ms: u32) -> &mut Self;
+    fn set_grain_len_min(&mut self, input_min_len_in_ms: f32) -> &mut Self;
 
-    /// The maximum grain length is the size of the buffer itself,
-    /// and max grain length can never be lower than the min width (or 1ms--whichever is higher)
-    fn set_grain_len_max(&mut self, input_max_len_in_ms: u32) -> &mut Self;
+    fn set_grain_len_max(&mut self, input_max_len_in_ms: f32) -> &mut Self;
 
     fn set_max_number_of_channels(&mut self, max_num_channels: u32) -> &mut Self;
 
@@ -80,7 +79,7 @@ pub trait GranularSynthesizerAction {
         }
     }
 
-    fn get_grain_len_min(&self) -> u32;
+    fn get_grain_len_min(&self) -> f32;
 
-    fn get_grain_len_max(&self) -> u32;
+    fn get_grain_len_max(&self) -> f32;
 }

@@ -40,20 +40,20 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn set_grain_len_min(&mut self, input_min_len_in_ms: u32) -> &mut Self {
+    fn set_grain_len_min(&mut self, grain_len_min: f32) -> &mut Self {
         self.granular_synthesizer
             .lock()
             .unwrap()
-            .set_grain_len_min(input_min_len_in_ms);
+            .set_grain_len_min(grain_len_min);
 
         self
     }
 
-    fn set_grain_len_max(&mut self, input_max_len_in_ms: u32) -> &mut Self {
+    fn set_grain_len_max(&mut self, grain_len_max: f32) -> &mut Self {
         self.granular_synthesizer
             .lock()
             .unwrap()
-            .set_grain_len_max(input_max_len_in_ms);
+            .set_grain_len_max(grain_len_max);
 
         self
     }
@@ -95,14 +95,14 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn get_grain_len_min(&self) -> u32 {
+    fn get_grain_len_min(&self) -> f32 {
         self.granular_synthesizer
             .lock()
             .unwrap()
             .get_grain_len_min()
     }
 
-    fn get_grain_len_max(&self) -> u32 {
+    fn get_grain_len_max(&self) -> f32 {
         self.granular_synthesizer
             .lock()
             .unwrap()
