@@ -22,10 +22,14 @@
 }
 
 .grid-slider-container {
+    margin-left: 1rem;
+    margin-bottom: 1rem;
     grid-area: 1 / 2 / span 1 / span 1;
     display: flex;
     justify-content: space-evenly;
     align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .controls-enable-audio {
