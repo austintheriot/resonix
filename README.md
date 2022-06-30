@@ -7,13 +7,14 @@ This repo is a very WIP investigation into using Rust for creative audio coding 
 ## Todos:
 - Update licenses / cargo tomls, directory names
 
+- Add Spacebar lisener for playback
+- Add keyboard listeners for buffer selection
+
 - Optimizations:
     - Add `finished` grains to a hashmap when finished to prevent the need for searching for spent grains on every frame
     - Improve which `rand` function we're using for better efficiency
 
 - Use newtype-style units to disambiguate calculations
-
-- LOADING STATE: Add an audio loading / initialization state style / animation
 
 - Move audio PROCESSING into a Web Worker thread so that `cpal` merely has to request audio data at the appropriate time
     - Keeps main thread / audio processing from getting locked up by UI updates and vice versa

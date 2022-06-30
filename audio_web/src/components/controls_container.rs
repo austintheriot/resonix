@@ -5,6 +5,7 @@ use crate::components::{
     controls_play_status::ControlsPlayStatus, controls_refresh_interval::ControlsRefreshInterval,
     controls_select_buffer::ControlsSelectBuffer,
     controls_reset::ControlsReset,
+    loading_indicator::LoadingIndicator,
 };
 use yew::{function_component, html};
 
@@ -12,6 +13,7 @@ use yew::{function_component, html};
 pub fn controls_container() -> Html {
     html! {
         <div class="controls-container">
+            <LoadingIndicator />
             <div class="grid-button-container">
                 <ControlsEnableAudio />
                 <ControlsPlayStatus />
