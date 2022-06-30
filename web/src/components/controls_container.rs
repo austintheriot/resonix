@@ -4,6 +4,7 @@ use crate::components::{
     controls_max_len::ControlsMaxLen, controls_min_len::ControlsMinLen,
     controls_play_status::ControlsPlayStatus, controls_refresh_interval::ControlsRefreshInterval,
     controls_select_buffer::ControlsSelectBuffer,
+    controls_reset::ControlsReset,
 };
 use yew::{function_component, html};
 
@@ -14,6 +15,7 @@ pub fn controls_container() -> Html {
             <div class="grid-button-container">
                 <ControlsEnableAudio />
                 <ControlsPlayStatus />
+                <ControlsReset />
             </div>
             <div class="grid-slider-container">
                 <ControlsGain />

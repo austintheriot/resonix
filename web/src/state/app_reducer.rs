@@ -93,6 +93,9 @@ impl Reducible for AppState {
                         .refresh_interval
                         .set(next_state.granular_synthesizer_handle.refresh_interval());
                 }
+                AppAction::ResetState => {
+                    next_state = AppState::default();
+                },
             }
         }
 

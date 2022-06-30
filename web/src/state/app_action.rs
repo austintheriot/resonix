@@ -17,4 +17,5 @@ pub enum AppAction {
     SetGrainLenMax(f32),
     SetGrainLenMin(f32),
     SetRefreshInterval(u32),
+    ResetState,
 }

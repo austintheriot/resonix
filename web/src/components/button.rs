@@ -47,6 +47,7 @@ pub fn button(props: &ButtonProps) -> Html {
         type={props.button_type.clone()}
         onclick={&props.onclick}
         disabled={props.disabled}
+        aria-label={props.aria_label.clone()}
       >
         {for props.children.iter()}
       </button>
