@@ -66,15 +66,15 @@ pub struct GranularSynthesizer {
     /// only so often.
     refresh_counter: u32,
 
-    /// This determines the interval (in samples) at which too-long grains are marked `finished` 
-    /// and `finished` grains are replaced with new ones. 
-    /// 
+    /// This determines the interval (in samples) at which too-long grains are marked `finished`
+    /// and `finished` grains are replaced with new ones.
+    ///
     /// A higher interval produces a slower transition to new selected regions.
-    /// 
+    ///
     /// A lower interval produces a faster transition to new selected regions.
-    /// 
-    /// It is preferred for this interval to be a prime number to minimize the amount of 
-    /// sample overlap, where one grain is exactly in-sync with another, producing a unified 
+    ///
+    /// It is preferred for this interval to be a prime number to minimize the amount of
+    /// sample overlap, where one grain is exactly in-sync with another, producing a unified
     /// and/or chorus effect (or exaggerated amplification).
     refresh_interval: u32,
 }
@@ -149,31 +149,32 @@ impl GranularSynthesizerAction for GranularSynthesizer {
 
     fn set_max_number_of_channels(&mut self, max_num_channels: u32) -> &mut Self {
         self.max_num_channels = max_num_channels;
-
-        // assumption: it's ok for the `grains`, `output_buffer_samples`, and `output_env_samples`
-        // vectors to be LONGER than `max_num_channels`, because they are not used as the basis of iteration
-        // i.e. we only ever iterate using `max_num_channels`, so `max_num_channels` can be <= the other vectors
-
         let max_num_channels = max_num_channels as usize;
 
-        // extend grains to be as long as max number of channels
+        // adjust grains to be as long as max number of channels
         if max_num_channels > self.grains.len() {
             let num_extra_samples = max_num_channels - self.grains.len();
             self.grains
                 .extend(vec![GranularSynthesizer::new_grain(); num_extra_samples]);
+        } else if max_num_channels < self.grains.len() {
+            self.grains.truncate(max_num_channels);
         }
 
-        // extend samples buffer to be as long as max number of channels
+        // adjust samples buffer to be as long as max number of channels
         if max_num_channels > self.output_buffer_samples.len() {
             let num_extra_samples = max_num_channels - self.output_buffer_samples.len();
             self.output_buffer_samples
                 .extend(vec![0.0; num_extra_samples]);
+        } else if max_num_channels < self.output_buffer_samples.len() {
+            self.output_buffer_samples.truncate(max_num_channels);
         }
 
-        // extend envelope buffer to be as long as max number of channels
+        // adjust envelope buffer to be as long as max number of channels
         if max_num_channels > self.output_env_samples.len() {
             let num_extra_samples = max_num_channels - self.output_env_samples.len();
             self.output_env_samples.extend(vec![0.0; num_extra_samples]);
+        } else if max_num_channels < self.output_env_samples.len() {
+            self.output_env_samples.truncate(max_num_channels);
         }
 
         self
