@@ -1,10 +1,6 @@
 [workspace]
 
 members = [
-    "cli",
-    "common",
-    "web",
-    "native/src-tauri",
-    "native/src-ui",
-    "native/native_common"
+    "audio_common",
+    "audio_web",
 ]
