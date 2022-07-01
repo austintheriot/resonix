@@ -61,7 +61,8 @@ features = [
   "TouchList",
   "DomRect",
   "DomRectReadOnly",
-  "HtmlSelectElement"
+  "HtmlSelectElement",
+  "KeyboardEvent"
 ]
 
 # The `console_error_panic_hook` crate provides better debugging of panics by

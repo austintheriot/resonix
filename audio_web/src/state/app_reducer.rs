@@ -11,6 +11,8 @@ use audio_common::granular_synthesizer_action::GranularSynthesizerAction;
 use std::{rc::Rc, sync::Arc};
 use yew::Reducible;
 
+pub const KEYBOARD_BUFFER_SELECTION_INCREMENT: f32 = 0.01;
+
 impl Reducible for AppState {
     type Action = AppAction;
 
@@ -95,7 +97,43 @@ impl Reducible for AppState {
                 }
                 AppAction::ResetState => {
                     next_state = AppState::default();
-                },
+                }
+                AppAction::IncrementBufferSelectionStart => {
+                    next_state.buffer_selection_handle.set_mouse_start(
+                        next_state.buffer_selection_handle.get_mouse_start()
+                            + KEYBOARD_BUFFER_SELECTION_INCREMENT,
+                    );
+                    next_state
+                        .buffer_selection_handle
+                        .set_mouse_start(next_state.buffer_selection_handle.get_mouse_start());
+                }
+                AppAction::DecrementBufferSelectionStart => {
+                    next_state.buffer_selection_handle.set_mouse_start(
+                        next_state.buffer_selection_handle.get_mouse_start()
+                            - KEYBOARD_BUFFER_SELECTION_INCREMENT,
+                    );
+                    next_state
+                        .buffer_selection_handle
+                        .set_mouse_start(next_state.buffer_selection_handle.get_mouse_start());
+                }
+                AppAction::IncrementBufferSelectionEnd => {
+                    next_state.buffer_selection_handle.set_mouse_end(
+                        next_state.buffer_selection_handle.get_mouse_end()
+                            + KEYBOARD_BUFFER_SELECTION_INCREMENT,
+                    );
+                    next_state
+                        .buffer_selection_handle
+                        .set_mouse_end(next_state.buffer_selection_handle.get_mouse_end());
+                }
+                AppAction::DecrementBufferSelectionEnd => {
+                    next_state.buffer_selection_handle.set_mouse_end(
+                        next_state.buffer_selection_handle.get_mouse_end()
+                            - KEYBOARD_BUFFER_SELECTION_INCREMENT,
+                    );
+                    next_state
+                        .buffer_selection_handle
+                        .set_mouse_end(next_state.buffer_selection_handle.get_mouse_end());
+                }
             }
         }
 

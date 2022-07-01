@@ -7,8 +7,7 @@ This repo is a very WIP investigation into using Rust for creative audio coding 
 ## Todos:
 - Update licenses / cargo tomls, directory names
 
-- Add Spacebar lisener for playback
-- Add keyboard listeners for buffer selection
+- Interpolate changes in Gain
 
 - Optimizations:
     - Add `finished` grains to a hashmap when finished to prevent the need for searching for spent grains on every frame

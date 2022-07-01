@@ -23,7 +23,7 @@ pub fn controls_play_status() -> Html {
             if state_handle.get_are_audio_controls_disabled() {
                 return;
             }
-            state_handle.dispatch(AppAction::SetPlayStatus(PlayStatus::PLAY));
+            state_handle.dispatch(AppAction::SetPlayStatus(PlayStatus::Play));
         })
     };
 
@@ -33,14 +33,14 @@ pub fn controls_play_status() -> Html {
             if state_handle.get_are_audio_controls_disabled() {
                 return;
             }
-            state_handle.dispatch(AppAction::SetPlayStatus(PlayStatus::PAUSE));
+            state_handle.dispatch(AppAction::SetPlayStatus(PlayStatus::Pause));
         })
     };
 
     let default_class = "controls-play-status";
 
     match current_play_status {
-        PlayStatus::PLAY => html! {
+        PlayStatus::Play => html! {
             <Button
                 aria_label="pause audio"
                 class={classes!(default_class, "pause")}
@@ -51,7 +51,7 @@ pub fn controls_play_status() -> Html {
                 <IconPause />
             </Button>
         },
-        PlayStatus::PAUSE => html! {
+        PlayStatus::Pause => html! {
             <Button
                 aria_label="play audio"
                 class={classes!(default_class, "play")}

@@ -36,7 +36,7 @@ pub fn controls_select_buffer() -> Html {
             let select_ref = select_ref.clone();
             wasm_bindgen_futures::spawn_local(async move {
                 state_handle.dispatch(AppAction::SetAudioLoading(true));
-                state_handle.dispatch(AppAction::SetPlayStatus(PlayStatus::PAUSE));
+                state_handle.dispatch(AppAction::SetPlayStatus(PlayStatus::Pause));
 
                 let select_element = select_ref
                     .get()

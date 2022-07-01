@@ -28,7 +28,7 @@ pub fn controls_enable_audio() -> Html {
                 state_handle.dispatch(AppAction::SetAudioLoading(false));
                 state_handle.dispatch(AppAction::SetAudioInitialized(false));
                 state_handle.dispatch(AppAction::SetStreamHandle(None));
-                state_handle.dispatch(AppAction::SetPlayStatus(PlayStatus::PAUSE));
+                state_handle.dispatch(AppAction::SetPlayStatus(PlayStatus::Pause));
             } else {
                 wasm_bindgen_futures::spawn_local(async move {
                     state_handle.dispatch(AppAction::SetAudioLoading(true));

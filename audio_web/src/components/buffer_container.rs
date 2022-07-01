@@ -1,4 +1,6 @@
 use crate::audio::buffer_selection_action::BufferSelectionAction;
+use crate::audio::play_status::PlayStatus;
+use crate::audio::play_status_action::PlayStatusAction;
 use crate::components::buffer_sample_bars::BufferSampleBars;
 use crate::components::buffer_selection_visualizer::BufferSelectionVisualizer;
 use crate::state::app_action::AppAction;
@@ -135,7 +137,7 @@ pub fn buffer_container() -> Html {
 
     let handle_touch_move = {
         let div_ref = div_ref.clone();
-        let state_handle = app_context.state_handle;
+        let state_handle = app_context.state_handle.clone();
         Callback::from(move |e: TouchEvent| {
             if buffer_selector_disabled {
                 return;
@@ -152,6 +154,40 @@ pub fn buffer_container() -> Html {
         })
     };
 
+    let handle_key_down = {
+        let state_handle = app_context.state_handle;
+        Callback::from(move |e: KeyboardEvent| {
+            if buffer_selector_disabled {
+                return;
+            }
+
+            e.prevent_default();
+            let shift_key = e.shift_key();
+            match e.key().as_str() {
+                "ArrowRight" | "Right" if shift_key => {
+                    state_handle.dispatch(AppAction::IncrementBufferSelectionEnd);
+                }
+                "ArrowLeft" | "Left" if shift_key => {
+                    state_handle.dispatch(AppAction::DecrementBufferSelectionEnd);
+                }
+                "ArrowRight" | "Right" => {
+                    state_handle.dispatch(AppAction::IncrementBufferSelectionStart);
+                }
+                "ArrowLeft" | "Left" => {
+                    state_handle.dispatch(AppAction::DecrementBufferSelectionStart);
+                }
+                " " => {
+                    let new_play_status = match state_handle.play_status_handle.get() {
+                        PlayStatus::Play => PlayStatus::Pause,
+                        PlayStatus::Pause => PlayStatus::Play,
+                    };
+                    state_handle.dispatch(AppAction::SetPlayStatus(new_play_status));
+                }
+                _ => {}
+            }
+        })
+    };
+
     let div_ref_prop = div_ref.clone();
     let tab_index = if buffer_selector_disabled { "-1" } else { "0" };
 
@@ -165,6 +201,7 @@ pub fn buffer_container() -> Html {
             ontouchstart={handle_touch_start}
             ontouchend={handle_touch_end}
             ontouchmove={handle_touch_move}
+            onkeydown={handle_key_down}
             tabindex={tab_index}
             ref={div_ref}
             data-disabled={buffer_selector_disabled.to_string()}

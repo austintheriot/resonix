@@ -1,14 +1,14 @@
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
 pub enum PlayStatus {
-    PLAY,
-    PAUSE,
+    Play,
+    Pause,
 }
 
 impl From<bool> for PlayStatus {
     fn from(is_playing: bool) -> Self {
         match is_playing {
-            true => PlayStatus::PLAY,
-            false => PlayStatus::PAUSE,
+            true => PlayStatus::Play,
+            false => PlayStatus::Pause,
         }
     }
 }
@@ -16,8 +16,8 @@ impl From<bool> for PlayStatus {
 impl From<PlayStatus> for bool {
     fn from(play_status: PlayStatus) -> Self {
         match play_status {
-            PlayStatus::PLAY => true,
-            PlayStatus::PAUSE => false,
+            PlayStatus::Play => true,
+            PlayStatus::Pause => false,
         }
     }
 }

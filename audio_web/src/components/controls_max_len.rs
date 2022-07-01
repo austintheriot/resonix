@@ -39,7 +39,7 @@ pub fn controls_max_len() -> Html {
             id="controls-max-length"
             min={GranularSynthesizer::GRAIN_LEN_MIN.to_string()}
             max={GranularSynthesizer::GRAIN_LEN_MAX.to_string()}
-            step="0.001"
+            step="0.01"
             oninput={handle_input}
             value={grain_len_max_value.to_string()}
             disabled={max_len_input_disabled}

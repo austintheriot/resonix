@@ -37,7 +37,7 @@ pub fn controls_density() -> Html {
             id="controls-density-input"
             min="0.0"
             max="1.0"
-            step="0.001"
+            step="0.01"
             oninput={handle_input}
             value={density.to_string()}
             disabled={density_input_disabled}

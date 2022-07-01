@@ -43,7 +43,7 @@ impl PartialEq for PlayStatusHandle {
 impl Default for PlayStatusHandle {
     fn default() -> Self {
         Self {
-            play_status: Arc::new(Mutex::new(PlayStatus::PAUSE)),
+            play_status: Arc::new(Mutex::new(PlayStatus::Pause)),
             counter: Default::default(),
         }
     }

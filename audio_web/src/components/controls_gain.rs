@@ -37,7 +37,7 @@ pub fn controls_gain() -> Html {
             id="controls-gain-input"
             min={Gain::GAIN_MIN.to_string()}
             max={Gain::GAIN_MAX.to_string()}
-            step="0.001"
+            step="0.01"
             oninput={handle_input}
             value={gain.to_string()}
             disabled={gain_input_disabled}

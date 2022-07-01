@@ -81,7 +81,7 @@ where
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
         // if paused, do not process any audio, just return silence
-        if let PlayStatus::PAUSE = status.get() {
+        if let PlayStatus::Pause = status.get() {
             return vec![0.0; output_num_channels];
         }
 
