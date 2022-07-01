@@ -41,6 +41,7 @@ lazy_static = "1.4.0"
 yew = { version = "0.19" }
 uuid = { version = "1.1.2", features = ["v4"] }
 gloo-net = { version = "0.2.0", features = ["http"]}
+hound = "3.4.0"
 
 # `wee_alloc` is a tiny allocator for wasm that is only ~1K in code size
 # compared to the default allocator's ~10K. However, it is slower than the default
@@ -62,7 +63,14 @@ features = [
   "DomRect",
   "DomRectReadOnly",
   "HtmlSelectElement",
-  "KeyboardEvent"
+  "KeyboardEvent",
+  "Blob",
+  "BlobPropertyBag",
+  "Url",
+  "HtmlAnchorElement",
+  "CssStyleDeclaration",
+  "HtmlElement",
+  "Node",
 ]
 
 # The `console_error_panic_hook` crate provides better debugging of panics by

@@ -5,7 +5,7 @@ use super::{
 use crate::{
     audio::stream_handle::StreamHandle,
     components::controls_select_buffer::DEFAULT_AUDIO_FILE,
-    state::{app_action::AppAction, app_state::AppState},
+    state::{app_action::AppAction, app_state::AppState}, utils::download,
 };
 use audio_common::{granular_synthesizer_action::GranularSynthesizerAction, mixdown::mixdown};
 use cpal::{
@@ -13,7 +13,11 @@ use cpal::{
     Stream,
 };
 use gloo_net::http::Request;
-use std::sync::Arc;
+use hound::{WavWriter};
+use std::{
+    io::{Cursor, BufWriter},
+    sync::{Arc},
+};
 use yew::UseReducerHandle;
 
 /// Converts default mp3 file to raw audio sample data
@@ -78,6 +82,28 @@ where
     // make sure granular synthesizer's internal state is current with audio context state
     granular_synthesizer_handle.set_sample_rate(output_sample_rate);
 
+    let spec = hound::WavSpec {
+        channels: 1,
+        sample_rate: 44100,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
+
+    let mut cursor = Cursor::new(Vec::new());
+    let mut buf_writer = BufWriter::new( &mut cursor);
+    let mut writer = WavWriter::new(&mut buf_writer, spec).unwrap();
+    for t in (0 .. 44100).map(|x| x as f32 / 44100.0) {
+        let sample = (t * 440.0 * 2.0 * std::f32::consts::PI).sin();
+        let amplitude = i16::MAX as f32;
+        writer.write_sample((sample * amplitude) as i16).unwrap();
+    }
+    println!("duration = {:?}", writer.duration());
+    println!("spec = {:?}", writer.spec());
+    writer.finalize().unwrap();
+    std::mem::drop(buf_writer);
+
+    download::download_bytes(&cursor.get_ref(), "recording.wav");
+
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
         // if paused, do not process any audio, just return silence
@@ -103,6 +129,31 @@ where
             .into_iter()
             .map(|output| output * gain)
             .collect();
+
+        // for sample in output_frame {
+        //     writer.write_sample(sample).unwrap();
+        // }
+        // current_write_count += 1;
+
+        // if current_write_count == max_write_count {
+            // writer.finalize().unwrap();
+            // let mut blob_property_bag = BlobPropertyBag::new();
+            // blob_property_bag.type_("'audio/wav; codecs=0'");
+            // let u8_view = unsafe { js_sys::Uint8Array::view(&cursor.get_ref()[..]) };
+            // let blob =
+            //     Blob::new_with_blob_sequence_and_options(&u8_view.as_ref(), &blob_property_bag)
+            //         .unwrap();
+            // let url = Url::create_object_url_with_blob(&blob).unwrap();
+            // let window = web_sys::window().unwrap();
+            // let document = window.document().unwrap();
+            // let body = document.body().unwrap();
+            // let a: HtmlAnchorElement = document.create_element("a").unwrap().dyn_into().unwrap();
+            // body.append_child(&a).unwrap();
+            // a.set_href(&url);
+            // a.set_download("recording.wav");
+            // a.click();
+            // Url::revoke_object_url(&url).unwrap();
+        // }
 
         output_frame
     };

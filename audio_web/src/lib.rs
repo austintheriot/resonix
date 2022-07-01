@@ -4,6 +4,7 @@ pub mod audio;
 pub mod components;
 pub mod icons;
 pub mod state;
+pub mod utils;
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global
 // allocator.
