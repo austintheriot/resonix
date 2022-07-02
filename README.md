@@ -9,7 +9,6 @@ This repo is a very WIP investigation into using Rust for creative audio coding 
 
 - Interpolate changes in Gain
 
-- On mouse clicks to the buffer, focus the buffer container
 - initialize audio recording buffer with some degree of capacity (like 1 minute of audio?)
 - create an abstraction over the wav file / download conversion to not leak the `hound` dependency
 - Name downloaded file somehing more like: "name_of_audio_granulated.wav" or similar

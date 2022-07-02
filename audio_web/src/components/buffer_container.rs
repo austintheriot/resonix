@@ -40,9 +40,13 @@ pub fn buffer_container() -> Html {
             if buffer_selector_disabled {
                 return;
             }
-            let div = div_ref.get().unwrap().dyn_into::<HtmlDivElement>().unwrap();
-            let start_point = (e.offset_x() as f32) / (div.client_width() as f32);
 
+            // focus the container
+            let div = div_ref.get().unwrap().dyn_into::<HtmlDivElement>().unwrap();
+            let _focus_result = div.focus();
+
+            // get mouse data
+            let start_point = (e.offset_x() as f32) / (div.client_width() as f32);
             state_handle.dispatch(AppAction::SetBufferSelectionMouseDown(true));
             state_handle.dispatch(AppAction::SetBufferSelectionEnd(start_point));
             state_handle.dispatch(AppAction::SetBufferSelectionStart(start_point));
@@ -101,6 +105,12 @@ pub fn buffer_container() -> Html {
             if buffer_selector_disabled {
                 return;
             }
+
+            // focus the container
+            let div = div_ref.get().unwrap().dyn_into::<HtmlDivElement>().unwrap();
+            let _focus_result = div.focus();
+
+            // get touch data
             let touch = e
                 .touches()
                 // ignore any multi-touches
