@@ -1,8 +1,10 @@
-use hound::{WavSpec, WavWriter};
+use hound::{WavSpec, WavWriter, SampleFormat};
 use std::{
     io::Cursor,
     sync::{Arc, Mutex},
 };
+
+use crate::utils::download;
 
 /// Holds raw `f32` sample data and exposes utilities for converting
 /// that sample data to .wav file and downloading it
@@ -25,11 +27,25 @@ impl Extend<f32> for AudioRecorderHandle {
 }
 
 impl AudioRecorderHandle {
+     /// Downloads the audio samples, encoded as a .wav binary file
+     pub fn download_as_wav(&self, num_channels: impl Into<u16>, sample_rate: impl Into<u32>) {
+        let wav_bytes = self.encode_as_wav(num_channels, sample_rate);
+        download::download_bytes(wav_bytes, "recording.wav");
+    }
+
     /// Returns the audio samples, encoded as a .wav binary file
-    pub fn encode_as_wav(&self, spec: WavSpec) -> Vec<u8> {
+    pub fn encode_as_wav(&self, num_channels: impl Into<u16>, sample_rate: impl Into<u32>) -> Vec<u8> {
+        let wav_spec = WavSpec {
+            channels: num_channels.into(),
+            sample_rate: sample_rate.into(),
+            // these were the default used in the `hound` doc examples
+            bits_per_sample: 16,
+            sample_format: SampleFormat::Int,
+        };
+
         let mut bytes = Vec::new();
         let mut bytes_cursor = Cursor::new(&mut bytes);
-        let mut wav_writer = WavWriter::new(&mut bytes_cursor, spec).unwrap();
+        let mut wav_writer = WavWriter::new(&mut bytes_cursor, wav_spec).unwrap();
         let stored_sample_data = self.data.lock().unwrap();
         let amplitude = i16::MAX as f32;
         for sample in stored_sample_data.iter() {

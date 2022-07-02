@@ -6,10 +6,8 @@ use crate::{
         play_status_action::PlayStatusAction, recording_status_action::RecordingStatusAction,
     },
     components::buffer_sample_bars::get_buffer_maxes,
-    utils::download,
 };
 use audio_common::granular_synthesizer_action::GranularSynthesizerAction;
-use hound::{SampleFormat, WavSpec};
 use std::{rc::Rc, sync::Arc};
 use yew::Reducible;
 
@@ -142,16 +140,9 @@ impl Reducible for AppState {
                 AppAction::SetNumChannels(num_channels) => {
                     next_state.num_channels = num_channels;
                 }
-                AppAction::DownloadAudio => {
-                    let wav_spec = WavSpec {
-                        channels: next_state.num_channels as u16,
-                        sample_rate: next_state.sample_rate,
-                        bits_per_sample: 16,
-                        sample_format: SampleFormat::Int,
-                    };
-                    let wav_bytes = next_state.audio_recorder_handle.encode_as_wav(wav_spec);
-                    download::download_bytes(wav_bytes, "recording.wav");
-                }
+                AppAction::DownloadAudio => next_state
+                    .audio_recorder_handle
+                    .download_as_wav(next_state.num_channels as u16, next_state.sample_rate),
             }
         }
 
