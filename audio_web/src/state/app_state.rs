@@ -1,3 +1,4 @@
+use crate::audio::audio_recorder_handle::AudioRecorderHandle;
 use crate::audio::buffer_handle::BufferHandle;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
 use crate::audio::density_handle::DensityHandle;
@@ -83,6 +84,8 @@ pub struct AppState {
     pub grain_len_min: GrainLenHandle,
 
     pub refresh_interval: RefreshIntervalHandle,
+
+    pub audio_recorder_handle: AudioRecorderHandle,
 }
 
 impl Default for AppState {
@@ -99,6 +102,7 @@ impl Default for AppState {
             sample_rate: Default::default(),
             density_handle: Default::default(),
             granular_synthesizer_handle: Default::default(),
+            audio_recorder_handle: Default::default(),
             grain_len_min: GranularSynthesizer::GRAIN_LEN_MIN.into(),
             grain_len_max: GranularSynthesizer::GRAIN_LEN_MAX.into(),
             refresh_interval: GranularSynthesizer::DEFAULT_REFRESH_INTERVAL.into(),

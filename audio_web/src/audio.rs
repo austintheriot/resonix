@@ -1,3 +1,4 @@
+pub mod audio_recorder_handle;
 pub mod buffer_handle;
 pub mod buffer_selection;
 pub mod buffer_selection_action;
