@@ -97,17 +97,11 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
     }
 
     fn grain_len_min(&self) -> Percentage {
-        self.granular_synthesizer
-            .lock()
-            .unwrap()
-            .grain_len_min()
+        self.granular_synthesizer.lock().unwrap().grain_len_min()
     }
 
     fn grain_len_max(&self) -> Percentage {
-        self.granular_synthesizer
-            .lock()
-            .unwrap()
-            .grain_len_max()
+        self.granular_synthesizer.lock().unwrap().grain_len_max()
     }
 
     fn refresh_interval(&self) -> u32 {

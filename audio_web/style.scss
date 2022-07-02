@@ -4,8 +4,10 @@
 @use './src/components/button.scss';
 @use './src/components/controls_container.scss';
 @use './src/components/controls_density.scss';
+@use './src/components/controls_download_audio.scss';
 @use './src/components/controls_enable_audio.scss';
 @use './src/components/controls_gain.scss';
+@use './src/components/controls_recording_status.scss';
 @use './src/components/controls_play_status.scss';
 @use './src/components/controls_reset.scss';
 @use './src/components/controls_select_buffer.scss';

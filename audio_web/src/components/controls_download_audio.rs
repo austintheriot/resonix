@@ -1,7 +1,5 @@
-use super::button::ButtonVariant;
 use crate::{
     components::button::Button,
-    icons::reset::IconReset,
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
@@ -10,8 +8,8 @@ use crate::{
 };
 use yew::{function_component, html, prelude::*};
 
-#[function_component(ControlsReset)]
-pub fn controls_reset() -> Html {
+#[function_component(ControlsDownloadAudio)]
+pub fn controls_download_audio() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
     let button_disabled = app_context.state_handle.get_are_audio_controls_disabled();
 
@@ -21,19 +19,18 @@ pub fn controls_reset() -> Html {
             if state_handle.get_are_audio_controls_disabled() {
                 return;
             }
-            state_handle.dispatch(AppAction::ResetState);
+            state_handle.dispatch(AppAction::DownloadAudio);
         })
     };
 
     html! {
-      <Button
-          aria_label="reset"
-          class="controls-reset"
-          onclick={handle_click}
-          disabled={button_disabled}
-          variant={ButtonVariant::Unpressed}
-      >
-          <IconReset />
-      </Button>
+        <Button
+            aria_label="download recorded audio"
+            class="controls-download-audio"
+            onclick={handle_click}
+            disabled={button_disabled}
+        >
+            {"D"}
+        </Button>
     }
 }

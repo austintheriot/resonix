@@ -1,5 +1,5 @@
-use std::ops::{Add, Mul, Sub};
 use crate::{max::Max, min::Min};
+use std::ops::{Add, Mul, Sub};
 
 #[derive(PartialEq, PartialOrd, Default, Clone, Debug, Copy)]
 pub struct Percentage(f32);

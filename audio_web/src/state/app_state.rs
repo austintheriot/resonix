@@ -6,12 +6,14 @@ use crate::audio::gain_handle::GainHandle;
 use crate::audio::grain_len_handle::GrainLenHandle;
 use crate::audio::granular_synthesizer_handle::GranularSynthesizerHandle;
 use crate::audio::play_status_handle::PlayStatusHandle;
+use crate::audio::recording_status_handle::RecordingStatusHandle;
 use crate::audio::refresh_interval_handle::RefreshIntervalHandle;
 use crate::audio::stream_handle::StreamHandle;
 use audio_common::granular_synthesizer::GranularSynthesizer;
 use audio_common::granular_synthesizer_action::GranularSynthesizerAction;
 
 pub type SampleRate = u32;
+pub type NunChannels = u32;
 
 /// Global app-level state.
 ///
@@ -69,9 +71,12 @@ pub struct AppState {
     pub granular_synthesizer_handle: GranularSynthesizerHandle,
 
     /// Sample rate is instantiated with a fallback sample rate,
-    ///
     /// but this rate should be updated at audio initialization time.
     pub sample_rate: SampleRate,
+
+    /// Number of channels is instantiated with a fallback number of channels,
+    /// but this should be updated at audio initialization time.
+    pub num_channels: NunChannels,
 
     /// Corresponds to the percentage of channels that will output samples
     /// from the `GranularSynthesizer` on every frame (0.0 -> 1.0)
@@ -86,6 +91,8 @@ pub struct AppState {
     pub refresh_interval: RefreshIntervalHandle,
 
     pub audio_recorder_handle: AudioRecorderHandle,
+
+    pub recording_status_handle: RecordingStatusHandle,
 }
 
 impl Default for AppState {
@@ -103,6 +110,8 @@ impl Default for AppState {
             density_handle: Default::default(),
             granular_synthesizer_handle: Default::default(),
             audio_recorder_handle: Default::default(),
+            recording_status_handle: Default::default(),
+            num_channels: Default::default(),
             grain_len_min: GranularSynthesizer::GRAIN_LEN_MIN.into(),
             grain_len_max: GranularSynthesizer::GRAIN_LEN_MAX.into(),
             refresh_interval: GranularSynthesizer::DEFAULT_REFRESH_INTERVAL.into(),

@@ -15,17 +15,16 @@ pub fn download_bytes(bytes: impl AsRef<[u8]>, file_name: &str) {
 
     // data must be passed to blob constructor inside of a javascript array
     let blob_parts = js_sys::Array::new_with_length(1);
-    
+
     // it is unsafe to get a raw view into WebAssembly memory, but because this memory gets imemdiately
-    // used, downloaded, and then view is discarded, it is safe so long as no new allocations are 
+    // used, downloaded, and then view is discarded, it is safe so long as no new allocations are
     // made in between acquiring the view and using it
     let u8_view = unsafe { js_sys::Uint8Array::view(bytes) };
     blob_parts.set(0, u8_view.dyn_into().unwrap());
 
     // create blob from raw view into wasm linear memory
-    let blob =
-        Blob::new_with_buffer_source_sequence(&blob_parts.as_ref()).unwrap();
-    
+    let blob = Blob::new_with_buffer_source_sequence(&blob_parts.as_ref()).unwrap();
+
     // make blob downloadable by creating a global document url for the blob resource
     let url = Url::create_object_url_with_blob(&blob).unwrap();
 

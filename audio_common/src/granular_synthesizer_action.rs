@@ -17,8 +17,8 @@ pub trait GranularSynthesizerAction {
 
     /// the smallest possible length of grain, given as a percentage of the currently selected audio
     const GRAIN_LEN_MIN: f32 = 0.0;
-    
-     /// the largest possible length of grain, given as a percentage of the currently selected audio
+
+    /// the largest possible length of grain, given as a percentage of the currently selected audio
     const GRAIN_LEN_MAX: f32 = 1.0;
 
     const DEFAULT_SAMPLE_RATE: u32 = 44100;
@@ -26,7 +26,7 @@ pub trait GranularSynthesizerAction {
     /// This is the sample interval at which grains are filtered / refreshed.
     /// Using a prime number leads to the least periodic overlap in grains.
     const DEFAULT_REFRESH_INTERVAL: u32 = 271;
-    
+
     const REFRESH_INTERVAL_MIN: u32 = 17;
 
     const REFRESH_INTERVAL_MAX: u32 = 1009;
@@ -47,7 +47,9 @@ pub trait GranularSynthesizerAction {
     fn set_density(&mut self, density: impl Into<Percentage>) -> &mut Self;
 
     fn sanitize_refresh_interval(refresh_interval: u32) -> u32 {
-        refresh_interval.max(Self::REFRESH_INTERVAL_MIN).min(Self::REFRESH_INTERVAL_MAX)
+        refresh_interval
+            .max(Self::REFRESH_INTERVAL_MIN)
+            .min(Self::REFRESH_INTERVAL_MAX)
     }
 
     fn refresh_interval(&self) -> u32;

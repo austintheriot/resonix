@@ -13,7 +13,7 @@ pub struct AudioRecorderHandle {
 
 impl PartialEq for AudioRecorderHandle {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.data,&other.data)
+        Arc::ptr_eq(&self.data, &other.data)
     }
 }
 

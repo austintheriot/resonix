@@ -23,7 +23,7 @@ pub fn mixdown(samples_in: &[f32], num_channels_out: u32) -> Vec<f32> {
 
     // hacky solution for now (@todo: research multi-channel mixdown algorithms):
     // the more voices that are getting "squished" into fewervoices,
-    // the quieter the mixed down amplitude should be, but voices being scaled out 
+    // the quieter the mixed down amplitude should be, but voices being scaled out
     // to a multi-channel setup should keep their original amplitude (right ?)
     // in my own aural experimentation, the `cbrt` function seems to approximate this relationship well
     let scale_divisor = (samples_in.len() as f32 / num_channels_out as f32)

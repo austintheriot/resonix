@@ -1,5 +1,5 @@
-use yew::prelude::*;
 use crate::state::app_context::{AppContext, AppContextError};
+use yew::prelude::*;
 
 #[function_component(LoadingIndicator)]
 pub fn loading_indicator() -> Html {

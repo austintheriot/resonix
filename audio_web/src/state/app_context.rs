@@ -1,5 +1,5 @@
 use super::app_state::AppState;
-use yew::{UseReducerHandle, use_reducer_eq};
+use yew::{use_reducer_eq, UseReducerHandle};
 
 #[derive(Clone, PartialEq)]
 pub struct AppContext {

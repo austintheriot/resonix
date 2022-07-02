@@ -7,7 +7,8 @@ use crate::{
     },
 };
 use audio_common::{
-    granular_synthesizer::GranularSynthesizer, granular_synthesizer_action::GranularSynthesizerAction,
+    granular_synthesizer::GranularSynthesizer,
+    granular_synthesizer_action::GranularSynthesizerAction,
 };
 use web_sys::HtmlInputElement;
 use yew::{function_component, html, prelude::*};
@@ -15,7 +16,8 @@ use yew::{function_component, html, prelude::*};
 #[function_component(ControlsRefreshInterval)]
 pub fn controls_refresh_interval() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
-    let refresh_interval_input_disabled = app_context.state_handle.get_are_audio_controls_disabled();
+    let refresh_interval_input_disabled =
+        app_context.state_handle.get_are_audio_controls_disabled();
     let refresh_interval = app_context.state_handle.refresh_interval.get();
 
     let handle_input = {

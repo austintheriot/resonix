@@ -1,5 +1,9 @@
-use crate::audio::{play_status::PlayStatus, stream_handle::StreamHandle};
+use crate::audio::{
+    play_status::PlayStatus, recording_status::RecordingStatus, stream_handle::StreamHandle,
+};
 use std::sync::Arc;
+
+use super::app_state::NunChannels;
 
 #[derive(Debug, Clone)]
 pub enum AppAction {
@@ -22,4 +26,7 @@ pub enum AppAction {
     SetGrainLenMin(f32),
     SetRefreshInterval(u32),
     ResetState,
+    SetRecordingStatus(RecordingStatus),
+    SetNumChannels(NunChannels),
+    DownloadAudio,
 }

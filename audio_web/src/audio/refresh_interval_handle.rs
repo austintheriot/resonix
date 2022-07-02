@@ -1,8 +1,8 @@
+use super::bump_counter::BumpCounter;
 use audio_common::{
     granular_synthesizer::GranularSynthesizer,
     granular_synthesizer_action::GranularSynthesizerAction,
 };
-use super::bump_counter::BumpCounter;
 use std::sync::{Arc, Mutex};
 
 /// Wrapper around `u32`, which makes it possible to access

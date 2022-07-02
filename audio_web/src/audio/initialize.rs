@@ -1,24 +1,21 @@
 use super::{
-    buffer_selection_action::BufferSelectionAction,
-    decode,
-    gain_action::GainAction,
-    play_status::PlayStatus,
-    play_status_action::PlayStatusAction,
+    audio_recorder_handle::AudioRecorderHandle, buffer_selection_action::BufferSelectionAction,
+    decode, gain_action::GainAction, play_status::PlayStatus, play_status_action::PlayStatusAction,
+    recording_status::RecordingStatus, recording_status_action::RecordingStatusAction,
+    recording_status_handle::RecordingStatusHandle,
 };
 use crate::{
     audio::stream_handle::StreamHandle,
     components::controls_select_buffer::DEFAULT_AUDIO_FILE,
     state::{app_action::AppAction, app_state::AppState},
-    utils::download,
 };
 use audio_common::{granular_synthesizer_action::GranularSynthesizerAction, mixdown::mixdown};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Stream,
+    Stream, StreamConfig,
 };
 use gloo_net::http::Request;
-use hound::{WavSpec, SampleFormat};
-use std::{sync::Arc};
+use std::sync::Arc;
 use yew::UseReducerHandle;
 
 /// Converts default mp3 file to raw audio sample data
@@ -44,12 +41,24 @@ async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Ar
 }
 
 /// This function is called periodically to write audio data into an audio output buffer
-fn write_data<T>(output: &mut [T], channels: usize, next_sample: &mut dyn FnMut() -> Vec<f32>)
-where
+fn write_data<T>(
+    output: &mut [T],
+    channels: usize,
+    next_sample: &mut dyn FnMut() -> Vec<f32>,
+    recording_status_handle: RecordingStatusHandle,
+    mut audio_recorder_handle: AudioRecorderHandle,
+) where
     T: cpal::Sample,
 {
     for frame in output.chunks_mut(channels) {
         let output_samples = next_sample();
+
+        // clone audio data into a recording buffer
+        let is_recording = recording_status_handle.get() == RecordingStatus::Recording;
+        if is_recording {
+            let output_samples = output_samples.clone();
+            audio_recorder_handle.extend(output_samples)
+        }
 
         for (i, sample) in frame.iter_mut().enumerate() {
             *sample = cpal::Sample::from::<f32>(&output_samples[i]);
@@ -79,11 +88,6 @@ where
     let gain_handle = app_state_handle.gain_handle.clone();
     let status = app_state_handle.play_status_handle.clone();
     let mut granular_synthesizer_handle = app_state_handle.granular_synthesizer_handle.clone();
-    let mut audio_recorder_handle = app_state_handle.audio_recorder_handle.clone();
-
-    let mut current_write_count: u32 = 0;
-    let max_write_count: u32 = output_sample_rate * 5;
-    let mut downloaded = false;
 
     // make sure granular synthesizer's internal state is current with audio context state
     granular_synthesizer_handle.set_sample_rate(output_sample_rate);
@@ -114,31 +118,23 @@ where
             .map(|output| output * gain)
             .collect();
 
-        if current_write_count < max_write_count {
-            audio_recorder_handle.extend(output_frame.clone());
-            current_write_count += 1;
-        } else if !downloaded {
-            let wav_spec = WavSpec {
-                channels: output_num_channels as u16,
-                sample_rate: output_sample_rate,
-                bits_per_sample: 16,
-                sample_format: SampleFormat::Int,
-            };
-            let wav_bytes = audio_recorder_handle.encode_as_wav(wav_spec);
-            download::download_bytes(wav_bytes, "recording.wav");
-            downloaded = true;
-        }
-
-
         output_frame
     };
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
+    let recording_status_handle = app_state_handle.recording_status_handle.clone();
+    let audio_recorder_handle = app_state_handle.audio_recorder_handle.clone();
 
     let stream = device.build_output_stream(
         stream_config,
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-            write_data(data, output_num_channels, &mut next_value)
+            write_data(
+                data,
+                output_num_channels,
+                &mut next_value,
+                recording_status_handle.clone(),
+                audio_recorder_handle.clone(),
+            )
         },
         err_fn,
     )?;
@@ -156,17 +152,18 @@ pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> S
         .expect("failed to find a default output device");
     let config = device.default_output_config().unwrap();
     let sample_format = config.sample_format();
-    let sample_rate = config.sample_rate().0;
-    app_state_handle.dispatch(AppAction::SetSampleRate(sample_rate));
+    let stream_config: StreamConfig = config.into();
+    app_state_handle.dispatch(AppAction::SetSampleRate(stream_config.sample_rate.0));
+    app_state_handle.dispatch(AppAction::SetNumChannels(stream_config.channels as u32));
 
     StreamHandle::new(match sample_format {
-        cpal::SampleFormat::F32 => run::<f32>(app_state_handle, &device, &config.into())
+        cpal::SampleFormat::F32 => run::<f32>(app_state_handle, &device, &stream_config)
             .await
             .unwrap(),
-        cpal::SampleFormat::I16 => run::<i16>(app_state_handle, &device, &config.into())
+        cpal::SampleFormat::I16 => run::<i16>(app_state_handle, &device, &stream_config)
             .await
             .unwrap(),
-        cpal::SampleFormat::U16 => run::<u16>(app_state_handle, &device, &config.into())
+        cpal::SampleFormat::U16 => run::<u16>(app_state_handle, &device, &stream_config)
             .await
             .unwrap(),
     })

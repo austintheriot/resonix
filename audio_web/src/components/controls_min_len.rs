@@ -7,7 +7,8 @@ use crate::{
     },
 };
 use audio_common::{
-    granular_synthesizer::GranularSynthesizer, granular_synthesizer_action::GranularSynthesizerAction,
+    granular_synthesizer::GranularSynthesizer,
+    granular_synthesizer_action::GranularSynthesizerAction,
 };
 use web_sys::HtmlInputElement;
 use yew::{function_component, html, prelude::*};
