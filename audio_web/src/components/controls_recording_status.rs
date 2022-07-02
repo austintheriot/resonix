@@ -7,6 +7,8 @@ use crate::{
         app_context::{AppContext, AppContextError},
         app_selector::AppSelector,
     },
+    icons::record::IconRecord,
+    icons::stop_recording::IconStopRecording,
 };
 use yew::{function_component, html, prelude::*};
 
@@ -54,7 +56,7 @@ pub fn controls_recording_status() -> Html {
                 disabled={button_disabled}
                 variant={ButtonVariant::Pressed}
             >
-                {"||"}
+                <IconStopRecording />
             </Button>
         },
         RecordingStatus::Stop => html! {
@@ -65,7 +67,7 @@ pub fn controls_recording_status() -> Html {
                 disabled={button_disabled}
                 variant={ButtonVariant::Unpressed}
             >
-                {"O"}
+                <IconRecord />
             </Button>
         },
     }

@@ -5,6 +5,7 @@ use crate::{
         app_context::{AppContext, AppContextError},
         app_selector::AppSelector,
     },
+    icons::download::IconDownload,
 };
 use yew::{function_component, html, prelude::*};
 
@@ -30,7 +31,7 @@ pub fn controls_download_audio() -> Html {
             onclick={handle_click}
             disabled={button_disabled}
         >
-            {"D"}
+            <IconDownload />
         </Button>
     }
 }
