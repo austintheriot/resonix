@@ -12,9 +12,9 @@ impl Default for ButtonVariant {
     }
 }
 
-impl Into<Classes> for ButtonVariant {
-    fn into(self) -> Classes {
-        match self {
+impl From<ButtonVariant> for Classes {
+    fn from(button_variant: ButtonVariant) -> Self {
+        match button_variant {
             ButtonVariant::Unpressed => Classes::from("unpressed"),
             ButtonVariant::Pressed => Classes::from("pressed"),
         }

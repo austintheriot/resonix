@@ -31,7 +31,7 @@ pub fn mixdown(samples_in: &[f32], num_channels_out: u32) -> Vec<f32> {
         // do not allow dividing by zero (or anything close)
         .max(0.01);
     for sample in &mut samples_out {
-        *sample = *sample / scale_divisor;
+        *sample /= scale_divisor;
     }
 
     samples_out

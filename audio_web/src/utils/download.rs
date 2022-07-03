@@ -23,7 +23,7 @@ pub fn download_bytes(bytes: impl AsRef<[u8]>, file_name: &str) {
     blob_parts.set(0, u8_view.dyn_into().unwrap());
 
     // create blob from raw view into wasm linear memory
-    let blob = Blob::new_with_buffer_source_sequence(&blob_parts.as_ref()).unwrap();
+    let blob = Blob::new_with_buffer_source_sequence(blob_parts.as_ref()).unwrap();
 
     // make blob downloadable by creating a global document url for the blob resource
     let url = Url::create_object_url_with_blob(&blob).unwrap();

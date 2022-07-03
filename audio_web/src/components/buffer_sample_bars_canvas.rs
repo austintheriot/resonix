@@ -1,5 +1,5 @@
 use crate::state::app_context::{AppContext, AppContextError};
-use log::info;
+
 use std::sync::Arc;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
@@ -91,7 +91,7 @@ pub fn buffer_sample_bars_canvas() -> Html {
                         height as f64,
                     );
                 }
-                return || {};
+                || {}
             }
         },
         buffer_handle,

@@ -302,41 +302,37 @@ impl GranularSynthesizer {
             || (smallest_possible_grain_len <= 10 && largest_possible_grain_len <= 10);
 
         if !selection_is_empty {
-            self.grains
-                .iter_mut()
-                .find(|grain| grain.finished)
-                .map(|grain| {
-                    // get random length
-                    let random_length = self
-                        .rng
-                        .gen_range(smallest_possible_grain_len..=largest_possible_grain_len);
+            if let Some(grain) = self.grains.iter_mut().find(|grain| grain.finished) {
+                // get random length
+                let random_length = self
+                    .rng
+                    .gen_range(smallest_possible_grain_len..=largest_possible_grain_len);
 
-                    let largest_start_index = selection_end_index - random_length;
+                let largest_start_index = selection_end_index - random_length;
 
-                    // no data to add to grain
-                    if selection_start_index >= largest_start_index {
-                        return;
-                    }
+                // no data to add to grain
+                if selection_start_index >= largest_start_index {
+                    return;
+                }
 
-                    // if the largest possible start index and the actual start index are very close,
-                    // then just use the start index (prevents silence when min & max are both at 1.0)
-                    let start_index_range_is_close =
-                        (largest_start_index - selection_start_index) < 10;
+                // if the largest possible start index and the actual start index are very close,
+                // then just use the start index (prevents silence when min & max are both at 1.0)
+                let start_index_range_is_close = (largest_start_index - selection_start_index) < 10;
 
-                    let start_index = if start_index_range_is_close {
-                        selection_start_index
-                    } else {
-                        // get random index inside selection
-                        self.rng
-                            .gen_range(selection_start_index..=largest_start_index)
-                    };
+                let start_index = if start_index_range_is_close {
+                    selection_start_index
+                } else {
+                    // get random index inside selection
+                    self.rng
+                        .gen_range(selection_start_index..=largest_start_index)
+                };
 
-                    let end_index = start_index + random_length;
+                let end_index = start_index + random_length;
 
-                    let new_grain = Grain::new(start_index as usize, end_index as usize);
+                let new_grain = Grain::new(start_index as usize, end_index as usize);
 
-                    *grain = new_grain;
-                });
+                *grain = new_grain;
+            }
         }
     }
 
@@ -361,19 +357,14 @@ impl GranularSynthesizer {
         let selection_len_in_samples =
             (self.get_selection_end_in_samples() - self.get_selection_start_in_samples()) as usize;
 
-        self.grains
-            .iter_mut()
-            .find(|grain| {
-                let remaining_grain_samples = grain.end_frame - grain.current_frame;
+        if let Some(grain) = self.grains.iter_mut().find(|grain| {
+            let remaining_grain_samples = grain.end_frame - grain.current_frame;
 
-                let grain_is_too_long = remaining_grain_samples > grain_len_max_in_samples
-                    || remaining_grain_samples > selection_len_in_samples;
-
-                grain_is_too_long
-            })
-            .map(|grain| {
-                grain.finished = true;
-            });
+            remaining_grain_samples > grain_len_max_in_samples
+                || remaining_grain_samples > selection_len_in_samples
+        }) {
+            grain.finished = true;
+        }
     }
 
     /// Fills in buffer & envelope sample data for each channel

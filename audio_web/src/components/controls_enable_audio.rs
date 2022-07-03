@@ -23,7 +23,7 @@ pub fn controls_enable_audio() -> Html {
         Callback::from(move |_: MouseEvent| {
             let state_handle = state_handle.clone();
             if button_disabled {
-                return;
+                
             } else if state_handle.audio_initialized {
                 state_handle.dispatch(AppAction::SetAudioLoading(false));
                 state_handle.dispatch(AppAction::SetAudioInitialized(false));

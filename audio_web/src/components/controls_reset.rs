@@ -16,7 +16,7 @@ pub fn controls_reset() -> Html {
     let button_disabled = app_context.state_handle.get_are_audio_controls_disabled();
 
     let handle_click = {
-        let state_handle = app_context.state_handle.clone();
+        let state_handle = app_context.state_handle;
         Callback::from(move |_: MouseEvent| {
             if state_handle.get_are_audio_controls_disabled() {
                 return;

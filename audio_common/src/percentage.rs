@@ -14,8 +14,8 @@ impl Percentage {
 
     pub fn sanitize_percentage(percentage: f32) -> f32 {
         percentage
-            .max(Self::PERCENTAGE_MIN.into())
-            .min(Self::PERCENTAGE_MAX.into())
+            .max(Self::PERCENTAGE_MIN)
+            .min(Self::PERCENTAGE_MAX)
     }
 
     pub fn new(percentage: f32) -> Self {
