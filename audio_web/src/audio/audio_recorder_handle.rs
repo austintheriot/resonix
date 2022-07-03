@@ -1,4 +1,4 @@
-use hound::{WavSpec, WavWriter, SampleFormat};
+use hound::{SampleFormat, WavSpec, WavWriter};
 use std::{
     io::Cursor,
     sync::{Arc, Mutex},
@@ -27,14 +27,18 @@ impl Extend<f32> for AudioRecorderHandle {
 }
 
 impl AudioRecorderHandle {
-     /// Downloads the audio samples, encoded as a .wav binary file
-     pub fn download_as_wav(&self, num_channels: impl Into<u16>, sample_rate: impl Into<u32>) {
+    /// Downloads the audio samples, encoded as a .wav binary file
+    pub fn download_as_wav(&self, num_channels: impl Into<u16>, sample_rate: impl Into<u32>) {
         let wav_bytes = self.encode_as_wav(num_channels, sample_rate);
         download::download_bytes(wav_bytes, "recording.wav");
     }
 
     /// Returns the audio samples, encoded as a .wav binary file
-    pub fn encode_as_wav(&self, num_channels: impl Into<u16>, sample_rate: impl Into<u32>) -> Vec<u8> {
+    pub fn encode_as_wav(
+        &self,
+        num_channels: impl Into<u16>,
+        sample_rate: impl Into<u32>,
+    ) -> Vec<u8> {
         let wav_spec = WavSpec {
             channels: num_channels.into(),
             sample_rate: sample_rate.into(),

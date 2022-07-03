@@ -2,13 +2,13 @@ use super::button::ButtonVariant;
 use crate::{
     audio::{recording_status::RecordingStatus, recording_status_action::RecordingStatusAction},
     components::button::Button,
+    icons::record::IconRecord,
+    icons::stop_recording::IconStopRecording,
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
         app_selector::AppSelector,
     },
-    icons::record::IconRecord,
-    icons::stop_recording::IconStopRecording,
 };
 use yew::{function_component, html, prelude::*};
 

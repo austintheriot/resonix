@@ -1,6 +1,6 @@
 use crate::state::app_context::{AppContext, AppContextError};
-use std::sync::Arc;
 use log::info;
+use std::sync::Arc;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 use yew::{function_component, html, prelude::*};

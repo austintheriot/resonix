@@ -5,7 +5,7 @@ use crate::{
         density_action::DensityAction, gain_action::GainAction,
         play_status_action::PlayStatusAction, recording_status_action::RecordingStatusAction,
     },
-    components::{buffer_sample_bars_canvas::get_buffer_maxes_for_canvas},
+    components::buffer_sample_bars_canvas::get_buffer_maxes_for_canvas,
 };
 use audio_common::granular_synthesizer_action::GranularSynthesizerAction;
 use std::{rc::Rc, sync::Arc};

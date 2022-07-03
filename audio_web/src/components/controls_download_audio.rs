@@ -1,11 +1,11 @@
 use crate::{
     components::button::Button,
+    icons::download::IconDownload,
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
         app_selector::AppSelector,
     },
-    icons::download::IconDownload,
 };
 use yew::{function_component, html, prelude::*};
 
