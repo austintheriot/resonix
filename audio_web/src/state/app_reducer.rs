@@ -5,7 +5,7 @@ use crate::{
         density_action::DensityAction, gain_action::GainAction,
         play_status_action::PlayStatusAction, recording_status_action::RecordingStatusAction,
     },
-    components::buffer_sample_bars::get_buffer_maxes,
+    components::{buffer_sample_bars_canvas::get_buffer_maxes_for_canvas},
 };
 use audio_common::granular_synthesizer_action::GranularSynthesizerAction;
 use std::{rc::Rc, sync::Arc};
@@ -22,7 +22,7 @@ impl Reducible for AppState {
             let action = action;
             match action {
                 AppAction::SetBuffer(buffer) => {
-                    next_state.buffer_maxes = get_buffer_maxes(&buffer);
+                    next_state.buffer_maxes_for_canvas = get_buffer_maxes_for_canvas(&buffer);
                     next_state
                         .granular_synthesizer_handle
                         .set_buffer(Arc::clone(&buffer));

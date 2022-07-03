@@ -1,7 +1,7 @@
 use crate::audio::buffer_selection_action::BufferSelectionAction;
 use crate::audio::play_status::PlayStatus;
 use crate::audio::play_status_action::PlayStatusAction;
-use crate::components::buffer_sample_bars::BufferSampleBars;
+use crate::components::buffer_sample_bars_canvas::BufferSampleBarsCanvas;
 use crate::components::buffer_selection_visualizer::BufferSelectionVisualizer;
 use crate::state::app_action::AppAction;
 use crate::state::app_context::{AppContext, AppContextError};
@@ -216,7 +216,7 @@ pub fn buffer_container() -> Html {
             ref={div_ref}
             data-disabled={buffer_selector_disabled.to_string()}
         >
-            <BufferSampleBars />
+            <BufferSampleBarsCanvas />
             <BufferSelectionVisualizer div_ref={div_ref_prop} />
         </div>
     }

@@ -39,13 +39,12 @@ pub struct AppState {
     /// The currently loaded audio buffer
     pub buffer_handle: BufferHandle,
 
-    /// A list with a set length of max amplitudes from the original audio buffer
-    /// this makes re-rendering the audio buffer visualization O(1) instead of O(n),
+    /// A list with a set length of max amplitudes from the original audio buffer.
+    /// This makes re-rendering the audio buffer visualization and O(1) operation instead of O(n),
     /// where n is the length of buffer samples.
     ///
-    /// The audio amlitudes range from 0.0 -> 100.0 and are formatted as strings to
-    /// the tens decimal place.
-    pub buffer_maxes: Vec<String>,
+    /// The audio amlitudes range from 0.0 -> 1.0
+    pub buffer_maxes_for_canvas: Vec<f32>,
 
     /// A handle to the audio context stream (keeps audio playing & stops audio when dropped)
     pub stream_handle: Option<StreamHandle>,
@@ -99,7 +98,7 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             buffer_handle: Default::default(),
-            buffer_maxes: Default::default(),
+            buffer_maxes_for_canvas: Default::default(),
             stream_handle: Default::default(),
             buffer_selection_handle: Default::default(),
             gain_handle: Default::default(),

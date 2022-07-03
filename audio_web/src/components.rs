@@ -1,6 +1,6 @@
 pub mod app;
 pub mod buffer_container;
-pub mod buffer_sample_bars;
+pub mod buffer_sample_bars_canvas;
 pub mod buffer_selection_visualizer;
 pub mod button;
 pub mod controls_container;
