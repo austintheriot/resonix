@@ -1,4 +1,8 @@
 use crate::{
+    audio::{
+        audio_output_action::AudioOutputAction, play_status::PlayStatus,
+        play_status_action::PlayStatusAction,
+    },
     state::{
         app_context::{AppContext, AppContextError},
         app_selector::AppSelector,
@@ -24,7 +28,8 @@ pub fn audio_output_visualization() -> Html {
     let buffer_handle = app_context.state_handle.buffer_handle.clone();
     let canvas_ref = use_node_ref();
     let hidden_class = (buffer_handle.get_data().is_empty()
-        || !app_context.state_handle.audio_initialized)
+        || !app_context.state_handle.audio_initialized
+        || app_context.state_handle.play_status_handle.get() == PlayStatus::Pause)
         .then(|| "hidden");
 
     use_effect_with_deps(

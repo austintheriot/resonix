@@ -1,7 +1,7 @@
 use super::{
-    audio_ouput_handle::AudioOutputHandle, audio_recorder_handle::AudioRecorderHandle,
-    buffer_selection_action::BufferSelectionAction, decode, gain_action::GainAction,
-    play_status::PlayStatus, play_status_action::PlayStatusAction,
+    audio_ouput_handle::AudioOutputHandle, audio_output_action::AudioOutputAction,
+    audio_recorder_handle::AudioRecorderHandle, buffer_selection_action::BufferSelectionAction,
+    decode, gain_action::GainAction, play_status::PlayStatus, play_status_action::PlayStatusAction,
     recording_status::RecordingStatus, recording_status_action::RecordingStatusAction,
     recording_status_handle::RecordingStatusHandle,
 };

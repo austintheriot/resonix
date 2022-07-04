@@ -17,10 +17,12 @@ pub fn controls_reset() -> Html {
 
     let handle_click = {
         let state_handle = app_context.state_handle;
+        let audio_output_handle = app_context.audio_output_handle;
         Callback::from(move |_: MouseEvent| {
             if state_handle.get_are_audio_controls_disabled() {
                 return;
             }
+            audio_output_handle.reset_inner_to_default();
             state_handle.dispatch(AppAction::ResetState);
         })
     };

@@ -1,2 +1,2 @@
-pub mod download;
 pub mod animation;
+pub mod download;

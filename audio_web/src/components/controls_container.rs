@@ -1,12 +1,11 @@
 use crate::components::{
-    buffer_container::BufferContainer, controls_density::ControlsDensity,
-    controls_download_audio::ControlsDownloadAudio, controls_enable_audio::ControlsEnableAudio,
-    controls_gain::ControlsGain, controls_max_len::ControlsMaxLen,
-    controls_min_len::ControlsMinLen, controls_play_status::ControlsPlayStatus,
-    controls_recording_status::ControlsRecordingStatus,
+    audio_output_visualization::AudioOutputVisualization, buffer_container::BufferContainer,
+    controls_density::ControlsDensity, controls_download_audio::ControlsDownloadAudio,
+    controls_enable_audio::ControlsEnableAudio, controls_gain::ControlsGain,
+    controls_max_len::ControlsMaxLen, controls_min_len::ControlsMinLen,
+    controls_play_status::ControlsPlayStatus, controls_recording_status::ControlsRecordingStatus,
     controls_refresh_interval::ControlsRefreshInterval, controls_reset::ControlsReset,
     controls_select_buffer::ControlsSelectBuffer, loading_indicator::LoadingIndicator,
-    audio_output_visualization::AudioOutputVisualization,
 };
 use yew::{function_component, html};
 

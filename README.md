@@ -7,6 +7,8 @@ This repo is a very WIP investigation into using Rust for creative audio coding 
 ## Todos:
 - Update licenses / cargo tomls, directory names
 
+- enable uploading you own audio file
+
 - split granular synth into its own repo / separate website entry before adding more features?
 
 - Show audio output amplitude visualization
