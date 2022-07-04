@@ -7,13 +7,14 @@ This repo is a very WIP investigation into using Rust for creative audio coding 
 ## Todos:
 - Update licenses / cargo tomls, directory names
 
-- Use canvas to render buffer visualization
+- split granular synth into its own repo / separate website entry before adding more features?
+
 - Show audio output amplitude visualization
 - Show recording buffer visualization (or at least some sort of indication recording is taking place)
 
 - Interpolate changes in Gain
 
-- Name downloaded file somehing more like: "name_of_audio_granulated.wav" or similar
+- Name downloaded file something more like: "name_of_audio_granulated.wav" or similar
 
 - Optimizations:
     - Add `finished` grains to a hashmap when finished to prevent the need for searching for spent grains on every frame

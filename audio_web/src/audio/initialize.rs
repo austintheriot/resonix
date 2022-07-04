@@ -1,6 +1,7 @@
 use super::{
-    audio_recorder_handle::AudioRecorderHandle, buffer_selection_action::BufferSelectionAction,
-    decode, gain_action::GainAction, play_status::PlayStatus, play_status_action::PlayStatusAction,
+    audio_ouput_handle::AudioOutputHandle, audio_recorder_handle::AudioRecorderHandle,
+    buffer_selection_action::BufferSelectionAction, decode, gain_action::GainAction,
+    play_status::PlayStatus, play_status_action::PlayStatusAction,
     recording_status::RecordingStatus, recording_status_action::RecordingStatusAction,
     recording_status_handle::RecordingStatusHandle,
 };
@@ -69,6 +70,7 @@ fn write_data<T>(
 /// Setup all audio data and processes and begin playing
 pub async fn run<T>(
     app_state_handle: UseReducerHandle<AppState>,
+    mut audio_output_handle: AudioOutputHandle,
     device: &cpal::Device,
     stream_config: &cpal::StreamConfig,
 ) -> Result<Stream, anyhow::Error>
@@ -118,6 +120,10 @@ where
             .map(|output| output * gain)
             .collect();
 
+        // copy up-to-date audio output information into context for
+        // reference in audio output visualization
+        audio_output_handle.add_frame(output_frame.clone());
+
         output_frame
     };
 
@@ -144,7 +150,10 @@ where
     Ok(stream)
 }
 
-pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> StreamHandle {
+pub async fn initialize_audio(
+    app_state_handle: UseReducerHandle<AppState>,
+    audio_output_handle: AudioOutputHandle,
+) -> StreamHandle {
     app_state_handle.dispatch(AppAction::SetAudioInitialized(false));
     let host = cpal::default_host();
     let device = host
@@ -157,14 +166,29 @@ pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> S
     app_state_handle.dispatch(AppAction::SetNumChannels(stream_config.channels as u32));
 
     StreamHandle::new(match sample_format {
-        cpal::SampleFormat::F32 => run::<f32>(app_state_handle, &device, &stream_config)
-            .await
-            .unwrap(),
-        cpal::SampleFormat::I16 => run::<i16>(app_state_handle, &device, &stream_config)
-            .await
-            .unwrap(),
-        cpal::SampleFormat::U16 => run::<u16>(app_state_handle, &device, &stream_config)
-            .await
-            .unwrap(),
+        cpal::SampleFormat::F32 => run::<f32>(
+            app_state_handle,
+            audio_output_handle,
+            &device,
+            &stream_config,
+        )
+        .await
+        .unwrap(),
+        cpal::SampleFormat::I16 => run::<i16>(
+            app_state_handle,
+            audio_output_handle,
+            &device,
+            &stream_config,
+        )
+        .await
+        .unwrap(),
+        cpal::SampleFormat::U16 => run::<u16>(
+            app_state_handle,
+            audio_output_handle,
+            &device,
+            &stream_config,
+        )
+        .await
+        .unwrap(),
     })
 }

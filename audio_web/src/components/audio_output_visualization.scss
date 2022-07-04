@@ -1,0 +1,8 @@
+.audio-output-visualization {
+    width: 1.5rem;
+    height: 8rem;
+    
+    &.hidden {
+        opacity: 0;
+    }
+}

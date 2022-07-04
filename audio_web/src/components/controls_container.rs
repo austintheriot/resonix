@@ -6,6 +6,7 @@ use crate::components::{
     controls_recording_status::ControlsRecordingStatus,
     controls_refresh_interval::ControlsRefreshInterval, controls_reset::ControlsReset,
     controls_select_buffer::ControlsSelectBuffer, loading_indicator::LoadingIndicator,
+    audio_output_visualization::AudioOutputVisualization,
 };
 use yew::{function_component, html};
 
@@ -22,6 +23,7 @@ pub fn controls_container() -> Html {
                 <ControlsDownloadAudio />
             </div>
             <div class="grid-slider-container">
+                <AudioOutputVisualization />
                 <ControlsGain />
                 <ControlsDensity />
                 <ControlsMinLen />

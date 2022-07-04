@@ -1,4 +1,5 @@
 pub mod app;
+pub mod audio_output_visualization;
 pub mod buffer_container;
 pub mod buffer_sample_bars_canvas;
 pub mod buffer_selection_visualizer;
