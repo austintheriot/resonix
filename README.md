@@ -2,14 +2,16 @@
 
 ## About 
 
-This repo is a very WIP investigation into using Rust for creative audio coding on various platforms (e.g. desktop, web, etc.). Currently, the only demonstration that is even remotely in a working state is the web one, which still needs quite a bit of work to improve its performance.
+This repo is my investigation into using Rust for creative audio coding on various platforms (e.g. desktop, web, etc.), but especially for targeting the web.
 
 ## Todos:
 - Update licenses / cargo tomls, directory names
 
-- BUG: 
+- BUGS: 
     - when `min len` and `max len` are both at maximum, no new grains are generated
     - when `min len`, `max len`, and `fade` are all low, extremely loud clips happen
+
+- Visualize ALL channels of grain (rather than just left / right) and make it more prominent (reconsider controls placement)
 
 - enable uploading you own audio file
 
@@ -34,7 +36,7 @@ This repo is a very WIP investigation into using Rust for creative audio coding 
 
 - Share a single audio context that is initialized (?) at init time?
 - Memoize decoded audio from previous files? To prevent stutter on change?
-- Enable draggging the current buffer selection window?
+- Enable dragging the current buffer selection window?
 
 - Web
     - Refactor visual representation of current audio buffer:
