@@ -7,6 +7,10 @@ This repo is a very WIP investigation into using Rust for creative audio coding 
 ## Todos:
 - Update licenses / cargo tomls, directory names
 
+- BUG: 
+    - when `min len` and `max len` are both at maximum, no new grains are generated
+    - when `min len`, `max len`, and `fade` are all low, extremely loud clips happen
+
 - enable uploading you own audio file
 
 - split granular synth into its own repo / separate website entry before adding more features?
