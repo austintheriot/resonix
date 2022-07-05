@@ -5,7 +5,8 @@ use crate::components::{
     controls_max_len::ControlsMaxLen, controls_min_len::ControlsMinLen,
     controls_play_status::ControlsPlayStatus, controls_recording_status::ControlsRecordingStatus,
     controls_refresh_interval::ControlsRefreshInterval, controls_reset::ControlsReset,
-    controls_select_buffer::ControlsSelectBuffer, loading_indicator::LoadingIndicator,
+    controls_select_buffer::ControlsSelectBuffer, controls_upload_buffer::ControlsUploadBuffer,
+    loading_indicator::LoadingIndicator,
 };
 use yew::{function_component, html};
 
@@ -30,6 +31,7 @@ pub fn controls_container() -> Html {
             </div>
             <div class="grid-select-container">
                 <ControlsSelectBuffer />
+                <ControlsUploadBuffer />
             </div>
             <div class="grid-buffer-container">
                 <AudioOutputVisualization />

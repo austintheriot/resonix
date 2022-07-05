@@ -16,5 +16,6 @@ pub mod controls_recording_status;
 pub mod controls_refresh_interval;
 pub mod controls_reset;
 pub mod controls_select_buffer;
+pub mod controls_upload_buffer;
 pub mod input_range;
 pub mod loading_indicator;

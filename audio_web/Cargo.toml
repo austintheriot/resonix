@@ -72,7 +72,9 @@ features = [
   "HtmlElement",
   "Node",
   "HtmlCanvasElement",
-  "CanvasRenderingContext2d"
+  "CanvasRenderingContext2d",
+  "File",
+  "FileList"
 ]
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
