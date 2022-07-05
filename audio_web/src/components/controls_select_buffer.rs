@@ -10,7 +10,7 @@ use crate::{
 };
 use gloo_net::http::Request;
 use wasm_bindgen::JsCast;
-use web_sys::HtmlSelectElement;
+use web_sys::{window, HtmlSelectElement};
 use yew::{function_component, html, prelude::*};
 
 // this list of audio files is generated statically at build time
@@ -46,7 +46,7 @@ pub fn controls_select_buffer() -> Html {
                 let selected_index = select_element.selected_index();
                 let request_url = format!("./{}", AUDIO_FILES[selected_index as usize]);
 
-                // audio files are copied into static directory for web (same directory asthe source wasm file)
+                // audio files are copied into static directory for web (same directory as the source wasm file)
                 let mp3_file_bytes = Request::get(&request_url)
                     .send()
                     .await
@@ -58,10 +58,24 @@ pub fn controls_select_buffer() -> Html {
                 // @todo: initialize a single audio_context at the top level of the app
                 let audio_context = web_sys::AudioContext::new()
                     .expect("Browser should have AudioContext implemented");
-                let audio_buffer = decode::decode_bytes(&audio_context, &mp3_file_bytes).await;
-                let buffer_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
+                let audio_buffer_result =
+                    decode::decode_bytes(&audio_context, &mp3_file_bytes).await;
 
-                state_handle.dispatch(AppAction::SetBuffer(buffer_data));
+                match audio_buffer_result {
+                    Ok(audio_buffer) => {
+                        let buffer_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
+
+                        state_handle.dispatch(AppAction::SetBuffer(buffer_data));
+                    }
+                    Err(_) => {
+                        window()
+                            .unwrap()
+                            .alert_with_message("Error decoding selected audio file")
+                            .unwrap();
+                    }
+                }
+
+                // in either success or failure case, `loading` should be set to false
                 state_handle.dispatch(AppAction::SetAudioLoading(false));
             })
         })

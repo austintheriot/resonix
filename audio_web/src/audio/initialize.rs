@@ -34,7 +34,9 @@ async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Ar
         .await
         .unwrap();
 
-    let audio_buffer = decode::decode_bytes(&audio_context, &mp3_file_bytes).await;
+    let audio_buffer = decode::decode_bytes(&audio_context, &mp3_file_bytes)
+        .await
+        .unwrap();
     let mp3_source_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
     app_state_handle.dispatch(AppAction::SetBuffer(Arc::clone(&mp3_source_data)));
 

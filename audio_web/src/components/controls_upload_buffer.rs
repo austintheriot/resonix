@@ -10,7 +10,7 @@ use js_sys::{ArrayBuffer, Uint8Array};
 use log::info;
 use std::sync::Arc;
 use wasm_bindgen::JsCast;
-use web_sys::{HtmlInputElement};
+use web_sys::{window, HtmlInputElement};
 use yew::{function_component, html, prelude::*};
 
 #[function_component(ControlsUploadBuffer)]
@@ -56,16 +56,27 @@ pub fn controls_upload_buffer() -> Html {
                         // @todo: initialize a single audio_context at the top level of the app
                         let audio_context = web_sys::AudioContext::new()
                             .expect("Browser should have AudioContext implemented");
-                        let audio_buffer = decode::decode_bytes(&audio_context, &file_bytes).await;
-                        let buffer_data = Arc::new(audio_buffer.get_channel_data(0).unwrap());
+                        let audio_buffer_result =
+                            decode::decode_bytes(&audio_context, &file_bytes).await;
 
-                        state_handle.dispatch(AppAction::SetBuffer(buffer_data));
-                        state_handle.dispatch(AppAction::SetAudioLoading(false));
+                        match audio_buffer_result {
+                            Ok(audio_buffer) => {
+                                let buffer_data =
+                                    Arc::new(audio_buffer.get_channel_data(0).unwrap());
 
-                        return;
+                                state_handle.dispatch(AppAction::SetBuffer(buffer_data));
+                            }
+                            Err(_) => {
+                                window()
+                                    .unwrap()
+                                    .alert_with_message("Error decoding uploaded audio file")
+                                    .unwrap();
+                            }
+                        }
                     }
                 }
 
+                // regardless of success or failure, loading should be set to `false`
                 state_handle.dispatch(AppAction::SetAudioLoading(false));
             })
         })

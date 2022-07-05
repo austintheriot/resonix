@@ -1,8 +1,22 @@
+use thiserror::Error;
 use wasm_bindgen::JsCast;
-use web_sys::AudioContext;
+use web_sys::{AudioBuffer, AudioContext};
+
+#[derive(Error, Debug)]
+pub enum DecodeBytesError {
+    #[error("failed to decode audio data")]
+    DecodeFailure,
+    #[error("failed to convert promise to future")]
+    PromiseToFutureFailure,
+    #[error("failed to convert JavaScript type to expected Rust type")]
+    TypeConversionFailure,
+}
 
 /// Decodes raw bytes into a JavaScript AudioBuffer, using the browser's built-in `decode_audio_data` functionality.
-pub async fn decode_bytes(audio_context: &AudioContext, bytes: &[u8]) -> web_sys::AudioBuffer {
+pub async fn decode_bytes(
+    audio_context: &AudioContext,
+    bytes: &[u8],
+) -> Result<AudioBuffer, DecodeBytesError> {
     // This action is "unsafe" because it's creating a JavaScript view into wasm linear memory.
     // This is low risk as long as no allocations are made between this call and `decode_audio_data`.
     let mp3_u_int8_array = unsafe { js_sys::Uint8Array::view(bytes) };
@@ -12,14 +26,14 @@ pub async fn decode_bytes(audio_context: &AudioContext, bytes: &[u8]) -> web_sys
 
     let decoded_audio_promise = audio_context
         .decode_audio_data(&mp3_u_int8_array.buffer())
-        .expect("Should succeed at decoding audio data");
+        .map_err(|_| DecodeBytesError::DecodeFailure)?;
 
     let audio_buffer: web_sys::AudioBuffer =
         wasm_bindgen_futures::JsFuture::from(decoded_audio_promise)
             .await
-            .expect("Should convert decode_audio_data Promise into Future")
+            .map_err(|_| DecodeBytesError::PromiseToFutureFailure)?
             .dyn_into()
-            .expect("decode_audio_data should return a buffer of data on success");
+            .map_err(|_| DecodeBytesError::TypeConversionFailure)?;
 
-    audio_buffer
+    Ok(audio_buffer)
 }

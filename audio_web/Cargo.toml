@@ -29,7 +29,8 @@ wasm-bindgen = "0.2.78"
 wasm-bindgen-futures = "0.4.31"
 js-sys = "0.3.55"
 audio_common = { path = '../audio_common' }
-anyhow = "1.0.57"
+anyhow = "1.0.58"
+thiserror = "1.0.31"
 rand = { version = "0.8.4" }
 # This dependency is not directly used, but enabling "js"
 # Tells `getrandom` that `rand` should with wasm/js features enabled
