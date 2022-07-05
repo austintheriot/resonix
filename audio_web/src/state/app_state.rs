@@ -1,3 +1,4 @@
+use crate::audio::audio_ouput_handle::AudioOutputHandle;
 use crate::audio::audio_recorder_handle::AudioRecorderHandle;
 use crate::audio::buffer_handle::BufferHandle;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
@@ -92,6 +93,10 @@ pub struct AppState {
     pub audio_recorder_handle: AudioRecorderHandle,
 
     pub recording_status_handle: RecordingStatusHandle,
+
+    /// Contains a buffer of the last few audio frames to give an moving average of channel amplitudes.
+    /// This value isn't rendered as a component, but it is used to draw a gain visualization on a canvas.
+    pub audio_output_handle: AudioOutputHandle,
 }
 
 impl Default for AppState {
@@ -111,6 +116,7 @@ impl Default for AppState {
             audio_recorder_handle: Default::default(),
             recording_status_handle: Default::default(),
             num_channels: Default::default(),
+            audio_output_handle: Default::default(),
             grain_len_min: GranularSynthesizer::GRAIN_LEN_MIN.into(),
             grain_len_max: GranularSynthesizer::GRAIN_LEN_MAX.into(),
             refresh_interval: GranularSynthesizer::DEFAULT_REFRESH_INTERVAL.into(),

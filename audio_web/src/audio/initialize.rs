@@ -1,7 +1,7 @@
 use super::{
-    audio_ouput_handle::AudioOutputHandle, audio_output_action::AudioOutputAction,
-    audio_recorder_handle::AudioRecorderHandle, buffer_selection_action::BufferSelectionAction,
-    decode, gain_action::GainAction, play_status::PlayStatus, play_status_action::PlayStatusAction,
+    audio_output_action::AudioOutputAction, audio_recorder_handle::AudioRecorderHandle,
+    buffer_selection_action::BufferSelectionAction, decode, gain_action::GainAction,
+    play_status::PlayStatus, play_status_action::PlayStatusAction,
     recording_status::RecordingStatus, recording_status_action::RecordingStatusAction,
     recording_status_handle::RecordingStatusHandle,
 };
@@ -70,7 +70,6 @@ fn write_data<T>(
 /// Setup all audio data and processes and begin playing
 pub async fn run<T>(
     app_state_handle: UseReducerHandle<AppState>,
-    mut audio_output_handle: AudioOutputHandle,
     device: &cpal::Device,
     stream_config: &cpal::StreamConfig,
 ) -> Result<Stream, anyhow::Error>
@@ -90,6 +89,7 @@ where
     let gain_handle = app_state_handle.gain_handle.clone();
     let status = app_state_handle.play_status_handle.clone();
     let mut granular_synthesizer_handle = app_state_handle.granular_synthesizer_handle.clone();
+    let mut audio_output_handle = app_state_handle.audio_output_handle.clone();
 
     // make sure granular synthesizer's internal state is current with audio context state
     granular_synthesizer_handle.set_sample_rate(output_sample_rate);
@@ -150,10 +150,7 @@ where
     Ok(stream)
 }
 
-pub async fn initialize_audio(
-    app_state_handle: UseReducerHandle<AppState>,
-    audio_output_handle: AudioOutputHandle,
-) -> StreamHandle {
+pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> StreamHandle {
     app_state_handle.dispatch(AppAction::SetAudioInitialized(false));
     let host = cpal::default_host();
     let device = host
@@ -166,29 +163,14 @@ pub async fn initialize_audio(
     app_state_handle.dispatch(AppAction::SetNumChannels(stream_config.channels as u32));
 
     StreamHandle::new(match sample_format {
-        cpal::SampleFormat::F32 => run::<f32>(
-            app_state_handle,
-            audio_output_handle,
-            &device,
-            &stream_config,
-        )
-        .await
-        .unwrap(),
-        cpal::SampleFormat::I16 => run::<i16>(
-            app_state_handle,
-            audio_output_handle,
-            &device,
-            &stream_config,
-        )
-        .await
-        .unwrap(),
-        cpal::SampleFormat::U16 => run::<u16>(
-            app_state_handle,
-            audio_output_handle,
-            &device,
-            &stream_config,
-        )
-        .await
-        .unwrap(),
+        cpal::SampleFormat::F32 => run::<f32>(app_state_handle, &device, &stream_config)
+            .await
+            .unwrap(),
+        cpal::SampleFormat::I16 => run::<i16>(app_state_handle, &device, &stream_config)
+            .await
+            .unwrap(),
+        cpal::SampleFormat::U16 => run::<u16>(app_state_handle, &device, &stream_config)
+            .await
+            .unwrap(),
     })
 }

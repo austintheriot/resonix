@@ -35,7 +35,6 @@ pub fn audio_output_visualization() -> Html {
     use_effect_with_deps(
         {
             let state_handle = app_context.state_handle.clone();
-            let audio_output_handle = (*app_context.audio_output_handle).clone();
             let canvas_ref = canvas_ref.clone();
             let animation_frame_handle_ref = animation_frame_handle_ref.clone();
             move |_| {
@@ -84,7 +83,8 @@ pub fn audio_output_visualization() -> Html {
                                 return;
                             }
 
-                            let moving_average = audio_output_handle.get_simple_moving_average();
+                            let moving_average =
+                                state_handle.audio_output_handle.get_simple_moving_average();
 
                             let heights: Vec<f64> = moving_average
                                 .clone()

@@ -1,3 +1,4 @@
+use super::button::ButtonVariant;
 use crate::{
     audio::{self, play_status::PlayStatus},
     components::button::Button,
@@ -9,8 +10,6 @@ use crate::{
 };
 use yew::{function_component, html, prelude::*};
 
-use super::button::ButtonVariant;
-
 #[function_component(ControlsEnableAudio)]
 pub fn controls_enable_audio() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
@@ -20,10 +19,8 @@ pub fn controls_enable_audio() -> Html {
 
     let handle_click = {
         let state_handle = app_context.state_handle;
-        let audio_ouput_handle = app_context.audio_output_handle;
         Callback::from(move |_: MouseEvent| {
             let state_handle = state_handle.clone();
-            let audio_ouput_handle = (*audio_ouput_handle).clone();
             if button_disabled {
             } else if state_handle.audio_initialized {
                 state_handle.dispatch(AppAction::SetAudioLoading(false));
@@ -33,11 +30,8 @@ pub fn controls_enable_audio() -> Html {
             } else {
                 wasm_bindgen_futures::spawn_local(async move {
                     state_handle.dispatch(AppAction::SetAudioLoading(true));
-                    let new_stream_handle = audio::initialize::initialize_audio(
-                        state_handle.clone(),
-                        audio_ouput_handle,
-                    )
-                    .await;
+                    let new_stream_handle =
+                        audio::initialize::initialize_audio(state_handle.clone()).await;
                     // save the audio stream handle so that playback continues
                     // (once the handle is dropped, the stream will stop playing)
                     state_handle.dispatch(AppAction::SetAudioLoading(false));
