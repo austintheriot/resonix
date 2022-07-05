@@ -22,15 +22,19 @@ pub fn controls_container() -> Html {
                 <ControlsDownloadAudio />
             </div>
             <div class="grid-slider-container">
-                <AudioOutputVisualization />
                 <ControlsGain />
                 <ControlsDensity />
                 <ControlsMinLen />
                 <ControlsMaxLen />
                 <ControlsRefreshInterval />
             </div>
-            <ControlsSelectBuffer />
-            <BufferContainer />
+            <div class="grid-select-container">
+                <ControlsSelectBuffer />
+            </div>
+            <div class="grid-buffer-container">
+                <AudioOutputVisualization />
+                <BufferContainer />
+            </div>
         </div>
     }
 }

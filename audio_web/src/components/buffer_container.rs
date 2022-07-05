@@ -204,6 +204,7 @@ pub fn buffer_container() -> Html {
     html! {
         <div
             class="buffer-container"
+            aria-label="select audio range"
             onmousedown={handle_mouse_down}
             onmouseup={handle_mouse_up}
             onmouseleave={handle_mouse_leave}

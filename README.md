@@ -7,6 +7,8 @@ This repo is my investigation into using Rust for creative audio coding on vario
 ## Todos:
 - Update licenses / cargo tomls, directory names
 
+- Only show focus states for keyboard users
+
 - BUGS: 
     - when `min len` and `max len` are both at maximum, no new grains are generated
     - when `min len`, `max len`, and `fade` are all low, extremely loud clips happen

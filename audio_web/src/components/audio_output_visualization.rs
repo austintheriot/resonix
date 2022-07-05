@@ -15,10 +15,10 @@ use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 use yew::{function_component, html, prelude::*};
 
 /// Actual canvas height in pixels
-pub const AUDIO_OUPTUT_VISUALIZATION_HEIGHT: u32 = 100;
+pub const AUDIO_OUPTUT_VISUALIZATION_HEIGHT: u32 = 128;
 
 /// Actual maximum canvas width in pixels
-pub const AUDIO_OUPTUT_VISUALIZATION_WIDTH: u32 = 100;
+pub const AUDIO_OUPTUT_VISUALIZATION_WIDTH: u32 = 800;
 
 #[function_component(AudioOutputVisualization)]
 pub fn audio_output_visualization() -> Html {

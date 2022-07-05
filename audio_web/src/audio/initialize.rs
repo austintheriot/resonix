@@ -110,6 +110,10 @@ where
         // get next frame from granular synth
         let frame = granular_synthesizer_handle.next_frame();
 
+        // copy up-to-date audio output information into context for
+        // reference in audio output visualization
+        audio_output_handle.add_frame(frame.clone());
+
         // mix multi-channel down to number of outputs
         let output_frame = mixdown(&frame, output_num_channels as u32);
 
@@ -119,10 +123,6 @@ where
             .into_iter()
             .map(|output| output * gain)
             .collect();
-
-        // copy up-to-date audio output information into context for
-        // reference in audio output visualization
-        audio_output_handle.add_frame(output_frame.clone());
 
         output_frame
     };
