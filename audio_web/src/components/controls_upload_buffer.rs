@@ -5,6 +5,7 @@ use crate::{
         app_context::{AppContext, AppContextError},
         app_selector::AppSelector,
     },
+    icons::upload::IconUpload,
 };
 use js_sys::{ArrayBuffer, Uint8Array};
 use log::info;
@@ -22,7 +23,7 @@ pub fn controls_upload_buffer() -> Html {
     let handle_change = {
         let state_handle = app_context.state_handle;
         let input_ref = input_ref.clone();
-        Callback::from(move |_: Event| {
+        Callback::from(move |_| {
             if state_handle.get_are_audio_controls_disabled() {
                 return;
             }
@@ -90,17 +91,17 @@ pub fn controls_upload_buffer() -> Html {
 
     html! {
         <div class={classes!("controls-upload-buffer", disabled_class)}>
-            <label for="controls-upload-buffer">
-                {"Select File"}
+            <label>
+                <input
+                    aria-description="Upload an audio file"
+                    type="file"
+                    accept="audio/*"
+                    onchange={handle_change}
+                    ref={input_ref}
+                    disabled={input_element_disabled}
+                />
+                <IconUpload />
             </label>
-            <input
-                id="controls-upload-buffer"
-                type="file"
-                accept="audio/*"
-                onchange={handle_change}
-                ref={input_ref}
-                disabled={input_element_disabled}
-            />
         </div>
     }
 }

@@ -35,6 +35,7 @@
 
 .grid-slider-container {
     grid-area: 3 / 1 / span 1 / span 1;
+
     display: flex;
     justify-content: space-evenly;
     align-items: flex-end;
@@ -45,6 +46,12 @@
 
 .grid-select-container {
     grid-area: 3 / 2 / span 1 / span 1;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-self: flex-start;
+    gap: 1rem;
 }
 
 .grid-buffer-container {

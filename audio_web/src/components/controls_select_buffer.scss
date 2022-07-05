@@ -30,6 +30,7 @@
         
         &:disabled {
             background-image: none;
+            cursor: auto;
         }
 
         &:focus {

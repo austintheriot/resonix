@@ -8,6 +8,7 @@ This repo is my investigation into using Rust for creative audio coding on vario
 - Update licenses / cargo tomls, directory names
 
 - Only show focus states for keyboard users
+- Show hoverable tooltips for icon buttons
 
 - BUGS: 
     - when `min len` and `max len` are both at maximum, no new grains are generated

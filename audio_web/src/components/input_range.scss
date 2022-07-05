@@ -32,6 +32,10 @@
         transform-origin: top left;
         transform: rotate(-90deg) translateX(-100%);
 
+        &:disabled::-webkit-slider-runnable-track {
+            cursor: auto;
+        }
+
         &::-webkit-slider-runnable-track {
             -webkit-appearance: none;
             width: 1.5rem;
@@ -54,6 +58,10 @@
         &:disabled::-webkit-slider-thumb {
             background-color: var(--disabled-text);
             box-shadow: none;
+        }
+
+        &:disabled::-webkit-slider-thumb {
+            cursor: auto;
         }
 
         // currently doesn't work because of `-webkit-appearance: slider-vertical` above

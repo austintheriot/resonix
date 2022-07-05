@@ -5,3 +5,4 @@ pub mod power;
 pub mod record;
 pub mod reset;
 pub mod stop_recording;
+pub mod upload;
