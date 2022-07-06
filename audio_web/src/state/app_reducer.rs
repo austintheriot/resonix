@@ -143,6 +143,9 @@ impl Reducible for AppState {
                 AppAction::DownloadAudio => next_state
                     .audio_recorder_handle
                     .download_as_wav(next_state.num_channels as u16, next_state.sample_rate),
+                AppAction::SetIsKeyboardUser => {
+                    next_state.is_keyboard_user = true;
+                },
             }
         }
 

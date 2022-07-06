@@ -18,4 +18,5 @@ pub mod controls_reset;
 pub mod controls_select_buffer;
 pub mod controls_upload_buffer;
 pub mod input_range;
+pub mod keyboard_listener;
 pub mod loading_indicator;

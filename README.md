@@ -7,7 +7,6 @@ This repo is my investigation into using Rust for creative audio coding on vario
 ## Todos:
 - Update licenses / cargo tomls, directory names
 
-- Only show focus states for keyboard users
 - Show hoverable tooltips for icon buttons
 
 - BUGS: 

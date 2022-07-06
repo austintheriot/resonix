@@ -23,9 +23,9 @@
     &:disabled {
         cursor: auto;
     }
+}
 
-    &:focus {
-        outline: var(--focus-outline);
-        outline-offset: var(--focus-outline-offset);
-    }
+.keyboard-user .button:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
 }

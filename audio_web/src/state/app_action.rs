@@ -29,4 +29,5 @@ pub enum AppAction {
     SetRecordingStatus(RecordingStatus),
     SetNumChannels(NunChannels),
     DownloadAudio,
+    SetIsKeyboardUser,
 }

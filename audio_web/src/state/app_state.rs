@@ -97,6 +97,8 @@ pub struct AppState {
     /// Contains a buffer of the last few audio frames to give an moving average of channel amplitudes.
     /// This value isn't rendered as a component, but it is used to draw a gain visualization on a canvas.
     pub audio_output_handle: AudioOutputHandle,
+
+    pub is_keyboard_user: bool,
 }
 
 impl Default for AppState {
@@ -117,6 +119,7 @@ impl Default for AppState {
             recording_status_handle: Default::default(),
             num_channels: Default::default(),
             audio_output_handle: Default::default(),
+            is_keyboard_user: Default::default(),
             grain_len_min: GranularSynthesizer::GRAIN_LEN_MIN.into(),
             grain_len_max: GranularSynthesizer::GRAIN_LEN_MAX.into(),
             refresh_interval: GranularSynthesizer::DEFAULT_REFRESH_INTERVAL.into(),
