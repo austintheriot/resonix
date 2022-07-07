@@ -11,13 +11,8 @@ This repo is my investigation into using Rust for creative audio coding on vario
 
 - Enable sampling from multi-channel audio input
 
-- Visualize ALL channels of grain (rather than just left / right) and make it more prominent (reconsider controls placement)
-
-- enable uploading you own audio file
-
 - split granular synth into its own repo / separate website entry before adding more features?
 
-- Show audio output amplitude visualization
 - Show recording buffer visualization (or at least some sort of indication recording is taking place)
 
 - Interpolate changes in Gain
