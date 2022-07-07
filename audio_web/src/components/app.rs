@@ -10,7 +10,7 @@ pub fn app() -> Html {
         <ContextProvider<AppContext> context={AppContext::default()}>
             <KeyboardListener>
                 <ControlsContainer />
-            </ KeyboardListener>
+            </KeyboardListener>
         </ContextProvider<AppContext>>
     }
 }

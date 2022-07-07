@@ -15,11 +15,17 @@ pub trait GranularSynthesizerAction {
 
     const DEFAULT_DENSITY: f32 = 1.0;
 
+    const GRAIN_LEN_MIN_DIFFERENCE: f32 = 0.05;
+
     /// the smallest possible length of grain, given as a percentage of the currently selected audio
-    const GRAIN_LEN_MIN: f32 = 0.0;
+    const GRAIN_LEN_MIN_MIN: f32 = 0.0;
+
+    const GRAIN_LEN_MIN_MAX: f32 = Self::GRAIN_LEN_MAX_MAX - Self::GRAIN_LEN_MIN_DIFFERENCE;
+
+    const GRAIN_LEN_MAX_MIN: f32 = Self::GRAIN_LEN_MIN_MIN + Self::GRAIN_LEN_MIN_DIFFERENCE;
 
     /// the largest possible length of grain, given as a percentage of the currently selected audio
-    const GRAIN_LEN_MAX: f32 = 1.0;
+    const GRAIN_LEN_MAX_MAX: f32 = 1.0;
 
     const DEFAULT_SAMPLE_RATE: u32 = 44100;
 

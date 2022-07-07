@@ -120,8 +120,8 @@ impl Default for AppState {
             num_channels: Default::default(),
             audio_output_handle: Default::default(),
             is_keyboard_user: Default::default(),
-            grain_len_min: GranularSynthesizer::GRAIN_LEN_MIN.into(),
-            grain_len_max: GranularSynthesizer::GRAIN_LEN_MAX.into(),
+            grain_len_min: GranularSynthesizer::GRAIN_LEN_MIN_MIN.into(),
+            grain_len_max: GranularSynthesizer::GRAIN_LEN_MAX_MAX.into(),
             refresh_interval: GranularSynthesizer::DEFAULT_REFRESH_INTERVAL.into(),
         }
     }

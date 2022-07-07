@@ -9,9 +9,7 @@ This repo is my investigation into using Rust for creative audio coding on vario
 
 - Show hoverable tooltips for icon buttons
 
-- BUGS: 
-    - when `min len` and `max len` are both at maximum, no new grains are generated
-    - when `min len`, `max len`, and `fade` are all low, extremely loud clips happen
+- Enable sampling from multi-channel audio input
 
 - Visualize ALL channels of grain (rather than just left / right) and make it more prominent (reconsider controls placement)
 

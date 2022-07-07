@@ -69,6 +69,8 @@ impl Reducible for AppState {
                     next_state
                         .granular_synthesizer_handle
                         .set_grain_len_max(max_len);
+
+                    // keep ui state in sync with synthesizer
                     next_state
                         .grain_len_min
                         .set(next_state.granular_synthesizer_handle.grain_len_min());
@@ -80,6 +82,8 @@ impl Reducible for AppState {
                     next_state
                         .granular_synthesizer_handle
                         .set_grain_len_min(min_len);
+
+                    // keep ui state in sync with synthesizer
                     next_state
                         .grain_len_min
                         .set(next_state.granular_synthesizer_handle.grain_len_min());
@@ -145,7 +149,7 @@ impl Reducible for AppState {
                     .download_as_wav(next_state.num_channels as u16, next_state.sample_rate),
                 AppAction::SetIsKeyboardUser => {
                     next_state.is_keyboard_user = true;
-                },
+                }
             }
         }
 
