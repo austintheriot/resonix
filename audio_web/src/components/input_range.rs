@@ -34,7 +34,6 @@ pub fn input_range(props: &InputProps) -> Html {
             <input
                 id={props.id.clone()}
                 type="range"
-                orient="vertical"
                 min={props.min.clone()}
                 max={props.max.clone()}
                 step={props.step.clone()}

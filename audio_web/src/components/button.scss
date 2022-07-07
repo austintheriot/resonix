@@ -12,6 +12,9 @@
     box-shadow: 5px 5px 10px #b3b3b3,
         -5px -5px 10px #ffffff;
 
+    &:focus {
+        outline: none;
+    }
 
     &.pressed {
         color: white;

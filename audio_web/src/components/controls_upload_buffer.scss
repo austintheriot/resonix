@@ -30,6 +30,10 @@
         // hide, but still make interactive for screen readers
         opacity: 0;
 
+        &:focus {
+            outline: none;
+        }
+
         &:disabled {
             cursor: auto;
         }
