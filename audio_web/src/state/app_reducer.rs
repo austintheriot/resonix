@@ -29,6 +29,8 @@ impl Reducible for AppState {
                     next_state.buffer_handle = BufferHandle::new(buffer);
                 }
                 AppAction::SetStreamHandle(stream_handle) => {
+                    // make sure previous state's stream handle gets dropped
+                    next_state.stream_handle.take();
                     next_state.stream_handle = stream_handle;
                 }
                 AppAction::SetBufferSelectionStart(start) => {
@@ -100,6 +102,8 @@ impl Reducible for AppState {
                         .set(next_state.granular_synthesizer_handle.refresh_interval());
                 }
                 AppAction::ResetState => {
+                    // drop previous stream's handle to stop audio
+                    next_state.stream_handle.take();
                     next_state = AppState::default();
                 }
                 AppAction::IncrementBufferSelectionStart => {

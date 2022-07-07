@@ -25,7 +25,6 @@ pub fn controls_enable_audio() -> Html {
             } else if state_handle.audio_initialized {
                 state_handle.dispatch(AppAction::SetAudioLoading(false));
                 state_handle.dispatch(AppAction::SetAudioInitialized(false));
-                state_handle.dispatch(AppAction::SetStreamHandle(None));
                 state_handle.dispatch(AppAction::SetPlayStatus(PlayStatus::Pause));
             } else {
                 wasm_bindgen_futures::spawn_local(async move {
@@ -36,7 +35,7 @@ pub fn controls_enable_audio() -> Html {
                     // (once the handle is dropped, the stream will stop playing)
                     state_handle.dispatch(AppAction::SetAudioLoading(false));
                     state_handle.dispatch(AppAction::SetAudioInitialized(true));
-                    state_handle.dispatch(AppAction::SetStreamHandle(Some(new_stream_handle)));
+                    state_handle.dispatch(AppAction::SetStreamHandle(new_stream_handle));
                 })
             }
         })

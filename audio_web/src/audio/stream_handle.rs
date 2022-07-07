@@ -1,12 +1,12 @@
 use cpal::Stream;
 use std::fmt::Debug;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 /// A wrapper around `cpal`'s Stream type for implementing `PartialEq`, etc.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct StreamHandle {
-    _stream: Arc<Stream>,
+    stream: Arc<Mutex<Option<Stream>>>,
     uuid: Uuid,
 }
 
@@ -29,8 +29,12 @@ impl Debug for StreamHandle {
 impl StreamHandle {
     pub fn new(stream: Stream) -> Self {
         StreamHandle {
-            _stream: Arc::new(stream),
+            stream: Arc::new(Mutex::new(Some(stream))),
             uuid: Uuid::new_v4(),
         }
+    }
+
+    pub fn take(&self) -> Option<Stream> {
+        self.stream.lock().unwrap().take()
     }
 }

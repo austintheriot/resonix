@@ -8,7 +8,7 @@ use super::app_state::NunChannels;
 #[derive(Debug, Clone)]
 pub enum AppAction {
     SetBuffer(Arc<Vec<f32>>),
-    SetStreamHandle(Option<StreamHandle>),
+    SetStreamHandle(StreamHandle),
     SetBufferSelectionStart(f32),
     IncrementBufferSelectionStart,
     DecrementBufferSelectionStart,

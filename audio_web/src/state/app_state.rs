@@ -48,7 +48,7 @@ pub struct AppState {
     pub buffer_maxes_for_canvas: Vec<f32>,
 
     /// A handle to the audio context stream (keeps audio playing & stops audio when dropped)
-    pub stream_handle: Option<StreamHandle>,
+    pub stream_handle: StreamHandle,
 
     /// Represents what portion of the audio buffer is currently selected
     pub buffer_selection_handle: BufferSelectionHandle,
