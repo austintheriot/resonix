@@ -4,6 +4,10 @@
 
 This repo is my investigation into using Rust for creative audio coding on various platforms (e.g. desktop, web, etc.), but especially for targeting the web.
 
+### Granular Synthesizer Web
+
+[![Granular Synthesizer Demo](./screenshots\granular_synthesizer_0.PNG)](https://austintheriot.github.io/audio/)
+
 ## Todos:
 - Update licenses / cargo tomls, directory names
 
