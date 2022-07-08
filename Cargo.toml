@@ -1,6 +1,6 @@
 [workspace]
 
 members = [
-    "audio_common",
-    "audio_web",
+    "audio",
+    "demos/granular_synthesizer",
 ]

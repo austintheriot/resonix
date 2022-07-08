@@ -1,0 +1,27 @@
+.buffer-container {
+    height: 5rem;
+    width: 100%;
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+
+    border-radius: var(--border-radius-lg);
+    background: #e0e0e0;
+    box-shadow: inset 5px 5px 12px #bcbcbc,
+        inset -5px -5px 12px #ffffff;
+
+    &:not([data-disabled=true]) {
+        cursor: pointer;
+    }
+
+    &:focus {
+        outline: none;
+    }
+}
+
+.keyboard-user .buffer-container:focus {
+    outline: var(--focus-outline);
+    outline-offset: var(--focus-outline-offset);
+}

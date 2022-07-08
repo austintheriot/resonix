@@ -1,0 +1,14 @@
+.buffer-sample-bars-canvas {
+    height: 100%;
+    width: 100%;
+    pointer-events: none;
+    margin: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+
+    &.hidden {
+        display: none;
+    }
+}

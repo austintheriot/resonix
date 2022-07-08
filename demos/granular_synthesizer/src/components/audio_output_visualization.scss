@@ -1,0 +1,10 @@
+.audio-output-visualization {
+    display: block;
+    width: calc(100% - 2rem);
+    height: 5rem;
+    margin: 0 auto;
+    
+    &.hidden {
+        opacity: 0;
+    }
+}

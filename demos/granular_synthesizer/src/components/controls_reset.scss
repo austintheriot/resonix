@@ -1,0 +1,5 @@
+.controls-reset {
+    &:disabled {
+        color: var(--disabled-text);
+    }
+}
