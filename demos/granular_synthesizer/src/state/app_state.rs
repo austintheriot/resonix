@@ -103,26 +103,37 @@ pub struct AppState {
 
 impl Default for AppState {
     fn default() -> Self {
+        let mut granular_synthesizer_handle = GranularSynthesizerHandle::default();
+
+        granular_synthesizer_handle
+            .set_grain_len_max(GranularSynthesizer::GRAIN_LEN_MAX_MAX)
+            .set_grain_len_min(GranularSynthesizer::GRAIN_LEN_MIN_MIN);
+
         Self {
             buffer_handle: Default::default(),
             buffer_maxes_for_canvas: Default::default(),
             stream_handle: Default::default(),
-            buffer_selection_handle: Default::default(),
             gain_handle: Default::default(),
             play_status_handle: Default::default(),
             audio_initialized: Default::default(),
             audio_loading: Default::default(),
             sample_rate: Default::default(),
-            density_handle: Default::default(),
-            granular_synthesizer_handle: Default::default(),
             audio_recorder_handle: Default::default(),
             recording_status_handle: Default::default(),
             num_channels: Default::default(),
             audio_output_handle: Default::default(),
             is_keyboard_user: Default::default(),
-            grain_len_min: GranularSynthesizer::GRAIN_LEN_MIN_MIN.into(),
-            grain_len_max: GranularSynthesizer::GRAIN_LEN_MAX_MAX.into(),
-            refresh_interval: GranularSynthesizer::DEFAULT_REFRESH_INTERVAL.into(),
+
+            // make sure these initial settings reflect the synth's actual internal state
+            buffer_selection_handle: BufferSelectionHandle::new(
+                granular_synthesizer_handle.selection_start().get(),
+                granular_synthesizer_handle.selection_end().get(),
+            ),
+            density_handle: granular_synthesizer_handle.density().get().into(),
+            grain_len_min: granular_synthesizer_handle.grain_len_min().get().into(),
+            grain_len_max: granular_synthesizer_handle.grain_len_max().get().into(),
+            refresh_interval: granular_synthesizer_handle.refresh_interval().into(),
+            granular_synthesizer_handle,
         }
     }
 }

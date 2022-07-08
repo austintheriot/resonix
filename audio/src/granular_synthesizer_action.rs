@@ -42,6 +42,10 @@ pub trait GranularSynthesizerAction {
 
     fn set_selection_start(&mut self, start: impl Into<Percentage>) -> &mut Self;
 
+    fn selection_start(&self) -> Percentage;
+
+    fn selection_end(&self) -> Percentage;
+
     fn set_selection_end(&mut self, start: impl Into<Percentage>) -> &mut Self;
 
     fn set_grain_len_min(&mut self, input_min_len_in_ms: impl Into<Percentage>) -> &mut Self;
@@ -51,6 +55,8 @@ pub trait GranularSynthesizerAction {
     fn set_max_number_of_channels(&mut self, max_num_channels: u32) -> &mut Self;
 
     fn set_density(&mut self, density: impl Into<Percentage>) -> &mut Self;
+
+    fn density(&self) -> Percentage;
 
     fn sanitize_refresh_interval(refresh_interval: u32) -> u32 {
         refresh_interval

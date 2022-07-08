@@ -20,6 +20,16 @@ pub struct BufferSelection {
     mouse_down: bool,
 }
 
+impl BufferSelection {
+    pub fn new(mouse_start: f32, mouse_end: f32) -> Self {
+        Self {
+            mouse_start,
+            mouse_end,
+            mouse_down: false,
+        }
+    }
+}
+
 impl BufferSelectionAction for BufferSelection {
     const BUFFER_SELECTION_START: f32 = 0.0;
     const BUFFER_SELECTION_END: f32 = 1.0;

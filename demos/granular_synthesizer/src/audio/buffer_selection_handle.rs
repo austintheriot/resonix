@@ -88,9 +88,9 @@ impl BufferSelectionAction for BufferSelectionHandle {
 }
 
 impl BufferSelectionHandle {
-    pub fn new(buffer_selection: Arc<Mutex<BufferSelection>>) -> Self {
+    pub fn new(mouse_start: f32, mouse_end: f32) -> Self {
         BufferSelectionHandle {
-            buffer_selection,
+            buffer_selection: Arc::new(Mutex::new(BufferSelection::new(mouse_start, mouse_end))),
             counter: Default::default(),
         }
     }

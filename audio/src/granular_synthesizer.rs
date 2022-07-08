@@ -106,6 +106,10 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         }
     }
 
+    fn selection_start(&self) -> Percentage {
+        self.selection_start
+    }
+
     fn set_selection_start(&mut self, start: impl Into<Percentage>) -> &mut Self {
         self.selection_start = start.into();
 
@@ -115,6 +119,10 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         }
 
         self
+    }
+
+    fn selection_end(&self) -> Percentage {
+        self.selection_end
     }
 
     fn set_selection_end(&mut self, end: impl Into<Percentage>) -> &mut Self {
@@ -186,6 +194,10 @@ impl GranularSynthesizerAction for GranularSynthesizer {
     fn set_density(&mut self, density: impl Into<Percentage>) -> &mut Self {
         self.density = density.into();
         self
+    }
+
+    fn density(&self) -> Percentage {
+        self.density
     }
 
     fn set_buffer(&mut self, buffer: Arc<Vec<f32>>) -> &mut Self {
