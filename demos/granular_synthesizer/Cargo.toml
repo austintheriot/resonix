@@ -18,11 +18,6 @@ panic = 'abort'
 # optimization over all codebase ( better optimization, slower build )
 codegen-units = 1
 
-
-[features]
-# If you uncomment this line, it will enable `wee_alloc`:
-#default = ["wee_alloc"]
-
 [dependencies]
 cpal = { version = "0.13.5", features = ["wasm-bindgen"] }
 # The `wasm-bindgen` crate provides the bare minimum functionality needed
@@ -45,11 +40,6 @@ yew = { version = "0.19" }
 uuid = { version = "1.1.2", features = ["v4"] }
 gloo-net = { version = "0.2.0", features = ["http"]}
 hound = "3.4.0"
-
-# `wee_alloc` is a tiny allocator for wasm that is only ~1K in code size
-# compared to the default allocator's ~10K. However, it is slower than the default
-# allocator, so it's not enabled by default.
-wee_alloc = { version = "0.4.4", optional = true }
 
 # The `web-sys` crate allows you to interact with the various browser APIs,
 # like the DOM.
