@@ -1,10 +1,9 @@
 const path = require('path');
 const WasmPackPlugin = require('@wasm-tool/wasm-pack-plugin');
-const CopyWebpackPlugin = require('copy-webpack-plugin');
+const CopyPlugin = require("copy-webpack-plugin");
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 
 const distPath = path.resolve(__dirname, "dist");
-const devPath = path.resolve(__dirname, "pkg");
 const staticFilesSrc = path.resolve(__dirname, "static");
 const audioFilesSrc = path.resolve(__dirname, "../../assets");
 
@@ -12,15 +11,22 @@ module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
   return {
     devServer: {
-      contentBase: isProduction ? distPath : devPath,
-      compress: isProduction,
       port: 8000,
+      static: {
+        directory: distPath,
+      },
+      historyApiFallback: {
+        index: '/'
+      },
+      open: true,
+    },
+    experiments: {
+      syncWebAssembly: true,
     },
     entry: './index.js',
     output: {
       path: distPath,
       filename: "main.js",
-      webassemblyModuleFilename: "main.wasm",
     },
     module: {
       rules: [
@@ -35,23 +41,19 @@ module.exports = (env, argv) => {
       ],
     },
     plugins: [
-      new CopyWebpackPlugin({
+      new CopyPlugin({
         patterns: [
-          ...(
-            isProduction ? [
-              { from: staticFilesSrc, to: distPath },
-              { from: audioFilesSrc, to: distPath }
-            ] : [
-              { from: staticFilesSrc, to: devPath },
-              { from: audioFilesSrc, to: devPath },
-            ])
-        ],
+          { from: staticFilesSrc, to: distPath },
+          { from: audioFilesSrc, to: distPath }
+        ]
       }),
       new WasmPackPlugin({
-        crateDirectory: ".",
+        crateDirectory: __dirname,
+        forceMode: isProduction ? "production" : "development",
       }),
       new CleanWebpackPlugin(),
     ],
-    watch: argv.mode !== 'production'
+    mode: isProduction ? "production" : "development",
   };
 };
+
