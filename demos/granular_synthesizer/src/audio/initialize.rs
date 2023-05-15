@@ -10,7 +10,7 @@ use crate::{
     components::controls_select_buffer::DEFAULT_AUDIO_FILE,
     state::{app_action::AppAction, app_state::AppState},
 };
-use audio::{granular_synthesizer_action::GranularSynthesizerAction, mixdown::mixdown};
+use audio::{granular_synthesizer_action::GranularSynthesizerAction, mixdown::downmix};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Stream, StreamConfig,
@@ -117,7 +117,7 @@ where
         audio_output_handle.add_frame(frame.clone());
 
         // mix multi-channel down to number of outputs
-        let output_frame = mixdown(&frame, output_num_channels as u32);
+        let output_frame = downmix(&frame, output_num_channels as u32);
 
         // gate final output with global gain
         let gain = gain_handle.get();
