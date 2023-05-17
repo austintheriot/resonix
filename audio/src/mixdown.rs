@@ -22,13 +22,16 @@ pub fn downmix(samples_in: &[f32], num_channels_out: u32) -> Vec<f32> {
             // maintains left-to-right panning while downmixing
             // note: using .sqrt() here may help to maintain the perceived
             // loudness and energy of the audio while panning across channels
-            let amplitude_multiplier = (1.0 - (sample_in_index_progress - sample_out_index_progress).abs()).sqrt();
+            let amplitude_multiplier =
+                (1.0 - (sample_in_index_progress - sample_out_index_progress).abs()).sqrt();
             *sample_out += sample_in * amplitude_multiplier;
         }
     }
 
     let normalization_factor = (num_channels_out as f32).sqrt();
-    samples_out.iter_mut().for_each(|sample| *sample /= normalization_factor);
+    samples_out
+        .iter_mut()
+        .for_each(|sample| *sample /= normalization_factor);
 
     samples_out
 }

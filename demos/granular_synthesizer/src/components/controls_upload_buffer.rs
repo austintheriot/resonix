@@ -1,11 +1,11 @@
 use crate::{
     audio::{decode, play_status::PlayStatus},
+    icons::upload::IconUpload,
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
         app_selector::AppSelector,
     },
-    icons::upload::IconUpload,
 };
 use js_sys::{ArrayBuffer, Uint8Array};
 use log::info;

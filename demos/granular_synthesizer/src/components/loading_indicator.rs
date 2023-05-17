@@ -5,7 +5,7 @@ use yew::prelude::*;
 pub fn loading_indicator() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
     let audio_loading = app_context.state_handle.audio_loading;
-    let loading_class = audio_loading.then(|| "loading");
+    let loading_class = audio_loading.then_some("loading");
 
     html! {
          <div class={classes!("loading-indicator", loading_class)} >

@@ -6,9 +6,7 @@ pub trait BufferSelectionAction {
     const BUFFER_SELECTION_MIN_LEN: f32;
 
     fn sanitize_selection(start_or_end: f32) -> f32 {
-        start_or_end
-            .max(Self::BUFFER_SELECTION_START)
-            .min(Self::BUFFER_SELECTION_END)
+        start_or_end.clamp(Self::BUFFER_SELECTION_START, Self::BUFFER_SELECTION_END)
     }
 
     fn set_mouse_start(&mut self, start: f32) -> &mut Self;

@@ -56,7 +56,7 @@ pub fn buffer_sample_bars_canvas() -> Html {
     let canvas_ref = use_node_ref();
     let hidden_class = (buffer_handle.get_data().is_empty()
         || !app_context.state_handle.audio_initialized)
-        .then(|| "hidden");
+        .then_some("hidden");
 
     use_effect_with_deps(
         {

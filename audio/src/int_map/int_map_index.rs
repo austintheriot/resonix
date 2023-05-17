@@ -2,7 +2,6 @@ pub trait Index {
     fn id(&self) -> usize;
 }
 
-
 impl Index for u8 {
     fn id(&self) -> usize {
         *self as usize

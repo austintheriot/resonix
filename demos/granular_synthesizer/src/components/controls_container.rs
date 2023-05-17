@@ -20,7 +20,7 @@ pub fn controls_container() -> Html {
     let keyboard_user_class = app_context
         .state_handle
         .is_keyboard_user
-        .then(|| "keyboard-user");
+        .then_some("keyboard-user");
 
     html! {
         <div class={classes!("controls-container", keyboard_user_class)}>

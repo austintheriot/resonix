@@ -30,13 +30,12 @@ pub fn audio_output_visualization() -> Html {
     let hidden_class = (buffer_handle.get_data().is_empty()
         || !app_context.state_handle.audio_initialized
         || app_context.state_handle.play_status_handle.get() == PlayStatus::Pause)
-        .then(|| "hidden");
+        .then_some("hidden");
 
     use_effect_with_deps(
         {
-            let state_handle = app_context.state_handle.clone();
+            let state_handle = app_context.state_handle;
             let canvas_ref = canvas_ref.clone();
-            let animation_frame_handle_ref = animation_frame_handle_ref.clone();
             move |_| {
                 let clean_up_fn = || {};
 
