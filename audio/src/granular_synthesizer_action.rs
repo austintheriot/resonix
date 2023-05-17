@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{grain::Grain, percentage::Percentage};
 
-/// Public interface to the GranularSynesizer.
+/// Public interface to the GranularSynthesizer.
 ///
 /// This interface is extracted into a constant so that a
 /// GranularSynthesizerHandle can more easily re-export this logic.
@@ -97,6 +97,7 @@ pub trait GranularSynthesizerAction {
             finished: true,
             len: 0,
             start_frame: 0,
+            uid: 0,
         }
     }
 

@@ -6,3 +6,6 @@ pub mod min;
 pub mod mixdown;
 pub mod percentage;
 pub mod utils;
+mod int_map;
+
+pub use int_map::*;

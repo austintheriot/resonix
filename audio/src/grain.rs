@@ -7,6 +7,8 @@ pub struct Grain {
     pub finished: bool,
     /// the number of frames between `start_frame` and `end_frame` in samples
     pub len: usize,
+    /// allows O(1) look-ups when finding grains that are finished
+    pub uid: u32,
 }
 
 impl Default for Grain {
@@ -17,12 +19,13 @@ impl Default for Grain {
             end_frame: 0,
             finished: true,
             len: 0,
+            uid: 0,
         }
     }
 }
 
 impl Grain {
-    pub fn new(start_frame: usize, end_frame: usize) -> Self {
+    pub fn new(start_frame: usize, end_frame: usize, uid: u32) -> Self {
         debug_assert!(start_frame < end_frame);
         Grain {
             start_frame,
@@ -30,6 +33,7 @@ impl Grain {
             end_frame,
             finished: false,
             len: end_frame - start_frame,
+            uid,
         }
     }
 

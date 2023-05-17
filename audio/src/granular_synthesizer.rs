@@ -318,7 +318,7 @@ impl GranularSynthesizer {
             largest_possible_grain_len - smallest_possible_grain_len <= 20;
 
         if !selection_is_empty {
-            if let Some(grain) = self.grains.iter_mut().find(|grain| grain.finished) {
+            if let Some(finished_grain) = self.grains.iter_mut().find(|grain| grain.finished) {
                 // get random length
                 let mut grain_len = if grain_len_range_is_small {
                     // there are fewer errors that can happen with larger grains
@@ -350,9 +350,14 @@ impl GranularSynthesizer {
 
                 let grain_end_index = grain_start_index + grain_len;
 
-                let new_grain = Grain::new(grain_start_index as usize, grain_end_index as usize);
+                let new_grain = Grain::new(
+                    grain_start_index as usize,
+                    grain_end_index as usize,
+                    // keep the same uid as previous grain
+                    finished_grain.uid,
+                );
 
-                *grain = new_grain;
+                *finished_grain = new_grain;
             }
         }
     }

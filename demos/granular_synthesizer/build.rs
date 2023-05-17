@@ -36,7 +36,7 @@ fn build_audio_files_list() {
         num_paths, paths, DEFAULT_AUDIO_FILE_INDEX
     );
 
-    fs::write(&dest_path, audio_file_string).unwrap();
+    fs::write(dest_path, audio_file_string).unwrap();
 }
 
 fn main() {
