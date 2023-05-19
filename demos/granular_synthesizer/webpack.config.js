@@ -11,7 +11,7 @@ module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
   return {
     devServer: {
-      port: 8000,
+      port: isProduction ? 8000 : 4000,
       static: {
         directory: distPath,
       },

@@ -3,9 +3,10 @@ use crate::granular_synthesizer_action::GranularSynthesizerAction;
 use crate::max::Max;
 use crate::min::Min;
 use crate::percentage::Percentage;
-use crate::utils;
+use crate::{utils, IntSet};
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
+use std::convert::identity;
 use std::sync::Arc;
 
 /// Accepts a reference to a buffer of Vec<f32> audio sample data.
@@ -26,11 +27,6 @@ pub struct GranularSynthesizer {
 
     /// External audio buffer that this GranularSynthesizer should read grains from
     buffer: Arc<Vec<f32>>,
-
-    /// List of grains and their current progress through the buffer.
-    ///
-    /// 1 array element = 1 grain = 1 channel of audio
-    grains: Vec<Grain>,
 
     /// used to generate random indexes
     rng: StdRng,
@@ -80,6 +76,16 @@ pub struct GranularSynthesizer {
     /// sample overlap, where one grain is exactly in-sync with another, producing a unified
     /// and/or chorus effect (or exaggerated amplification).
     refresh_interval: u32,
+
+    /// List of grains and their current progress through the buffer.
+    ///
+    /// 1 array element = 1 grain = 1 channel of audio
+    fresh_grains: IntSet<Grain>,
+
+    /// List of grains and their current progress through the buffer.
+    ///
+    /// 1 array element = 1 grain = 1 channel of audio
+    finished_grains: IntSet<Grain>,
 }
 
 impl GranularSynthesizerAction for GranularSynthesizer {
@@ -88,10 +94,17 @@ impl GranularSynthesizerAction for GranularSynthesizer {
     fn new() -> Self {
         let default_buffer = Arc::new(Vec::new());
 
+        let fresh_grains = IntSet::with_capacity(Self::DEFAULT_NUM_CHANNELS as usize);
+        let mut finished_grains = IntSet::with_capacity(Self::DEFAULT_NUM_CHANNELS as usize);
+        finished_grains.extend((0..Self::DEFAULT_NUM_CHANNELS).into_iter().map(|i| {
+            let mut new_grain = Self::new_grain();
+            new_grain.uid = i;
+            Some(new_grain)
+        }));
+
         Self {
             sample_rate: Self::DEFAULT_SAMPLE_RATE,
             buffer: default_buffer,
-            grains: vec![Self::new_grain(); Self::DEFAULT_NUM_CHANNELS as usize],
             rng: rand::rngs::StdRng::from_entropy(),
             grain_len_min: Percentage::from(Self::GRAIN_LEN_MIN_MIN),
             grain_len_max: Percentage::from(Self::GRAIN_LEN_MAX_MIN),
@@ -103,6 +116,8 @@ impl GranularSynthesizerAction for GranularSynthesizer {
             density: Percentage::from(Self::DEFAULT_DENSITY),
             refresh_counter: 0,
             refresh_interval: Self::DEFAULT_REFRESH_INTERVAL,
+            fresh_grains,
+            finished_grains,
         }
     }
 
@@ -162,13 +177,23 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         self.max_num_channels = max_num_channels;
         let max_num_channels = max_num_channels as usize;
 
+        let prev_grain_length = self.finished_grains.len();
         // adjust grains to be as long as max number of channels
-        if max_num_channels > self.grains.len() {
-            let num_extra_samples = max_num_channels - self.grains.len();
-            self.grains
-                .extend(vec![GranularSynthesizer::new_grain(); num_extra_samples]);
-        } else if max_num_channels < self.grains.len() {
-            self.grains.truncate(max_num_channels);
+        if max_num_channels > prev_grain_length {
+            self.finished_grains
+                .extend((prev_grain_length..max_num_channels).into_iter().map(|i| {
+                    let mut new_grain = Self::new_grain();
+                    new_grain.uid = i as u32;
+                    Some(new_grain)
+                }));
+            self.fresh_grains.extend(
+                (prev_grain_length..max_num_channels)
+                    .into_iter()
+                    .map(|_| None),
+            );
+        } else if max_num_channels < prev_grain_length {
+            self.fresh_grains.truncate(max_num_channels);
+            self.finished_grains.truncate(max_num_channels);
         }
 
         // adjust samples buffer to be as long as max number of channels
@@ -204,16 +229,29 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         let buffer_len_samples = buffer.len();
         self.buffer = buffer;
 
-        // replace any buffers that extend past the current buffer length
-        for grain in &mut self.grains {
-            if grain.end_frame > buffer_len_samples
-                || grain.start_frame > buffer_len_samples
-                || grain.len > buffer_len_samples
-                || grain.current_frame > buffer_len_samples
-            {
-                grain.finished = true;
-            }
-        }
+        // find any grains that extend past the current buffer length
+        let finished_grain_indexes: Vec<_> = self
+            .fresh_grains
+            .iter()
+            .enumerate()
+            .filter(|(_, grain)| {
+                grain.end_frame > buffer_len_samples
+                    || grain.start_frame > buffer_len_samples
+                    || grain.len > buffer_len_samples
+                    || grain.current_frame > buffer_len_samples
+            })
+            .map(|(i, _)| i)
+            .collect();
+
+        // move grains into the finished list
+        finished_grain_indexes
+            .iter()
+            .map(|&i| self.fresh_grains.remove(i))
+            .filter_map(identity)
+            .for_each(|mut removed_grain| {
+                removed_grain.finished = true;
+                self.finished_grains.insert(removed_grain);
+            });
 
         self
     }
@@ -232,7 +270,7 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         // buy only filtering/refreshing grains at an interval, it blends one sound into the other
         // decrease speed of refreshes to blend sounds together
         if self.refresh_counter % self.refresh_interval() == 0 {
-            self.filter_long_grain();
+            self.filter_one_long_grain();
             self.refresh_grain();
         }
 
@@ -317,48 +355,49 @@ impl GranularSynthesizer {
         let grain_len_range_is_small =
             largest_possible_grain_len - smallest_possible_grain_len <= 20;
 
-        if !selection_is_empty {
-            if let Some(finished_grain) = self.grains.iter_mut().find(|grain| grain.finished) {
-                // get random length
-                let mut grain_len = if grain_len_range_is_small {
-                    // there are fewer errors that can happen with larger grains
-                    // (less divide by 0 errors, etc.)
-                    largest_possible_grain_len
-                } else {
-                    self.rng
-                        .gen_range(smallest_possible_grain_len..=largest_possible_grain_len)
-                };
+        if selection_is_empty {
+            return;
+        }
 
-                let largest_start_index = selection_end_index - grain_len;
+        if let Some(finished_grain) = self.finished_grains.pop_first() {
+            // get random length
+            let mut grain_len = if grain_len_range_is_small {
+                // there are fewer errors that can happen with larger grains
+                // (less divide by 0 errors, etc.)
+                largest_possible_grain_len
+            } else {
+                self.rng
+                    .gen_range(smallest_possible_grain_len..=largest_possible_grain_len)
+            };
 
-                // if the largest possible start index and the actual start index are very close,
-                // then just use the start index (prevents silence when min & max are both at 1.0)
-                let start_index_range_is_close = (largest_start_index - selection_start_index) < 20;
+            let largest_start_index = selection_end_index - grain_len;
 
-                // if the start is close, then that means the the grain should just play the whole buffer
-                if start_index_range_is_close {
-                    grain_len = selection_end_index;
-                }
+            // if the largest possible start index and the actual start index are very close,
+            // then just use the start index (prevents silence when min & max are both at 1.0)
+            let start_index_range_is_close = (largest_start_index - selection_start_index) < 20;
 
-                let grain_start_index = if start_index_range_is_close {
-                    selection_start_index
-                } else {
-                    // get random index inside selection
-                    self.rng
-                        .gen_range(selection_start_index..=largest_start_index)
-                };
-
-                let grain_end_index = grain_start_index + grain_len;
-
-                let new_grain = Grain::new(
-                    grain_start_index as usize,
-                    grain_end_index as usize,
-                    // keep the same uid as previous grain
-                    finished_grain.uid,
-                );
-
-                *finished_grain = new_grain;
+            // if the start is close, then that means the the grain should just play the whole buffer
+            if start_index_range_is_close {
+                grain_len = selection_end_index;
             }
+
+            let grain_start_index = if start_index_range_is_close {
+                selection_start_index
+            } else {
+                // get random index inside selection
+                self.rng
+                    .gen_range(selection_start_index..=largest_start_index)
+            };
+
+            let grain_end_index = grain_start_index + grain_len;
+
+            let fresh_grain = Grain::new(
+                grain_start_index as usize,
+                grain_end_index as usize,
+                // keep the same uid as previous grain
+                finished_grain.uid,
+            );
+            self.fresh_grains.insert(fresh_grain);
         }
     }
 
@@ -382,17 +421,28 @@ impl GranularSynthesizer {
     ///
     /// Finds a single grain that exceeds the current selection length and marks it as finished
     /// If no grain is found that exceeds the current selection length, no other action is taken.
-    fn filter_long_grain(&mut self) {
+    fn filter_one_long_grain(&mut self) {
         let grain_len_max_in_samples = self.grain_len_max_in_samples() as usize;
         let selection_len_in_samples = self.selection_len_in_samples() as usize;
 
-        if let Some(grain) = self.grains.iter_mut().find(|grain| {
-            let remaining_grain_samples = grain.remaining_samples();
+        // find all grains that are too long
+        let long_grain_index = self
+            .fresh_grains
+            .iter()
+            .enumerate()
+            .find(|(_, grain)| {
+                let remaining_grain_samples = grain.remaining_samples();
+                remaining_grain_samples > grain_len_max_in_samples
+                    || remaining_grain_samples > selection_len_in_samples
+            })
+            .map(|(i, _)| i);
 
-            remaining_grain_samples > grain_len_max_in_samples
-                || remaining_grain_samples > selection_len_in_samples
-        }) {
-            grain.finished = true;
+        // move the grains into the finished_grains list
+        if let Some(i) = long_grain_index {
+            self.fresh_grains.remove(i).map(|mut removed_grain| {
+                removed_grain.finished = true;
+                self.finished_grains.insert(removed_grain);
+            });
         }
     }
 
@@ -403,26 +453,30 @@ impl GranularSynthesizer {
     /// audio clipping and/or unexpected audio results.
     fn fill_buffer_and_env_samples(&mut self) {
         // get value of each grain's current index in the buffer for each channel
-        self.grains.iter_mut().enumerate().for_each(|(i, grain)| {
-            // this can happen if a grain has finished, but the selection
-            // size is 0, so the grain can't get refreshed with more data
-            if grain.finished {
-                self.output_buffer_samples[i] = 0.0;
-                self.output_env_samples[i] = 0.0;
-                return;
-            }
+        self.fresh_grains
+            .iter_mut()
+            .enumerate()
+            .for_each(|(i, grain)| {
+                // this can happen if a grain has finished, but the selection
+                // size is 0, so the grain can't get refreshed with more data
+                if grain.finished {
+                    self.output_buffer_samples[i] = 0.0;
+                    self.output_env_samples[i] = 0.0;
+                    return;
+                }
 
-            let grain_len = grain.len.max(1) as f32;
-            let envelope_percent = ((grain.current_frame - grain.start_frame) as f32) / grain_len;
-            let envelope_value =
-                utils::generate_triangle_envelope_value_from_percent(envelope_percent);
-            let sample_value = self.buffer[grain.current_frame];
+                let grain_len = grain.len.max(1) as f32;
+                let envelope_percent =
+                    ((grain.current_frame - grain.start_frame) as f32) / grain_len;
+                let envelope_value =
+                    utils::generate_triangle_envelope_value_from_percent(envelope_percent);
+                let sample_value = self.buffer[grain.current_frame];
 
-            self.output_buffer_samples[i] = sample_value;
-            self.output_env_samples[i] = envelope_value;
+                self.output_buffer_samples[i] = sample_value;
+                self.output_env_samples[i] = envelope_value;
 
-            grain.next_frame();
-        });
+                grain.next_frame();
+            });
     }
 
     /// this represents the number of channels actually in use

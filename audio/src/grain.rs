@@ -1,3 +1,5 @@
+use crate::Index;
+
 /// Contains information about where in a buffer the grain should sample from
 #[derive(Clone, Copy, Debug)]
 pub struct Grain {
@@ -21,6 +23,24 @@ impl Default for Grain {
             len: 0,
             uid: 0,
         }
+    }
+}
+
+impl Index for Grain {
+    fn id(&self) -> usize {
+        self.uid as usize
+    }
+}
+
+impl Index for &Grain {
+    fn id(&self) -> usize {
+        self.uid as usize
+    }
+}
+
+impl Index for &mut Grain {
+    fn id(&self) -> usize {
+        self.uid as usize
     }
 }
 
