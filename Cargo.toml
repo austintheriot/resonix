@@ -3,4 +3,5 @@
 members = [
     "audio",
     "demos/granular_synthesizer",
+    "demos/cli",
 ]

@@ -1,10 +1,9 @@
 extern crate anyhow;
 extern crate clap;
-extern crate common;
 extern crate cpal;
 
 use clap::arg;
-use common::{grain::Grain, grain_sample::GrainSample, utils};
+use cli::{grain::Grain, grain_sample::GrainSample, utils};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rand::prelude::*;
 use rodio::Decoder;
@@ -59,7 +58,7 @@ where
 
     // get audio file data as compile time
     let audio_file_slice =
-        std::io::Cursor::new(include_bytes!("..\\..\\audio\\ecce_nova_3.mp3").as_ref());
+        std::io::Cursor::new(include_bytes!("..\\..\\..\\assets\\ecce_nova_3.mp3").as_ref());
     let mp3_source = Decoder::new(audio_file_slice).unwrap();
     let mp3_source_data: Vec<f32> = utils::i16_array_to_f32(mp3_source.collect());
 
