@@ -1,6 +1,6 @@
 use audio::{
-    granular_synthesizer::GranularSynthesizer,
-    granular_synthesizer_action::GranularSynthesizerAction, downmix::downmix,
+    downmix_simple, downmix_simple_to_buffer, granular_synthesizer::GranularSynthesizer,
+    granular_synthesizer_action::GranularSynthesizerAction,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -71,7 +71,7 @@ where
 
     // writing audio buffer data into a single vec here prevents lots
     // of wasted time on unnecessary allocations
-    let mut frame_buffer_data = vec![0.0; max_num_channels as usize]; 
+    let mut frame_buffer_data = vec![0.0; max_num_channels as usize];
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
@@ -80,7 +80,7 @@ where
         let frame = granular_synthesizer_lock.next_frame_into_buffer(&mut frame_buffer_data);
 
         // mix multi-channel down to number of outputs
-        downmix(&frame, output_num_channels as u32)
+        downmix_simple(&frame, output_num_channels as u32)
     };
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);

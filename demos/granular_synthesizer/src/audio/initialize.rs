@@ -10,7 +10,7 @@ use crate::{
     components::controls_select_buffer::DEFAULT_AUDIO_FILE,
     state::{app_action::AppAction, app_state::AppState},
 };
-use audio::{granular_synthesizer_action::GranularSynthesizerAction, downmix::downmix};
+use audio::{downmix_simple_to_buffer, granular_synthesizer_action::GranularSynthesizerAction};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Stream, StreamConfig,
@@ -97,10 +97,12 @@ where
     granular_synthesizer_handle.set_sample_rate(output_sample_rate);
 
     // writing audio buffer data into a single vec here prevents lots
-    // of wasted time on unnecessary allocations - any initial number is fine 
+    // of wasted time on unnecessary allocations - any initial number is fine
     // here, since it will get resized to match current number of audio channels
     // in the frame
-    let mut frame_buffer_data = vec![0.0; 0]; 
+    let mut frame_buffer_data = vec![0.0; 0];
+
+    let mut downmixed_frame_buffer_data = vec![0.0; output_num_channels];
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
@@ -123,12 +125,16 @@ where
         audio_output_handle.add_frame(frame.clone());
 
         // mix multi-channel down to number of outputs
-        let output_frame = downmix(&frame, output_num_channels as u32);
+        downmix_simple_to_buffer(
+            &frame,
+            output_num_channels as u32,
+            &mut downmixed_frame_buffer_data,
+        );
 
         // gate final output with global gain
         let gain = gain_handle.get();
-        let output_frame: Vec<f32> = output_frame
-            .into_iter()
+        let output_frame: Vec<f32> = downmixed_frame_buffer_data
+            .iter()
             .map(|output| output * gain)
             .collect();
 
