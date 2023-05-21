@@ -1,186 +1,121 @@
-extern crate anyhow;
-extern crate clap;
-extern crate cpal;
-
-use clap::arg;
-use cli::{grain::Grain, grain_sample::GrainSample, utils};
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use rand::prelude::*;
+use audio::{
+    granular_synthesizer::{self, GranularSynthesizer},
+    granular_synthesizer_action::GranularSynthesizerAction,
+    mixdown::downmix,
+};
+use cpal::{
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+    Stream, StreamConfig,
+};
 use rodio::Decoder;
+use tokio::time::sleep;
+use std::{sync::{Arc, Mutex}, time::Duration};
 
-#[derive(Debug)]
-struct Opt {
-    device: String,
+/// Converts default mp3 file to raw audio sample data
+fn load_default_buffer() -> Arc<Vec<f32>> {
+    // get audio file data as compile time
+    let audio_file_slice =
+        std::io::Cursor::new(include_bytes!("../../../assets/ecce_nova_3.mp3").as_ref());
+    let mp3_source = Decoder::new(audio_file_slice).unwrap();
+    let mp3_source_data: Vec<f32> = cli::utils::i16_array_to_f32(mp3_source.collect());
+
+    Arc::new(mp3_source_data)
 }
 
-impl Opt {
-    fn from_args() -> Self {
-        let app = clap::Command::new("beep").arg(arg!([DEVICE] "The audio device to use"));
-        let matches = app.get_matches();
-        let device = matches.value_of("DEVICE").unwrap_or("default").to_string();
-        Opt { device }
-    }
-}
-
-/// Called periodically to fill a buffer with data
-fn write_data<T>(output: &mut [T], channels: usize, next_sample: &mut dyn FnMut() -> (f32, f32))
+/// This function is called periodically to write audio data into an audio output buffer
+fn write_data<T>(output: &mut [T], channels: usize, next_sample: &mut dyn FnMut() -> Vec<f32>)
 where
     T: cpal::Sample,
 {
     for frame in output.chunks_mut(channels) {
-        let (left_sample, right_sample) = next_sample();
-        let left_sample = cpal::Sample::from::<f32>(&left_sample);
-        let right_sample = cpal::Sample::from::<f32>(&right_sample);
+        let output_samples = next_sample();
 
-        // assume a 2-channel system and just map to evens and odds if there are more channels
         for (i, sample) in frame.iter_mut().enumerate() {
-            if i % 2 == 0 {
-                *sample = left_sample;
-            } else {
-                *sample = right_sample;
-            }
+            *sample = cpal::Sample::from::<f32>(&output_samples[i]);
         }
     }
 }
 
-pub fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> Result<(), anyhow::Error>
+/// Setup all audio data and processes and begin playing
+pub async fn run<T>(
+    device: &cpal::Device,
+    stream_config: &cpal::StreamConfig,
+    granular_synthesizer: Arc<Mutex<GranularSynthesizer>>,
+) -> Result<Stream, anyhow::Error>
 where
     T: cpal::Sample,
 {
-    const NUM_CHANNELS: usize = 150;
-    const ENVELOPE_LEN_MS_MIN: f32 = 1.0;
-    const ENVELOPE_LEN_MS_MAX: f32 = 100.0;
+    // this is the config of the output audio
+    let output_sample_rate = stream_config.sample_rate.0;
+    let output_num_channels = stream_config.channels as usize;
 
-    let sample_rate = config.sample_rate.0 as f32;
-    let channels = config.channels as usize;
-    let envelope_len_samples_min = (sample_rate / (1000.0 / ENVELOPE_LEN_MS_MIN)) as usize;
-    let envelope_len_samples_max = (sample_rate / (1000.0 / ENVELOPE_LEN_MS_MAX)) as usize;
-
-    // get audio file data as compile time
-    let audio_file_slice =
-        std::io::Cursor::new(include_bytes!("..\\..\\..\\assets\\ecce_nova_3.mp3").as_ref());
-    let mp3_source = Decoder::new(audio_file_slice).unwrap();
-    let mp3_source_data: Vec<f32> = utils::i16_array_to_f32(mp3_source.collect());
-
-    // associates each grain's sample value with it's envelope value
-    // instantiated here to prevent allocations during audio calculations
-    let mut frame_samples_and_envelopes = Vec::with_capacity(NUM_CHANNELS);
-    for _ in 0..NUM_CHANNELS {
-        frame_samples_and_envelopes.push(GrainSample::default());
-    }
-
-    // keeps track of where each grain should be in the buffer
-    let mut channels_grains: Vec<Grain> = Vec::with_capacity(NUM_CHANNELS);
-    for _ in 0..NUM_CHANNELS {
-        channels_grains.push(Grain::default());
+    {
+        // configure granular synthesizer settings
+        let mut granular_synthesizer_lock = granular_synthesizer.lock().unwrap();
+        granular_synthesizer_lock.set_buffer(load_default_buffer());
+        granular_synthesizer_lock.set_density(1.0);
+        granular_synthesizer_lock.set_grain_len_max(1.0);
+        granular_synthesizer_lock.set_grain_len_min(0.0);
+        granular_synthesizer_lock.set_max_number_of_channels(50);
+        granular_synthesizer_lock.set_sample_rate(output_sample_rate);
+        granular_synthesizer_lock
+            .set_selection_start(0.0)
+            .set_selection_end(1.0);
     }
 
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
-        let mut rng = rand::thread_rng();
+        // get next frame from granular synth
+        let mut granular_synthesizer_lock = granular_synthesizer.lock().unwrap();
+        let frame = granular_synthesizer_lock.next_frame();
 
-        // grain length should not exceed max mp3 source data length
-        // create new grains for any that are finished
-        for grain in channels_grains.iter_mut() {
-            if grain.finished {
-                let envolope_len_samples =
-                    rng.gen_range(envelope_len_samples_min..envelope_len_samples_max);
-                let max_index = mp3_source_data.len() - envolope_len_samples;
-                let start_frame = rng.gen_range(0..max_index);
-                let end_frame = start_frame + envolope_len_samples;
+        // mix multi-channel down to number of outputs
+        let output_frame = downmix(&frame, output_num_channels as u32);
 
-                let new_grain = Grain::new(start_frame, end_frame);
-                *grain = new_grain;
-            }
-        }
-
-        debug_assert_eq!(channels_grains.len(), NUM_CHANNELS);
-
-        // get value of each grain's current index in the buffer for each channel
-        channels_grains
-            .iter_mut()
-            .enumerate()
-            .for_each(|(i, grain)| {
-                debug_assert_eq!(grain.finished, false);
-
-                let envelope_percent =
-                    ((grain.current_frame - grain.start_frame) as f32) / (grain.len as f32);
-                let envelope_value =
-                    utils::generate_triangle_envelope_value_from_percent(envelope_percent);
-                let frame_index = grain.current_frame;
-                let sample_value = mp3_source_data[frame_index];
-
-                frame_samples_and_envelopes[i].sample_value = sample_value;
-                frame_samples_and_envelopes[i].envelope_value = envelope_value;
-
-                grain.get_next_frame();
-            });
-
-        // mix frame channels down to 2 channels (spacialize from left to right)
-        let mut left = 0.0;
-        let mut right = 0.0;
-        for (i, grain_sample) in frame_samples_and_envelopes.iter().enumerate() {
-            // earlier indexes to later indexes == left to right spacialization
-            let left_spatialization_percent =
-                1.0 - (i as f32) / (frame_samples_and_envelopes.len() as f32);
-            let right_spatialization_percent =
-                (i as f32) / (frame_samples_and_envelopes.len() as f32);
-
-            // division by 0 will happen below if num of channels is less than 2
-            // logarithmically scaling the volume seems to work well for very large numbers of voices
-            let left_value_to_add = (grain_sample.sample_value
-                * grain_sample.envelope_value
-                * left_spatialization_percent)
-                / (NUM_CHANNELS as f32).log(2.0);
-            let right_value_to_add = (grain_sample.sample_value
-                * grain_sample.envelope_value
-                * right_spatialization_percent)
-                / (NUM_CHANNELS as f32).log(2.0);
-
-            left += left_value_to_add;
-            right += right_value_to_add;
-        }
-
-        (left, right)
+        output_frame
     };
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
 
     let stream = device.build_output_stream(
-        config,
+        stream_config,
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-            write_data(data, channels, &mut next_value)
+            write_data(data, output_num_channels, &mut next_value)
         },
         err_fn,
     )?;
 
     stream.play()?;
 
-    // sleep indefinitely
-    std::thread::sleep(std::time::Duration::MAX);
-
-    Ok(())
+    Ok(stream)
 }
 
-fn main() -> anyhow::Result<()> {
-    let opt = Opt::from_args();
+#[tokio::main]
+pub async fn main() -> () {
     let host = cpal::default_host();
-
-    let device = if opt.device == "default" {
-        host.default_output_device()
-    } else {
-        host.output_devices()?
-            .find(|x| x.name().map(|y| y == opt.device).unwrap_or(false))
-    }
-    .expect("failed to find output device");
-    println!("Output device: {}", device.name()?);
-
+    let device = host
+        .default_output_device()
+        .expect("failed to find a default output device");
     let config = device.default_output_config().unwrap();
-    println!("Default output config: {:#?}", config);
+    let sample_format = config.sample_format();
+    let stream_config: StreamConfig = config.into();
 
-    match config.sample_format() {
-        cpal::SampleFormat::F32 => run::<f32>(&device, &config.into()),
-        cpal::SampleFormat::I16 => run::<i16>(&device, &config.into()),
-        cpal::SampleFormat::U16 => run::<u16>(&device, &config.into()),
-    }
+    let granular_synthesizer = Arc::new(Mutex::new(GranularSynthesizer::new()));
+
+    let stream = match sample_format {
+        cpal::SampleFormat::F32 => run::<f32>(&device, &stream_config, granular_synthesizer)
+            .await
+            .unwrap(),
+        cpal::SampleFormat::I16 => run::<i16>(&device, &stream_config, granular_synthesizer)
+            .await
+            .unwrap(),
+        cpal::SampleFormat::U16 => run::<u16>(&device, &stream_config, granular_synthesizer)
+            .await
+            .unwrap(),
+    };
+    
+    let stream = Box::new(stream);
+    Box::leak(stream);
+
+    sleep(Duration::from_secs(60)).await;
 }
