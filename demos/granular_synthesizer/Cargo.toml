@@ -17,6 +17,8 @@ lto = true
 panic = 'abort'
 # optimization over all codebase ( better optimization, slower build )
 codegen-units = 1
+# include for now while diagnosing performance issues
+debug = true
 
 [dependencies]
 cpal = { version = "0.13.5", features = ["wasm-bindgen"] }
