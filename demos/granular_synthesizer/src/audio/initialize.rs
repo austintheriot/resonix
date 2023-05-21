@@ -10,7 +10,7 @@ use crate::{
     components::controls_select_buffer::DEFAULT_AUDIO_FILE,
     state::{app_action::AppAction, app_state::AppState},
 };
-use audio::{granular_synthesizer_action::GranularSynthesizerAction, mixdown::downmix};
+use audio::{granular_synthesizer_action::GranularSynthesizerAction, downmix::downmix};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Stream, StreamConfig,
@@ -96,6 +96,12 @@ where
     // make sure granular synthesizer's internal state is current with audio context state
     granular_synthesizer_handle.set_sample_rate(output_sample_rate);
 
+    // writing audio buffer data into a single vec here prevents lots
+    // of wasted time on unnecessary allocations - any initial number is fine 
+    // here, since it will get resized to match current number of audio channels
+    // in the frame
+    let mut frame_buffer_data = vec![0.0; 0]; 
+
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
         // if paused, do not process any audio, just return silence
@@ -110,7 +116,7 @@ where
             .set_selection_end(selection_end);
 
         // get next frame from granular synth
-        let frame = granular_synthesizer_handle.next_frame();
+        let frame = granular_synthesizer_handle.next_frame_into_buffer(&mut frame_buffer_data);
 
         // copy up-to-date audio output information into context for
         // reference in audio output visualization

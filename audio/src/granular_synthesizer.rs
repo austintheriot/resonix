@@ -262,8 +262,8 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         self
     }
 
-    fn next_frame(&mut self) -> Vec<f32> {
-        // buy only filtering/refreshing grains at an interval, it blends one sound into the other
+    fn next_frame_into_buffer<'a>(&mut self, frame_data_buffer: &'a mut Vec<f32>) -> &'a mut Vec<f32> {
+        // by only filtering/refreshing grains at an interval, it blends one sound into the other
         // decrease speed of refreshes to blend sounds together
         if self.refresh_counter % self.refresh_interval() == 0 {
             self.filter_one_long_grain();
@@ -273,7 +273,13 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         self.increment_refresh_counter();
 
         self.fill_buffer_and_env_samples();
-        self.frame_data()
+        self.frame_data(frame_data_buffer)
+    }
+
+    fn next_frame(&mut self) -> Vec<f32> {
+        let mut frame_data_buffer = vec![0.0; self.num_channels_for_frame()];
+        self.next_frame_into_buffer(&mut frame_data_buffer);
+        frame_data_buffer
     }
 
     fn set_sample_rate(&mut self, sample_rate: u32) -> &mut Self {
@@ -482,10 +488,10 @@ impl GranularSynthesizer {
 
     /// Combines current buffer and envelope sample values to calculate a full audio frame
     /// (where each channel gets a single audio output value).
-    fn frame_data(&self) -> Vec<f32> {
+    fn frame_data<'a>(&self, frame_data_buffer: &'a mut Vec<f32>) -> &'a mut Vec<f32> {
         let num_channels_for_frame = self.num_channels_for_frame();
-        let mut frame_data = vec![0.0; num_channels_for_frame];
-        for (i, channel) in frame_data.iter_mut().enumerate() {
+        frame_data_buffer.resize(num_channels_for_frame, 0.0);
+        for (i, channel) in frame_data_buffer.iter_mut().enumerate() {
             let buffer_sample = self
                 .output_buffer_samples
                 .get(i)
@@ -501,7 +507,8 @@ impl GranularSynthesizer {
             // if these buffers have not been filled up yet, just return 0.0
             *channel = buffer_sample * envelope_sample;
         }
-        frame_data
+
+        frame_data_buffer
     }
 
     fn increment_refresh_counter(&mut self) {

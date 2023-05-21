@@ -1,6 +1,6 @@
 use audio::{
     granular_synthesizer::GranularSynthesizer,
-    granular_synthesizer_action::GranularSynthesizerAction, mixdown::downmix,
+    granular_synthesizer_action::GranularSynthesizerAction, downmix::downmix,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
@@ -53,6 +53,7 @@ where
     // this is the config of the output audio
     let output_sample_rate = stream_config.sample_rate.0;
     let output_num_channels = stream_config.channels as usize;
+    let max_num_channels = 50;
 
     {
         // configure granular synthesizer settings
@@ -61,21 +62,24 @@ where
         granular_synthesizer_lock.set_density(1.0);
         granular_synthesizer_lock.set_grain_len_max(1.0);
         granular_synthesizer_lock.set_grain_len_min(0.0);
-        granular_synthesizer_lock.set_max_number_of_channels(50);
+        granular_synthesizer_lock.set_max_number_of_channels(max_num_channels);
         granular_synthesizer_lock.set_sample_rate(output_sample_rate);
         granular_synthesizer_lock
             .set_selection_start(0.0)
             .set_selection_end(1.0);
     }
 
+    // writing audio buffer data into a single vec here prevents lots
+    // of wasted time on unnecessary allocations
+    let mut frame_buffer_data = vec![0.0; max_num_channels as usize]; 
+
     // Called for every audio frame to generate appropriate sample
     let mut next_value = move || {
         // get next frame from granular synth
         let mut granular_synthesizer_lock = granular_synthesizer.lock().unwrap();
-        let frame = granular_synthesizer_lock.next_frame();
+        let frame = granular_synthesizer_lock.next_frame_into_buffer(&mut frame_buffer_data);
 
         // mix multi-channel down to number of outputs
-
         downmix(&frame, output_num_channels as u32)
     };
 

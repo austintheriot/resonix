@@ -6,7 +6,7 @@ pub mod granular_synthesizer_action;
 mod int_set;
 pub mod max;
 pub mod min;
-pub mod mixdown;
+pub mod downmix;
 pub mod percentage;
 pub mod utils;
 

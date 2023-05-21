@@ -78,9 +78,20 @@ pub trait GranularSynthesizerAction {
     /// new buffer on the next frame.
     fn set_buffer(&mut self, buffer: Arc<Vec<f32>>) -> &mut Self;
 
-    /// Returns a full audio frame (1 array element = 1 audio channel value),
-    /// where each channel gets its own, indepedent value
+/// Returns a full audio frame (1 array element = 1 audio channel value),
+    /// where each channel gets its own, independent value
     /// based on the progression of that audio channel's grain.
+    /// 
+    /// Reads data directly into a pre-existing buffer, resizing it 
+    /// to match the number of audio channels in this frame if the
+    /// number of channels does not match the length of the vector.
+    fn next_frame_into_buffer<'a>(&mut self, frame_data_buffer: &'a mut Vec<f32>) -> &'a mut Vec<f32>;
+
+    /// Returns a full audio frame (1 array element = 1 audio channel value),
+    /// where each channel gets its own, independent value
+    /// based on the progression of that audio channel's grain.
+    /// 
+    /// Returns a newly allocated buffer to hold the frame data.
     fn next_frame(&mut self) -> Vec<f32>;
 
     /// This should be set BEFORE calling `set_grain_len_min` or `set_grain_len_max`
