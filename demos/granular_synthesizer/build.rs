@@ -21,7 +21,8 @@ fn build_audio_files_list() {
     // get a basic list of file names from the `audio` directory
     let paths: Vec<_> = paths.map(|file| file.unwrap().file_name()).collect();
     // convert file names into strings with quotes
-    let paths: Vec<_> = paths.iter().map(|path| format!(r#"{:?}"#, path)).collect();
+    let mut paths: Vec<_> = paths.iter().map(|path| format!(r#"{:?}"#, path)).collect();
+    paths.sort();
     // format file names with commas between them
     let paths = paths.join(", ");
 
