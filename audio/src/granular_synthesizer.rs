@@ -6,7 +6,7 @@ use crate::percentage::Percentage;
 use crate::{utils, IntSet};
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
-use std::convert::identity;
+
 use std::sync::Arc;
 
 /// Accepts a reference to a buffer of Vec<f32> audio sample data.
@@ -96,7 +96,7 @@ impl GranularSynthesizerAction for GranularSynthesizer {
 
         let fresh_grains = IntSet::with_capacity(Self::DEFAULT_NUM_CHANNELS as usize);
         let mut finished_grains = IntSet::with_capacity(Self::DEFAULT_NUM_CHANNELS as usize);
-        finished_grains.extend((0..Self::DEFAULT_NUM_CHANNELS).into_iter().map(|i| {
+        finished_grains.extend((0..Self::DEFAULT_NUM_CHANNELS).map(|i| {
             let mut new_grain = Self::new_grain();
             new_grain.uid = i;
             Some(new_grain)
@@ -181,16 +181,13 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         // adjust grains to be as long as max number of channels
         if max_num_channels > prev_grain_length {
             self.finished_grains
-                .extend((prev_grain_length..max_num_channels).into_iter().map(|i| {
+                .extend((prev_grain_length..max_num_channels).map(|i| {
                     let mut new_grain = Self::new_grain();
                     new_grain.uid = i as u32;
                     Some(new_grain)
                 }));
-            self.fresh_grains.extend(
-                (prev_grain_length..max_num_channels)
-                    .into_iter()
-                    .map(|_| None),
-            );
+            self.fresh_grains
+                .extend((prev_grain_length..max_num_channels).map(|_| None));
         } else if max_num_channels < prev_grain_length {
             self.fresh_grains.truncate(max_num_channels);
             self.finished_grains.truncate(max_num_channels);
@@ -246,8 +243,7 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         // move grains into the finished list
         finished_grain_indexes
             .iter()
-            .map(|&i| self.fresh_grains.remove(i))
-            .filter_map(identity)
+            .filter_map(|&i| self.fresh_grains.remove(i))
             .for_each(|mut removed_grain| {
                 removed_grain.finished = true;
                 self.finished_grains.insert(removed_grain);

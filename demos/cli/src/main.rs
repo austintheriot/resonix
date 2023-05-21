@@ -1,15 +1,18 @@
 use audio::{
-    granular_synthesizer::{self, GranularSynthesizer},
-    granular_synthesizer_action::GranularSynthesizerAction,
-    mixdown::downmix,
+    granular_synthesizer::GranularSynthesizer,
+    granular_synthesizer_action::GranularSynthesizerAction, mixdown::downmix,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Stream, StreamConfig,
 };
-use rodio::Decoder;
+use rodio::{Decoder, Source};
+use std::{
+    rc::Rc,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 use tokio::time::sleep;
-use std::{sync::{Arc, Mutex}, time::Duration};
 
 /// Converts default mp3 file to raw audio sample data
 fn load_default_buffer() -> Arc<Vec<f32>> {
@@ -17,9 +20,11 @@ fn load_default_buffer() -> Arc<Vec<f32>> {
     let audio_file_slice =
         std::io::Cursor::new(include_bytes!("../../../assets/ecce_nova_3.mp3").as_ref());
     let mp3_source = Decoder::new(audio_file_slice).unwrap();
+    let num_channels = mp3_source.channels() as usize;
     let mp3_source_data: Vec<f32> = cli::utils::i16_array_to_f32(mp3_source.collect());
+    let left_channel_audio_data = mp3_source_data.into_iter().step_by(num_channels).collect();
 
-    Arc::new(mp3_source_data)
+    Arc::new(left_channel_audio_data)
 }
 
 /// This function is called periodically to write audio data into an audio output buffer
@@ -70,9 +75,8 @@ where
         let frame = granular_synthesizer_lock.next_frame();
 
         // mix multi-channel down to number of outputs
-        let output_frame = downmix(&frame, output_num_channels as u32);
 
-        output_frame
+        downmix(&frame, output_num_channels as u32)
     };
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
@@ -91,7 +95,7 @@ where
 }
 
 #[tokio::main]
-pub async fn main() -> () {
+pub async fn main() {
     let host = cpal::default_host();
     let device = host
         .default_output_device()
@@ -102,7 +106,7 @@ pub async fn main() -> () {
 
     let granular_synthesizer = Arc::new(Mutex::new(GranularSynthesizer::new()));
 
-    let stream = match sample_format {
+    let _stream_handle = Rc::new(match sample_format {
         cpal::SampleFormat::F32 => run::<f32>(&device, &stream_config, granular_synthesizer)
             .await
             .unwrap(),
@@ -112,10 +116,7 @@ pub async fn main() -> () {
         cpal::SampleFormat::U16 => run::<u16>(&device, &stream_config, granular_synthesizer)
             .await
             .unwrap(),
-    };
-    
-    let stream = Box::new(stream);
-    Box::leak(stream);
+    });
 
-    sleep(Duration::from_secs(60)).await;
+    sleep(Duration::from_secs(u64::MAX)).await;
 }

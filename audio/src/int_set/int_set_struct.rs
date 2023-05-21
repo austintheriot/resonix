@@ -1,14 +1,13 @@
 use std::{
     collections::BTreeSet,
-    convert::identity,
     slice::{Iter, IterMut},
     vec::IntoIter,
 };
 
 use crate::Index;
 
-/// A set of values, indexed by a `usize` integer. 
-/// 
+/// A set of values, indexed by a `usize` integer.
+///
 /// This structure is best used with densely-packed, small-integer indexes.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct IntSet<V: Index> {
@@ -23,7 +22,7 @@ impl<V> Iterator for IntSetIterator<V> {
     type Item = V;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(option) = self.0.next() {
+        for option in self.0.by_ref() {
             if let Some(value) = option {
                 return Some(value);
             }
@@ -48,7 +47,7 @@ impl<'a, V> Iterator for IntSetIteratorRef<'a, V> {
     type Item = &'a V;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(option) = self.0.next() {
+        for option in self.0.by_ref() {
             if let Some(value) = option {
                 return Some(value);
             }
@@ -73,7 +72,7 @@ impl<'a, V> Iterator for IntSetIteratorMut<'a, V> {
     type Item = &'a mut V;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(option) = self.0.next() {
+        for option in self.0.by_ref() {
             if let Some(value) = option {
                 return Some(value);
             }
@@ -144,12 +143,9 @@ where
     }
 
     pub fn truncate(&mut self, len: usize) {
-        self.data
-            .drain((len + 1)..)
-            .filter_map(identity)
-            .for_each(|el| {
-                self.indexes.remove(&el.id());
-            })
+        self.data.drain((len + 1)..).flatten().for_each(|el| {
+            self.indexes.remove(&el.id());
+        })
     }
 
     pub fn get(&self, i: impl Index) -> Option<&V> {
@@ -312,7 +308,7 @@ mod test_vec_map_struct {
     #[test]
     fn it_should_allow_extending() {
         let mut int_set = IntSet::new();
-        let new_elements = (0..=5).into_iter().map(|i| Some(Element(i)));
+        let new_elements = (0..=5).map(|i| Some(Element(i)));
         int_set.extend(new_elements);
         assert_eq!(int_set.get(0), Some(&Element(0)));
         assert_eq!(int_set.get(5), Some(&Element(5)));
@@ -410,7 +406,7 @@ mod test_vec_map_struct {
         #[test]
         fn extending() {
             let mut int_set = IntSet::new();
-            let new_elements = (50..=100).into_iter().map(|i| Some(Element(i)));
+            let new_elements = (50..=100).map(|i| Some(Element(i)));
             int_set.extend(new_elements);
             assert_eq!(int_set.pop_last(), Some(Element(100)))
         }
@@ -455,8 +451,8 @@ mod test_vec_map_struct {
         int_set.insert(element2);
         int_set.insert(element1);
 
-        assert_eq!(int_set.contains(0), true);
-        assert_eq!(int_set.contains(14), false);
-        assert_eq!(int_set.contains(1000), false);
+        assert!(int_set.contains(0));
+        assert!(!int_set.contains(14));
+        assert!(!int_set.contains(1000));
     }
 }
