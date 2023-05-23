@@ -1,5 +1,5 @@
 [package]
-name = "granular_synthesizer"
+name = "granular_synthesizer_web"
 description = "Demo of bespoke granular synthesis on the web"
 version = "0.1.0"
 edition = "2021"

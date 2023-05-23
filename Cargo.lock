@@ -179,20 +179,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4bfbf56724aa9eca8afa4fcfadeb479e722935bb2a0900c2d37e0cc477af0688"
 
 [[package]]
-name = "cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "audio",
- "clap",
- "cpal",
- "minimp3",
- "rand",
- "rodio",
- "tokio",
-]
-
-[[package]]
 name = "combine"
 version = "4.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -474,7 +460,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "granular_synthesizer"
+name = "granular_synthesizer_cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "audio",
+ "clap",
+ "cpal",
+ "minimp3",
+ "rand",
+ "rodio",
+ "tokio",
+]
+
+[[package]]
+name = "granular_synthesizer_web"
 version = "0.1.0"
 dependencies = [
  "anyhow",

@@ -2,6 +2,6 @@
 
 members = [
     "audio",
-    "demos/granular_synthesizer",
-    "demos/cli",
+    "demos/granular_synthesizer_web",
+    "demos/granular_synthesizer_cli",
 ]
