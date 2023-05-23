@@ -95,14 +95,20 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn next_frame_into_buffer<'a>(&mut self, frame_data_buffer: &'a mut Vec<f32>) -> &'a mut Vec<f32> {
-        self.granular_synthesizer.lock().unwrap().next_frame_into_buffer(frame_data_buffer)
+    fn next_frame_into_buffer<'a>(
+        &mut self,
+        frame_data_buffer: &'a mut Vec<f32>,
+    ) -> &'a mut Vec<f32> {
+        self.granular_synthesizer
+            .lock()
+            .unwrap()
+            .next_frame_into_buffer(frame_data_buffer)
     }
 
     fn next_frame(&mut self) -> Vec<f32> {
         self.granular_synthesizer.lock().unwrap().next_frame()
     }
-    
+
     fn set_sample_rate(&mut self, sample_rate: u32) -> &mut Self {
         self.granular_synthesizer
             .lock()

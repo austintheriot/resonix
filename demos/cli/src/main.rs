@@ -1,5 +1,5 @@
 use audio::{
-    downmix_simple, downmix_simple_to_buffer, granular_synthesizer::GranularSynthesizer,
+    downmix_simple, granular_synthesizer::GranularSynthesizer,
     granular_synthesizer_action::GranularSynthesizerAction,
 };
 use cpal::{
@@ -80,7 +80,7 @@ where
         let frame = granular_synthesizer_lock.next_frame_into_buffer(&mut frame_buffer_data);
 
         // mix multi-channel down to number of outputs
-        downmix_simple(&frame, output_num_channels as u32)
+        downmix_simple(frame, output_num_channels as u32)
     };
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);

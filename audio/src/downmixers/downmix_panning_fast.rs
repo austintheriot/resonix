@@ -1,6 +1,5 @@
-
 /// Mixes a multichannel frame down to a different number of output channels
-/// 
+///
 /// Faster, but less aurally correct implementation (does not call .sqrt()
 /// on each run of the nested for loop)
 pub fn downmix_panning_fast(channels_in: &[f32], num_channels_out: u32) -> Vec<f32> {
@@ -41,7 +40,7 @@ pub fn downmix_panning_fast(channels_in: &[f32], num_channels_out: u32) -> Vec<f
     // in my own aural experimentation, the `cbrt` function seems to approximate this relationship well
     let scale_divisor = (channels_in.len() as f32 / num_channels_out as f32).cbrt();
     for sample in &mut samples_out {
-        *sample = *sample / scale_divisor;
+        *sample /= scale_divisor;
     }
 
     samples_out

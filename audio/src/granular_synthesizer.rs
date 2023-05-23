@@ -262,7 +262,10 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         self
     }
 
-    fn next_frame_into_buffer<'a>(&mut self, frame_data_buffer: &'a mut Vec<f32>) -> &'a mut Vec<f32> {
+    fn next_frame_into_buffer<'a>(
+        &mut self,
+        frame_data_buffer: &'a mut Vec<f32>,
+    ) -> &'a mut Vec<f32> {
         // by only filtering/refreshing grains at an interval, it blends one sound into the other
         // decrease speed of refreshes to blend sounds together
         if self.refresh_counter % self.refresh_interval() == 0 {

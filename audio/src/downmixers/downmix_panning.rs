@@ -1,5 +1,5 @@
 /// Mixes a multichannel frame down to a different number of output channels
-/// 
+///
 /// Slower, more aurally "correct" implementation that preservers overall energy / amplitude.
 pub fn downmix_panning(channels_in: &[f32], num_channels_out: u32) -> Vec<f32> {
     if channels_in.is_empty() {
