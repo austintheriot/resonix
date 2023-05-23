@@ -44,28 +44,27 @@ async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Ar
 }
 
 /// This function is called periodically to write audio data into an audio output buffer
-fn write_data_to_frame_buffer<T>(
-    output_frame_buffer: &mut [T],
-    output_num_channels: usize,
-    write_frame_values_to_buffer: &mut dyn FnMut(&mut Vec<f32>),
+fn write_data<T>(
+    output: &mut [T],
+    channels: usize,
+    next_sample: &mut dyn FnMut() -> Vec<f32>,
     recording_status_handle: RecordingStatusHandle,
     mut audio_recorder_handle: AudioRecorderHandle,
-    mut final_frame_values: &mut Vec<f32>,
 ) where
     T: cpal::Sample,
 {
-    for output_channel_sample in output_frame_buffer.chunks_mut(output_num_channels) {
-        write_frame_values_to_buffer(&mut final_frame_values);
+    for frame in output.chunks_mut(channels) {
+        let output_samples = next_sample();
 
         // clone audio data into a recording buffer
         let is_recording = recording_status_handle.get() == RecordingStatus::Recording;
         if is_recording {
-            let output_samples = final_frame_values.clone();
+            let output_samples = output_samples.clone();
             audio_recorder_handle.extend(output_samples)
         }
 
-        for (i, sample) in output_channel_sample.iter_mut().enumerate() {
-            *sample = cpal::Sample::from::<f32>(&final_frame_values[i]);
+        for (i, sample) in frame.iter_mut().enumerate() {
+            *sample = cpal::Sample::from::<f32>(&output_samples[i]);
         }
     }
 }
@@ -105,15 +104,11 @@ where
 
     let mut downmixed_frame_buffer_data = vec![0.0; output_num_channels];
 
-    // Holds frame data before it is copied into the actual audio output buffer--
-    // holding this data in a temporary buffer makes copying the data when recording simpler
-    let mut final_frame_values = vec![0.0; output_num_channels];
-
     // Called for every audio frame to generate appropriate sample
-    let mut write_frame_values_to_buffer = move |output_frame_buffer: &mut Vec<f32>| -> () {
+    let mut next_value = move || {
         // if paused, do not process any audio, just return silence
         if let PlayStatus::Pause = status.get() {
-            output_frame_buffer.fill(0.0);
+            return vec![0.0; output_num_channels];
         }
 
         // always keep granular_synth up-to-date with buffer selection from UI
@@ -138,12 +133,12 @@ where
 
         // gate final output with global gain
         let gain = gain_handle.get();
-        output_frame_buffer
-            .iter_mut()
-            .zip(downmixed_frame_buffer_data.iter())
-            .for_each(|(result, &sample)| {
-                *result = sample * gain;
-            });
+        let output_frame: Vec<f32> = downmixed_frame_buffer_data
+            .iter()
+            .map(|output| output * gain)
+            .collect();
+
+        output_frame
     };
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
@@ -152,14 +147,13 @@ where
 
     let stream = device.build_output_stream(
         stream_config,
-        move |output_frame_buffer: &mut [T], _: &cpal::OutputCallbackInfo| {
-            write_data_to_frame_buffer(
-                output_frame_buffer,
+        move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
+            write_data(
+                data,
                 output_num_channels,
-                &mut write_frame_values_to_buffer,
+                &mut next_value,
                 recording_status_handle.clone(),
                 audio_recorder_handle.clone(),
-                &mut final_frame_values,
             )
         },
         err_fn,
