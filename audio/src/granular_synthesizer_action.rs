@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use crate::{grain::Grain, percentage::Percentage, NumChannels};
 
@@ -13,17 +13,11 @@ pub trait GranularSynthesizerAction {
 
     const DEFAULT_NUM_CHANNELS: usize = 2;
 
-    const GRAIN_LEN_MIN_DIFFERENCE: f32 = 0.05;
+    const GRAIN_LEN_MIN: Duration = Duration::from_millis(20);
 
-    /// the smallest possible length of grain, given as a percentage of the currently selected audio
-    const GRAIN_LEN_MIN_MIN: f32 = 0.0;
+    const GRAIN_LEN_MAX: Duration = Duration::from_millis(1000);
 
-    const GRAIN_LEN_MIN_MAX: f32 = Self::GRAIN_LEN_MAX_MAX - Self::GRAIN_LEN_MIN_DIFFERENCE;
-
-    const GRAIN_LEN_MAX_MIN: f32 = Self::GRAIN_LEN_MIN_MIN + Self::GRAIN_LEN_MIN_DIFFERENCE;
-
-    /// the largest possible length of grain, given as a percentage of the currently selected audio
-    const GRAIN_LEN_MAX_MAX: f32 = 1.0;
+    const DEFAULT_GRAIN_LEN: Duration = Duration::from_millis(20);
 
     const DEFAULT_SAMPLE_RATE: u32 = 44100;
 
@@ -46,11 +40,9 @@ pub trait GranularSynthesizerAction {
 
     fn set_selection_end(&mut self, start: impl Into<Percentage>) -> &mut Self;
 
-    fn set_grain_len_min(&mut self, input_min_len_in_ms: impl Into<Percentage>) -> &mut Self;
+    fn set_grain_len(&mut self, input_min_len_in_ms: impl Into<Duration>) -> &mut Self;
 
-    fn set_grain_len_max(&mut self, input_max_len_in_ms: impl Into<Percentage>) -> &mut Self;
-
-    fn set_channels(&mut self, channels: impl Into<NumChannels>) -> &mut Self;
+    fn set_num_channels(&mut self, channels: impl Into<NumChannels>) -> &mut Self;
 
     fn num_channels(&self) -> NumChannels;
 
@@ -100,18 +92,16 @@ pub trait GranularSynthesizerAction {
     ///
     /// Once it is time to actually produce an audio sample from the buffer,
     /// each grain will be initialized with a randaom start/end index, etc.
-    fn new_grain() -> Grain {
+    fn new_grain(uid: u32) -> Grain {
         Grain {
             current_frame: 0,
             end_frame: 0,
             finished: true,
             len: 0,
             start_frame: 0,
-            uid: 0,
+            uid,
         }
     }
 
-    fn grain_len_min(&self) -> Percentage;
-
-    fn grain_len_max(&self) -> Percentage;
+    fn grain_len(&self) -> Duration;
 }

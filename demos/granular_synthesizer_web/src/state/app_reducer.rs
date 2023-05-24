@@ -63,11 +63,11 @@ impl Reducible for AppState {
                         .granular_synthesizer_handle
                         .set_sample_rate(sample_rate);
                 }
-                AppAction::SeNumChannels(num_channels) => {
-                    next_state.channels_handle.set(num_channels);
+                AppAction::SetNumSynthChannels(num_channels) => {
+                    next_state.num_channels_handle.set(num_channels);
                     next_state
                         .granular_synthesizer_handle
-                        .set_channels(num_channels);
+                        .set_num_channels(num_channels);
                 }
                 AppAction::SetGrainLenMax(max_len) => {
                     next_state
@@ -77,7 +77,7 @@ impl Reducible for AppState {
                     // keep ui state in sync with synthesizer
                     next_state
                         .grain_len_min
-                        .set(next_state.granular_synthesizer_handle.grain_len_min());
+                        .set(next_state.granular_synthesizer_handle.grain_len());
                     next_state
                         .grain_len_max
                         .set(next_state.granular_synthesizer_handle.grain_len_max());
@@ -85,12 +85,12 @@ impl Reducible for AppState {
                 AppAction::SetGrainLenMin(min_len) => {
                     next_state
                         .granular_synthesizer_handle
-                        .set_grain_len_min(min_len);
+                        .set_grain_len(min_len);
 
                     // keep ui state in sync with synthesizer
                     next_state
                         .grain_len_min
-                        .set(next_state.granular_synthesizer_handle.grain_len_min());
+                        .set(next_state.granular_synthesizer_handle.grain_len());
                     next_state
                         .grain_len_max
                         .set(next_state.granular_synthesizer_handle.grain_len_max());

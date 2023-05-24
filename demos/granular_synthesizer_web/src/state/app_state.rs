@@ -79,7 +79,7 @@ pub struct AppState {
     pub num_channels: NunChannels,
 
     /// Corresponds to the number of audio channels that can render audio per frame
-    pub channels_handle: NumChannelsHandle,
+    pub num_channels_handle: NumChannelsHandle,
 
     /// This is the maximum length (in milliseconds) that a grain sample can play for
     pub grain_len_max: GrainLenHandle,
@@ -105,8 +105,9 @@ impl Default for AppState {
         let mut granular_synthesizer_handle = GranularSynthesizerHandle::default();
 
         granular_synthesizer_handle
+            .set_num_channels(50)
             .set_grain_len_max(GranularSynthesizer::GRAIN_LEN_MAX_MAX)
-            .set_grain_len_min(GranularSynthesizer::GRAIN_LEN_MIN_MIN);
+            .set_grain_len(GranularSynthesizer::GRAIN_LEN_MIN_MIN);
 
         Self {
             buffer_handle: Default::default(),
@@ -128,8 +129,8 @@ impl Default for AppState {
                 granular_synthesizer_handle.selection_start().get(),
                 granular_synthesizer_handle.selection_end().get(),
             ),
-            channels_handle: granular_synthesizer_handle.num_channels().get().into(),
-            grain_len_min: granular_synthesizer_handle.grain_len_min().get().into(),
+            num_channels_handle: granular_synthesizer_handle.num_channels().get().into(),
+            grain_len_min: granular_synthesizer_handle.grain_len().get().into(),
             grain_len_max: granular_synthesizer_handle.grain_len_max().get().into(),
             refresh_interval: granular_synthesizer_handle.refresh_interval().into(),
             granular_synthesizer_handle,

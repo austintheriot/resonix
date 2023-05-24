@@ -14,7 +14,7 @@ use yew::{function_component, html, prelude::*};
 pub fn controls_density() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
     let density_input_disabled = app_context.state_handle.get_are_audio_controls_disabled();
-    let channels = app_context.state_handle.channels_handle.get().get();
+    let channels = app_context.state_handle.num_channels_handle.get().get();
 
     let handle_input = {
         let state_handle = app_context.state_handle;
@@ -27,7 +27,7 @@ pub fn controls_density() -> Html {
                 .target_dyn_into::<HtmlInputElement>()
                 .unwrap()
                 .value_as_number() as usize;
-            state_handle.dispatch(AppAction::SeNumChannels(channels));
+            state_handle.dispatch(AppAction::SetNumSynthChannels(channels));
         })
     };
 

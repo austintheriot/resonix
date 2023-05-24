@@ -1,12 +1,9 @@
 use crate::{max::Max, min::Min};
-use std::ops::{Add, Mul, Sub};
+use std::ops::{Add, Mul, Sub, Deref};
 
 #[derive(PartialEq, PartialOrd, Default, Clone, Debug, Copy)]
 pub struct NumChannels(usize);
 
-/// Only accepts values ranging from 0.0 -> 1.0.
-///
-/// If a value outside of these bounds is received, it will be truncated to match the range.
 impl NumChannels {
     pub const NUM_CHANNELS_MAX: usize = 500;
 
@@ -32,6 +29,14 @@ impl NumChannels {
 
     pub const fn into_inner(self) -> usize {
         self.0
+    }
+}
+
+impl Deref for NumChannels {
+    type Target = usize;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
