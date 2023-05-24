@@ -65,7 +65,9 @@ impl Reducible for AppState {
                 }
                 AppAction::SetChannels(channels) => {
                     next_state.channels_handle.set(channels);
-                    next_state.granular_synthesizer_handle.set_channels(channels);
+                    next_state
+                        .granular_synthesizer_handle
+                        .set_channels(channels);
                 }
                 AppAction::SetGrainLenMax(max_len) => {
                     next_state
