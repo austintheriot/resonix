@@ -137,7 +137,7 @@ where
         if frame_count % num_frames_between_saving_snapshot == 0 {
             audio_output_handle.add_frame(frame.clone());
         }
-        
+
         // mix multi-channel down to number of outputs
         downmix_simple_to_buffer(
             &frame,
