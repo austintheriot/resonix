@@ -2,7 +2,7 @@ use super::{app_action::AppAction, app_state::AppState};
 use crate::{
     audio::{
         buffer_handle::BufferHandle, buffer_selection_action::BufferSelectionAction,
-        channels_action::ChannelsAction, gain_action::GainAction,
+        num_channels_action::NumChannelsAction, gain_action::GainAction,
         play_status_action::PlayStatusAction, recording_status_action::RecordingStatusAction,
     },
     components::buffer_sample_bars_canvas::get_buffer_maxes_for_canvas,
@@ -63,11 +63,11 @@ impl Reducible for AppState {
                         .granular_synthesizer_handle
                         .set_sample_rate(sample_rate);
                 }
-                AppAction::SetChannels(channels) => {
-                    next_state.channels_handle.set(channels);
+                AppAction::SeNumChannels(num_channels) => {
+                    next_state.channels_handle.set(num_channels);
                     next_state
                         .granular_synthesizer_handle
-                        .set_channels(channels);
+                        .set_channels(num_channels);
                 }
                 AppAction::SetGrainLenMax(max_len) => {
                     next_state
