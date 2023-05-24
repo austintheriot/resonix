@@ -1,7 +1,7 @@
 use crate::{
     components::{
         audio_output_visualization::AudioOutputVisualization, buffer_container::BufferContainer,
-        controls_density::ControlsDensity, controls_download_audio::ControlsDownloadAudio,
+        controls_channels::ControlsChannels, controls_download_audio::ControlsDownloadAudio,
         controls_enable_audio::ControlsEnableAudio, controls_gain::ControlsGain,
         controls_max_len::ControlsMaxLen, controls_min_len::ControlsMinLen,
         controls_play_status::ControlsPlayStatus,
@@ -34,7 +34,7 @@ pub fn controls_container() -> Html {
             </div>
             <div class="grid-slider-container">
                 <ControlsGain />
-                <ControlsDensity />
+                <ControlsChannels />
                 <ControlsMinLen />
                 <ControlsMaxLen />
                 <ControlsRefreshInterval />

@@ -2,7 +2,7 @@ use crate::audio::audio_ouput_handle::AudioOutputHandle;
 use crate::audio::audio_recorder_handle::AudioRecorderHandle;
 use crate::audio::buffer_handle::BufferHandle;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
-use crate::audio::density_handle::DensityHandle;
+use crate::audio::channels_handle::ChannelsHandle;
 use crate::audio::gain_handle::GainHandle;
 use crate::audio::grain_len_handle::GrainLenHandle;
 use crate::audio::granular_synthesizer_handle::GranularSynthesizerHandle;
@@ -80,7 +80,7 @@ pub struct AppState {
 
     /// Corresponds to the percentage of channels that will output samples
     /// from the `GranularSynthesizer` on every frame (0.0 -> 1.0)
-    pub density_handle: DensityHandle,
+    pub channels_handle: ChannelsHandle,
 
     /// This is the maximum length (in milliseconds) that a grain sample can play for
     pub grain_len_max: GrainLenHandle,
@@ -129,7 +129,7 @@ impl Default for AppState {
                 granular_synthesizer_handle.selection_start().get(),
                 granular_synthesizer_handle.selection_end().get(),
             ),
-            density_handle: granular_synthesizer_handle.density().get().into(),
+            channels_handle: granular_synthesizer_handle.channels().get().into(),
             grain_len_min: granular_synthesizer_handle.grain_len_min().get().into(),
             grain_len_max: granular_synthesizer_handle.grain_len_max().get().into(),
             refresh_interval: granular_synthesizer_handle.refresh_interval().into(),

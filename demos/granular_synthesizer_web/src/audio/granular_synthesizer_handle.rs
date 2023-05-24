@@ -76,17 +76,17 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn set_density(&mut self, density: impl Into<Percentage>) -> &mut Self {
+    fn set_channels(&mut self, channels: impl Into<Percentage>) -> &mut Self {
         self.granular_synthesizer
             .lock()
             .unwrap()
-            .set_density(density);
+            .set_channels(channels);
 
         self
     }
 
-    fn density(&self) -> Percentage {
-        self.granular_synthesizer.lock().unwrap().density()
+    fn channels(&self) -> Percentage {
+        self.granular_synthesizer.lock().unwrap().channels()
     }
 
     fn set_buffer(&mut self, buffer: Arc<Vec<f32>>) -> &mut Self {

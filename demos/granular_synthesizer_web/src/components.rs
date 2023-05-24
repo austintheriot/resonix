@@ -5,7 +5,7 @@ pub mod buffer_sample_bars_canvas;
 pub mod buffer_selection_visualizer;
 pub mod button;
 pub mod controls_container;
-pub mod controls_density;
+pub mod controls_channels;
 pub mod controls_download_audio;
 pub mod controls_enable_audio;
 pub mod controls_gain;

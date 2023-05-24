@@ -7,13 +7,13 @@ use crate::{grain::Grain, percentage::Percentage};
 /// This interface is extracted into a constant so that a
 /// GranularSynthesizerHandle can more easily re-export this logic.
 pub trait GranularSynthesizerAction {
-    const DENSITY_MAX: f32 = 1.0;
+    const CHANNELS_MAX: f32 = 1.0;
 
-    const DENSITY_MIN: f32 = 0.0;
+    const CHANNELS_MIN: f32 = 0.0;
 
     const DEFAULT_NUM_CHANNELS: u32 = 2;
 
-    const DEFAULT_DENSITY: f32 = 1.0;
+    const DEFAULT_CHANNELS: f32 = 1.0;
 
     const GRAIN_LEN_MIN_DIFFERENCE: f32 = 0.05;
 
@@ -54,9 +54,9 @@ pub trait GranularSynthesizerAction {
 
     fn set_max_number_of_channels(&mut self, max_num_channels: u32) -> &mut Self;
 
-    fn set_density(&mut self, density: impl Into<Percentage>) -> &mut Self;
+    fn set_channels(&mut self, channels: impl Into<Percentage>) -> &mut Self;
 
-    fn density(&self) -> Percentage;
+    fn channels(&self) -> Percentage;
 
     fn sanitize_refresh_interval(refresh_interval: u32) -> u32 {
         refresh_interval

@@ -16,7 +16,7 @@ use cpal::{
     OutputCallbackInfo, Stream, StreamConfig,
 };
 use gloo_net::http::Request;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 use yew::UseReducerHandle;
 
 /// Converts default mp3 file to raw audio sample data

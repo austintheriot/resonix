@@ -14,13 +14,13 @@ use std::sync::Arc;
 /// Generates random multi-channel audio grain output.
 pub struct GranularSynthesizer {
     /// The maximum number of channels that can be generating samples via grains at a time.
-    /// This can be used in conjunction with `density` to alter the number of playing grains
+    /// This can be used in conjunction with `channels` to alter the number of playing grains
     /// during runtime.
     max_num_channels: u32,
 
     /// How many channels of grains to generate per frame (0.0 -> 1.0)
     /// A value of 1.0 corresponds to `max_num_channels` and a value of 0.o corresponds to no channels.
-    density: Percentage,
+    channels: Percentage,
 
     /// Sample rate of the surrounding context
     sample_rate: u32,
@@ -89,7 +89,7 @@ pub struct GranularSynthesizer {
 }
 
 impl GranularSynthesizerAction for GranularSynthesizer {
-    const DEFAULT_DENSITY: f32 = 0.5;
+    const DEFAULT_CHANNELS: f32 = 0.5;
 
     fn new() -> Self {
         let default_buffer = Arc::new(Vec::new());
@@ -113,7 +113,7 @@ impl GranularSynthesizerAction for GranularSynthesizer {
             selection_start: Percentage::from(0.0),
             selection_end: Percentage::from(1.0),
             max_num_channels: Self::DEFAULT_NUM_CHANNELS,
-            density: Percentage::from(Self::DEFAULT_DENSITY),
+            channels: Percentage::from(Self::DEFAULT_CHANNELS),
             refresh_counter: 0,
             refresh_interval: Self::DEFAULT_REFRESH_INTERVAL,
             fresh_grains,
@@ -213,13 +213,13 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         self
     }
 
-    fn set_density(&mut self, density: impl Into<Percentage>) -> &mut Self {
-        self.density = density.into();
+    fn set_channels(&mut self, channels: impl Into<Percentage>) -> &mut Self {
+        self.channels = channels.into();
         self
     }
 
-    fn density(&self) -> Percentage {
-        self.density
+    fn channels(&self) -> Percentage {
+        self.channels
     }
 
     fn set_buffer(&mut self, buffer: Arc<Vec<f32>>) -> &mut Self {
@@ -486,7 +486,7 @@ impl GranularSynthesizer {
 
     /// this represents the number of channels actually in use
     fn num_channels_for_frame(&self) -> usize {
-        (self.max_num_channels as f32 * self.density) as usize
+        (self.max_num_channels as f32 * self.channels) as usize
     }
 
     /// Combines current buffer and envelope sample values to calculate a full audio frame
