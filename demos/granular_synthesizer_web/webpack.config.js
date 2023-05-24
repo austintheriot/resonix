@@ -18,7 +18,7 @@ module.exports = (env, argv) => {
       historyApiFallback: {
         index: "/",
       },
-      open: true,
+      open: false,
     },
     experiments: {
       syncWebAssembly: true,
