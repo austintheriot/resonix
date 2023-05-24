@@ -1,5 +1,5 @@
 use audio::{
-    downmix_simple, downmix_simple_to_buffer, granular_synthesizer::GranularSynthesizer,
+    downmix_simple_to_buffer, granular_synthesizer::GranularSynthesizer,
     granular_synthesizer_action::GranularSynthesizerAction,
 };
 use cpal::{

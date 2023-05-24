@@ -3,7 +3,7 @@ use crate::granular_synthesizer_action::GranularSynthesizerAction;
 use crate::max::Max;
 use crate::min::Min;
 use crate::percentage::Percentage;
-use crate::{IntSet, SINE_ENVELOPE, Envelope};
+use crate::{Envelope, IntSet, SINE_ENVELOPE};
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
 
@@ -425,7 +425,10 @@ impl GranularSynthesizer {
 
     /// Combines current buffer and envelope sample values to calculate a full audio frame
     /// (where each channel gets a single audio output value).
-    fn write_frame_data_into_buffer<'a>(&mut self, frame_data_buffer: &'a mut Vec<f32>) -> &'a mut Vec<f32> {
+    fn write_frame_data_into_buffer<'a>(
+        &mut self,
+        frame_data_buffer: &'a mut Vec<f32>,
+    ) -> &'a mut Vec<f32> {
         let num_channels_for_frame = self.num_channels_for_frame();
         frame_data_buffer.resize(num_channels_for_frame, 0.0);
         frame_data_buffer
