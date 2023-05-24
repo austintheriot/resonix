@@ -9,6 +9,8 @@ pub mod max;
 pub mod min;
 pub mod percentage;
 pub mod utils;
+mod envelopes;
 
 pub use downmixers::*;
 pub use int_set::*;
+pub use envelopes::*;

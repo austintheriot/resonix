@@ -1,5 +1,5 @@
 use audio::{
-    downmix_simple, granular_synthesizer::GranularSynthesizer,
+    downmix_simple, downmix_simple_to_buffer, granular_synthesizer::GranularSynthesizer,
     granular_synthesizer_action::GranularSynthesizerAction,
 };
 use cpal::{
@@ -29,15 +29,19 @@ fn load_default_buffer() -> Arc<Vec<f32>> {
 }
 
 /// This function is called periodically to write audio data into an audio output buffer
-fn write_data<T>(output: &mut [T], channels: usize, next_sample: &mut dyn FnMut() -> Vec<f32>)
-where
+fn write_data_to_frame_buffer<T>(
+    output: &mut [T],
+    channels: usize,
+    write_frame_values_to_buffer: &mut dyn FnMut(&mut Vec<f32>),
+    final_frame_values: &mut Vec<f32>,
+) where
     T: cpal::Sample,
 {
     for frame in output.chunks_mut(channels) {
-        let output_samples = next_sample();
+        write_frame_values_to_buffer(final_frame_values);
 
         for (i, sample) in frame.iter_mut().enumerate() {
-            *sample = cpal::Sample::from::<f32>(&output_samples[i]);
+            *sample = cpal::Sample::from::<f32>(&final_frame_values[i]);
         }
     }
 }
@@ -71,17 +75,27 @@ where
     }
 
     // writing audio buffer data into a single vec here prevents lots
+    // of wasted time on unnecessary allocations - any initial number is fine
+    // here, since it will get resized to match current number of audio channels
+    // in the frame
+    let mut generated_granular_synth_frame = vec![0.0; max_num_channels as usize];
+
+    // writing audio buffer data into a single vec here prevents lots
     // of wasted time on unnecessary allocations
-    let mut frame_buffer_data = vec![0.0; max_num_channels as usize];
+    let mut final_frame_values = vec![0.0; max_num_channels as usize];
 
     // Called for every audio frame to generate appropriate sample
-    let mut next_value = move || {
+    let mut write_frame_values_to_buffer = move |output_frame_buffer: &mut Vec<f32>| {
         // get next frame from granular synth
         let mut granular_synthesizer_lock = granular_synthesizer.lock().unwrap();
-        let frame = granular_synthesizer_lock.next_frame_into_buffer(&mut frame_buffer_data);
+        granular_synthesizer_lock.next_frame_into_buffer(&mut generated_granular_synth_frame);
 
         // mix multi-channel down to number of outputs
-        downmix_simple(frame, output_num_channels as u32)
+        downmix_simple_to_buffer(
+            &generated_granular_synth_frame,
+            output_num_channels as u32,
+            output_frame_buffer,
+        );
     };
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
@@ -89,7 +103,12 @@ where
     let stream = device.build_output_stream(
         stream_config,
         move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-            write_data(data, output_num_channels, &mut next_value)
+            write_data_to_frame_buffer(
+                data,
+                output_num_channels,
+                &mut write_frame_values_to_buffer,
+                &mut final_frame_values,
+            )
         },
         err_fn,
     )?;

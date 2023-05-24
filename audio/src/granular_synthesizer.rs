@@ -3,7 +3,7 @@ use crate::granular_synthesizer_action::GranularSynthesizerAction;
 use crate::max::Max;
 use crate::min::Min;
 use crate::percentage::Percentage;
-use crate::{utils, IntSet};
+use crate::{IntSet, SINE_ENVELOPE, Envelope};
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
 
@@ -36,21 +36,6 @@ pub struct GranularSynthesizer {
 
     /// length as a percentage of the currently selected audio
     grain_len_max: Percentage,
-
-    /// Samples that have been copied over from the audio buffer.
-    /// This value gets multiplied with its corresponding `output_env_samples`
-    /// to produce the final sample value.
-    ///
-    /// each array value = 1 channel
-    output_buffer_samples: Vec<f32>,
-
-    /// Envelope values that have been copied over to match the
-    /// current progress of a grain.
-    /// This value gets multiplied with its corresponding `output_buffer_samples`
-    /// to produce the final sample value.
-    ///
-    /// each array value = 1 channel
-    output_env_samples: Vec<f32>,
 
     /// The minimum index that samples can be taken from,
     /// ranging from 0.0 -> 1.0 (i.e. percentage of the buffer)
@@ -86,6 +71,9 @@ pub struct GranularSynthesizer {
     ///
     /// 1 array element = 1 grain = 1 channel of audio
     finished_grains: IntSet<Grain>,
+
+    /// Volume envelope used for controlling the volume of each grain's playback
+    envelope: Envelope<f32>,
 }
 
 impl GranularSynthesizerAction for GranularSynthesizer {
@@ -108,8 +96,6 @@ impl GranularSynthesizerAction for GranularSynthesizer {
             rng: rand::rngs::StdRng::from_entropy(),
             grain_len_min: Percentage::from(Self::GRAIN_LEN_MIN_MIN),
             grain_len_max: Percentage::from(Self::GRAIN_LEN_MAX_MIN),
-            output_buffer_samples: vec![0.0; Self::DEFAULT_NUM_CHANNELS as usize],
-            output_env_samples: vec![0.0; Self::DEFAULT_NUM_CHANNELS as usize],
             selection_start: Percentage::from(0.0),
             selection_end: Percentage::from(1.0),
             max_num_channels: Self::DEFAULT_NUM_CHANNELS,
@@ -118,6 +104,7 @@ impl GranularSynthesizerAction for GranularSynthesizer {
             refresh_interval: Self::DEFAULT_REFRESH_INTERVAL,
             fresh_grains,
             finished_grains,
+            envelope: SINE_ENVELOPE,
         }
     }
 
@@ -193,23 +180,6 @@ impl GranularSynthesizerAction for GranularSynthesizer {
             self.finished_grains.truncate(max_num_channels);
         }
 
-        // adjust samples buffer to be as long as max number of channels
-        if max_num_channels > self.output_buffer_samples.len() {
-            let num_extra_samples = max_num_channels - self.output_buffer_samples.len();
-            self.output_buffer_samples
-                .extend(vec![0.0; num_extra_samples]);
-        } else if max_num_channels < self.output_buffer_samples.len() {
-            self.output_buffer_samples.truncate(max_num_channels);
-        }
-
-        // adjust envelope buffer to be as long as max number of channels
-        if max_num_channels > self.output_env_samples.len() {
-            let num_extra_samples = max_num_channels - self.output_env_samples.len();
-            self.output_env_samples.extend(vec![0.0; num_extra_samples]);
-        } else if max_num_channels < self.output_env_samples.len() {
-            self.output_env_samples.truncate(max_num_channels);
-        }
-
         self
     }
 
@@ -272,11 +242,8 @@ impl GranularSynthesizerAction for GranularSynthesizer {
             self.filter_one_long_grain();
             self.refresh_grain();
         }
-
         self.increment_refresh_counter();
-
-        self.fill_buffer_and_env_samples();
-        self.frame_data(frame_data_buffer)
+        self.write_frame_data_into_buffer(frame_data_buffer)
     }
 
     fn next_frame(&mut self) -> Vec<f32> {
@@ -451,39 +418,6 @@ impl GranularSynthesizer {
         }
     }
 
-    /// Fills in buffer & envelope sample data for each channel
-    /// based on the current state of the grain for each channel.
-    ///
-    /// Each buffer sample and envelope sample must be coordinated/aligned to prevent
-    /// audio clipping and/or unexpected audio results.
-    fn fill_buffer_and_env_samples(&mut self) {
-        // get value of each grain's current index in the buffer for each channel
-        self.fresh_grains
-            .iter_mut()
-            .enumerate()
-            .for_each(|(i, grain)| {
-                // this can happen if a grain has finished, but the selection
-                // size is 0, so the grain can't get refreshed with more data
-                if grain.finished {
-                    self.output_buffer_samples[i] = 0.0;
-                    self.output_env_samples[i] = 0.0;
-                    return;
-                }
-
-                let grain_len = grain.len.max(1) as f32;
-                let envelope_percent =
-                    ((grain.current_frame - grain.start_frame) as f32) / grain_len;
-                let envelope_value =
-                    utils::generate_triangle_envelope_value_from_percent(envelope_percent);
-                let sample_value = self.buffer[grain.current_frame];
-
-                self.output_buffer_samples[i] = sample_value;
-                self.output_env_samples[i] = envelope_value;
-
-                grain.next_frame();
-            });
-    }
-
     /// this represents the number of channels actually in use
     fn num_channels_for_frame(&self) -> usize {
         (self.max_num_channels as f32 * self.channels) as usize
@@ -491,15 +425,27 @@ impl GranularSynthesizer {
 
     /// Combines current buffer and envelope sample values to calculate a full audio frame
     /// (where each channel gets a single audio output value).
-    fn frame_data<'a>(&self, frame_data_buffer: &'a mut Vec<f32>) -> &'a mut Vec<f32> {
+    fn write_frame_data_into_buffer<'a>(&mut self, frame_data_buffer: &'a mut Vec<f32>) -> &'a mut Vec<f32> {
         let num_channels_for_frame = self.num_channels_for_frame();
         frame_data_buffer.resize(num_channels_for_frame, 0.0);
         frame_data_buffer
             .iter_mut()
-            .zip(self.output_buffer_samples.iter())
-            .zip(self.output_env_samples.iter())
-            .for_each(|((channel, buffer_sample), envelope_sample)| {
-                *channel = buffer_sample * envelope_sample;
+            .zip(self.fresh_grains.iter_mut())
+            .for_each(|(channel, grain)| {
+                if grain.finished {
+                    *channel = 0.0;
+                    return;
+                }
+                let sample_value = self.buffer[grain.current_frame];
+                let grain_len = grain.len.max(1) as f32;
+                let envelope_percent =
+                    ((grain.current_frame - grain.start_frame) as f32) / grain_len;
+                let envelope_i = (envelope_percent * self.envelope.len() as f32) as usize;
+                let envelope_value = self.envelope[envelope_i];
+
+                *channel = sample_value * envelope_value;
+
+                grain.next_frame();
             });
         frame_data_buffer
     }
