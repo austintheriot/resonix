@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::{
     components::input_range::InputRange,
     state::{
@@ -13,11 +15,11 @@ use audio::{
 use web_sys::HtmlInputElement;
 use yew::{function_component, html, prelude::*};
 
-#[function_component(ControlsMaxLen)]
-pub fn controls_max_len() -> Html {
+#[function_component(ControlsLen)]
+pub fn controls_len() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
     let max_len_input_disabled = app_context.state_handle.get_are_audio_controls_disabled();
-    let grain_len_max_value = app_context.state_handle.grain_len_max.get().get();
+    let grain_len = app_context.state_handle.grain_len.get();
 
     let handle_input = {
         let state_handle = app_context.state_handle;
@@ -26,23 +28,24 @@ pub fn controls_max_len() -> Html {
                 return;
             }
 
-            let new_grain_len_max = e
+            let new_grain_len = e
                 .target_dyn_into::<HtmlInputElement>()
                 .unwrap()
-                .value_as_number() as f32;
-            state_handle.dispatch(AppAction::SetGrainLenMax(new_grain_len_max));
+                .value_as_number() as u64;
+            let new_grain_len = Duration::from_millis(new_grain_len);
+            state_handle.dispatch(AppAction::SetGrainLen(new_grain_len));
         })
     };
 
     html! {
         <InputRange
-            label="max\nlen"
-            id="controls-max-length"
-            min={GranularSynthesizer::GRAIN_LEN_MAX_MIN.to_string()}
-            max={GranularSynthesizer::GRAIN_LEN_MAX_MAX.to_string()}
-            step="0.01"
+            label="len (ms)"
+            id="controls-grain-length"
+            min={GranularSynthesizer::GRAIN_LEN_MIN.as_millis().to_string()}
+            max={GranularSynthesizer::GRAIN_LEN_MAX.as_millis().to_string()}
+            step="1"
             oninput={handle_input}
-            value={grain_len_max_value.to_string()}
+            value={grain_len.as_millis().to_string()}
             disabled={max_len_input_disabled}
         />
     }

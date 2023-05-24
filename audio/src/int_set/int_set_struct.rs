@@ -118,7 +118,7 @@ where
             //  This is safe because:
             //  -   index is guaranteed to be within bounds
             //  -   indexes are guaranteed not to contain duplicates
-            unsafe { &mut *self.data.as_mut_ptr().offset(*i as isize) }
+            unsafe { &mut *self.data.as_mut_ptr().add(*i) }
                 .as_mut()
                 .unwrap()
         })
@@ -189,7 +189,7 @@ where
     }
 
     pub fn first(&self) -> Option<&V> {
-        self.data.iter().next().and_then(|v| v.as_ref())
+        self.data.first().and_then(|v| v.as_ref())
     }
 
     pub fn first_mut(&mut self) -> Option<&mut V> {
@@ -344,7 +344,7 @@ mod test_vec_map_struct {
     #[test]
     fn it_should_allow_extending() {
         let mut int_set = IntSet::new();
-        let new_elements = (0..=5).map(|i| Element(i));
+        let new_elements = (0..=5).map(Element);
         int_set.extend(new_elements);
         assert_eq!(int_set.get(0), Some(&Element(0)));
         assert_eq!(int_set.get(5), Some(&Element(5)));
@@ -440,7 +440,7 @@ mod test_vec_map_struct {
         #[test]
         fn extending() {
             let mut int_set = IntSet::new();
-            let new_elements = (50..=100).map(|i| Element(i));
+            let new_elements = (50..=100).map(Element);
             int_set.extend(new_elements);
             assert_eq!(int_set.pop_last(), Some(Element(100)));
             assert_eq!(int_set.len(), 50);

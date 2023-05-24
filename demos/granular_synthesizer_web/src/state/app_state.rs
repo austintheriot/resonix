@@ -2,10 +2,10 @@ use crate::audio::audio_ouput_handle::AudioOutputHandle;
 use crate::audio::audio_recorder_handle::AudioRecorderHandle;
 use crate::audio::buffer_handle::BufferHandle;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
-use crate::audio::num_channels_handle::NumChannelsHandle;
 use crate::audio::gain_handle::GainHandle;
 use crate::audio::grain_len_handle::GrainLenHandle;
 use crate::audio::granular_synthesizer_handle::GranularSynthesizerHandle;
+use crate::audio::num_channels_handle::NumChannelsHandle;
 use crate::audio::play_status_handle::PlayStatusHandle;
 use crate::audio::recording_status_handle::RecordingStatusHandle;
 use crate::audio::refresh_interval_handle::RefreshIntervalHandle;
@@ -81,11 +81,8 @@ pub struct AppState {
     /// Corresponds to the number of audio channels that can render audio per frame
     pub num_channels_handle: NumChannelsHandle,
 
-    /// This is the maximum length (in milliseconds) that a grain sample can play for
-    pub grain_len_max: GrainLenHandle,
-
     /// This is the minimum length (in milliseconds) that a grain sample can play for
-    pub grain_len_min: GrainLenHandle,
+    pub grain_len: GrainLenHandle,
 
     pub refresh_interval: RefreshIntervalHandle,
 
@@ -106,8 +103,7 @@ impl Default for AppState {
 
         granular_synthesizer_handle
             .set_num_channels(50)
-            .set_grain_len_max(GranularSynthesizer::GRAIN_LEN_MAX_MAX)
-            .set_grain_len(GranularSynthesizer::GRAIN_LEN_MIN_MIN);
+            .set_grain_len(GranularSynthesizer::GRAIN_LEN_MAX);
 
         Self {
             buffer_handle: Default::default(),
@@ -130,8 +126,7 @@ impl Default for AppState {
                 granular_synthesizer_handle.selection_end().get(),
             ),
             num_channels_handle: granular_synthesizer_handle.num_channels().get().into(),
-            grain_len_min: granular_synthesizer_handle.grain_len().get().into(),
-            grain_len_max: granular_synthesizer_handle.grain_len_max().get().into(),
+            grain_len: granular_synthesizer_handle.grain_len().into(),
             refresh_interval: granular_synthesizer_handle.refresh_interval().into(),
             granular_synthesizer_handle,
         }

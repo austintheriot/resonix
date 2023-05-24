@@ -1,35 +1,34 @@
-use audio::percentage::Percentage;
-
 use super::bump_counter::BumpCounter;
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
-/// Wrapper around `u32`, which makes it possible to access
-/// the data from the audio thread, while also updating the value from the UI.
 #[derive(Clone, Debug)]
 pub struct GrainLenHandle {
-    grain_len: Arc<Mutex<Percentage>>,
+    grain_len: Arc<Mutex<Duration>>,
     counter: u32,
 }
 
-impl From<f32> for GrainLenHandle {
-    fn from(grain_len: f32) -> Self {
+impl From<Duration> for GrainLenHandle {
+    fn from(grain_len: Duration) -> Self {
         GrainLenHandle::new(grain_len)
     }
 }
 
 impl GrainLenHandle {
-    pub fn get(&self) -> Percentage {
+    pub fn get(&self) -> Duration {
         *self.grain_len.lock().unwrap()
     }
 
-    pub fn set(&mut self, grain_len: impl Into<Percentage>) {
+    pub fn set(&mut self, grain_len: impl Into<Duration>) {
         *self.grain_len.lock().unwrap() = grain_len.into();
         self.bump_counter();
     }
 
-    pub fn new(grain_len: f32) -> Self {
+    pub fn new(grain_len: Duration) -> Self {
         GrainLenHandle {
-            grain_len: Arc::new(Mutex::new(Percentage::from(grain_len))),
+            grain_len: Arc::new(Mutex::new(Duration::from(grain_len))),
             counter: Default::default(),
         }
     }

@@ -1,7 +1,7 @@
 use crate::audio::{
     play_status::PlayStatus, recording_status::RecordingStatus, stream_handle::StreamHandle,
 };
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use super::app_state::NunChannels;
 
@@ -22,8 +22,7 @@ pub enum AppAction {
     SetAudioLoading(bool),
     SetSampleRate(u32),
     SetNumSynthChannels(usize),
-    SetGrainLenMax(f32),
-    SetGrainLenMin(f32),
+    SetGrainLen(Duration),
     SetRefreshInterval(u32),
     ResetState,
     SetRecordingStatus(RecordingStatus),

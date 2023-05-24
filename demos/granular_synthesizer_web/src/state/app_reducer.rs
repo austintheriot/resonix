@@ -2,7 +2,7 @@ use super::{app_action::AppAction, app_state::AppState};
 use crate::{
     audio::{
         buffer_handle::BufferHandle, buffer_selection_action::BufferSelectionAction,
-        num_channels_action::NumChannelsAction, gain_action::GainAction,
+        gain_action::GainAction, num_channels_action::NumChannelsAction,
         play_status_action::PlayStatusAction, recording_status_action::RecordingStatusAction,
     },
     components::buffer_sample_bars_canvas::get_buffer_maxes_for_canvas,
@@ -69,31 +69,15 @@ impl Reducible for AppState {
                         .granular_synthesizer_handle
                         .set_num_channels(num_channels);
                 }
-                AppAction::SetGrainLenMax(max_len) => {
+                AppAction::SetGrainLen(grain_len) => {
                     next_state
                         .granular_synthesizer_handle
-                        .set_grain_len_max(max_len);
+                        .set_grain_len(grain_len);
 
                     // keep ui state in sync with synthesizer
                     next_state
-                        .grain_len_min
+                        .grain_len
                         .set(next_state.granular_synthesizer_handle.grain_len());
-                    next_state
-                        .grain_len_max
-                        .set(next_state.granular_synthesizer_handle.grain_len_max());
-                }
-                AppAction::SetGrainLenMin(min_len) => {
-                    next_state
-                        .granular_synthesizer_handle
-                        .set_grain_len(min_len);
-
-                    // keep ui state in sync with synthesizer
-                    next_state
-                        .grain_len_min
-                        .set(next_state.granular_synthesizer_handle.grain_len());
-                    next_state
-                        .grain_len_max
-                        .set(next_state.granular_synthesizer_handle.grain_len_max());
                 }
                 AppAction::SetRefreshInterval(refresh_interval) => {
                     next_state
