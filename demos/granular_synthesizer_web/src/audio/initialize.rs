@@ -13,10 +13,10 @@ use crate::{
 use audio::{downmix_simple_to_buffer, granular_synthesizer_action::GranularSynthesizerAction};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Stream, StreamConfig,
+    OutputCallbackInfo, Stream, StreamConfig,
 };
 use gloo_net::http::Request;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use yew::UseReducerHandle;
 
 /// Converts default mp3 file to raw audio sample data
@@ -44,27 +44,28 @@ async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Ar
 }
 
 /// This function is called periodically to write audio data into an audio output buffer
-fn write_data<T>(
-    output: &mut [T],
-    channels: usize,
-    next_sample: &mut dyn FnMut() -> Vec<f32>,
+fn write_data_to_frame_buffer<T>(
+    output_frame_buffer: &mut [T],
+    output_num_channels: usize,
+    write_frame_values_to_buffer: &mut dyn FnMut(&mut Vec<f32>),
     recording_status_handle: RecordingStatusHandle,
     mut audio_recorder_handle: AudioRecorderHandle,
+    mut final_frame_values: &mut Vec<f32>,
 ) where
     T: cpal::Sample,
 {
-    for frame in output.chunks_mut(channels) {
-        let output_samples = next_sample();
+    for output_channel_sample in output_frame_buffer.chunks_mut(output_num_channels) {
+        write_frame_values_to_buffer(&mut final_frame_values);
 
         // clone audio data into a recording buffer
         let is_recording = recording_status_handle.get() == RecordingStatus::Recording;
         if is_recording {
-            let output_samples = output_samples.clone();
+            let output_samples = final_frame_values.clone();
             audio_recorder_handle.extend(output_samples)
         }
 
-        for (i, sample) in frame.iter_mut().enumerate() {
-            *sample = cpal::Sample::from::<f32>(&output_samples[i]);
+        for (i, sample) in output_channel_sample.iter_mut().enumerate() {
+            *sample = cpal::Sample::from::<f32>(&final_frame_values[i]);
         }
     }
 }
@@ -81,6 +82,7 @@ where
     // this is the config of the output audio
     let output_sample_rate = stream_config.sample_rate.0;
     let output_num_channels = stream_config.channels as usize;
+    let num_frames_between_saving_snapshot = output_sample_rate / 120;
 
     // only load if buffer hasn't been loaded
     if app_state_handle.buffer_handle.get_data().is_empty() {
@@ -104,11 +106,20 @@ where
 
     let mut downmixed_frame_buffer_data = vec![0.0; output_num_channels];
 
+    // Holds frame data before it is copied into the actual audio output buffer--
+    // holding this data in a temporary buffer makes copying the data when recording simpler
+    let mut final_frame_values = vec![0.0; output_num_channels];
+
+    let mut frame_count: u32 = 0;
+
     // Called for every audio frame to generate appropriate sample
-    let mut next_value = move || {
+    let mut write_frame_values_to_buffer = move |output_frame_buffer: &mut Vec<f32>| -> () {
+        frame_count = frame_count.wrapping_add(1);
+
         // if paused, do not process any audio, just return silence
         if let PlayStatus::Pause = status.get() {
-            return vec![0.0; output_num_channels];
+            output_frame_buffer.fill(0.0);
+            return;
         }
 
         // always keep granular_synth up-to-date with buffer selection from UI
@@ -122,8 +133,11 @@ where
 
         // copy up-to-date audio output information into context for
         // reference in audio output visualization
-        audio_output_handle.add_frame(frame.clone());
-
+        // (only visualize 2-channel audio, for performance reasons)
+        if frame_count % num_frames_between_saving_snapshot == 0 {
+            audio_output_handle.add_frame(frame.clone());
+        }
+        
         // mix multi-channel down to number of outputs
         downmix_simple_to_buffer(
             &frame,
@@ -133,12 +147,12 @@ where
 
         // gate final output with global gain
         let gain = gain_handle.get();
-        let output_frame: Vec<f32> = downmixed_frame_buffer_data
-            .iter()
-            .map(|output| output * gain)
-            .collect();
-
-        output_frame
+        output_frame_buffer
+            .iter_mut()
+            .zip(downmixed_frame_buffer_data.iter())
+            .for_each(|(result, &sample)| {
+                *result = sample * gain;
+            });
     };
 
     let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
@@ -147,13 +161,14 @@ where
 
     let stream = device.build_output_stream(
         stream_config,
-        move |data: &mut [T], _: &cpal::OutputCallbackInfo| {
-            write_data(
-                data,
+        move |output_frame_buffer: &mut [T], _: &OutputCallbackInfo| {
+            write_data_to_frame_buffer(
+                output_frame_buffer,
                 output_num_channels,
-                &mut next_value,
+                &mut write_frame_values_to_buffer,
                 recording_status_handle.clone(),
                 audio_recorder_handle.clone(),
+                &mut final_frame_values,
             )
         },
         err_fn,

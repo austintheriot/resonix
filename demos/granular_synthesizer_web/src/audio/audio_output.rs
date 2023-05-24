@@ -30,7 +30,7 @@ impl AudioOutput {
 }
 
 impl AudioOutputAction for AudioOutput {
-    const NUM_FRAMES_DEFAULT: usize = 20;
+    const NUM_FRAMES_DEFAULT: usize = 2;
     const NUM_CHANNELS_DEFAULT: usize = 2;
 
     fn add_frame(&mut self, frame: Vec<f32>) {
