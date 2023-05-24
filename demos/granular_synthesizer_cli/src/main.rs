@@ -64,8 +64,7 @@ where
         // configure granular synthesizer settings
         let mut granular_synthesizer_lock = granular_synthesizer.lock().unwrap();
         granular_synthesizer_lock.set_buffer(load_default_buffer());
-        granular_synthesizer_lock.set_grain_len_max(1.0);
-        granular_synthesizer_lock.set_grain_len(0.0);
+        granular_synthesizer_lock.set_grain_len(Duration::from_millis(100));
         granular_synthesizer_lock.set_num_channels(50);
         granular_synthesizer_lock.set_sample_rate(output_sample_rate);
         granular_synthesizer_lock

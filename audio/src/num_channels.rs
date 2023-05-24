@@ -1,5 +1,5 @@
 use crate::{max::Max, min::Min};
-use std::ops::{Add, Mul, Sub, Deref};
+use std::ops::{Add, Deref, Mul, Sub};
 
 #[derive(PartialEq, PartialOrd, Default, Clone, Debug, Copy)]
 pub struct NumChannels(usize);
@@ -10,7 +10,9 @@ impl NumChannels {
     pub const NUM_CHANNELS_MIN: usize = 1;
 
     pub fn sanitize_channels(num_channels: impl Into<usize>) -> usize {
-        num_channels.into().clamp(Self::NUM_CHANNELS_MIN, Self::NUM_CHANNELS_MAX)
+        num_channels
+            .into()
+            .clamp(Self::NUM_CHANNELS_MIN, Self::NUM_CHANNELS_MAX)
     }
 
     pub fn new(num_channels: impl Into<usize>) -> Self {
@@ -143,7 +145,6 @@ impl From<usize> for NumChannels {
         Self::new(num_channels)
     }
 }
-
 
 impl From<NumChannels> for usize {
     fn from(num_channels: NumChannels) -> Self {

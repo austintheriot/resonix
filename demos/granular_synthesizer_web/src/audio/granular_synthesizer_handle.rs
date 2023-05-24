@@ -4,6 +4,7 @@ use audio::percentage::Percentage;
 use audio::NumChannels;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use uuid::Uuid;
 
 /// Wrapper around GranularSynthesizer for accessing data from both the UI and the audio thread.
@@ -49,20 +50,11 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn set_grain_len(&mut self, grain_len_min: impl Into<Percentage>) -> &mut Self {
+    fn set_grain_len(&mut self, grain_len: impl Into<Duration>) -> &mut Self {
         self.granular_synthesizer
             .lock()
             .unwrap()
-            .set_grain_len(grain_len_min);
-
-        self
-    }
-
-    fn set_grain_len_max(&mut self, grain_len_max: impl Into<Percentage>) -> &mut Self {
-        self.granular_synthesizer
-            .lock()
-            .unwrap()
-            .set_grain_len_max(grain_len_max);
+            .set_grain_len(grain_len);
 
         self
     }
@@ -109,12 +101,8 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn grain_len(&self) -> Percentage {
+    fn grain_len(&self) -> Duration {
         self.granular_synthesizer.lock().unwrap().grain_len()
-    }
-
-    fn grain_len_max(&self) -> Percentage {
-        self.granular_synthesizer.lock().unwrap().grain_len_max()
     }
 
     fn refresh_interval(&self) -> u32 {

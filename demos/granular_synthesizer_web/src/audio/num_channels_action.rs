@@ -1,4 +1,4 @@
-use audio::{NumChannels};
+use audio::NumChannels;
 
 pub trait NumChannelsAction {
     const DEFAULT_CHANNELS: usize;
