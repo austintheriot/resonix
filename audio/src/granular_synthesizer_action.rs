@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{grain::Grain, percentage::Percentage};
+use crate::{grain::Grain, percentage::Percentage, NumChannels};
 
 /// Public interface to the GranularSynthesizer.
 ///
@@ -11,9 +11,7 @@ pub trait GranularSynthesizerAction {
 
     const CHANNELS_MIN: f32 = 0.0;
 
-    const DEFAULT_NUM_CHANNELS: u32 = 2;
-
-    const DEFAULT_CHANNELS: f32 = 1.0;
+    const DEFAULT_NUM_CHANNELS: usize = 2;
 
     const GRAIN_LEN_MIN_DIFFERENCE: f32 = 0.05;
 
@@ -52,11 +50,9 @@ pub trait GranularSynthesizerAction {
 
     fn set_grain_len_max(&mut self, input_max_len_in_ms: impl Into<Percentage>) -> &mut Self;
 
-    fn set_max_number_of_channels(&mut self, max_num_channels: u32) -> &mut Self;
+    fn set_channels(&mut self, channels: impl Into<NumChannels>) -> &mut Self;
 
-    fn set_channels(&mut self, channels: impl Into<Percentage>) -> &mut Self;
-
-    fn channels(&self) -> Percentage;
+    fn num_channels(&self) -> NumChannels;
 
     fn sanitize_refresh_interval(refresh_interval: u32) -> u32 {
         refresh_interval

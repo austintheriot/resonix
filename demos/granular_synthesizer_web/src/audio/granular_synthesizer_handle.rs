@@ -1,7 +1,7 @@
-use super::global_defaults::MAX_NUM_CHANNELS;
 use audio::granular_synthesizer::GranularSynthesizer;
 use audio::granular_synthesizer_action::GranularSynthesizerAction;
 use audio::percentage::Percentage;
+use audio::NumChannels;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
@@ -67,16 +67,7 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn set_max_number_of_channels(&mut self, max_num_channels: u32) -> &mut Self {
-        self.granular_synthesizer
-            .lock()
-            .unwrap()
-            .set_max_number_of_channels(max_num_channels);
-
-        self
-    }
-
-    fn set_channels(&mut self, channels: impl Into<Percentage>) -> &mut Self {
+    fn set_channels(&mut self, channels: impl Into<NumChannels>) -> &mut Self {
         self.granular_synthesizer
             .lock()
             .unwrap()
@@ -85,8 +76,8 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn channels(&self) -> Percentage {
-        self.granular_synthesizer.lock().unwrap().channels()
+    fn num_channels(&self) -> NumChannels {
+        self.granular_synthesizer.lock().unwrap().num_channels()
     }
 
     fn set_buffer(&mut self, buffer: Arc<Vec<f32>>) -> &mut Self {
@@ -144,9 +135,6 @@ impl Default for GranularSynthesizerHandle {
     /// Instantiate with global app audio defaults
     fn default() -> GranularSynthesizerHandle {
         let mut granular_synth: GranularSynthesizer = GranularSynthesizer::new();
-
-        // this data does not need to be updated dynamically (for now at least)
-        granular_synth.set_max_number_of_channels(MAX_NUM_CHANNELS);
 
         Self {
             granular_synthesizer: Arc::new(Mutex::new(granular_synth)),

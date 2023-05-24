@@ -1,5 +1,5 @@
 use crate::{
-    audio::channels_action::ChannelsAction,
+    audio::num_channels_action::NumChannelsAction,
     components::input_range::InputRange,
     state::{
         app_action::AppAction,
@@ -26,18 +26,18 @@ pub fn controls_density() -> Html {
             let channels = e
                 .target_dyn_into::<HtmlInputElement>()
                 .unwrap()
-                .value_as_number() as f32;
-            state_handle.dispatch(AppAction::SetChannels(channels));
+                .value_as_number() as usize;
+            state_handle.dispatch(AppAction::SeNumChannels(channels));
         })
     };
 
     html! {
         <InputRange
             label="channels"
-            id="controls-channels-input"
-            min="0.0"
-            max="1.0"
-            step="0.0001"
+            id="controls-num-channels-input"
+            min="0"
+            max="100"
+            step="1"
             oninput={handle_input}
             value={channels.to_string()}
             disabled={density_input_disabled}
