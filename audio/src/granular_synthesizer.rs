@@ -494,23 +494,13 @@ impl GranularSynthesizer {
     fn frame_data<'a>(&self, frame_data_buffer: &'a mut Vec<f32>) -> &'a mut Vec<f32> {
         let num_channels_for_frame = self.num_channels_for_frame();
         frame_data_buffer.resize(num_channels_for_frame, 0.0);
-        for (i, channel) in frame_data_buffer.iter_mut().enumerate() {
-            let buffer_sample = self
-                .output_buffer_samples
-                .get(i)
-                .copied()
-                .expect("output_buffer_samples length should match max number of grains");
-
-            let envelope_sample = self
-                .output_env_samples
-                .get(i)
-                .copied()
-                .expect("output_env_samples length should match max number of grains");
-
-            // if these buffers have not been filled up yet, just return 0.0
-            *channel = buffer_sample * envelope_sample;
-        }
-
+        frame_data_buffer
+            .iter_mut()
+            .zip(self.output_buffer_samples.iter())
+            .zip(self.output_env_samples.iter())
+            .for_each(|((channel, buffer_sample), envelope_sample)| {
+                *channel = buffer_sample * envelope_sample;
+            });
         frame_data_buffer
     }
 
