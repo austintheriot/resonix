@@ -101,16 +101,27 @@ where
         }
     }
 
+    // returns the number of items in the set
+    // (i.e. only the entries that are currently set to `Some<V>`)
     pub fn len(&self) -> usize {
-        self.data.iter().filter(|el| el.is_some()).count()
+        self.indexes.len()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &V> {
-        self.data.iter().filter_map(|el| el.as_ref())
+        self.indexes.iter().map(|i| *self.get(*i).as_ref().unwrap())
     }
 
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut V> {
-        self.data.iter_mut().filter_map(|el| el.as_mut())
+        self.indexes.iter().map(|i| {
+            // Uses indexes to get mutable references to underlying data
+            //
+            //  This is safe because:
+            //  -   index is guaranteed to be within bounds
+            //  -   indexes are guaranteed not to contain duplicates
+            unsafe { &mut *self.data.as_mut_ptr().offset(*i as isize) }
+                .as_mut()
+                .unwrap()
+        })
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
@@ -132,38 +143,57 @@ where
         std::mem::replace(&mut self.data[i], Some(v))
     }
 
-    pub fn extend<I: IntoIterator<Item = Option<V>> + Clone>(&mut self, iter: I) {
-        // kind of hacky ¯\_(ツ)_/¯
+    pub fn extend<I: IntoIterator<Item = V> + Clone>(&mut self, iter: I) {
+        // kind of hacky ¯\_(ツ)_/¯ but keeps track of both index and adding data to
+        // vector without cloning the iterator
         let iter = iter.into_iter();
         for el in iter {
-            if let Some(el) = el {
-                self.insert(el);
-            }
+            self.insert(el);
         }
     }
 
-    pub fn truncate(&mut self, len: usize) {
-        self.data.drain((len + 1)..).flatten().for_each(|el| {
-            self.indexes.remove(&el.id());
-        })
+    /// Removes any elements (beginning with largest indexes first).
+    /// Returns the number of elements removed
+    pub fn truncate(&mut self, len: usize) -> usize {
+        let mut elements_removed = 0;
+        let prev_len = self.len();
+
+        let elements_to_remove = if len >= prev_len {
+            return elements_removed;
+        } else {
+            prev_len - len
+        };
+
+        let indexes_to_remove: Vec<_> = self
+            .indexes
+            .iter()
+            .rev()
+            .take(elements_to_remove)
+            .map(ToOwned::to_owned)
+            .collect();
+
+        indexes_to_remove.iter().for_each(|i| {
+            elements_removed += 1;
+            self.remove(*i);
+        });
+
+        elements_removed
     }
 
     pub fn get(&self, i: impl Index) -> Option<&V> {
         self.data.get(i.id()).unwrap_or(&None).as_ref()
     }
 
+    pub fn get_mut(&mut self, i: impl Index) -> Option<&mut V> {
+        self.data.get_mut(i.id()).and_then(|v| v.as_mut())
+    }
+
     pub fn first(&self) -> Option<&V> {
-        self.data
-            .iter()
-            .find(|v| v.is_some())
-            .and_then(|v| v.as_ref())
+        self.data.iter().next().and_then(|v| v.as_ref())
     }
 
     pub fn first_mut(&mut self) -> Option<&mut V> {
-        self.data
-            .iter_mut()
-            .find(|v| v.is_some())
-            .and_then(|v| v.as_mut())
+        self.data.iter_mut().next().and_then(|v| v.as_mut())
     }
 
     pub fn remove(&mut self, i: impl Index) -> Option<V> {
@@ -180,7 +210,7 @@ where
     pub fn pop_last(&mut self) -> Option<V> {
         self.indexes.pop_last().and_then(|i| {
             if i < self.data.len() {
-                self.data.remove(i)
+                std::mem::take(&mut self.data[i])
             } else {
                 None
             }
@@ -191,7 +221,7 @@ where
     pub fn pop_first(&mut self) -> Option<V> {
         self.indexes.pop_first().and_then(|i| {
             if i < self.data.len() {
-                self.data.remove(i)
+                std::mem::take(&mut self.data[i])
             } else {
                 None
             }
@@ -226,6 +256,7 @@ mod test_vec_map_struct {
         int_set.insert(element);
 
         assert_eq!(int_set.get(15), Some(&element));
+        assert_eq!(int_set.len(), 1)
     }
 
     #[test]
@@ -241,6 +272,7 @@ mod test_vec_map_struct {
         assert_eq!(int_set.get(0), Some(&element1));
         assert_eq!(int_set.get(15), Some(&element2));
         assert_eq!(int_set.get(119), Some(&element3));
+        assert_eq!(int_set.len(), 3);
     }
 
     #[test]
@@ -266,6 +298,7 @@ mod test_vec_map_struct {
 
         assert_eq!(int_set.get(0), Some(&element2));
         assert_eq!(int_set.get(1), Some(&element4));
+        assert_eq!(int_set.len(), 2);
     }
 
     #[test]
@@ -275,6 +308,7 @@ mod test_vec_map_struct {
         int_set.insert(element1);
         int_set.remove(0);
         assert_eq!(int_set.get(0), None);
+        assert_eq!(int_set.len(), 0);
     }
 
     #[test]
@@ -282,6 +316,7 @@ mod test_vec_map_struct {
         let mut int_set: IntSet<Element> = IntSet::new();
         int_set.remove(0);
         assert_eq!(int_set.get(0), None);
+        assert_eq!(int_set.len(), 0);
     }
 
     #[test]
@@ -303,16 +338,18 @@ mod test_vec_map_struct {
         assert_eq!(int_set.get(0), Some(&element1));
         assert_eq!(int_set.get(15), None);
         assert_eq!(int_set.get(119), None);
+        assert_eq!(int_set.len(), 1);
     }
 
     #[test]
     fn it_should_allow_extending() {
         let mut int_set = IntSet::new();
-        let new_elements = (0..=5).map(|i| Some(Element(i)));
+        let new_elements = (0..=5).map(|i| Element(i));
         int_set.extend(new_elements);
         assert_eq!(int_set.get(0), Some(&Element(0)));
         assert_eq!(int_set.get(5), Some(&Element(5)));
         assert_eq!(int_set.get(6), None);
+        assert_eq!(int_set.len(), 6);
     }
 
     #[test]
@@ -325,7 +362,7 @@ mod test_vec_map_struct {
         int_set.insert(element2);
         int_set.insert(element3);
 
-        assert_eq!(int_set.len(), 3)
+        assert_eq!(int_set.len(), 3);
     }
 
     #[test]
@@ -339,33 +376,29 @@ mod test_vec_map_struct {
         int_set.insert(element2);
         int_set.insert(element3);
 
-        let mut examples = vec![];
+        let mut iterator = int_set.iter();
+        assert_eq!(iterator.next(), Some(&element1));
+        assert_eq!(iterator.next(), Some(&element2));
+        assert_eq!(iterator.next(), Some(&element3));
 
-        for el in &int_set {
-            examples.push(el);
-        }
-
-        assert_eq!(examples.len(), 3)
+        assert_eq!(int_set.len(), 3);
     }
 
     #[test]
     fn it_should_be_able_to_iterate_over_mutable_reference() {
         let mut int_set = IntSet::new();
-        let element1 = Element(0);
-        let element2 = Element(15);
-        let element3 = Element(119);
+        let mut element1 = Element(0);
+        let mut element2 = Element(15);
+        let mut element3 = Element(119);
 
         int_set.insert(element1);
         int_set.insert(element2);
         int_set.insert(element3);
 
-        let mut examples = vec![];
-
-        for el in &mut int_set {
-            examples.push(el);
-        }
-
-        assert_eq!(examples.len(), 3)
+        let mut iterator = int_set.iter_mut();
+        assert_eq!(iterator.next(), Some(&mut element1));
+        assert_eq!(iterator.next(), Some(&mut element2));
+        assert_eq!(iterator.next(), Some(&mut element3));
     }
 
     #[test]
@@ -400,15 +433,17 @@ mod test_vec_map_struct {
             int_set.insert(element2);
             int_set.insert(element1);
 
-            assert_eq!(int_set.pop_last(), Some(Element(119)))
+            assert_eq!(int_set.pop_last(), Some(Element(119)));
+            assert_eq!(int_set.len(), 2)
         }
 
         #[test]
         fn extending() {
             let mut int_set = IntSet::new();
-            let new_elements = (50..=100).map(|i| Some(Element(i)));
+            let new_elements = (50..=100).map(|i| Element(i));
             int_set.extend(new_elements);
-            assert_eq!(int_set.pop_last(), Some(Element(100)))
+            assert_eq!(int_set.pop_last(), Some(Element(100)));
+            assert_eq!(int_set.len(), 50);
         }
 
         #[test]
@@ -420,9 +455,11 @@ mod test_vec_map_struct {
             int_set.insert(element1);
             int_set.insert(element2);
             int_set.insert(element3);
-            int_set.truncate(1);
+            let elements_removed = int_set.truncate(1);
 
             assert_eq!(int_set.pop_last(), Some(element1));
+            assert_eq!(elements_removed, 2);
+            assert_eq!(int_set.len(), 0);
         }
     }
 
@@ -437,7 +474,8 @@ mod test_vec_map_struct {
         int_set.insert(element2);
         int_set.insert(element1);
 
-        assert_eq!(int_set.pop_first(), Some(Element(0)))
+        assert_eq!(int_set.pop_first(), Some(Element(0)));
+        assert_eq!(int_set.len(), 2);
     }
 
     #[test]
@@ -454,5 +492,6 @@ mod test_vec_map_struct {
         assert!(int_set.contains(0));
         assert!(!int_set.contains(14));
         assert!(!int_set.contains(1000));
+        assert_eq!(int_set.len(), 3);
     }
 }

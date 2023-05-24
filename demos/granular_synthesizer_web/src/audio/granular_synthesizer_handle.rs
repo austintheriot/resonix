@@ -49,11 +49,11 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn set_grain_len_min(&mut self, grain_len_min: impl Into<Percentage>) -> &mut Self {
+    fn set_grain_len(&mut self, grain_len_min: impl Into<Percentage>) -> &mut Self {
         self.granular_synthesizer
             .lock()
             .unwrap()
-            .set_grain_len_min(grain_len_min);
+            .set_grain_len(grain_len_min);
 
         self
     }
@@ -67,11 +67,11 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn set_channels(&mut self, channels: impl Into<NumChannels>) -> &mut Self {
+    fn set_num_channels(&mut self, channels: impl Into<NumChannels>) -> &mut Self {
         self.granular_synthesizer
             .lock()
             .unwrap()
-            .set_channels(channels);
+            .set_num_channels(channels);
 
         self
     }
@@ -109,8 +109,8 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn grain_len_min(&self) -> Percentage {
-        self.granular_synthesizer.lock().unwrap().grain_len_min()
+    fn grain_len(&self) -> Percentage {
+        self.granular_synthesizer.lock().unwrap().grain_len()
     }
 
     fn grain_len_max(&self) -> Percentage {
