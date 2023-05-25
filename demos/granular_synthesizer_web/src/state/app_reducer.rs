@@ -79,13 +79,13 @@ impl Reducible for AppState {
                         .grain_len
                         .set(next_state.granular_synthesizer_handle.grain_len());
                 }
-                AppAction::SetRefreshInterval(refresh_interval) => {
+                AppAction::SetGrainInitializationDelay(delay) => {
                     next_state
                         .granular_synthesizer_handle
-                        .set_refresh_interval(refresh_interval);
+                        .set_grain_initialization_delay(delay);
                     next_state
-                        .refresh_interval
-                        .set(next_state.granular_synthesizer_handle.refresh_interval());
+                        .grain_initialization_delay
+                        .set(next_state.granular_synthesizer_handle.grain_initialization_delay());
                 }
                 AppAction::ResetState => {
                     // drop previous stream's handle to stop audio

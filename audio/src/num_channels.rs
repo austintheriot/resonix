@@ -1,7 +1,7 @@
 use crate::{max::Max, min::Min};
 use std::ops::{Add, Deref, Mul, Sub};
 
-#[derive(PartialEq, PartialOrd, Default, Clone, Debug, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct NumChannels(usize);
 
 impl NumChannels {

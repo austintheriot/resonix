@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::{
     components::input_range::InputRange,
     state::{
@@ -13,12 +15,11 @@ use audio::{
 use web_sys::HtmlInputElement;
 use yew::{function_component, html, prelude::*};
 
-#[function_component(ControlsRefreshInterval)]
-pub fn controls_refresh_interval() -> Html {
+#[function_component(ControlsDelay)]
+pub fn controls_delay() -> Html {
     let app_context = use_context::<AppContext>().expect(AppContextError::NOT_FOUND);
-    let refresh_interval_input_disabled =
-        app_context.state_handle.get_are_audio_controls_disabled();
-    let refresh_interval = app_context.state_handle.refresh_interval.get();
+    let delay_input_disabled = app_context.state_handle.get_are_audio_controls_disabled();
+    let delay = app_context.state_handle.grain_initialization_delay.get();
 
     let handle_input = {
         let state_handle = app_context.state_handle;
@@ -27,24 +28,26 @@ pub fn controls_refresh_interval() -> Html {
                 return;
             }
 
-            let refresh_interval = e
+            let delay_ms = e
                 .target_dyn_into::<HtmlInputElement>()
                 .unwrap()
-                .value_as_number() as u32;
-            state_handle.dispatch(AppAction::SetRefreshInterval(refresh_interval));
+                .value_as_number() as u64;
+            state_handle.dispatch(AppAction::SetGrainInitializationDelay(
+                Duration::from_millis(delay_ms),
+            ));
         })
     };
 
     html! {
         <InputRange
-            label="fade"
+            label="delay"
             id="controls-refresh-interval"
-            min={GranularSynthesizer::REFRESH_INTERVAL_MIN.to_string()}
-            max={GranularSynthesizer::REFRESH_INTERVAL_MAX.to_string()}
+            min={GranularSynthesizer::GRAIN_INITIALIZATION_DELAY_MIN.as_millis().to_string()}
+            max={GranularSynthesizer::GRAIN_INITIALIZATION_DELAY_MAX.as_millis().to_string()}
             step="1"
             oninput={handle_input}
-            value={refresh_interval.to_string()}
-            disabled={refresh_interval_input_disabled}
+            value={delay.as_millis().to_string()}
+            disabled={delay_input_disabled}
         />
     }
 }

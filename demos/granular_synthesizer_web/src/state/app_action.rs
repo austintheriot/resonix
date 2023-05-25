@@ -23,7 +23,7 @@ pub enum AppAction {
     SetSampleRate(u32),
     SetNumSynthChannels(usize),
     SetGrainLen(Duration),
-    SetRefreshInterval(u32),
+    SetGrainInitializationDelay(Duration),
     ResetState,
     SetRecordingStatus(RecordingStatus),
     SetNumChannels(NunChannels),

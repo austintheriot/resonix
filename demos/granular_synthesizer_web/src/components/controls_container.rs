@@ -5,7 +5,7 @@ use crate::{
         controls_enable_audio::ControlsEnableAudio, controls_gain::ControlsGain,
         controls_len::ControlsLen, controls_play_status::ControlsPlayStatus,
         controls_recording_status::ControlsRecordingStatus,
-        controls_refresh_interval::ControlsRefreshInterval, controls_reset::ControlsReset,
+        controls_delay::ControlsDelay, controls_reset::ControlsReset,
         controls_select_buffer::ControlsSelectBuffer, controls_upload_buffer::ControlsUploadBuffer,
         loading_indicator::LoadingIndicator,
     },
@@ -35,7 +35,7 @@ pub fn controls_container() -> Html {
                 <ControlsGain />
                 <ControlsChannels />
                 <ControlsLen />
-                <ControlsRefreshInterval />
+                <ControlsDelay />
             </div>
             <div class="grid-select-container">
                 <ControlsSelectBuffer />

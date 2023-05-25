@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use crate::{grain::Grain, percentage::Percentage, NumChannels};
+use crate::{grain::Grain, percentage::Percentage, NumChannels, EnvelopeType};
 
 /// Public interface to the GranularSynthesizer.
 ///
@@ -19,15 +19,19 @@ pub trait GranularSynthesizerAction {
 
     const DEFAULT_GRAIN_LEN: Duration = Duration::from_millis(20);
 
+    const GRAIN_INITIALIZATION_DELAY_MIN: Duration = Duration::ZERO;
+
+    const GRAIN_INITIALIZATION_DELAY_MAX: Duration = Duration::from_millis(1000);
+
+    // using a prime number helps prevent grains whose playback start/stop
+    // times overlap with one another
+    const DEFAULT_GRAIN_INITIALIZATION_DELAY: Duration = Duration::from_millis(17);
+
     const DEFAULT_SAMPLE_RATE: u32 = 44100;
 
     /// This is the sample interval at which grains are filtered / refreshed.
     /// Using a prime number leads to the least periodic overlap in grains.
     const DEFAULT_REFRESH_INTERVAL: u32 = 271;
-
-    const REFRESH_INTERVAL_MIN: u32 = 17;
-
-    const REFRESH_INTERVAL_MAX: u32 = 1009;
 
     /// Creates a new GranularSynthesizer instance
     fn new() -> Self;
@@ -38,23 +42,23 @@ pub trait GranularSynthesizerAction {
 
     fn selection_end(&self) -> Percentage;
 
+    fn grain_initialization_delay(&self) -> Duration;
+
     fn set_selection_end(&mut self, start: impl Into<Percentage>) -> &mut Self;
 
     fn set_grain_len(&mut self, input_min_len_in_ms: impl Into<Duration>) -> &mut Self;
 
     fn set_num_channels(&mut self, channels: impl Into<NumChannels>) -> &mut Self;
 
+    fn set_grain_initialization_delay(&mut self, delay: impl Into<Duration>) -> &mut Self;
+
     fn num_channels(&self) -> NumChannels;
 
-    fn sanitize_refresh_interval(refresh_interval: u32) -> u32 {
-        refresh_interval
-            .max(Self::REFRESH_INTERVAL_MIN)
-            .min(Self::REFRESH_INTERVAL_MAX)
+    fn sanitize_grain_initialization_delay(delay: Duration) -> Duration {
+        delay
+            .max(Self::GRAIN_INITIALIZATION_DELAY_MIN)
+            .min(Self::GRAIN_INITIALIZATION_DELAY_MAX)
     }
-
-    fn refresh_interval(&self) -> u32;
-
-    fn set_refresh_interval(&mut self, refresh_interval: u32) -> &mut Self;
 
     /// Replace the internal buffer reference with a different one.
     ///
@@ -88,10 +92,10 @@ pub trait GranularSynthesizerAction {
     /// This should be set BEFORE calling `set_grain_len_min` or `set_grain_len_max`
     fn set_sample_rate(&mut self, sample_rate: u32) -> &mut Self;
 
-    /// Produces an unitialized grain for filling the initial array of Grains
+    /// Produces an uninitialized grain for filling the initial array of Grains
     ///
     /// Once it is time to actually produce an audio sample from the buffer,
-    /// each grain will be initialized with a randaom start/end index, etc.
+    /// each grain will be initialized with a random start/end index, etc.
     fn new_grain(uid: u32) -> Grain {
         Grain {
             current_frame: 0,
@@ -100,8 +104,12 @@ pub trait GranularSynthesizerAction {
             len: 0,
             start_frame: 0,
             uid,
+            init: false,
         }
     }
+
+    /// Volume envelope that determines the volume of the grain as it plays through
+    fn set_envelope(&mut self, envelope_type: EnvelopeType) -> &mut Self;
 
     fn grain_len(&self) -> Duration;
 }

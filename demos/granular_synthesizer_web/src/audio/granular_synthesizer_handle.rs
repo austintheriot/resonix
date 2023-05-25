@@ -1,7 +1,7 @@
 use audio::granular_synthesizer::GranularSynthesizer;
 use audio::granular_synthesizer_action::GranularSynthesizerAction;
 use audio::percentage::Percentage;
-use audio::NumChannels;
+use audio::{NumChannels, EnvelopeType};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -105,24 +105,29 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self.granular_synthesizer.lock().unwrap().grain_len()
     }
 
-    fn refresh_interval(&self) -> u32 {
-        self.granular_synthesizer.lock().unwrap().refresh_interval()
-    }
-
-    fn set_refresh_interval(&mut self, refresh_interval: u32) -> &mut Self {
+    fn set_envelope(&mut self, envelope_type: EnvelopeType) -> &mut Self {
         self.granular_synthesizer
             .lock()
             .unwrap()
-            .set_refresh_interval(refresh_interval);
+            .set_envelope(envelope_type);
 
         self
+    }
+
+    fn set_grain_initialization_delay(&mut self, delay: impl Into<Duration>) -> &mut Self {
+        self.granular_synthesizer.lock().unwrap().set_grain_initialization_delay(delay);
+        self
+    }
+
+    fn grain_initialization_delay(&self) -> Duration {
+        self.granular_synthesizer.lock().unwrap().grain_initialization_delay()
     }
 }
 
 impl Default for GranularSynthesizerHandle {
     /// Instantiate with global app audio defaults
     fn default() -> GranularSynthesizerHandle {
-        let mut granular_synth: GranularSynthesizer = GranularSynthesizer::new();
+        let granular_synth: GranularSynthesizer = GranularSynthesizer::new();
 
         Self {
             granular_synthesizer: Arc::new(Mutex::new(granular_synth)),
