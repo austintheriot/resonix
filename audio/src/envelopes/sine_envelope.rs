@@ -1,3 +1,6 @@
+/// The .sin() function is expensive to call every frame multiple times,
+/// so it makes more sense to pre-calculate it beforehand and just load 
+/// the prepared buffer.
 pub const SINE_ENVELOPE: [f32; 2048] = [
     0.0,
     0.001_534_729_6,

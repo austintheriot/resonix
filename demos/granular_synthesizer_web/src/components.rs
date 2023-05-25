@@ -12,7 +12,7 @@ pub mod controls_gain;
 pub mod controls_len;
 pub mod controls_play_status;
 pub mod controls_recording_status;
-pub mod controls_refresh_interval;
+pub mod controls_delay;
 pub mod controls_reset;
 pub mod controls_select_buffer;
 pub mod controls_upload_buffer;

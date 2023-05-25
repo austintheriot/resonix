@@ -1,14 +1,16 @@
+use std::time::Duration;
+
 use crate::audio::audio_ouput_handle::AudioOutputHandle;
 use crate::audio::audio_recorder_handle::AudioRecorderHandle;
 use crate::audio::buffer_handle::BufferHandle;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
 use crate::audio::gain_handle::GainHandle;
+use crate::audio::grain_initialization_delay_handle::GrainInitializationDelayHandle;
 use crate::audio::grain_len_handle::GrainLenHandle;
 use crate::audio::granular_synthesizer_handle::GranularSynthesizerHandle;
 use crate::audio::num_channels_handle::NumChannelsHandle;
 use crate::audio::play_status_handle::PlayStatusHandle;
 use crate::audio::recording_status_handle::RecordingStatusHandle;
-use crate::audio::refresh_interval_handle::RefreshIntervalHandle;
 use crate::audio::stream_handle::StreamHandle;
 use audio::granular_synthesizer::GranularSynthesizer;
 use audio::granular_synthesizer_action::GranularSynthesizerAction;
@@ -84,7 +86,7 @@ pub struct AppState {
     /// This is the minimum length (in milliseconds) that a grain sample can play for
     pub grain_len: GrainLenHandle,
 
-    pub refresh_interval: RefreshIntervalHandle,
+    pub grain_initialization_delay: GrainInitializationDelayHandle,
 
     pub audio_recorder_handle: AudioRecorderHandle,
 
@@ -103,7 +105,8 @@ impl Default for AppState {
 
         granular_synthesizer_handle
             .set_num_channels(50)
-            .set_grain_len(GranularSynthesizer::GRAIN_LEN_MAX);
+            .set_grain_len(GranularSynthesizer::GRAIN_LEN_MAX)
+            .set_grain_initialization_delay(Duration::from_millis(17));
 
         Self {
             buffer_handle: Default::default(),
@@ -127,7 +130,9 @@ impl Default for AppState {
             ),
             num_channels_handle: granular_synthesizer_handle.num_channels().get().into(),
             grain_len: granular_synthesizer_handle.grain_len().into(),
-            refresh_interval: granular_synthesizer_handle.refresh_interval().into(),
+            grain_initialization_delay: granular_synthesizer_handle
+                .grain_initialization_delay()
+                .into(),
             granular_synthesizer_handle,
         }
     }

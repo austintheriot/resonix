@@ -1,12 +1,14 @@
 use crate::Index;
 
 /// Contains information about where in a buffer the grain should sample from
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Grain {
     pub start_frame: usize,
     pub end_frame: usize,
     pub current_frame: usize,
     pub finished: bool,
+    /// Whether the grain has been initialized for the first time or not
+    pub init: bool,
     /// the number of frames between `start_frame` and `end_frame` in samples
     pub len: usize,
     /// allows O(1) look-ups when finding grains that are finished
@@ -22,6 +24,7 @@ impl Default for Grain {
             finished: true,
             len: 0,
             uid: 0,
+            init: false,
         }
     }
 }
@@ -45,7 +48,7 @@ impl Index for &mut Grain {
 }
 
 impl Grain {
-    pub fn new(start_frame: usize, end_frame: usize, uid: u32) -> Self {
+    pub fn new(start_frame: usize, end_frame: usize, uid: u32, init: bool) -> Self {
         debug_assert!(start_frame < end_frame);
         Grain {
             start_frame,
@@ -54,6 +57,7 @@ impl Grain {
             finished: false,
             len: end_frame - start_frame,
             uid,
+            init,
         }
     }
 
