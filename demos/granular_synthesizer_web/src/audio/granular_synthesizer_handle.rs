@@ -1,7 +1,7 @@
 use audio::granular_synthesizer::GranularSynthesizer;
 use audio::granular_synthesizer_action::GranularSynthesizerAction;
 use audio::percentage::Percentage;
-use audio::{NumChannels, EnvelopeType};
+use audio::{EnvelopeType, NumChannels};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -115,12 +115,18 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
     }
 
     fn set_grain_initialization_delay(&mut self, delay: impl Into<Duration>) -> &mut Self {
-        self.granular_synthesizer.lock().unwrap().set_grain_initialization_delay(delay);
+        self.granular_synthesizer
+            .lock()
+            .unwrap()
+            .set_grain_initialization_delay(delay);
         self
     }
 
     fn grain_initialization_delay(&self) -> Duration {
-        self.granular_synthesizer.lock().unwrap().grain_initialization_delay()
+        self.granular_synthesizer
+            .lock()
+            .unwrap()
+            .grain_initialization_delay()
     }
 }
 

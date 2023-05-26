@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::{
-    components::input_range::InputRange,
+    components::input_range::{GetLabelCallback, InputRange},
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
@@ -37,9 +37,11 @@ pub fn controls_len() -> Html {
         })
     };
 
+    let get_label_on_input = |value: f64| -> Option<String> { Some(format!("{}ms", value as u32)) };
+
     html! {
         <InputRange
-            label="len (ms)"
+            label="len"
             id="controls-grain-length"
             min={GranularSynthesizer::GRAIN_LEN_MIN.as_millis().to_string()}
             max={GranularSynthesizer::GRAIN_LEN_MAX.as_millis().to_string()}
@@ -47,6 +49,7 @@ pub fn controls_len() -> Html {
             oninput={handle_input}
             value={grain_len.as_millis().to_string()}
             disabled={max_len_input_disabled}
+            get_label_on_input={Into::<GetLabelCallback>::into(get_label_on_input)}
         />
     }
 }

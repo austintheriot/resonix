@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::{
-    components::input_range::InputRange,
+    components::input_range::{GetLabelCallback, InputRange},
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
@@ -38,6 +38,8 @@ pub fn controls_delay() -> Html {
         })
     };
 
+    let get_label_on_input = |value: f64| -> Option<String> { Some(format!("{}ms", value as u32)) };
+
     html! {
         <InputRange
             label="delay"
@@ -48,6 +50,7 @@ pub fn controls_delay() -> Html {
             oninput={handle_input}
             value={delay.as_millis().to_string()}
             disabled={delay_input_disabled}
+            get_label_on_input={Into::<GetLabelCallback>::into(get_label_on_input)}
         />
     }
 }

@@ -274,8 +274,8 @@ impl GranularSynthesizer {
             };
 
             let fresh_grain = Grain::new(
-                grain_start_index as usize,
-                grain_end_index as usize,
+                grain_start_index,
+                grain_end_index,
                 // keep the same uid as previous grain
                 finished_grain.uid,
                 true,
@@ -529,7 +529,7 @@ mod test_granular_synthesizer {
         #[test]
         fn it_should_return_sequential_frames_of_audio_data() {
             let mut synth = GranularSynthesizer::new();
-            let buffer: Vec<_> = (0..5000).into_iter().map(|i| i as f32).collect();
+            let buffer: Vec<_> = (0..5000).map(|i| i as f32).collect();
             synth
                 .set_buffer(Arc::new(buffer))
                 .set_envelope(crate::EnvelopeType::All1);

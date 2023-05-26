@@ -1,11 +1,11 @@
 use crate::{
     components::{
         audio_output_visualization::AudioOutputVisualization, buffer_container::BufferContainer,
-        controls_channels::ControlsChannels, controls_download_audio::ControlsDownloadAudio,
-        controls_enable_audio::ControlsEnableAudio, controls_gain::ControlsGain,
-        controls_len::ControlsLen, controls_play_status::ControlsPlayStatus,
-        controls_recording_status::ControlsRecordingStatus,
-        controls_delay::ControlsDelay, controls_reset::ControlsReset,
+        controls_channels::ControlsChannels, controls_delay::ControlsDelay,
+        controls_download_audio::ControlsDownloadAudio, controls_enable_audio::ControlsEnableAudio,
+        controls_gain::ControlsGain, controls_len::ControlsLen,
+        controls_play_status::ControlsPlayStatus,
+        controls_recording_status::ControlsRecordingStatus, controls_reset::ControlsReset,
         controls_select_buffer::ControlsSelectBuffer, controls_upload_buffer::ControlsUploadBuffer,
         loading_indicator::LoadingIndicator,
     },

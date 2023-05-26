@@ -1,6 +1,6 @@
 use crate::{
     audio::{gain::Gain, gain_action::GainAction},
-    components::input_range::InputRange,
+    components::input_range::{GetLabelCallback, InputRange},
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
@@ -31,6 +31,8 @@ pub fn controls_gain() -> Html {
         })
     };
 
+    let get_label_on_input = |input: f64| -> Option<String> { Some(format!("{:?}", input)) };
+
     html! {
         <InputRange
             label="gain"
@@ -41,6 +43,7 @@ pub fn controls_gain() -> Html {
             oninput={handle_input}
             value={gain.to_string()}
             disabled={gain_input_disabled}
+            get_label_on_input={Into::<GetLabelCallback>::into(get_label_on_input)}
         />
     }
 }

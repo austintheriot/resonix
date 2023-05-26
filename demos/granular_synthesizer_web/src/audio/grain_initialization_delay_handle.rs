@@ -27,7 +27,9 @@ impl GrainInitializationDelayHandle {
 
     pub fn set(&mut self, grain_initialization_delay: impl Into<Duration>) {
         *self.grain_initialization_delay.lock().unwrap() =
-            GranularSynthesizer::sanitize_grain_initialization_delay(grain_initialization_delay.into());
+            GranularSynthesizer::sanitize_grain_initialization_delay(
+                grain_initialization_delay.into(),
+            );
         self.bump_counter();
     }
 
