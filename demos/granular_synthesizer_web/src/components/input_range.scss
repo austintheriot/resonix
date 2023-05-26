@@ -4,6 +4,7 @@
     justify-content: space-between;
     align-items: center;
     text-align: center;
+    position: relative;
 
     // since the input is rotated 90deg, these are how the dimensions 
     // actually appear on the element after transformations
@@ -108,6 +109,12 @@
             position: relative;
             box-shadow: 0 0 16px 8px rgba(var(--electric-blue-rgb), 0.15);
         }
+    }
+
+    .input-range-value-label {
+        position: absolute;
+        bottom: -1.25rem;
+        font-size: 0.75rem;
     }
 }
 

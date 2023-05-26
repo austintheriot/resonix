@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use crate::{grain::Grain, percentage::Percentage, NumChannels, EnvelopeType};
+use crate::{grain::Grain, percentage::Percentage, EnvelopeType, NumChannels};
 
 /// Public interface to the GranularSynthesizer.
 ///

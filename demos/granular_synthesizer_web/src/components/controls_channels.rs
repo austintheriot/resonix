@@ -1,6 +1,6 @@
 use crate::{
     audio::num_channels_action::NumChannelsAction,
-    components::input_range::InputRange,
+    components::input_range::{GetLabelCallback, InputRange},
     state::{
         app_action::AppAction,
         app_context::{AppContext, AppContextError},
@@ -31,6 +31,8 @@ pub fn controls_density() -> Html {
         })
     };
 
+    let get_label_on_input = |value: f64| -> Option<String> { Some(format!("{}", value as u32)) };
+
     html! {
         <InputRange
             label="channels"
@@ -41,6 +43,7 @@ pub fn controls_density() -> Html {
             oninput={handle_input}
             value={channels.to_string()}
             disabled={density_input_disabled}
+            get_label_on_input={Into::<GetLabelCallback>::into(get_label_on_input)}
         />
     }
 }
