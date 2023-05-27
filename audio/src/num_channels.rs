@@ -5,18 +5,8 @@ use std::ops::{Add, Deref, Mul, Sub};
 pub struct NumChannels(usize);
 
 impl NumChannels {
-    pub const NUM_CHANNELS_MAX: usize = 500;
-
-    pub const NUM_CHANNELS_MIN: usize = 1;
-
-    pub fn sanitize_channels(num_channels: impl Into<usize>) -> usize {
-        num_channels
-            .into()
-            .clamp(Self::NUM_CHANNELS_MIN, Self::NUM_CHANNELS_MAX)
-    }
-
     pub fn new(num_channels: impl Into<usize>) -> Self {
-        NumChannels(Self::sanitize_channels(num_channels))
+        NumChannels(num_channels.into())
     }
 
     pub const fn get(&self) -> usize {
@@ -24,7 +14,7 @@ impl NumChannels {
     }
 
     pub fn set(&mut self, num_channels: impl Into<usize>) -> &mut Self {
-        self.0 = Self::sanitize_channels(num_channels.into());
+        self.0 = num_channels.into();
 
         self
     }
