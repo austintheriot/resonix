@@ -58,6 +58,9 @@ pub struct GranularSynthesizer {
 
     /// Volume envelope used for controlling the volume of each grain's playback
     envelope: Envelope,
+
+    /// cached for more efficient processing
+    selection_end_in_samples: u32,
 }
 
 impl GranularSynthesizerAction for GranularSynthesizer {
@@ -86,6 +89,7 @@ impl GranularSynthesizerAction for GranularSynthesizer {
             finished_grains,
             envelope: Envelope::new_sine(),
             grain_initialization_delay: Self::DEFAULT_GRAIN_INITIALIZATION_DELAY,
+            selection_end_in_samples: 0,
         }
     }
 
@@ -110,6 +114,7 @@ impl GranularSynthesizerAction for GranularSynthesizer {
 
     fn set_buffer(&mut self, buffer: Arc<Vec<f32>>) -> &mut Self {
         self.buffer = buffer;
+        self.selection_end_in_samples = self.calculate_selection_end_in_samples();
         self
     }
 
@@ -120,6 +125,8 @@ impl GranularSynthesizerAction for GranularSynthesizer {
             // move beginning to be before the ending
             self.set_selection_start(self.selection_end);
         }
+
+        self.selection_end_in_samples = self.calculate_selection_end_in_samples();
 
         self
     }
@@ -355,6 +362,11 @@ impl GranularSynthesizer {
     }
 
     fn selection_end_in_samples(&self) -> u32 {
+        self.selection_end_in_samples
+    }
+
+    /// If using on a hot code path, prefer the cached `selection_end_in_samples()` value instead
+    fn calculate_selection_end_in_samples(&self) -> u32 {
         ((self.buffer.len() as f32 * self.selection_end) as u32)
             .max(0)
             .min(self.buffer.len() as u32)
@@ -372,7 +384,7 @@ impl GranularSynthesizer {
         // then it's safe to check only one side of the selection
         let filter_long_grains = |grain: &&Grain| -> bool {
             (grain.current_frame as u32) < self.selection_start_in_samples()
-                || (grain.end_frame as u32) > self.selection_end_in_samples()
+                || (grain.end_frame as u32) > self.calculate_selection_end_in_samples()
         };
 
         let long_grain_uids: Vec<_> = self
