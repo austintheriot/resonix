@@ -189,11 +189,19 @@ where
     }
 
     pub fn first(&self) -> Option<&V> {
-        self.data.first().and_then(|v| v.as_ref())
+        self.indexes.first().and_then(|i| self.data.get(*i).unwrap().as_ref())
     }
 
     pub fn first_mut(&mut self) -> Option<&mut V> {
-        self.data.iter_mut().next().and_then(|v| v.as_mut())
+        self.indexes.first().and_then(|i| self.data.get_mut(*i).unwrap().as_mut())
+    }
+
+    pub fn last(&self) -> Option<&V> {
+        self.indexes.last().and_then(|i| self.data.get(*i).unwrap().as_ref())
+    }
+
+    pub fn last_mut(&mut self) -> Option<&mut V> {
+        self.indexes.last().and_then(|i| self.data.get_mut(*i).unwrap().as_mut())
     }
 
     pub fn remove(&mut self, i: impl Index) -> Option<V> {
@@ -493,5 +501,91 @@ mod test_vec_map_struct {
         assert!(!int_set.contains(14));
         assert!(!int_set.contains(1000));
         assert_eq!(int_set.len(), 3);
+    }
+
+    #[cfg(test)]
+    mod it_should_allow_getting_smallest_value {
+        use super::Element;
+        use crate::IntSet;
+
+        #[test]
+        fn insert() {
+            let mut int_set = IntSet::new();
+            let element1 = Element(0);
+            let element2 = Element(15);
+            let element3 = Element(119);
+
+            int_set.insert(element3);
+            int_set.insert(element2);
+            int_set.insert(element1);
+
+            assert_eq!(int_set.first(), Some(&Element(0)));
+        }
+
+        #[test]
+        fn extending() {
+            let mut int_set = IntSet::new();
+            let new_elements = (50..=100).map(Element);
+            int_set.extend(new_elements);
+
+            assert_eq!(int_set.first(), Some(&Element(50)));
+        }
+
+        #[test]
+        fn truncate() {
+            let mut int_set = IntSet::new();
+            let element1 = Element(0);
+            let element2 = Element(15);
+            let element3 = Element(119);
+            int_set.insert(element1);
+            int_set.insert(element2);
+            int_set.insert(element3);
+            int_set.truncate(1);
+
+            assert_eq!(int_set.first(), Some(&element1));
+        }
+    }
+
+    #[cfg(test)]
+    mod it_should_allow_getting_largest_value {
+        use super::Element;
+        use crate::IntSet;
+
+        #[test]
+        fn insert() {
+            let mut int_set = IntSet::new();
+            let element1 = Element(0);
+            let element2 = Element(15);
+            let element3 = Element(119);
+
+            int_set.insert(element3);
+            int_set.insert(element2);
+            int_set.insert(element1);
+
+            assert_eq!(int_set.last(), Some(&Element(119)));
+        }
+
+        #[test]
+        fn extending() {
+            let mut int_set = IntSet::new();
+            let new_elements = (50..=100).map(Element);
+            int_set.extend(new_elements);
+
+            assert_eq!(int_set.last(), Some(&Element(100)));
+        }
+
+        #[test]
+        fn truncate() {
+            let mut int_set = IntSet::new();
+            let element1 = Element(0);
+            let element2 = Element(15);
+            let element3 = Element(119);
+            int_set.insert(element1);
+            int_set.insert(element2);
+            int_set.insert(element3);
+            int_set.truncate(1);
+
+            assert_eq!(int_set.last(), Some(&element1));
+        }
     }
 }
