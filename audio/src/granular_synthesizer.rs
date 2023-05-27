@@ -183,12 +183,11 @@ impl GranularSynthesizer {
     fn synchronize_num_grains_with_channels(&mut self) -> &mut Self {
         let num_channels = *self.num_channels();
         let total_num_grains = self.total_num_grains();
-        let uninitialized_grains_len = self.uninitialized_grains.len();
 
         if num_channels > total_num_grains {
             let new_grains_to_add = num_channels - total_num_grains;
             self.uninitialized_grains.extend(
-                (uninitialized_grains_len..uninitialized_grains_len + new_grains_to_add)
+                ((total_num_grains + 1)..(total_num_grains + 1 + new_grains_to_add))
                     .map(|i| Self::new_grain(i as u32)),
             );
         } else if num_channels < total_num_grains {
@@ -477,9 +476,57 @@ mod test_granular_synthesizer {
 
             // keep as many fresh grains as possible and delete all the remaining finished ones
             assert_eq!(*synth.num_channels(), 4);
-            assert_eq!(synth.uninitialized_grains.len(), 2);
-            assert_eq!(synth.fresh_grains.len(), 2);
+            assert_eq!(synth.uninitialized_grains.len(), 3);
+            assert_eq!(synth.fresh_grains.len(), 1);
             assert_eq!(synth.finished_grains.len(), 0);
+        }
+
+        #[test]
+        fn it_should_allow_setting_new_num_channels_to_large_amount() {
+            let mut synth = GranularSynthesizer::new();
+            synth
+                .set_buffer(Arc::new(vec![1.0; 1024]))
+                .set_envelope(crate::EnvelopeType::All1)
+                .set_grain_initialization_delay(Duration::ZERO);
+
+            for _ in 0..=2 {
+                synth.next_frame();
+            }
+
+            let next_frame = synth.next_frame();
+
+            assert_eq!(next_frame.len(), 2);
+            assert_eq!(next_frame, vec![1.0; 2]);
+
+            synth.set_num_channels(100);
+
+            for _ in 0..=200 {
+                synth.next_frame();
+            }
+
+            let next_frame = synth.next_frame();
+
+            assert_eq!(next_frame.len(), 100);
+            assert_eq!(next_frame, vec![1.0; 100]);
+        }
+
+        #[test]
+        fn it_should_allow_large_numbers_of_channels() {
+            let mut synth = GranularSynthesizer::new();
+            synth
+                .set_buffer(Arc::new(vec![1.0; 1024]))
+                .set_envelope(crate::EnvelopeType::All1)
+                .set_grain_initialization_delay(Duration::ZERO)
+                .set_num_channels(200);
+
+            for _ in 0..=200 {
+                synth.next_frame();
+            }
+
+            let next_frame = synth.next_frame();
+
+            assert_eq!(next_frame.len(), 200);
+            assert_eq!(next_frame, vec![1.0; 200]);
         }
     }
 
@@ -519,7 +566,7 @@ mod test_granular_synthesizer {
 
     #[cfg(test)]
     mod playback {
-        use std::sync::Arc;
+        use std::{sync::Arc, time::Duration};
 
         use crate::{
             granular_synthesizer::GranularSynthesizer,
@@ -532,7 +579,8 @@ mod test_granular_synthesizer {
             let buffer: Vec<_> = (0..5000).map(|i| i as f32).collect();
             synth
                 .set_buffer(Arc::new(buffer))
-                .set_envelope(crate::EnvelopeType::All1);
+                .set_envelope(crate::EnvelopeType::All1)
+                .set_grain_initialization_delay(Duration::ZERO);
 
             // grain 1 initialized
             synth.next_frame();
