@@ -7,10 +7,6 @@ use crate::{grain::Grain, percentage::Percentage, EnvelopeType, NumChannels};
 /// This interface is extracted into a constant so that a
 /// GranularSynthesizerHandle can more easily re-export this logic.
 pub trait GranularSynthesizerAction {
-    const CHANNELS_MAX: f32 = 1.0;
-
-    const CHANNELS_MIN: f32 = 0.0;
-
     const DEFAULT_NUM_CHANNELS: usize = 2;
 
     const GRAIN_LEN_MIN: Duration = Duration::from_millis(20);
