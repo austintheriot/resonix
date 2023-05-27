@@ -61,6 +61,9 @@ pub struct GranularSynthesizer {
 
     /// cached for more efficient processing
     selection_end_in_samples: u32,
+
+    /// cached for more efficient processing
+    selection_start_in_samples: u32,
 }
 
 impl GranularSynthesizerAction for GranularSynthesizer {
@@ -90,11 +93,23 @@ impl GranularSynthesizerAction for GranularSynthesizer {
             envelope: Envelope::new_sine(),
             grain_initialization_delay: Self::DEFAULT_GRAIN_INITIALIZATION_DELAY,
             selection_end_in_samples: 0,
+            selection_start_in_samples: 0,
         }
     }
 
     fn selection_start(&self) -> Percentage {
         self.selection_start
+    }
+
+    fn selection_end(&self) -> Percentage {
+        self.selection_end
+    }
+
+    fn set_buffer(&mut self, buffer: Arc<Vec<f32>>) -> &mut Self {
+        self.buffer = buffer;
+        self.selection_end_in_samples = self.calculate_selection_end_in_samples();
+        self.selection_start_in_samples = self.calculate_selection_start_in_samples();
+        self
     }
 
     fn set_selection_start(&mut self, start: impl Into<Percentage>) -> &mut Self {
@@ -105,16 +120,8 @@ impl GranularSynthesizerAction for GranularSynthesizer {
             self.set_selection_end(self.selection_start);
         }
 
-        self
-    }
+        self.selection_start_in_samples = self.calculate_selection_start_in_samples();
 
-    fn selection_end(&self) -> Percentage {
-        self.selection_end
-    }
-
-    fn set_buffer(&mut self, buffer: Arc<Vec<f32>>) -> &mut Self {
-        self.buffer = buffer;
-        self.selection_end_in_samples = self.calculate_selection_end_in_samples();
         self
     }
 
@@ -356,6 +363,11 @@ impl GranularSynthesizer {
     }
 
     fn selection_start_in_samples(&self) -> u32 {
+        self.selection_start_in_samples
+    }
+
+    /// If using on a hot code path, prefer the cached `selection_start_in_samples()` value instead
+    fn calculate_selection_start_in_samples(&self) -> u32 {
         ((self.buffer.len() as f32 * self.selection_start) as u32)
             .max(0)
             .min(self.buffer.len() as u32)
@@ -384,7 +396,7 @@ impl GranularSynthesizer {
         // then it's safe to check only one side of the selection
         let filter_long_grains = |grain: &&Grain| -> bool {
             (grain.current_frame as u32) < self.selection_start_in_samples()
-                || (grain.end_frame as u32) > self.calculate_selection_end_in_samples()
+                || (grain.end_frame as u32) > self.selection_end_in_samples()
         };
 
         let long_grain_uids: Vec<_> = self
