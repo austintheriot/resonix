@@ -16,3 +16,4 @@ getrandom = { version = "0.2.6", features = ["js"] }
 # NOTE: only for use on web: These two crates enable the info!() logging macro, etc.
 log = "0.4"
 wasm-logger = "0.2.0"
+nohash-hasher = "0.2.0"

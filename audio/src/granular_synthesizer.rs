@@ -1,7 +1,8 @@
 use crate::grain::Grain;
 use crate::granular_synthesizer_action::GranularSynthesizerAction;
 use crate::percentage::Percentage;
-use crate::{Envelope, EnvelopeType, Index, IntSet, NumChannels};
+use crate::{Envelope, EnvelopeType, NumChannels};
+use nohash_hasher::IntMap;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 use std::sync::Arc;
@@ -10,7 +11,7 @@ use std::time::Duration;
 /// Accepts a reference to a buffer of Vec<f32> audio sample data.
 ///
 /// Generates random multi-channel audio grain output.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct GranularSynthesizer {
     /// How many channels of sound to generate per frame
     num_channels: NumChannels,
@@ -49,11 +50,11 @@ pub struct GranularSynthesizer {
     /// only so often.
     frame_count: u32,
 
-    fresh_grains: IntSet<Grain>,
+    fresh_grains: IntMap<u32, Grain>,
 
-    finished_grains: IntSet<Grain>,
+    finished_grains: IntMap<u32, Grain>,
 
-    uninitialized_grains: IntSet<Grain>,
+    uninitialized_grains: IntMap<u32, Grain>,
 
     /// Volume envelope used for controlling the volume of each grain's playback
     envelope: Envelope,
@@ -62,11 +63,14 @@ pub struct GranularSynthesizer {
 impl GranularSynthesizerAction for GranularSynthesizer {
     fn new() -> Self {
         let default_buffer = Arc::new(Vec::new());
-        let mut uninitialized_grains = IntSet::with_capacity(Self::DEFAULT_NUM_CHANNELS);
-        uninitialized_grains
-            .extend((0..Self::DEFAULT_NUM_CHANNELS).map(|i| Self::new_grain(i as u32)));
-        let fresh_grains = IntSet::with_capacity(Self::DEFAULT_NUM_CHANNELS);
-        let finished_grains = IntSet::with_capacity(Self::DEFAULT_NUM_CHANNELS);
+        let mut uninitialized_grains = IntMap::default();
+
+        for grain in (0..Self::DEFAULT_NUM_CHANNELS).map(|i| Self::new_grain(i as u32)) {
+            uninitialized_grains.insert(grain.uid, grain);
+        }
+
+        let fresh_grains = IntMap::default();
+        let finished_grains = IntMap::default();
 
         Self {
             sample_rate: Self::DEFAULT_SAMPLE_RATE,
@@ -186,24 +190,37 @@ impl GranularSynthesizer {
 
         if num_channels > total_num_grains {
             let new_grains_to_add = num_channels - total_num_grains;
-            self.uninitialized_grains.extend(
-                ((total_num_grains + 1)..(total_num_grains + 1 + new_grains_to_add))
-                    .map(|i| Self::new_grain(i as u32)),
-            );
+            for grain in ((total_num_grains + 1)..(total_num_grains + 1 + new_grains_to_add))
+                .map(|i| Self::new_grain(i as u32))
+            {
+                self.uninitialized_grains.insert(grain.uid, grain);
+            }
         } else if num_channels < total_num_grains {
             // keep as many fresh_grains as possible, and delete the rest from finished_grains
-            self.fresh_grains.truncate(num_channels);
+
+            if num_channels < self.fresh_grains.len() {
+                for i in num_channels..self.fresh_grains.len() {
+                    self.fresh_grains.remove(&(i as u32));
+                }
+            }
 
             // keep as many finished_grains as possible, and delete the rest from uninitialized_grains
             let num_finished_grains_left_to_keep = num_channels - self.fresh_grains.len();
-            self.finished_grains
-                .truncate(num_finished_grains_left_to_keep);
+            if num_finished_grains_left_to_keep < self.finished_grains.len() {
+                for i in num_finished_grains_left_to_keep..self.fresh_grains.len() {
+                    self.finished_grains.remove(&(i as u32));
+                }
+            }
 
             // delete the rest from uninitialized_grains
             let num_uninitialized_grains_left_to_keep =
                 num_channels - self.fresh_grains.len() - self.finished_grains.len();
-            self.uninitialized_grains
-                .truncate(num_uninitialized_grains_left_to_keep);
+
+            if num_uninitialized_grains_left_to_keep < self.uninitialized_grains.len() {
+                for i in num_uninitialized_grains_left_to_keep..self.uninitialized_grains.len() {
+                    self.uninitialized_grains.remove(&(i as u32));
+                }
+            }
         }
 
         self
@@ -233,13 +250,16 @@ impl GranularSynthesizer {
 
         // uninitialized grain should be moved into the fresh_grains list--
         // the new, refreshed grain should use the same uid as the uninitialized one
-        let Some(Grain {  uid, .. }) = self.uninitialized_grains.pop_first() else {
+        let Some((_, Grain {  uid, .. })) = self.uninitialized_grains.iter().next() else {
             return self;
         };
 
+        let uid = *uid;
+        self.uninitialized_grains.remove(&uid);
+
         const INIT: bool = true;
         let fresh_grain = Grain::new(grain_start_index, grain_end_index, uid, INIT);
-        self.fresh_grains.insert(fresh_grain);
+        self.fresh_grains.insert(fresh_grain.uid, fresh_grain);
 
         self
     }
@@ -267,7 +287,13 @@ impl GranularSynthesizer {
     /// Iterates through array of grains (1 grain for each channel), and refreshes 1
     /// grain that was previously finished with a new range of buffer indexes.
     fn refresh_finished_grains(&mut self) {
-        while let Some(finished_grain) = self.finished_grains.pop_first() {
+        let uids: Vec<_> = self
+            .finished_grains
+            .drain()
+            .map(|(_, grain)| grain.uid)
+            .collect();
+
+        for uid in uids {
             let Some((grain_start_index, grain_end_index)) = self.get_grain_random_start_and_end() else {
                 return;
             };
@@ -276,10 +302,10 @@ impl GranularSynthesizer {
                 grain_start_index,
                 grain_end_index,
                 // keep the same uid as previous grain
-                finished_grain.uid,
+                uid,
                 true,
             );
-            self.fresh_grains.insert(fresh_grain);
+            self.fresh_grains.insert(uid, fresh_grain);
         }
     }
 
@@ -349,18 +375,18 @@ impl GranularSynthesizer {
                 || (grain.end_frame as u32) > self.selection_end_in_samples()
         };
 
-        let long_grain_indexes: Vec<_> = self
+        let long_grain_uids: Vec<_> = self
             .fresh_grains
             .iter()
-            .filter(|grain| filter_finished_grains(grain) || filter_long_grains(grain))
-            .map(|grain| grain.id())
+            .filter(|(_, grain)| filter_finished_grains(grain) || filter_long_grains(grain))
+            .map(|(_, grain)| grain.uid)
             .collect();
 
         // move the grains into the finished_grains list
-        long_grain_indexes.iter().for_each(|i| {
-            self.fresh_grains.remove(*i).map(|mut removed_grain| {
+        long_grain_uids.iter().for_each(|uid| {
+            self.fresh_grains.remove(uid).map(|mut removed_grain| {
                 removed_grain.finished = true;
-                self.finished_grains.insert(removed_grain);
+                self.finished_grains.insert(*uid, removed_grain);
             });
         })
     }
@@ -376,7 +402,7 @@ impl GranularSynthesizer {
         frame_data_buffer
             .iter_mut()
             .zip(self.fresh_grains.iter_mut())
-            .for_each(|(channel, grain)| {
+            .for_each(|(channel, (_, grain))| {
                 if grain.finished {
                     *channel = 0.0;
                     return;

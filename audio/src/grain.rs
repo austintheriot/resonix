@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use crate::Index;
+use nohash_hasher::IsEnabled;
 
 /// Contains information about where in a buffer the grain should sample from
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -16,6 +16,8 @@ pub struct Grain {
     /// allows O(1) look-ups when finding grains that are finished
     pub uid: u32,
 }
+
+impl IsEnabled for Grain {}
 
 /// Grain ids are guaranteed to be unique, so it is sufficient to hash based off of the uid
 impl Hash for Grain {
@@ -35,24 +37,6 @@ impl Default for Grain {
             uid: 0,
             init: false,
         }
-    }
-}
-
-impl Index for Grain {
-    fn id(&self) -> usize {
-        self.uid as usize
-    }
-}
-
-impl Index for &Grain {
-    fn id(&self) -> usize {
-        self.uid as usize
-    }
-}
-
-impl Index for &mut Grain {
-    fn id(&self) -> usize {
-        self.uid as usize
     }
 }
 
