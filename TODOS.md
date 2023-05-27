@@ -1,7 +1,9 @@
 # Todos
 
 - Update licenses / cargo tomls, directory names
--
+  
+- prevent grain initialization periodicity (force grain_initialization_delay to be a prime number?)
+
 - When lowering number of channels, allow old channels to fade out (?)
 
 - disable recording button until something has actually been recorded
