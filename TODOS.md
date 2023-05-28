@@ -2,7 +2,7 @@
 
 - Update licenses / cargo tomls, directory names
 
-- add git hooks
+- generate grains starting from the middle and working outwards
 
 - move filter step to when we iterate through grains to output audio (this skips a needless iteration)
   

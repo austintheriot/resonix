@@ -101,6 +101,7 @@ pub trait GranularSynthesizerAction {
             start_frame: 0,
             uid,
             init: false,
+            exceeds_buffer_selection: false,
         }
     }
 
