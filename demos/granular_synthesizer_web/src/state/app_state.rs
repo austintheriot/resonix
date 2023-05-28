@@ -4,6 +4,7 @@ use crate::audio::audio_ouput_handle::AudioOutputHandle;
 use crate::audio::audio_recorder_handle::AudioRecorderHandle;
 use crate::audio::buffer_handle::BufferHandle;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
+use crate::audio::gain_action::GainAction;
 use crate::audio::gain_handle::GainHandle;
 use crate::audio::grain_initialization_delay_handle::GrainInitializationDelayHandle;
 use crate::audio::grain_len_handle::GrainLenHandle;
@@ -112,7 +113,7 @@ impl Default for AppState {
             buffer_handle: Default::default(),
             buffer_maxes_for_canvas: Default::default(),
             stream_handle: Default::default(),
-            gain_handle: Default::default(),
+            gain_handle: GainHandle::new(0.75),
             play_status_handle: Default::default(),
             audio_initialized: Default::default(),
             audio_loading: Default::default(),
