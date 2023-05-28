@@ -1,7 +1,13 @@
 # Todos
 
 - Update licenses / cargo tomls, directory names
+
+- add git hooks
+
+- move filter step to when we iterate through grains to output audio (this skips a needless iteration)
   
+- Make controls_delay range much smaller - 0ms to 25ms or so
+
 - prevent grain initialization periodicity (force grain_initialization_delay to be a prime number?)
 
 - When lowering number of channels, allow old channels to fade out (?)

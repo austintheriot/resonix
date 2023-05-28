@@ -109,6 +109,11 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         self.buffer = buffer;
         self.selection_end_in_samples = self.calculate_selection_end_in_samples();
         self.selection_start_in_samples = self.calculate_selection_start_in_samples();
+        self.fresh_grains.drain().for_each(|(uid, mut grain)| {
+            grain.init = false;
+            self.uninitialized_grains.insert(uid, grain);
+        });
+
         self
     }
 
@@ -244,6 +249,13 @@ impl GranularSynthesizer {
         self.uninitialized_grains.len() + self.finished_grains.len() + self.fresh_grains.len()
     }
 
+    ///  helps make sure we are only initializing grains every `n` samples
+    fn frame_aligns_with_delay_interval(&self) -> bool {
+        let grain_initialization_delay_in_samples = self.grain_initialization_delay_in_samples();
+        grain_initialization_delay_in_samples == 0
+            || self.frame_count % grain_initialization_delay_in_samples == 0
+    }
+
     /// Move one uninitialized grain into the fresh_grains set
     /// (do this once every `grain_initialization_delay` frames)
     fn initialize_an_uninitialized_grain(&mut self) -> &mut Self {
@@ -252,10 +264,7 @@ impl GranularSynthesizer {
         }
 
         // make sure we are only initializing grains every `n` samples
-        let grain_initialization_delay_in_samples = self.grain_initialization_delay_in_samples();
-        if grain_initialization_delay_in_samples != 0
-            && self.frame_count % self.grain_initialization_delay_in_samples() != 0
-        {
+        if !self.frame_aligns_with_delay_interval() {
             return self;
         }
 
@@ -290,9 +299,9 @@ impl GranularSynthesizer {
             .max(Self::GRAIN_LEN_MIN)
     }
 
-    fn grain_len_in_samples(&self) -> u32 {
+    fn grain_len_in_samples(&mut self) -> u32 {
         let samples_per_second = self.sample_rate as f32;
-        let grain_len_in_seconds = self.grain_len.as_millis() as f32 / 1000.0;
+        let grain_len_in_seconds = self.grain_len.as_secs_f32() as f32;
         (samples_per_second * grain_len_in_seconds) as u32
     }
 
@@ -389,8 +398,8 @@ impl GranularSynthesizer {
     /// Moves any grains that exceed the selected portion of the buffer or are
     /// finished into the finished_grains set.
     fn filter_fresh_grains(&mut self) {
-        fn filter_finished_grains(grain: &&Grain) -> bool {
-            grain.finished
+        if !self.frame_aligns_with_delay_interval() {
+            return;
         }
 
         // assuming that the end_frame of a Grain is guaranteed to be
@@ -401,20 +410,49 @@ impl GranularSynthesizer {
                 || (grain.end_frame as u32) > self.selection_end_in_samples()
         };
 
-        let long_grain_uids: Vec<_> = self
+        let long_grain_uid = self
             .fresh_grains
-            .iter()
-            .filter(|(_, grain)| filter_finished_grains(grain) || filter_long_grains(grain))
-            .map(|(_, grain)| grain.uid)
-            .collect();
+            .values()
+            .find(|grain| filter_long_grains(grain))
+            .map(|grain| grain.uid);
 
-        // move the grains into the finished_grains list
-        long_grain_uids.iter().for_each(|uid| {
-            self.fresh_grains.remove(uid).map(|mut removed_grain| {
-                removed_grain.finished = true;
-                self.finished_grains.insert(*uid, removed_grain);
-            });
-        })
+        // move long grains into the uninitialized_grains list--
+        // this list gets refreshed less frequently than the finished_grains list,
+        // which helps prevent all the grains from aligning simultaneously
+        // when changing buffer selection (this can cause massive clipping)
+        if let Some(long_grain_uid) = long_grain_uid {
+            self.fresh_grains
+                .remove(&long_grain_uid)
+                .map(|mut removed_grain| {
+                    removed_grain.finished = true;
+                    removed_grain.init = false;
+                    self.uninitialized_grains
+                        .insert(long_grain_uid, removed_grain);
+                });
+        }
+
+        fn filter_finished_grains(grain: &&Grain) -> bool {
+            grain.finished
+        }
+
+        let finished_grain_uid = self
+            .fresh_grains
+            .values()
+            .find(|grain| filter_finished_grains(grain))
+            .map(|grain| grain.uid);
+
+        // move finished grains into the finished_grains list--
+        // this list gets refreshed more frequently than the
+        // uninitialized grains list
+        if let Some(finished_grain_uid) = finished_grain_uid {
+            self.fresh_grains
+                .remove(&finished_grain_uid)
+                .map(|mut removed_grain| {
+                    removed_grain.finished = true;
+                    self.finished_grains
+                        .insert(finished_grain_uid, removed_grain);
+                });
+        }
     }
 
     /// Combines current buffer and envelope sample values to calculate a full audio frame
@@ -425,10 +463,11 @@ impl GranularSynthesizer {
     ) -> &'a mut Vec<f32> {
         let num_channels_for_frame = self.num_channels().into_inner();
         frame_data_buffer.resize(num_channels_for_frame, 0.0);
+        frame_data_buffer.fill(0.0);
         frame_data_buffer
             .iter_mut()
-            .zip(self.fresh_grains.iter_mut())
-            .for_each(|(channel, (_, grain))| {
+            .zip(self.fresh_grains.values_mut())
+            .for_each(|(channel, grain)| {
                 if grain.finished {
                     *channel = 0.0;
                     return;
