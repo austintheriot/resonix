@@ -831,4 +831,35 @@ mod test_granular_synthesizer {
             synth.next_frame();
         }
     }
+
+    #[cfg(test)]
+    mod set_buffer {
+        use std::sync::Arc;
+
+        use crate::{
+            granular_synthesizer::GranularSynthesizer,
+            granular_synthesizer_action::GranularSynthesizerAction,
+        };
+
+        #[test]
+        fn it_should_allow_setting_a_smaller_buffer_after_a_big_one() {
+            let big_buffer = vec![0.0; 1024];
+            let small_buffer = vec![0.0; 1];
+
+            let mut synth = GranularSynthesizer::new();
+            synth.set_buffer(Arc::new(big_buffer)).set_num_channels(100);
+
+            for _ in 0..1000 {
+                synth.next_frame();
+            }
+
+            synth
+                .set_buffer(Arc::new(small_buffer))
+                .set_num_channels(100);
+
+            for _ in 0..1000 {
+                synth.next_frame();
+            }
+        }
+    }
 }
