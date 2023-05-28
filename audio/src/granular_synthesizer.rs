@@ -300,9 +300,15 @@ impl GranularSynthesizer {
     }
 
     fn grain_len_in_samples(&mut self) -> u32 {
+        let selection_start_index = self.selection_start_in_samples();
+        let selection_end_index = self.selection_end_in_samples();
+        let selection_len_in_samples = selection_end_index - selection_start_index;
+
         let samples_per_second = self.sample_rate as f32;
         let grain_len_in_seconds = self.grain_len.as_secs_f32() as f32;
-        (samples_per_second * grain_len_in_seconds) as u32
+        let grain_len_in_samples = (samples_per_second * grain_len_in_seconds) as u32;
+
+        selection_len_in_samples.min(grain_len_in_samples)
     }
 
     /// Iterates through array of grains (1 grain for each channel), and refreshes 1
@@ -343,11 +349,12 @@ impl GranularSynthesizer {
         // get start and end of selection
         let selection_start_index = self.selection_start_in_samples();
         let selection_end_index = self.selection_end_in_samples();
-        let grain_len_in_samples = self.grain_len_in_samples();
 
         if self.buffer_selection_is_empty() {
             return (selection_start_index as usize, selection_end_index as usize);
         }
+
+        let grain_len_in_samples = self.grain_len_in_samples();
 
         let smallest_start_index = selection_start_index;
         let range_would_be_empty = (selection_end_index < grain_len_in_samples)
@@ -648,7 +655,10 @@ mod test_granular_synthesizer {
             synth.set_selection_start(0.6).set_selection_end(1.0);
 
             // allow both channels to get initialized
-            synth.next_frame();
+            for _ in 0..100 {
+                synth.next_frame();
+            }
+
             let next_frame = synth.next_frame();
 
             assert_eq!(next_frame, vec![1.0, 1.0]);
@@ -669,7 +679,7 @@ mod test_granular_synthesizer {
                 .set_grain_initialization_delay(Duration::ZERO)
                 .set_num_channels(100);
 
-            for _ in 0..200 {
+            for _ in 0..500 {
                 synth.next_frame();
             }
 
@@ -681,7 +691,7 @@ mod test_granular_synthesizer {
                 synth.next_frame();
             }
 
-            for _ in 0..200 {
+            for _ in 0..500 {
                 synth.next_frame();
             }
 
@@ -696,7 +706,7 @@ mod test_granular_synthesizer {
                 synth.next_frame();
             }
 
-            for _ in 0..200 {
+            for _ in 0..500 {
                 synth.next_frame();
             }
 
@@ -760,7 +770,7 @@ mod test_granular_synthesizer {
                 .set_grain_initialization_delay(Duration::ZERO)
                 .set_num_channels(250);
 
-            for _ in 0..200 {
+            for _ in 0..500 {
                 synth.next_frame();
             }
 
@@ -770,7 +780,7 @@ mod test_granular_synthesizer {
                 let selection_end_progress = selection_end as f32 / 10.0;
                 synth.set_selection_end(0.25 + 0.25 * selection_end_progress);
 
-                for _ in 0..100 {
+                for _ in 0..500 {
                     synth.next_frame();
                 }
             }
