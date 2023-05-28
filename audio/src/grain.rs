@@ -15,6 +15,8 @@ pub struct Grain {
     pub len: usize,
     /// allows O(1) look-ups when finding grains that are finished
     pub uid: u32,
+    /// Whether the grain exceeds the current buffer selection
+    pub exceeds_buffer_selection: bool,
 }
 
 impl IsEnabled for Grain {}
@@ -36,6 +38,7 @@ impl Default for Grain {
             len: 0,
             uid: 0,
             init: false,
+            exceeds_buffer_selection: false,
         }
     }
 }
@@ -51,6 +54,7 @@ impl Grain {
             len: end_frame - start_frame,
             uid,
             init,
+            exceeds_buffer_selection: false,
         }
     }
 
