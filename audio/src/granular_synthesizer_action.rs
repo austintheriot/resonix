@@ -17,7 +17,7 @@ pub trait GranularSynthesizerAction {
 
     const GRAIN_INITIALIZATION_DELAY_MIN: Duration = Duration::ZERO;
 
-    const GRAIN_INITIALIZATION_DELAY_MAX: Duration = Duration::from_millis(1000);
+    const GRAIN_INITIALIZATION_DELAY_MAX: Duration = Duration::from_millis(25);
 
     // using a prime number helps prevent grains whose playback start/stop
     // times overlap with one another
