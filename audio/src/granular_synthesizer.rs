@@ -659,8 +659,8 @@ mod test_granular_synthesizer {
 
             synth.set_selection_start(0.6).set_selection_end(1.0);
 
-            // allow both channels to get initialized
-            for _ in 0..100 {
+            // allow grain playing from previous selection to die
+            for _ in 0..synth.sample_rate {
                 synth.next_frame();
             }
 
