@@ -8,15 +8,16 @@ pub struct Grain {
     pub start_frame: usize,
     pub end_frame: usize,
     pub current_frame: usize,
-    pub finished: bool,
-    /// Whether the grain has been initialized for the first time or not
-    pub init: bool,
     /// the number of frames between `start_frame` and `end_frame` in samples
     pub len: usize,
     /// allows O(1) look-ups when finding grains that are finished
     pub uid: u32,
     /// Whether the grain exceeds the current buffer selection
     pub exceeds_buffer_selection: bool,
+    /// `true` when the Grain has played through the full range of its selection
+    pub is_finished: bool,
+    /// Whether the grain has been initialized for the first time or not
+    pub is_init: bool,
 }
 
 impl IsEnabled for Grain {}
@@ -34,10 +35,10 @@ impl Default for Grain {
             start_frame: 0,
             current_frame: 0,
             end_frame: 0,
-            finished: true,
+            is_finished: true,
             len: 0,
             uid: 0,
-            init: false,
+            is_init: false,
             exceeds_buffer_selection: false,
         }
     }
@@ -50,19 +51,28 @@ impl Grain {
             start_frame,
             current_frame: start_frame,
             end_frame,
-            finished: false,
+            is_finished: false,
             len: end_frame - start_frame,
             uid,
-            init,
+            is_init: init,
             exceeds_buffer_selection: false,
         }
+    }
+
+    pub fn calculate_exceeds_buffer_selection(
+        &self,
+        selection_start_in_samples: u32,
+        selection_end_in_samples: u32,
+    ) -> bool {
+        (self.current_frame as u32) < selection_start_in_samples
+            || (self.end_frame as u32) > selection_end_in_samples
     }
 
     /// Increments the current_frame and returns it.
     ///
     /// If the grain is already finished, this is a no-op and `None` is returned.
     pub fn next_frame(&mut self) -> Option<usize> {
-        if self.finished {
+        if self.is_finished {
             return None;
         }
 
@@ -71,7 +81,7 @@ impl Grain {
 
         self.current_frame += 1;
         if self.current_frame == self.end_frame {
-            self.finished = true;
+            self.is_finished = true;
         }
 
         Some(frame_to_return)

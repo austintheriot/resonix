@@ -96,11 +96,11 @@ pub trait GranularSynthesizerAction {
         Grain {
             current_frame: 0,
             end_frame: 0,
-            finished: true,
             len: 0,
             start_frame: 0,
             uid,
-            init: false,
+            is_finished: true,
+            is_init: false,
             exceeds_buffer_selection: false,
         }
     }

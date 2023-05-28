@@ -112,7 +112,7 @@ impl GranularSynthesizerAction for GranularSynthesizer {
 
         // we know that none of the fresh_grains are valid anymore, since it's a new buffer
         self.fresh_grains.drain().for_each(|(uid, mut grain)| {
-            grain.init = false;
+            grain.is_init = false;
             self.uninitialized_grains.insert(uid, grain);
         });
 
@@ -209,7 +209,6 @@ impl GranularSynthesizer {
     ) -> &'a mut Vec<f32> {
         self.synchronize_num_grains_with_channels();
         self.initialize_an_uninitialized_grain();
-        self.filter_fresh_grains();
         self.refresh_finished_grains();
         self.increment_frame_count();
         self.write_frame_data_into_buffer(frame_data_buffer, is_new_buffer)
@@ -415,43 +414,6 @@ impl GranularSynthesizer {
             .min(self.buffer.len() as u32)
     }
 
-    /// Moves any grains that exceed the selected portion of the buffer or are
-    /// finished into the finished_grains set.
-    fn filter_fresh_grains(&mut self) {
-        let finished_grain_uid = self
-            .fresh_grains
-            .values()
-            .find(|grain| grain.finished)
-            .map(|grain| grain.uid);
-
-        // move finished grains into the finished_grains list--
-        // this list gets refreshed more frequently than the
-        // uninitialized grains list
-        if let Some(finished_grain_uid) = finished_grain_uid {
-            self.fresh_grains
-                .remove(&finished_grain_uid)
-                .map(|mut removed_grain| {
-                    removed_grain.finished = true;
-                    if removed_grain.exceeds_buffer_selection {
-                        self.uninitialized_grains
-                            .insert(finished_grain_uid, removed_grain);
-                    } else {
-                        self.finished_grains
-                            .insert(finished_grain_uid, removed_grain);
-                    }
-                });
-        }
-    }
-
-    fn grain_is_long(
-        selection_start_in_samples: u32,
-        selection_end_in_samples: u32,
-        grain: &Grain,
-    ) -> bool {
-        (grain.current_frame as u32) < selection_start_in_samples
-            || (grain.end_frame as u32) > selection_end_in_samples
-    }
-
     /// Combines current buffer and envelope sample values to calculate a full audio frame
     /// (where each channel gets a single audio output value).
     fn write_frame_data_into_buffer<'a>(
@@ -462,25 +424,42 @@ impl GranularSynthesizer {
         let num_channels_for_frame = self.num_channels().into_inner();
         let selection_start_in_samples = self.selection_start_in_samples();
         let selection_end_in_samples = self.selection_end_in_samples();
+        let mut finished_grain_uid = None;
 
+        // frame size should match num_channels out
         frame_data_buffer.resize(num_channels_for_frame, 0.0);
+
+        // if writing to a previously used buffer, make sure that buffer
+        // has been cleaned up first, so that previous output does
+        // not linger into the next frame
         if !is_new_buffer {
             frame_data_buffer.fill(0.0);
         }
+
         frame_data_buffer
             .iter_mut()
             .zip(self.fresh_grains.values_mut())
             .for_each(|(channel, grain)| {
-                if grain.finished {
+                if grain.calculate_exceeds_buffer_selection(
+                    selection_start_in_samples,
+                    selection_end_in_samples,
+                ) {
+                    // mark for moving into appropriate hash map later
+                    grain.exceeds_buffer_selection = true;
+                }
+
+                if grain.is_finished {
+                    // mark for moving into the finished or uninitialized hash map later
+                    if finished_grain_uid.is_none() {
+                        finished_grain_uid.replace(grain.uid);
+                    }
+
+                    // output for this grain should be 0
                     *channel = 0.0;
                     return;
                 }
 
-                if Self::grain_is_long(selection_start_in_samples, selection_end_in_samples, grain)
-                {
-                    grain.exceeds_buffer_selection = true;
-                }
-
+                // get final sample value for the current grain/channel
                 let sample_value = self.buffer[grain.current_frame];
                 let grain_len = grain.len.max(1) as f32;
                 let envelope_percent =
@@ -492,6 +471,25 @@ impl GranularSynthesizer {
 
                 grain.next_frame();
             });
+
+        // move a finished grain into the finished_grains list
+        // this list gets refreshed more frequently than the
+        // uninitialized grains list
+        if let Some(finished_grain_uid) = finished_grain_uid {
+            self.fresh_grains
+                .remove(&finished_grain_uid)
+                .map(|mut removed_grain| {
+                    removed_grain.is_finished = true;
+                    if removed_grain.exceeds_buffer_selection {
+                        self.uninitialized_grains
+                            .insert(finished_grain_uid, removed_grain);
+                    } else {
+                        self.finished_grains
+                            .insert(finished_grain_uid, removed_grain);
+                    }
+                });
+        }
+
         frame_data_buffer
     }
 
