@@ -305,12 +305,10 @@ impl GranularSynthesizer {
         // this allows grains to emanate from the "center" of the listener's
         // aural awareness, given that the downmixing function is taking
         // panning into account when downmixing all the channels down to 2
-        let grains: Vec<_> = self.uninitialized_grains.values().collect();
-        let grain = if self.frame_count % 2 == 0 {
-            grains.iter().nth(self.uninitialized_grains.len() / 2)
-        } else {
-            grains.iter().rev().nth(self.uninitialized_grains.len() / 2)
-        };
+        let mut grains: Vec<_> = self.uninitialized_grains.values().collect();
+        grains.sort_by_key(|grain| grain.uid);
+        let half_way = self.uninitialized_grains.len().min(*self.num_channels) / 2;
+        let grain = grains.iter().nth(half_way);
 
         // uninitialized grain should be moved into the fresh_grains list--
         // the new, refreshed grain should use the same uid as the uninitialized one
