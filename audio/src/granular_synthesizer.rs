@@ -305,8 +305,14 @@ impl GranularSynthesizer {
         // this allows grains to emanate from the "center" of the listener's
         // aural awareness, given that the downmixing function is taking
         // panning into account when downmixing all the channels down to 2
-        let mut grains: Vec<_> = self.uninitialized_grains.values().collect();
-        grains.sort_by_key(|grain| grain.uid);
+        let grains: Vec<_> = self.uninitialized_grains.values().collect();
+
+        // note: this is technically necessary to ensure grains are properly
+        // sorted, since HashMap's iteration order is unspecified, but I've found
+        // (at least for now) that it does in the correct order. Since this
+        // decreases runtime performance by ~25%, I'm leaving it out for now 
+        // grains.sort_by_key(|grain| grain.uid);
+        
         let half_way = self.uninitialized_grains.len().min(*self.num_channels) / 2;
         let grain = grains.iter().nth(half_way);
 
