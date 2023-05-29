@@ -280,9 +280,24 @@ impl GranularSynthesizer {
             return self;
         }
 
+        let grains: Vec<_> = self.uninitialized_grains.values().collect();
+
+        let grain = if self.frame_count % 2 == 0 {
+            grains
+                .iter()
+                .skip(self.uninitialized_grains.len() / 2)
+                .next()
+        } else {
+            grains
+                .iter()
+                .rev()
+                .skip(self.uninitialized_grains.len() / 2)
+                .next()
+        };
+
         // uninitialized grain should be moved into the fresh_grains list--
         // the new, refreshed grain should use the same uid as the uninitialized one
-        let Some((_, Grain {  uid, .. })) = self.uninitialized_grains.iter().next() else {
+        let Some(Grain {  uid, .. }) = grain else {
             return self;
         };
 
@@ -436,10 +451,24 @@ impl GranularSynthesizer {
             frame_data_buffer.fill(0.0);
         }
 
+        // spread out the grains into a vec with the same number of slots as there are channels
+        let mut grains_as_channels = vec![None; *self.num_channels + 1];
+        for grain in self.fresh_grains.values_mut() {
+            // safe to store/deref these pointers since they are temporary and unique pointers
+            grains_as_channels[grain.uid as usize] = Some(grain as *mut Grain);
+        }
+
         frame_data_buffer
             .iter_mut()
-            .zip(self.fresh_grains.values_mut())
+            .zip(grains_as_channels.into_iter())
             .for_each(|(channel, grain)| {
+                let Some(grain) = grain else {
+                    *channel = 0.0;
+                    return;
+                };
+
+                let grain = unsafe { &mut *grain };
+
                 if grain.calculate_exceeds_buffer_selection(
                     selection_start_in_samples,
                     selection_end_in_samples,
