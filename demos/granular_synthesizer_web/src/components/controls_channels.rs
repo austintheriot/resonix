@@ -38,7 +38,7 @@ pub fn controls_density() -> Html {
             label="channels"
             id="controls-num-channels-input"
             min="0"
-            max="250"
+            max="500"
             step="1"
             oninput={handle_input}
             value={channels.to_string()}
