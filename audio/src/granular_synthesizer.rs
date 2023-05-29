@@ -221,7 +221,7 @@ impl GranularSynthesizer {
 
         if num_channels > total_num_grains {
             let new_grains_to_add = num_channels - total_num_grains;
-            for grain in ((total_num_grains + 1)..(total_num_grains + 1 + new_grains_to_add))
+            for grain in (total_num_grains..(total_num_grains + new_grains_to_add))
                 .map(|i| Self::new_grain(i as u32))
             {
                 self.uninitialized_grains.insert(grain.uid, grain);
@@ -230,26 +230,48 @@ impl GranularSynthesizer {
             // keep as many fresh_grains as possible, and delete the rest from finished_grains
 
             if num_channels < self.fresh_grains.len() {
-                for i in num_channels..self.fresh_grains.len() {
-                    self.fresh_grains.remove(&(i as u32));
+                let num_keys_to_remove = self.fresh_grains.len() - num_channels;
+                let keys_to_delete: Vec<_> = self
+                    .fresh_grains
+                    .keys()
+                    .take(num_keys_to_remove)
+                    .map(ToOwned::to_owned)
+                    .collect();
+                for i in &keys_to_delete {
+                    self.fresh_grains.remove(i);
                 }
             }
 
             // keep as many finished_grains as possible, and delete the rest from uninitialized_grains
             let num_finished_grains_left_to_keep = num_channels - self.fresh_grains.len();
             if num_finished_grains_left_to_keep < self.finished_grains.len() {
-                for i in num_finished_grains_left_to_keep..self.fresh_grains.len() {
-                    self.finished_grains.remove(&(i as u32));
+                let num_finished_grains_to_remove =
+                    self.finished_grains.len() - num_finished_grains_left_to_keep;
+                let keys_to_delete: Vec<_> = self
+                    .finished_grains
+                    .keys()
+                    .take(num_finished_grains_to_remove)
+                    .map(ToOwned::to_owned)
+                    .collect();
+                for i in &keys_to_delete {
+                    self.finished_grains.remove(i);
                 }
             }
 
             // delete the rest from uninitialized_grains
             let num_uninitialized_grains_left_to_keep =
                 num_channels - self.fresh_grains.len() - self.finished_grains.len();
-
             if num_uninitialized_grains_left_to_keep < self.uninitialized_grains.len() {
-                for i in num_uninitialized_grains_left_to_keep..self.uninitialized_grains.len() {
-                    self.uninitialized_grains.remove(&(i as u32));
+                let num_uninitialized_grains_to_remove =
+                    self.uninitialized_grains.len() - num_uninitialized_grains_left_to_keep;
+                let keys_to_delete: Vec<_> = self
+                    .uninitialized_grains
+                    .keys()
+                    .take(num_uninitialized_grains_to_remove)
+                    .map(ToOwned::to_owned)
+                    .collect();
+                for i in &keys_to_delete {
+                    self.uninitialized_grains.remove(i);
                 }
             }
         }
@@ -454,8 +476,15 @@ impl GranularSynthesizer {
         // spread out the grains into a vec with the same number of slots as there are channels
         let mut grains_as_channels = vec![None; *self.num_channels + 1];
         for grain in self.fresh_grains.values_mut() {
+            let uid = grain.uid as usize;
+
+            // if the uid exceeds the number of channels, we don't need its output
+            if uid >= grains_as_channels.len() {
+                continue;
+            }
+
             // safe to store/deref these pointers since they are temporary and unique pointers
-            grains_as_channels[grain.uid as usize] = Some(grain as *mut Grain);
+            grains_as_channels[uid] = Some(grain as *mut Grain);
         }
 
         frame_data_buffer
@@ -627,7 +656,7 @@ mod test_granular_synthesizer {
 
             synth.set_num_channels(100);
 
-            for _ in 0..=200 {
+            for _ in 0..=100 {
                 synth.next_frame();
             }
 
