@@ -2,10 +2,14 @@
 
 - Update licenses / cargo tomls, directory names
 
-- generate grains starting from the middle and working outwards
+- BUG:
+
+  - start with num_channels low
+  - increase num_channels to something high
+  - decrease num_channels to something low again
+  - now the grains are getting initialized at an offset in the array
 
 - move filter step to when we iterate through grains to output audio (this skips a needless iteration)
-  
 - Make controls_delay range much smaller - 0ms to 25ms or so
 
 - prevent grain initialization periodicity (force grain_initialization_delay to be a prime number?)

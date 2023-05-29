@@ -10,7 +10,10 @@ use crate::{
     components::controls_select_buffer::DEFAULT_AUDIO_FILE,
     state::{app_action::AppAction, app_state::AppState},
 };
-use audio::{downmix_simple_to_buffer, granular_synthesizer_action::GranularSynthesizerAction};
+use audio::{
+    downmix_panning, downmix_panning_to_buffer, downmix_simple_to_buffer,
+    granular_synthesizer_action::GranularSynthesizerAction,
+};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     OutputCallbackInfo, Stream, StreamConfig,
@@ -139,7 +142,7 @@ where
         }
 
         // mix multi-channel down to number of outputs
-        downmix_simple_to_buffer(
+        downmix_panning_to_buffer(
             &frame,
             output_num_channels as u32,
             &mut downmixed_frame_buffer_data,
