@@ -310,9 +310,9 @@ impl GranularSynthesizer {
         // note: this is technically necessary to ensure grains are properly
         // sorted, since HashMap's iteration order is unspecified, but I've found
         // (at least for now) that it does in the correct order. Since this
-        // decreases runtime performance by ~25%, I'm leaving it out for now 
+        // decreases runtime performance by ~25%, I'm leaving it out for now
         // grains.sort_by_key(|grain| grain.uid);
-        
+
         let half_way = self.uninitialized_grains.len().min(*self.num_channels) / 2;
         let grain = grains.iter().nth(half_way);
 
@@ -877,6 +877,22 @@ mod test_granular_synthesizer {
 
             assert_eq!(frame_1[0] + 1.0, frame_2[0]);
             assert_eq!(frame_1[1] + 1.0, frame_2[1]);
+        }
+
+        #[test]
+        fn new_grains_should_come_from_center_of_channels() {
+            let mut synth = GranularSynthesizer::new();
+            synth
+                .set_buffer(Arc::new(vec![1.0; 1024]))
+                .set_envelope(crate::EnvelopeType::All1)
+                .set_grain_initialization_delay(Duration::ZERO)
+                .set_num_channels(250);
+
+            let frame = synth.next_frame();
+
+            assert_eq!(*frame.first().unwrap(), 0.0);
+            assert_eq!(*frame.last().unwrap(), 0.0);
+            assert_eq!(frame[frame.len() / 2], 1.0)
         }
     }
 
