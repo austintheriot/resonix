@@ -227,53 +227,13 @@ impl GranularSynthesizer {
                 self.uninitialized_grains.insert(grain.uid, grain);
             }
         } else if num_channels < total_num_grains {
-            // keep as many fresh_grains as possible, and delete the rest from finished_grains
+            // get rid of all grains that exceed the total number of channels
+            let num_channels = *self.num_channels as u32;
+            let filter_grain = |_: &u32, grain: &mut Grain| grain.uid < num_channels;
 
-            if num_channels < self.fresh_grains.len() {
-                let num_keys_to_remove = self.fresh_grains.len() - num_channels;
-                let keys_to_delete: Vec<_> = self
-                    .fresh_grains
-                    .keys()
-                    .take(num_keys_to_remove)
-                    .map(ToOwned::to_owned)
-                    .collect();
-                for i in &keys_to_delete {
-                    self.fresh_grains.remove(i);
-                }
-            }
-
-            // keep as many finished_grains as possible, and delete the rest from uninitialized_grains
-            let num_finished_grains_left_to_keep = num_channels - self.fresh_grains.len();
-            if num_finished_grains_left_to_keep < self.finished_grains.len() {
-                let num_finished_grains_to_remove =
-                    self.finished_grains.len() - num_finished_grains_left_to_keep;
-                let keys_to_delete: Vec<_> = self
-                    .finished_grains
-                    .keys()
-                    .take(num_finished_grains_to_remove)
-                    .map(ToOwned::to_owned)
-                    .collect();
-                for i in &keys_to_delete {
-                    self.finished_grains.remove(i);
-                }
-            }
-
-            // delete the rest from uninitialized_grains
-            let num_uninitialized_grains_left_to_keep =
-                num_channels - self.fresh_grains.len() - self.finished_grains.len();
-            if num_uninitialized_grains_left_to_keep < self.uninitialized_grains.len() {
-                let num_uninitialized_grains_to_remove =
-                    self.uninitialized_grains.len() - num_uninitialized_grains_left_to_keep;
-                let keys_to_delete: Vec<_> = self
-                    .uninitialized_grains
-                    .keys()
-                    .take(num_uninitialized_grains_to_remove)
-                    .map(ToOwned::to_owned)
-                    .collect();
-                for i in &keys_to_delete {
-                    self.uninitialized_grains.remove(i);
-                }
-            }
+            self.fresh_grains.retain(filter_grain);
+            self.finished_grains.retain(filter_grain);
+            self.uninitialized_grains.retain(filter_grain);
         }
 
         self
@@ -631,8 +591,8 @@ mod test_granular_synthesizer {
 
             // keep as many fresh grains as possible and delete all the remaining finished ones
             assert_eq!(*synth.num_channels(), 4);
-            assert_eq!(synth.uninitialized_grains.len(), 3);
-            assert_eq!(synth.fresh_grains.len(), 1);
+            assert_eq!(synth.uninitialized_grains.len(), 4);
+            assert_eq!(synth.fresh_grains.len(), 0);
             assert_eq!(synth.finished_grains.len(), 0);
         }
 
@@ -847,6 +807,30 @@ mod test_granular_synthesizer {
 
             let next_frame = synth.next_frame();
             assert_eq!(next_frame, vec![0.25; 250]);
+        }
+
+        #[test]
+        fn should_allow_going_from_high_to_low_num_channels() {
+            let mut synth = GranularSynthesizer::new();
+            synth
+                .set_buffer(Arc::new(vec![1.0; 1024]))
+                .set_envelope(crate::EnvelopeType::All1)
+                .set_grain_initialization_delay(Duration::ZERO)
+                .set_num_channels(250);
+
+            for _ in 0..500 {
+                synth.next_frame();
+            }
+
+            assert_eq!(synth.next_frame(), vec![1.0; 250]);
+
+            synth.set_num_channels(50);
+
+            for _ in 0..500 {
+                synth.next_frame();
+            }
+
+            assert_eq!(synth.next_frame(), vec![1.0; 50]);
         }
     }
 
