@@ -5,6 +5,7 @@ use crate::{Envelope, EnvelopeType, NumChannels};
 use nohash_hasher::IntMap;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
+use std::cmp::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -219,21 +220,25 @@ impl GranularSynthesizer {
         let num_channels = *self.num_channels();
         let total_num_grains = self.total_num_grains();
 
-        if num_channels > total_num_grains {
-            let new_grains_to_add = num_channels - total_num_grains;
-            for grain in (total_num_grains..(total_num_grains + new_grains_to_add))
-                .map(|i| Self::new_grain(i as u32))
-            {
-                self.uninitialized_grains.insert(grain.uid, grain);
+        match num_channels.cmp(&total_num_grains) {
+            Ordering::Greater => {
+                let new_grains_to_add = num_channels - total_num_grains;
+                for grain in (total_num_grains..(total_num_grains + new_grains_to_add))
+                    .map(|i| Self::new_grain(i as u32))
+                {
+                    self.uninitialized_grains.insert(grain.uid, grain);
+                }
             }
-        } else if num_channels < total_num_grains {
-            // get rid of all grains that exceed the total number of channels
-            let num_channels = *self.num_channels as u32;
-            let filter_grain = |_: &u32, grain: &mut Grain| grain.uid < num_channels;
+            Ordering::Less => {
+                // get rid of all grains that exceed the total number of channels
+                let num_channels = *self.num_channels as u32;
+                let filter_grain = |_: &u32, grain: &mut Grain| grain.uid < num_channels;
 
-            self.fresh_grains.retain(filter_grain);
-            self.finished_grains.retain(filter_grain);
-            self.uninitialized_grains.retain(filter_grain);
+                self.fresh_grains.retain(filter_grain);
+                self.finished_grains.retain(filter_grain);
+                self.uninitialized_grains.retain(filter_grain)
+            }
+            Ordering::Equal => {}
         }
 
         self
@@ -274,11 +279,10 @@ impl GranularSynthesizer {
         // grains.sort_by_key(|grain| grain.uid);
 
         let half_way = self.uninitialized_grains.len().min(*self.num_channels) / 2;
-        let grain = grains.iter().nth(half_way);
 
         // uninitialized grain should be moved into the fresh_grains list--
         // the new, refreshed grain should use the same uid as the uninitialized one
-        let Some(Grain {  uid, .. }) = grain else {
+        let Some(Grain {  uid, .. }) = grains.get(half_way) else {
             return self;
         };
 
@@ -493,18 +497,16 @@ impl GranularSynthesizer {
         // this list gets refreshed more frequently than the
         // uninitialized grains list
         if let Some(finished_grain_uid) = finished_grain_uid {
-            self.fresh_grains
-                .remove(&finished_grain_uid)
-                .map(|mut removed_grain| {
-                    removed_grain.is_finished = true;
-                    if removed_grain.exceeds_buffer_selection {
-                        self.uninitialized_grains
-                            .insert(finished_grain_uid, removed_grain);
-                    } else {
-                        self.finished_grains
-                            .insert(finished_grain_uid, removed_grain);
-                    }
-                });
+            if let Some(mut removed_grain) = self.fresh_grains.remove(&finished_grain_uid) {
+                removed_grain.is_finished = true;
+                if removed_grain.exceeds_buffer_selection {
+                    self.uninitialized_grains
+                        .insert(finished_grain_uid, removed_grain);
+                } else {
+                    self.finished_grains
+                        .insert(finished_grain_uid, removed_grain);
+                }
+            }
         }
 
         frame_data_buffer

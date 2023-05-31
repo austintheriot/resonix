@@ -45,7 +45,7 @@ impl AudioOutputAction for AudioOutput {
 
     fn get_simple_moving_average(&self) -> Vec<f32> {
         // this is a moving average of each channel's amplitude across the previous stored frames
-        let mut moving_average = Vec::from(vec![0.0; self.num_channels]);
+        let mut moving_average = vec![0.0; self.num_channels];
 
         // get sum for each channel
         for frame in self.prev_frames.iter() {

@@ -1,45 +1,60 @@
 use std::ops::Deref;
 use std::rc::Rc;
 
-use web_sys::HtmlInputElement;
+use uuid::Uuid;
 use yew::{prelude::*, virtual_dom::AttrValue};
 
-pub struct GetLabelCallback(Rc<dyn Fn(f64) -> Option<String>>);
+pub struct GetLabelCallback {
+    callback: Rc<dyn Fn(f64) -> Option<String>>,
+    uuid: Uuid,
+}
 
 impl GetLabelCallback {
     pub fn new<F: Fn(f64) -> Option<String> + 'static>(cb: Rc<F>) -> Self {
-        Self(Rc::clone(&cb) as Rc<dyn Fn(f64) -> Option<String>>)
+        Self {
+            callback: Rc::clone(&cb) as Rc<dyn Fn(f64) -> Option<String>>,
+            uuid: Uuid::new_v4(),
+        }
+    }
+}
+
+impl PartialEq for GetLabelCallback {
+    fn eq(&self, other: &Self) -> bool {
+        self.uuid == other.uuid
     }
 }
 
 impl<F: Fn(f64) -> Option<String> + 'static> From<F> for GetLabelCallback {
     fn from(cb: F) -> Self {
-        Self(Rc::new(cb) as Rc<dyn Fn(f64) -> Option<String>>)
+        Self {
+            callback: Rc::new(cb) as Rc<dyn Fn(f64) -> Option<String>>,
+            uuid: Uuid::new_v4(),
+        }
     }
 }
 
 impl<F: Fn(f64) -> Option<String> + 'static> From<Rc<F>> for GetLabelCallback {
     fn from(cb: Rc<F>) -> Self {
-        Self(cb as Rc<dyn Fn(f64) -> Option<String>>)
+        Self {
+            callback: cb as Rc<dyn Fn(f64) -> Option<String>>,
+            uuid: Uuid::new_v4(),
+        }
     }
 }
 
 impl Deref for GetLabelCallback {
     type Target = Rc<dyn Fn(f64) -> Option<String>>;
     fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl PartialEq for GetLabelCallback {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
+        &self.callback
     }
 }
 
 impl Default for GetLabelCallback {
     fn default() -> Self {
-        Self(Rc::new(|_| None))
+        Self {
+            callback: Rc::new(|_| None),
+            uuid: Uuid::new_v4(),
+        }
     }
 }
 
@@ -71,7 +86,7 @@ pub struct InputProps {
 #[function_component(InputRange)]
 pub fn input_range(props: &InputProps) -> Html {
     let disabled_class = if props.disabled { "disabled" } else { "" };
-    let value_label: UseStateHandle<Option<String>> =
+    let _value_label: UseStateHandle<Option<String>> =
         use_state_eq(|| (props.get_label_on_input)(props.value.clone().parse::<f64>().unwrap()));
 
     let value = props.value.clone();

@@ -10,10 +10,7 @@ use crate::{
     components::controls_select_buffer::DEFAULT_AUDIO_FILE,
     state::{app_action::AppAction, app_state::AppState},
 };
-use audio::{
-    downmix_panning, downmix_panning_to_buffer, downmix_simple_to_buffer,
-    granular_synthesizer_action::GranularSynthesizerAction,
-};
+use audio::{downmix_panning_to_buffer, granular_synthesizer_action::GranularSynthesizerAction};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     OutputCallbackInfo, Stream, StreamConfig,
@@ -53,12 +50,12 @@ fn write_data_to_frame_buffer<T>(
     write_frame_values_to_buffer: &mut dyn FnMut(&mut Vec<f32>),
     recording_status_handle: RecordingStatusHandle,
     mut audio_recorder_handle: AudioRecorderHandle,
-    mut final_frame_values: &mut Vec<f32>,
+    final_frame_values: &mut Vec<f32>,
 ) where
     T: cpal::Sample,
 {
     for output_channel_sample in output_frame_buffer.chunks_mut(output_num_channels) {
-        write_frame_values_to_buffer(&mut final_frame_values);
+        write_frame_values_to_buffer(final_frame_values);
 
         // clone audio data into a recording buffer
         let is_recording = recording_status_handle.get() == RecordingStatus::Recording;
@@ -116,7 +113,7 @@ where
     let mut frame_count: u32 = 0;
 
     // Called for every audio frame to generate appropriate sample
-    let mut write_frame_values_to_buffer = move |output_frame_buffer: &mut Vec<f32>| -> () {
+    let mut write_frame_values_to_buffer = move |output_frame_buffer: &mut Vec<f32>| {
         frame_count = frame_count.wrapping_add(1);
 
         // if paused, do not process any audio, just return silence
@@ -143,7 +140,7 @@ where
 
         // mix multi-channel down to number of outputs
         downmix_panning_to_buffer(
-            &frame,
+            frame,
             output_num_channels as u32,
             &mut downmixed_frame_buffer_data,
         );

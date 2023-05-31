@@ -1,4 +1,4 @@
-use yew::{function_component, html};
+use yew::{function_component, html, Html};
 
 #[function_component(IconRecord)]
 pub fn icon_record() -> Html {
