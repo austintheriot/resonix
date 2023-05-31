@@ -1,6 +1,6 @@
 use audio::{
     downmix_simple_to_buffer, granular_synthesizer::GranularSynthesizer,
-    granular_synthesizer_action::GranularSynthesizerAction,
+    granular_synthesizer::GranularSynthesizerAction,
 };
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},

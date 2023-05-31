@@ -1,7 +1,6 @@
 use super::bump_counter::BumpCounter;
 use audio::{
-    granular_synthesizer::GranularSynthesizer,
-    granular_synthesizer_action::GranularSynthesizerAction,
+    granular_synthesizer::GranularSynthesizer, granular_synthesizer::GranularSynthesizerAction,
 };
 use std::{
     sync::{Arc, Mutex},

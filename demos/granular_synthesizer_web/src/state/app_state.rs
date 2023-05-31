@@ -14,7 +14,7 @@ use crate::audio::play_status_handle::PlayStatusHandle;
 use crate::audio::recording_status_handle::RecordingStatusHandle;
 use crate::audio::stream_handle::StreamHandle;
 use audio::granular_synthesizer::GranularSynthesizer;
-use audio::granular_synthesizer_action::GranularSynthesizerAction;
+use audio::granular_synthesizer::GranularSynthesizerAction;
 
 pub type SampleRate = u32;
 pub type NunChannels = u32;

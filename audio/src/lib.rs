@@ -1,14 +1,9 @@
-mod downmixers;
-mod envelopes;
-pub mod grain;
+pub mod downmixers;
+pub mod envelopes;
 pub mod granular_synthesizer;
-pub mod granular_synthesizer_action;
-pub mod max;
-pub mod min;
-mod num_channels;
-pub mod percentage;
 pub mod utils;
 
 pub use downmixers::*;
 pub use envelopes::*;
-pub use num_channels::*;
+pub use granular_synthesizer::*;
+pub use utils::*;

@@ -1,4 +1,4 @@
-/// Custom trait for comparison of [Percentage](crate::percentage::Percentage) structs
+/// Custom trait for comparison of [Percentage](crate::Percentage) structs
 pub trait Max {
     type Rhs;
     type Output;

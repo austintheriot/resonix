@@ -28,7 +28,7 @@ fn build_audio_files_list() {
 
     let audio_file_string = format!(
         r#"
-        pub const AUDIO_FILES:  [&'static str; {}] = [{}];
+        pub const AUDIO_FILES:  [&str; {}] = [{}];
 
         pub const DEFAULT_AUDIO_FILE_INDEX: usize = {};
 

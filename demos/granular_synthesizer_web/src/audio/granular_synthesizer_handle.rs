@@ -1,6 +1,6 @@
 use audio::granular_synthesizer::GranularSynthesizer;
-use audio::granular_synthesizer_action::GranularSynthesizerAction;
-use audio::percentage::Percentage;
+use audio::granular_synthesizer::GranularSynthesizerAction;
+use audio::Percentage;
 use audio::{EnvelopeType, NumChannels};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
