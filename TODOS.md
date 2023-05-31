@@ -1,19 +1,5 @@
 # Todos
 
-- Update licenses / cargo tomls, directory names
-
-- BUG:
-
-  - start with num_channels low
-  - increase num_channels to something high
-  - decrease num_channels to something low again
-  - now the grains are getting initialized at an offset in the array
-
-- move filter step to when we iterate through grains to output audio (this skips a needless iteration)
-- Make controls_delay range much smaller - 0ms to 25ms or so
-
-- prevent grain initialization periodicity (force grain_initialization_delay to be a prime number?)
-
 - When lowering number of channels, allow old channels to fade out (?)
 
 - disable recording button until something has actually been recorded
@@ -26,7 +12,7 @@
 
 - Show recording buffer visualization (or at least some sort of indication recording is taking place)
 
-- Interpolate changes in Gain
+- Interpolate changes in Gain (especially when pausing/playing)
 
 - Name downloaded file something more like: "name_of_audio_granulated.wav" or similar
 
