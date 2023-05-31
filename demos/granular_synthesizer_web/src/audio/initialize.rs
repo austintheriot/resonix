@@ -10,7 +10,7 @@ use crate::{
     components::controls_select_buffer::DEFAULT_AUDIO_FILE,
     state::{app_action::AppAction, app_state::AppState},
 };
-use audio::{downmix_panning_to_buffer, granular_synthesizer_action::GranularSynthesizerAction};
+use audio::{downmix_panning_to_buffer, granular_synthesizer::GranularSynthesizerAction};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     OutputCallbackInfo, Stream, StreamConfig,

@@ -1,4 +1,4 @@
-use crate::{max::Max, min::Min};
+use crate::{Max, Min};
 use std::ops::{Add, Deref, Mul, Sub};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]

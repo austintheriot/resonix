@@ -9,8 +9,7 @@ use crate::{
     },
 };
 use audio::{
-    granular_synthesizer::GranularSynthesizer,
-    granular_synthesizer_action::GranularSynthesizerAction,
+    granular_synthesizer::GranularSynthesizer, granular_synthesizer::GranularSynthesizerAction,
 };
 use web_sys::HtmlInputElement;
 use yew::{function_component, html, prelude::*};

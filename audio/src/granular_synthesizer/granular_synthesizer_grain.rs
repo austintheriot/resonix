@@ -4,7 +4,7 @@ use nohash_hasher::IsEnabled;
 
 /// Contains information about where in a buffer the grain should sample from
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Grain {
+pub struct GranularSynthesizerGrain {
     pub start_frame: usize,
     pub end_frame: usize,
     pub current_frame: usize,
@@ -20,16 +20,16 @@ pub struct Grain {
     pub is_init: bool,
 }
 
-impl IsEnabled for Grain {}
+impl IsEnabled for GranularSynthesizerGrain {}
 
 /// Grain ids are guaranteed to be unique, so it is sufficient to hash based off of the uid
-impl Hash for Grain {
+impl Hash for GranularSynthesizerGrain {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.uid.hash(state);
     }
 }
 
-impl Default for Grain {
+impl Default for GranularSynthesizerGrain {
     fn default() -> Self {
         Self {
             start_frame: 0,
@@ -44,10 +44,10 @@ impl Default for Grain {
     }
 }
 
-impl Grain {
+impl GranularSynthesizerGrain {
     pub fn new(start_frame: usize, end_frame: usize, uid: u32, init: bool) -> Self {
         debug_assert!(start_frame < end_frame);
-        Grain {
+        GranularSynthesizerGrain {
             start_frame,
             current_frame: start_frame,
             end_frame,

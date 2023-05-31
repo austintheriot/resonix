@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use crate::{grain::Grain, percentage::Percentage, EnvelopeType, NumChannels};
+use crate::{EnvelopeType, GranularSynthesizerGrain, NumChannels, Percentage};
 
 /// Public interface to the GranularSynthesizer.
 ///
@@ -92,8 +92,8 @@ pub trait GranularSynthesizerAction {
     ///
     /// Once it is time to actually produce an audio sample from the buffer,
     /// each grain will be initialized with a random start/end index, etc.
-    fn new_grain(uid: u32) -> Grain {
-        Grain {
+    fn new_grain(uid: u32) -> GranularSynthesizerGrain {
+        GranularSynthesizerGrain {
             current_frame: 0,
             end_frame: 0,
             len: 0,
