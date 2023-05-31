@@ -8,7 +8,7 @@ pub enum EnvelopeType {
     Sine,
     All0,
     All1,
-    Custom(EnvelopeBuffer),
+    Custom(Box<EnvelopeBuffer>),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
@@ -56,7 +56,7 @@ impl From<EnvelopeType> for Envelope {
             EnvelopeType::Sine => Envelope::new_sine(),
             EnvelopeType::All0 => Envelope::new_all_0(),
             EnvelopeType::All1 => Envelope::new_all_1(),
-            EnvelopeType::Custom(buffer) => Envelope::new_custom(buffer),
+            EnvelopeType::Custom(buffer) => Envelope::new_custom(*buffer),
         }
     }
 }
@@ -67,7 +67,7 @@ impl From<Envelope> for EnvelopeType {
             Envelope::Sine(_) => EnvelopeType::Sine,
             Envelope::All0(_) => EnvelopeType::All0,
             Envelope::All1(_) => EnvelopeType::All1,
-            Envelope::Custom(buffer) => EnvelopeType::Custom(buffer),
+            Envelope::Custom(buffer) => EnvelopeType::Custom(Box::new(buffer)),
         }
     }
 }

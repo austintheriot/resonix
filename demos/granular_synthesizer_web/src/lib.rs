@@ -17,7 +17,7 @@ pub fn main() -> Result<(), JsValue> {
     wasm_logger::init(wasm_logger::Config::default());
 
     // start ui
-    let app_div = web_sys::window()
+    let _app_div = web_sys::window()
         .unwrap()
         .document()
         .unwrap()
@@ -25,7 +25,7 @@ pub fn main() -> Result<(), JsValue> {
         .unwrap()
         .unwrap();
 
-    yew::start_app_in_element::<components::app::App>(app_div);
+    yew::Renderer::<components::app::App>::new().render();
 
     Ok(())
 }

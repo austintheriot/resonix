@@ -28,7 +28,7 @@ impl GrainLenHandle {
 
     pub fn new(grain_len: Duration) -> Self {
         GrainLenHandle {
-            grain_len: Arc::new(Mutex::new(Duration::from(grain_len))),
+            grain_len: Arc::new(Mutex::new(grain_len)),
             counter: Default::default(),
         }
     }

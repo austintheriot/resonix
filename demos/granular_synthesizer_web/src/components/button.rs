@@ -1,15 +1,10 @@
 use yew::{prelude::*, virtual_dom::AttrValue};
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Default)]
 pub enum ButtonVariant {
+    #[default]
     Unpressed,
     Pressed,
-}
-
-impl Default for ButtonVariant {
-    fn default() -> Self {
-        ButtonVariant::Unpressed
-    }
 }
 
 impl From<ButtonVariant> for Classes {

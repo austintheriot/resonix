@@ -11,7 +11,7 @@ use crate::{
     },
     state::app_context::{AppContext, AppContextError},
 };
-use yew::{classes, function_component, html, use_context};
+use yew::{classes, function_component, html, use_context, Html};
 
 #[function_component(ControlsContainer)]
 pub fn controls_container() -> Html {
