@@ -1,5 +1,9 @@
 # Todos
 
+- add handle below buffer selection to allow dragging
+
+- allow playing through source unaltered (add vertical line / drag-and-drop icon above buffer selection)
+
 - When lowering number of channels, allow old channels to fade out (?)
 
 - disable recording button until something has actually been recorded
