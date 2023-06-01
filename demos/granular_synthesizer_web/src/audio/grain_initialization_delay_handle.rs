@@ -1,5 +1,5 @@
 use super::bump_counter::BumpCounter;
-use audio::{
+use resonix::{
     granular_synthesizer::GranularSynthesizer, granular_synthesizer::GranularSynthesizerAction,
 };
 use std::{

@@ -1,7 +1,7 @@
-use audio::granular_synthesizer::GranularSynthesizer;
-use audio::granular_synthesizer::GranularSynthesizerAction;
-use audio::Percentage;
-use audio::{EnvelopeType, NumChannels};
+use resonix::granular_synthesizer::GranularSynthesizer;
+use resonix::granular_synthesizer::GranularSynthesizerAction;
+use resonix::Percentage;
+use resonix::{EnvelopeType, NumChannels};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

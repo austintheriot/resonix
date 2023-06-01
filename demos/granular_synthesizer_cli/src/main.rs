@@ -1,4 +1,4 @@
-use audio::{
+use resonix::{
     downmix_simple_to_buffer, granular_synthesizer::GranularSynthesizer,
     granular_synthesizer::GranularSynthesizerAction,
 };

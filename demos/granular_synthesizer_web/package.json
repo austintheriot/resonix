@@ -1,6 +1,6 @@
 {
   "private": true,
-  "homepage": "https://chalkcast.github.io/audio/",
+  "homepage": "https://chalkcast.github.io/resonix/",
   "scripts": {
     "start": "webpack-dev-server --mode development",
     "build:dev": "webpack --mode development",

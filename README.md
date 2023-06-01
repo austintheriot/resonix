@@ -1,10 +1,10 @@
-# Rust Audio
+# Resonix
 
 ## About
 
-This repo is my investigation into using Rust for creative audio coding on various platforms (e.g. desktop, web, etc.), but especially for targeting the web.
+This repo is my investigation into using Rust for creative, cross-platform audio programming.
 
-[Granular Synthesizer Demo](https://austintheriot.github.io/audio/)
+[Granular Synthesizer Demo](https://austintheriot.github.io/resonix/)
 
 ![Granular Synthesizer Demo](/screenshots/granular_synthesizer_0.png)
 
@@ -19,6 +19,6 @@ Licensed under either of <a href="LICENSE-APACHE">Apache License, Version
 
 <sub>
 Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in audio by you, as defined in the Apache-2.0 license, shall be
+for inclusion in resonix by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
 </sub>
