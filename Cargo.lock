@@ -2038,10 +2038,12 @@ name = "resonix"
 version = "0.1.0"
 dependencies = [
  "cargo-husky",
+ "cpal",
  "getrandom",
  "log",
  "nohash-hasher",
  "rand",
+ "tokio",
  "wasm-logger",
 ]
 

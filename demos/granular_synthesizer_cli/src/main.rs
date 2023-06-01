@@ -1,10 +1,10 @@
-use resonix::{
-    downmix_simple_to_buffer, granular_synthesizer::GranularSynthesizer,
-    granular_synthesizer::GranularSynthesizerAction,
-};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     Stream, StreamConfig,
+};
+use resonix::{
+    downmix_simple_to_buffer, granular_synthesizer::GranularSynthesizer,
+    granular_synthesizer::GranularSynthesizerAction,
 };
 use rodio::{Decoder, Source};
 use std::{

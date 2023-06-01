@@ -10,12 +10,12 @@ use crate::{
     components::controls_select_buffer::DEFAULT_AUDIO_FILE,
     state::{app_action::AppAction, app_state::AppState},
 };
-use resonix::{downmix_panning_to_buffer, granular_synthesizer::GranularSynthesizerAction};
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
     OutputCallbackInfo, Stream, StreamConfig,
 };
 use gloo_net::http::Request;
+use resonix::{downmix_panning_to_buffer, granular_synthesizer::GranularSynthesizerAction};
 use std::sync::Arc;
 use yew::UseReducerHandle;
 
