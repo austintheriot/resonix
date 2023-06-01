@@ -13,7 +13,7 @@ pub struct AudioPlayer {
 }
 
 impl AudioPlayer {
-    pub async fn from_default_host<S: Sample, T, G: GetFrame<S, T> + Send + 'static + Clone>(
+    pub async fn from_defaults<S: Sample, T, G: GetFrame<S, T> + Send + 'static + Clone>(
         get_frame: G,
     ) -> Result<Self, BuildStreamError> {
         let host = cpal::default_host();
@@ -72,7 +72,7 @@ mod player_tests {
 
         let player = {
             let called = called.clone();
-            AudioPlayer::from_default_host(move |_: &mut [f32]| {
+            AudioPlayer::from_defaults(move |_: &mut [f32]| {
                 *called.lock().unwrap() = true;
             })
         }
