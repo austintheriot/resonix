@@ -1,5 +1,5 @@
 use super::{bump_counter::BumpCounter, num_channels_action::NumChannelsAction};
-use audio::{
+use resonix::{
     granular_synthesizer::GranularSynthesizer, granular_synthesizer::GranularSynthesizerAction,
     NumChannels,
 };

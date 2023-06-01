@@ -8,7 +8,7 @@ use crate::{
         app_selector::AppSelector,
     },
 };
-use audio::{
+use resonix::{
     granular_synthesizer::GranularSynthesizer, granular_synthesizer::GranularSynthesizerAction,
 };
 use web_sys::HtmlInputElement;

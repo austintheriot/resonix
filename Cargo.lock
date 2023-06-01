@@ -48,18 +48,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "audio"
-version = "0.1.0"
-dependencies = [
- "cargo-husky",
- "getrandom",
- "log",
- "nohash-hasher",
- "rand",
- "wasm-logger",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -588,11 +576,11 @@ name = "granular_synthesizer_cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "audio",
  "clap",
  "cpal",
  "minimp3",
  "rand",
+ "resonix",
  "rodio",
  "tokio",
 ]
@@ -602,7 +590,6 @@ name = "granular_synthesizer_web"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "audio",
  "console_error_panic_hook",
  "cpal",
  "getrandom",
@@ -612,6 +599,7 @@ dependencies = [
  "lazy_static",
  "log",
  "rand",
+ "resonix",
  "thiserror",
  "uuid",
  "wasm-bindgen",
@@ -1272,6 +1260,18 @@ name = "regex-syntax"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "436b050e76ed2903236f032a59761c1eb99e1b0aead2c257922771dab1fc8c78"
+
+[[package]]
+name = "resonix"
+version = "0.1.0"
+dependencies = [
+ "cargo-husky",
+ "getrandom",
+ "log",
+ "nohash-hasher",
+ "rand",
+ "wasm-logger",
+]
 
 [[package]]
 name = "rodio"

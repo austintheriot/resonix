@@ -7,7 +7,7 @@ use crate::{
     },
     components::buffer_sample_bars_canvas::get_buffer_maxes_for_canvas,
 };
-use audio::granular_synthesizer::GranularSynthesizerAction;
+use resonix::granular_synthesizer::GranularSynthesizerAction;
 use std::{rc::Rc, sync::Arc};
 use yew::Reducible;
 
