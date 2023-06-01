@@ -1,5 +1,2 @@
-
 #[derive(Debug, Clone)]
-pub struct ConcatenativeSynthesizer {
-
-}
+pub struct ConcatenativeSynthesizer {}
