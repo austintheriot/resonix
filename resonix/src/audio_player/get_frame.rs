@@ -8,14 +8,14 @@ use crate::{AudioPlayerContext, FromContext};
 /// to be called inside the `Player` struct for generating audio--
 /// also allows arbitrary arguments, so long as they can be extracted
 /// from the audio context
-pub trait GetFrame<'c, S, UserData, ExtractedData>
+pub trait GetFrame<S, UserData, ExtractedData>
 where
     S: Sample,
 {
     fn call(&self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>);
 }
 
-impl<'c, S, Callback, UserData> GetFrame<'c, S, UserData, ()> for Callback
+impl<S, Callback, UserData> GetFrame<S, UserData, ()> for Callback
 where
     S: Sample,
     Callback: Fn(&mut [S]),
@@ -25,8 +25,7 @@ where
     }
 }
 
-impl<'c, S, Callback, UserData, ExtractedData> GetFrame<'c, S, UserData, (ExtractedData,)>
-    for Callback
+impl<S, Callback, UserData, ExtractedData> GetFrame<S, UserData, (ExtractedData,)> for Callback
 where
     S: Sample,
     Callback: Fn(&mut [S], ExtractedData),
@@ -37,8 +36,8 @@ where
     }
 }
 
-impl<'c, S, Callback, UserData, ExtractedData1, ExtractedData2>
-    GetFrame<'c, S, UserData, (ExtractedData1, ExtractedData2)> for Callback
+impl<S, Callback, UserData, ExtractedData1, ExtractedData2>
+    GetFrame<S, UserData, (ExtractedData1, ExtractedData2)> for Callback
 where
     S: Sample,
     Callback: Fn(&mut [S], ExtractedData1, ExtractedData2),
@@ -54,8 +53,8 @@ where
     }
 }
 
-impl<'c, S, Callback, UserData, ExtractedData1, ExtractedData2, ExtractedData3>
-    GetFrame<'c, S, UserData, (ExtractedData1, ExtractedData2, ExtractedData3)> for Callback
+impl<S, Callback, UserData, ExtractedData1, ExtractedData2, ExtractedData3>
+    GetFrame<S, UserData, (ExtractedData1, ExtractedData2, ExtractedData3)> for Callback
 where
     S: Sample,
     Callback: Fn(&mut [S], ExtractedData1, ExtractedData2, ExtractedData3),
