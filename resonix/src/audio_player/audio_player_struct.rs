@@ -16,13 +16,13 @@ impl<UserData> AudioPlayer<UserData>
 where
     UserData: Send + Sync + Sync + 'static,
 {
-    pub async fn from_defaults_and_user_context<'c, S, Callback, ExtractedData>(
+    pub async fn from_defaults_and_user_context<S, Callback, ExtractedData>(
         get_frame: Callback,
         data: UserData,
     ) -> Result<Self, BuildStreamError>
     where
         S: Sample,
-        Callback: GetFrame<'c, S, UserData, ExtractedData> + Send + Sync + 'static,
+        Callback: GetFrame<S, UserData, ExtractedData> + Send + Sync + 'static,
     {
         let host = cpal::default_host();
         let device = host
@@ -41,20 +41,20 @@ where
         });
 
         let stream =
-            Self::run::<'c, S, Callback, ExtractedData>(Arc::clone(&context), get_frame).await?;
+            Self::run::<S, Callback, ExtractedData>(Arc::clone(&context), get_frame).await?;
 
         stream.play().unwrap();
 
         Ok(Self { context, stream })
     }
 
-    async fn run<'c, S, Callback, ExtractedData>(
+    async fn run<S, Callback, ExtractedData>(
         context: Arc<AudioPlayerContext<UserData>>,
         get_frame: Callback,
     ) -> Result<Stream, BuildStreamError>
     where
         S: Sample,
-        Callback: GetFrame<'c, S, UserData, ExtractedData> + Send + Sync + 'static,
+        Callback: GetFrame<S, UserData, ExtractedData> + Send + Sync + 'static,
     {
         let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
         let device = &context.device;
@@ -74,12 +74,12 @@ where
 impl AudioPlayer<()> {
     /// Creates audio player that does not have any user context
     /// associated with it.
-    pub async fn from_defaults<'c, S, Callback, ExtractedData>(
+    pub async fn from_defaults<S, Callback, ExtractedData>(
         get_frame: Callback,
     ) -> Result<Self, BuildStreamError>
     where
         S: Sample,
-        Callback: GetFrame<'c, S, (), ExtractedData> + Send + Sync + 'static,
+        Callback: GetFrame<S, (), ExtractedData> + Send + Sync + 'static,
     {
         Self::from_defaults_and_user_context(get_frame, ()).await
     }
