@@ -1,4 +1,8 @@
+use std::sync::Arc;
+
 use cpal::{Device, Host, SampleFormat, StreamConfig};
+
+use crate::FromContext;
 
 /// Audio data
 pub struct AudioPlayerContext<D> {
@@ -11,3 +15,11 @@ pub struct AudioPlayerContext<D> {
     /// implementing FromContext for U
     pub data: D,
 }
+
+impl<D> FromContext<D> for Arc<AudioPlayerContext<D>> {
+    fn from_context(context: Arc<AudioPlayerContext<D>>) -> Self {
+        Arc::clone(&context)
+    }
+}
+
+pub type AudioPlayerContextArg<D = ()> = Arc<AudioPlayerContext<D>>;

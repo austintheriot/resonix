@@ -12,7 +12,7 @@ pub trait GetFrame<'c, S, UserData, ExtractedData>
 where
     S: Sample,
 {
-    fn call<'b>(&self, buffer: &'b mut [S], context: &'c AudioPlayerContext<UserData>);
+    fn call(&self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>);
 }
 
 impl<'c, S, Callback, UserData> GetFrame<'c, S, UserData, ()> for Callback
@@ -20,7 +20,7 @@ where
     S: Sample,
     Callback: Fn(&mut [S]),
 {
-    fn call<'b>(&self, buffer: &'b mut [S], _: &'c AudioPlayerContext<UserData>) {
+    fn call(&self, buffer: &mut [S], _: Arc<AudioPlayerContext<UserData>>) {
         (self)(buffer);
     }
 }
@@ -30,10 +30,10 @@ impl<'c, S, Callback, UserData, ExtractedData> GetFrame<'c, S, UserData, (Extrac
 where
     S: Sample,
     Callback: Fn(&mut [S], ExtractedData),
-    ExtractedData: FromContext<'c, UserData>,
+    ExtractedData: FromContext<UserData>,
 {
-    fn call<'b>(&self, buffer: &'b mut [S], context: &'c AudioPlayerContext<UserData>) {
-        (self)(buffer, ExtractedData::from_context(context));
+    fn call(&self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>) {
+        (self)(buffer, ExtractedData::from_context(Arc::clone(&context)));
     }
 }
 
@@ -42,14 +42,14 @@ impl<'c, S, Callback, UserData, ExtractedData1, ExtractedData2>
 where
     S: Sample,
     Callback: Fn(&mut [S], ExtractedData1, ExtractedData2),
-    ExtractedData1: FromContext<'c, UserData>,
-    ExtractedData2: FromContext<'c, UserData>,
+    ExtractedData1: FromContext<UserData>,
+    ExtractedData2: FromContext<UserData>,
 {
-    fn call<'b>(&self, buffer: &'b mut [S], context: &'c AudioPlayerContext<UserData>) {
+    fn call(&self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>) {
         (self)(
             buffer,
-            ExtractedData1::from_context(context),
-            ExtractedData2::from_context(context),
+            ExtractedData1::from_context(Arc::clone(&context)),
+            ExtractedData2::from_context(Arc::clone(&context)),
         );
     }
 }
@@ -59,16 +59,16 @@ impl<'c, S, Callback, UserData, ExtractedData1, ExtractedData2, ExtractedData3>
 where
     S: Sample,
     Callback: Fn(&mut [S], ExtractedData1, ExtractedData2, ExtractedData3),
-    ExtractedData1: FromContext<'c, UserData>,
-    ExtractedData2: FromContext<'c, UserData>,
-    ExtractedData3: FromContext<'c, UserData>,
+    ExtractedData1: FromContext<UserData>,
+    ExtractedData2: FromContext<UserData>,
+    ExtractedData3: FromContext<UserData>,
 {
-    fn call<'b>(&self, buffer: &'b mut [S], context: &'c AudioPlayerContext<UserData>) {
+    fn call(&self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>) {
         (self)(
             buffer,
-            ExtractedData1::from_context(context),
-            ExtractedData2::from_context(context),
-            ExtractedData3::from_context(context),
+            ExtractedData1::from_context(Arc::clone(&context)),
+            ExtractedData2::from_context(Arc::clone(&context)),
+            ExtractedData3::from_context(Arc::clone(&context)),
         );
     }
 }
