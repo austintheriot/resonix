@@ -16,13 +16,13 @@ impl<UserData> AudioPlayer<UserData>
 where
     UserData: Send + Sync + Sync + 'static,
 {
-    pub async fn from_defaults_and_user_context<'a, 'c: 'a, S, Callback, ExtractedData>(
+    pub async fn from_defaults_and_user_context<'c, S, Callback, ExtractedData>(
         get_frame: Callback,
         data: UserData,
     ) -> Result<Self, BuildStreamError>
     where
         S: Sample,
-        Callback: GetFrame<'a, 'c, S, UserData, ExtractedData> + Send + Sync + 'static,
+        Callback: GetFrame<'c, S, UserData, ExtractedData> + Send + Sync + 'static,
     {
         let host = cpal::default_host();
         let device = host
@@ -41,21 +41,20 @@ where
         });
 
         let stream =
-            Self::run::<'a, 'c, S, Callback, ExtractedData>(Arc::clone(&context), get_frame)
-                .await?;
+            Self::run::<'c, S, Callback, ExtractedData>(Arc::clone(&context), get_frame).await?;
 
         stream.play().unwrap();
 
         Ok(Self { context, stream })
     }
 
-    async fn run<'a, 'c: 'a, S, Callback, ExtractedData>(
+    async fn run<'c, S, Callback, ExtractedData>(
         context: Arc<AudioPlayerContext<UserData>>,
         get_frame: Callback,
     ) -> Result<Stream, BuildStreamError>
     where
         S: Sample,
-        Callback: GetFrame<'a, 'c, S, UserData, ExtractedData> + Send + Sync + 'static,
+        Callback: GetFrame<'c, S, UserData, ExtractedData> + Send + Sync + 'static,
     {
         let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
         let device = &context.device;
@@ -76,12 +75,12 @@ where
 impl AudioPlayer<()> {
     /// Creates audio player that does not have any user context
     /// associated with it.
-    pub async fn from_defaults<'a, 'c: 'a, S, Callback, ExtractedData>(
+    pub async fn from_defaults<'c, S, Callback, ExtractedData>(
         get_frame: Callback,
     ) -> Result<Self, BuildStreamError>
     where
         S: Sample,
-        Callback: GetFrame<'a, 'c, S, (), ExtractedData> + Send + Sync + 'static,
+        Callback: GetFrame<'c, S, (), ExtractedData> + Send + Sync + 'static,
     {
         Self::from_defaults_and_user_context(get_frame, ()).await
     }
@@ -123,8 +122,8 @@ mod player_tests {
         #[derive(Debug, PartialEq, Clone)]
         struct Example(String);
 
-        impl<'a> FromContext<'a, UserData> for Example {
-            fn from_context(context: &'a AudioPlayerContext<UserData>) -> Self {
+        impl<'c> FromContext<'c, UserData> for Example {
+            fn from_context(context: &'c AudioPlayerContext<UserData>) -> Self {
                 Self(context.data.example.clone())
             }
         }
@@ -163,8 +162,8 @@ mod player_tests {
         #[derive(Debug, PartialEq, Clone)]
         struct Example<'a>(&'a str);
 
-        impl<'a> FromContext<'a, UserData> for Example<'a> {
-            fn from_context(context: &'a AudioPlayerContext<UserData>) -> Self {
+        impl<'c> FromContext<'c, UserData> for Example<'c> {
+            fn from_context(context: &'c AudioPlayerContext<UserData>) -> Self {
                 Self(&context.data.example)
             }
         }
@@ -175,17 +174,16 @@ mod player_tests {
 
         let called = Arc::new(Mutex::new(false));
 
-        // let player = {
-        //     let called = Arc::clone(&called);
-        //     AudioPlayer::from_defaults_and_user_context(
-        //         move |_: &mut [f32], example: Example| {
-        //             *called.lock().unwrap() = true;
-        //             assert_eq!(example, Example("example"));
-        //         },
-        //         data,
-        //     )
-        // }
-        // .await;
+        let player = {
+            AudioPlayer::from_defaults_and_user_context(
+                move |_: &'_ mut [f32], example: Example<'_>| -> () {
+                    *called.lock().unwrap() = true;
+                    assert_eq!(example, Example("example"));
+                },
+                data,
+            )
+        }
+        .await;
 
         // std::thread::sleep(Duration::from_millis(1));
 
