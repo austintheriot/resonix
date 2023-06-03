@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use cpal::Sample;
 
-use crate::{AudioPlayerContext, FromContext};
+use crate::{AudioPlayerContext, UserDataFromContext};
 
 /// Allows any function implementing the following constraints
 /// to be called inside the `Player` struct for generating audio--
@@ -21,7 +21,7 @@ where
 // where
 //     S: Sample,
 //     Callback: Fn(&mut [S], ExtractedData),
-//     ExtractedData: FromContext<UserData>,
+//     ExtractedData: UserDataFromContext<UserData>,
 // {
 //     fn call(&self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>) {
 //         (self)(buffer, ExtractedData::from_context(Arc::clone(&context)));
@@ -44,7 +44,7 @@ macro_rules! impl_get_frame {
             where
                 S: Sample,
                 Callback: Fn(&mut [S], $($param, )*),
-                $($param: FromContext<UserData>,)*
+                $($param: UserDataFromContext<UserData>,)*
         {
             fn call(&self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>) {
                 (self)(buffer, $(

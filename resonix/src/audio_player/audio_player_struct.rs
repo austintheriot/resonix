@@ -129,7 +129,7 @@ mod player_tests {
         time::Duration,
     };
 
-    use crate::{AudioPlayer, AudioPlayerContext, AudioPlayerContextArg, FromContext};
+    use crate::{AudioPlayer, AudioPlayerContext, AudioPlayerContextArg, UserDataFromContext};
 
     #[tokio::test]
     async fn calls_get_frame_closure() {
@@ -158,7 +158,7 @@ mod player_tests {
         #[derive(Debug, PartialEq, Clone)]
         struct Example(String);
 
-        impl FromContext<UserData> for Example {
+        impl UserDataFromContext<UserData> for Example {
             fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
                 Self(context.user_data.example.clone())
             }
@@ -230,25 +230,25 @@ mod player_tests {
             called: Arc<Mutex<bool>>,
         }
 
-        impl FromContext<UserData> for String {
+        impl UserDataFromContext<UserData> for String {
             fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
                 context.user_data.a.clone()
             }
         }
 
-        impl FromContext<UserData> for u32 {
+        impl UserDataFromContext<UserData> for u32 {
             fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
                 context.user_data.b
             }
         }
 
-        impl FromContext<UserData> for f64 {
+        impl UserDataFromContext<UserData> for f64 {
             fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
                 context.user_data.c
             }
         }
 
-        impl FromContext<UserData> for Vec<f32> {
+        impl UserDataFromContext<UserData> for Vec<f32> {
             fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
                 context.user_data.d.clone()
             }
