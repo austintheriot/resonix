@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate higher_order_closure;
+
 pub mod audio_player;
 pub mod concatenative_synthesizer;
 pub mod downmixers;
