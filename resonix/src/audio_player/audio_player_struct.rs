@@ -5,20 +5,25 @@ use cpal::{
     BuildStreamError, OutputCallbackInfo, Sample, Stream, StreamConfig,
 };
 
-use crate::{AudioPlayerContext, GetFrame};
+use crate::{AudioConfig, AudioPlayerContext, GetFrame};
 
+/// Creates an audios stream and returns it, along with the
+/// audio configuration that was chosen.
 pub struct AudioPlayer<D> {
-    context: Arc<AudioPlayerContext<D>>,
-    stream: Stream,
+    pub context: Arc<AudioPlayerContext<D>>,
+    pub stream: Stream,
 }
+
+// todo: refactor to do all setup through an Enum and/or builder pattern
+// rather than calling different setup functions
 
 impl<UserData> AudioPlayer<UserData>
 where
     UserData: Send + Sync + Sync + 'static,
 {
-    pub async fn from_defaults_and_user_context<S, Callback, ExtractedData>(
+    pub async fn from_audio_defaults_and_user_data<S, Callback, ExtractedData>(
         get_frame: Callback,
-        data: UserData,
+        user_data: UserData,
     ) -> Result<Self, BuildStreamError>
     where
         S: Sample,
@@ -31,24 +36,43 @@ where
         let config = device.default_output_config().unwrap();
         let sample_format = config.sample_format();
         let stream_config: StreamConfig = config.into();
-
-        let context = Arc::new(AudioPlayerContext {
+        let audio_config = AudioConfig {
             host,
             device,
             sample_format,
             stream_config,
-            data,
+        };
+
+        Self::from_audio_config_and_user_data(audio_config, get_frame, user_data).await
+    }
+
+    pub async fn from_audio_config_and_user_data<S, Callback, ExtractedData>(
+        audio_config: AudioConfig,
+        get_frame: Callback,
+        user_data: UserData,
+    ) -> Result<Self, BuildStreamError>
+    where
+        S: Sample,
+        Callback: GetFrame<S, UserData, ExtractedData> + Send + Sync + 'static,
+    {
+        let context = Arc::new(AudioPlayerContext {
+            host: audio_config.host,
+            device: audio_config.device,
+            sample_format: audio_config.sample_format,
+            stream_config: audio_config.stream_config,
+            user_data,
         });
 
         let stream =
-            Self::run::<S, Callback, ExtractedData>(Arc::clone(&context), get_frame).await?;
+            Self::create_stream::<S, Callback, ExtractedData>(Arc::clone(&context), get_frame)
+                .await?;
 
         stream.play().unwrap();
 
         Ok(Self { context, stream })
     }
 
-    async fn run<S, Callback, ExtractedData>(
+    async fn create_stream<S, Callback, ExtractedData>(
         context: Arc<AudioPlayerContext<UserData>>,
         get_frame: Callback,
     ) -> Result<Stream, BuildStreamError>
@@ -72,16 +96,29 @@ where
 }
 
 impl AudioPlayer<()> {
-    /// Creates audio player that does not have any user context
-    /// associated with it.
-    pub async fn from_defaults<S, Callback, ExtractedData>(
+    /// Creates audio player using default audio settings and
+    /// does not have any user context associated with it.
+    pub async fn from_audio_defaults<S, Callback, ExtractedData>(
         get_frame: Callback,
     ) -> Result<Self, BuildStreamError>
     where
         S: Sample,
         Callback: GetFrame<S, (), ExtractedData> + Send + Sync + 'static,
     {
-        Self::from_defaults_and_user_context(get_frame, ()).await
+        Self::from_audio_defaults_and_user_data(get_frame, ()).await
+    }
+
+    /// Creates audio player using specified audio config and
+    /// does not have any user context associated with it.
+    pub async fn from_audio_config<S, Callback, ExtractedData>(
+        audio_config: AudioConfig,
+        get_frame: Callback,
+    ) -> Result<Self, BuildStreamError>
+    where
+        S: Sample,
+        Callback: GetFrame<S, (), ExtractedData> + Send + Sync + 'static,
+    {
+        Self::from_audio_config_and_user_data(audio_config, get_frame, ()).await
     }
 }
 
@@ -100,7 +137,7 @@ mod player_tests {
 
         let player = {
             let called = Arc::clone(&called);
-            AudioPlayer::from_defaults(move |_: &mut [f32]| {
+            AudioPlayer::from_audio_defaults(move |_: &mut [f32]| {
                 *called.lock().unwrap() = true;
             })
         }
@@ -123,11 +160,11 @@ mod player_tests {
 
         impl FromContext<UserData> for Example {
             fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
-                Self(context.data.example.clone())
+                Self(context.user_data.example.clone())
             }
         }
 
-        let data = UserData {
+        let user_data = UserData {
             example: String::from("example"),
         };
 
@@ -135,12 +172,12 @@ mod player_tests {
 
         let player = {
             let called = Arc::clone(&called);
-            AudioPlayer::from_defaults_and_user_context(
+            AudioPlayer::from_audio_defaults_and_user_data(
                 move |_: &mut [f32], example: Example| {
                     *called.lock().unwrap() = true;
                     assert_eq!(example, Example(String::from("example")))
                 },
-                data,
+                user_data,
             )
         }
         .await;
@@ -158,10 +195,7 @@ mod player_tests {
             example: String,
         }
 
-        #[derive(Debug, PartialEq, Clone)]
-        struct Example<'a>(&'a str);
-
-        let data = UserData {
+        let user_data = UserData {
             example: String::from("example"),
         };
 
@@ -169,12 +203,82 @@ mod player_tests {
 
         let player = {
             let called = Arc::clone(&called);
-            AudioPlayer::from_defaults_and_user_context(
+            AudioPlayer::from_audio_defaults_and_user_data(
                 move |_: &'_ mut [f32], context: AudioPlayerContextArg<UserData>| {
                     *called.lock().unwrap() = true;
-                    assert_eq!(context.data.example, "example");
+                    // possible to borrow inner context values here
+                    assert_eq!(&context.user_data.example, "example");
                 },
-                data,
+                user_data,
+            )
+        }
+        .await;
+
+        std::thread::sleep(Duration::from_millis(1));
+
+        assert!(player.is_ok());
+        assert!(*called.lock().unwrap());
+    }
+
+    #[tokio::test]
+    async fn allows_combining_different_arguments() {
+        struct UserData {
+            a: String,
+            b: u32,
+            c: f64,
+            d: Vec<f32>,
+            called: Arc<Mutex<bool>>,
+        }
+
+        impl FromContext<UserData> for String {
+            fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
+                context.user_data.a.clone()
+            }
+        }
+
+        impl FromContext<UserData> for u32 {
+            fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
+                context.user_data.b
+            }
+        }
+
+        impl FromContext<UserData> for f64 {
+            fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
+                context.user_data.c
+            }
+        }
+
+        impl FromContext<UserData> for Vec<f32> {
+            fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
+                context.user_data.d.clone()
+            }
+        }
+
+        let called = Arc::new(Mutex::new(false));
+
+        let user_data = UserData {
+            a: String::from("example"),
+            b: 1,
+            c: 2.0,
+            d: vec![1.0, 2.0, 3.0],
+            called: Arc::clone(&called),
+        };
+
+        let player = {
+            AudioPlayer::from_audio_defaults_and_user_data(
+                move |_: &'_ mut [f32],
+                      context: AudioPlayerContextArg<UserData>,
+                      string: String,
+                      uint: u32,
+                      float: f64,
+                      vec: Vec<f32>| {
+                    *context.user_data.called.lock().unwrap() = true;
+                    assert_eq!(string, String::from("example"));
+                    assert_eq!(uint, 1);
+                    assert_eq!(float, 2.0);
+                    assert_eq!(vec, vec![1.0, 2.0, 3.0]);
+                },
+                user_data,
             )
         }
         .await;
