@@ -7,7 +7,7 @@ pub struct AudioPlayerContext<D> {
     pub sample_format: SampleFormat,
     pub stream_config: StreamConfig,
     /// This is arbitrary user-specified data that the user can associate with
-    /// the audio context, making it easily retrievable by 
+    /// the audio context, making it easily retrievable by
     /// implementing FromContext for U
     pub data: D,
 }

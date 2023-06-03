@@ -14,15 +14,15 @@ pub struct AudioPlayer<D> {
 
 impl<UserData> AudioPlayer<UserData>
 where
-    UserData: Send + Sync + 'static,
+    UserData: Send + Sync + Sync + 'static,
 {
-    pub async fn from_defaults_and_user_context<S, Callback, ExtractedData>(
+    pub async fn from_defaults_and_user_context<'a, 'c: 'a, S, Callback, ExtractedData>(
         get_frame: Callback,
         data: UserData,
     ) -> Result<Self, BuildStreamError>
     where
         S: Sample,
-        Callback: GetFrame<S, UserData, ExtractedData> + Send + 'static + Clone,
+        Callback: GetFrame<'a, 'c, S, UserData, ExtractedData> + Send + Sync + 'static,
     {
         let host = cpal::default_host();
         let device = host
@@ -41,30 +41,31 @@ where
         });
 
         let stream =
-            Self::run::<S, Callback, ExtractedData>(Arc::clone(&context), get_frame).await?;
+            Self::run::<'a, 'c, S, Callback, ExtractedData>(Arc::clone(&context), get_frame)
+                .await?;
 
         stream.play().unwrap();
 
         Ok(Self { context, stream })
     }
 
-    async fn run<S, Callback, ExtractedData>(
+    async fn run<'a, 'c: 'a, S, Callback, ExtractedData>(
         context: Arc<AudioPlayerContext<UserData>>,
-        get_frame: Callback,
+        _get_frame: Callback,
     ) -> Result<Stream, BuildStreamError>
     where
         S: Sample,
-        Callback: GetFrame<S, UserData, ExtractedData> + Send + 'static + Clone,
+        Callback: GetFrame<'a, 'c, S, UserData, ExtractedData> + Send + Sync + 'static,
     {
         let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
         let device = &context.device;
         let stream_config = &context.stream_config;
-        let context = Arc::clone(&context);
+        let _context = Arc::clone(&context);
 
         device.build_output_stream(
             stream_config,
-            move |buffer: &mut [S], _: &OutputCallbackInfo| {
-                get_frame.clone().call(buffer, &context)
+            move |_buffer: &mut [S], _: &OutputCallbackInfo| {
+                // get_frame.call(buffer, &context)
             },
             err_fn,
         )
@@ -74,12 +75,12 @@ where
 impl AudioPlayer<()> {
     /// Creates audio player that does not have any user context
     /// associated with it.
-    pub async fn from_defaults<S, Callback, ExtractedData>(
+    pub async fn from_defaults<'a, 'c: 'a, S, Callback, ExtractedData>(
         get_frame: Callback,
     ) -> Result<Self, BuildStreamError>
     where
         S: Sample,
-        Callback: for<'a> GetFrame<S, (), ExtractedData> + Send + 'static + Clone,
+        Callback: GetFrame<'a, 'c, S, (), ExtractedData> + Send + Sync + 'static,
     {
         Self::from_defaults_and_user_context(get_frame, ()).await
     }
@@ -121,8 +122,8 @@ mod player_tests {
         #[derive(Debug, PartialEq, Clone)]
         struct Example(String);
 
-        impl<'a> FromContext<'a, UserData> for Example {
-            fn from_context<'b: 'a>(context: &'b AudioPlayerContext<UserData>) -> Self {
+        impl<'a, 'c: 'a> FromContext<'a, 'c, UserData> for Example {
+            fn from_context(context: &'c AudioPlayerContext<UserData>) -> Self {
                 Self(context.data.example.clone())
             }
         }
@@ -161,8 +162,8 @@ mod player_tests {
         #[derive(Debug, PartialEq, Clone)]
         struct Example<'a>(&'a str);
 
-        impl<'a> FromContext<'a, UserData> for Example<'a> {
-            fn from_context<'b: 'a>(context: &'b AudioPlayerContext<UserData>) -> Self {
+        impl<'a, 'c: 'a> FromContext<'a, 'c, UserData> for Example<'c> {
+            fn from_context(context: &'c AudioPlayerContext<UserData>) -> Self {
                 Self(&context.data.example)
             }
         }
@@ -178,7 +179,7 @@ mod player_tests {
             AudioPlayer::from_defaults_and_user_context(
                 move |_: &mut [f32], example: Example| {
                     *called.lock().unwrap() = true;
-                    assert_eq!(example, "example");
+                    assert_eq!(example, Example("example"));
                 },
                 data,
             )
