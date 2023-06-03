@@ -64,8 +64,7 @@ where
         device.build_output_stream(
             stream_config,
             move |buffer: &mut [S], _: &OutputCallbackInfo| {
-                let context = Arc::clone(&context);
-                get_frame.call(buffer, &context)
+                get_frame.call(buffer, Arc::clone(&context))
             },
             err_fn,
         )
@@ -93,7 +92,7 @@ mod player_tests {
         time::Duration,
     };
 
-    use crate::{AudioPlayer, AudioPlayerContext, FromContext};
+    use crate::{AudioPlayer, AudioPlayerContext, AudioPlayerContextArg, FromContext};
 
     #[tokio::test]
     async fn calls_get_frame_closure() {
@@ -122,8 +121,8 @@ mod player_tests {
         #[derive(Debug, PartialEq, Clone)]
         struct Example(String);
 
-        impl<'c> FromContext<'c, UserData> for Example {
-            fn from_context(context: &'c AudioPlayerContext<UserData>) -> Self {
+        impl FromContext<UserData> for Example {
+            fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
                 Self(context.data.example.clone())
             }
         }
@@ -154,19 +153,13 @@ mod player_tests {
     }
 
     #[tokio::test]
-    async fn allows_getting_user_data_reference_from_context() {
+    async fn allows_getting_context_itself_as_arg() {
         struct UserData {
             example: String,
         }
 
         #[derive(Debug, PartialEq, Clone)]
         struct Example<'a>(&'a str);
-
-        impl<'c> FromContext<'c, UserData> for Example<'c> {
-            fn from_context(context: &'c AudioPlayerContext<UserData>) -> Self {
-                Self(&context.data.example)
-            }
-        }
 
         let data = UserData {
             example: String::from("example"),
@@ -175,19 +168,20 @@ mod player_tests {
         let called = Arc::new(Mutex::new(false));
 
         let player = {
+            let called = Arc::clone(&called);
             AudioPlayer::from_defaults_and_user_context(
-                move |_: &'_ mut [f32], example: Example<'_>| -> () {
+                move |_: &'_ mut [f32], context: AudioPlayerContextArg<UserData>| {
                     *called.lock().unwrap() = true;
-                    assert_eq!(example, Example("example"));
+                    assert_eq!(context.data.example, "example");
                 },
                 data,
             )
         }
         .await;
 
-        // std::thread::sleep(Duration::from_millis(1));
+        std::thread::sleep(Duration::from_millis(1));
 
-        // assert!(player.is_ok());
-        // assert!(*called.lock().unwrap());
+        assert!(player.is_ok());
+        assert!(*called.lock().unwrap());
     }
 }
