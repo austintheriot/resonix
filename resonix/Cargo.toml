@@ -18,7 +18,6 @@ cpal = { version = "0.13.5", features = ["wasm-bindgen"] }
 log = "0.4"
 wasm-logger = "0.2.0"
 nohash-hasher = "0.2.0"
-higher-order-closure = "0.0.5"
 
 [dev-dependencies]
 cargo-husky = "1"

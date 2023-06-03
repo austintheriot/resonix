@@ -15,59 +15,61 @@ where
     fn call(&self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>);
 }
 
-impl<S, Callback, UserData> GetFrame<S, UserData, ()> for Callback
-where
-    S: Sample,
-    Callback: Fn(&mut [S]),
-{
-    fn call(&self, buffer: &mut [S], _: Arc<AudioPlayerContext<UserData>>) {
-        (self)(buffer);
+// macro example:
+//
+// impl<S, Callback, UserData, ExtractedData> GetFrame<S, UserData, (ExtractedData,)> for Callback
+// where
+//     S: Sample,
+//     Callback: Fn(&mut [S], ExtractedData),
+//     ExtractedData: FromContext<UserData>,
+// {
+//     fn call(&self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>) {
+//         (self)(buffer, ExtractedData::from_context(Arc::clone(&context)));
+//     }
+// }
+
+macro_rules! impl_get_frame {
+    (
+        $($param:ident),*
+    ) => {
+        #[allow(non_snake_case)]
+        #[allow(unused)]
+        impl<
+        S, Callback, UserData, $($param, )*
+        >
+            GetFrame<
+            S, UserData, ($($param, )*)
+            >
+            for Callback
+            where
+                S: Sample,
+                Callback: Fn(&mut [S], $($param, )*),
+                $($param: FromContext<UserData>,)*
+        {
+            fn call(&self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>) {
+                (self)(buffer, $(
+                    $param::from_context(Arc::clone(&context)),
+                )*)
+                ;
+            }
+        }
     }
 }
 
-impl<S, Callback, UserData, ExtractedData> GetFrame<S, UserData, (ExtractedData,)> for Callback
-where
-    S: Sample,
-    Callback: Fn(&mut [S], ExtractedData),
-    ExtractedData: FromContext<UserData>,
-{
-    fn call(&self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>) {
-        (self)(buffer, ExtractedData::from_context(Arc::clone(&context)));
-    }
-}
-
-impl<S, Callback, UserData, ExtractedData1, ExtractedData2>
-    GetFrame<S, UserData, (ExtractedData1, ExtractedData2)> for Callback
-where
-    S: Sample,
-    Callback: Fn(&mut [S], ExtractedData1, ExtractedData2),
-    ExtractedData1: FromContext<UserData>,
-    ExtractedData2: FromContext<UserData>,
-{
-    fn call(&self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>) {
-        (self)(
-            buffer,
-            ExtractedData1::from_context(Arc::clone(&context)),
-            ExtractedData2::from_context(Arc::clone(&context)),
-        );
-    }
-}
-
-impl<S, Callback, UserData, ExtractedData1, ExtractedData2, ExtractedData3>
-    GetFrame<S, UserData, (ExtractedData1, ExtractedData2, ExtractedData3)> for Callback
-where
-    S: Sample,
-    Callback: Fn(&mut [S], ExtractedData1, ExtractedData2, ExtractedData3),
-    ExtractedData1: FromContext<UserData>,
-    ExtractedData2: FromContext<UserData>,
-    ExtractedData3: FromContext<UserData>,
-{
-    fn call(&self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>) {
-        (self)(
-            buffer,
-            ExtractedData1::from_context(Arc::clone(&context)),
-            ExtractedData2::from_context(Arc::clone(&context)),
-            ExtractedData3::from_context(Arc::clone(&context)),
-        );
-    }
-}
+impl_get_frame!();
+impl_get_frame!(E1);
+impl_get_frame!(E1, E2);
+impl_get_frame!(E1, E2, E3);
+impl_get_frame!(E1, E2, E3, E4);
+impl_get_frame!(E1, E2, E3, E4, E5);
+impl_get_frame!(E1, E2, E3, E4, E5, E6);
+impl_get_frame!(E1, E2, E3, E4, E5, E6, E7);
+impl_get_frame!(E1, E2, E3, E4, E5, E6, E7, E8);
+impl_get_frame!(E1, E2, E3, E4, E5, E6, E7, E8, E9);
+impl_get_frame!(E1, E2, E3, E4, E5, E6, E7, E8, E9, E10);
+impl_get_frame!(E1, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11);
+impl_get_frame!(E1, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11, E12);
+impl_get_frame!(E1, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11, E12, E13);
+impl_get_frame!(E1, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11, E12, E13, E14);
+impl_get_frame!(E1, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11, E12, E13, E14, E15);
+impl_get_frame!(E1, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11, E12, E13, E14, E15, E16);
