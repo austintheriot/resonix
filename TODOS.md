@@ -2,6 +2,10 @@
 
 - add handle below buffer selection to allow dragging
 
+- scale amplitude by number of ACTIVE grains rather than by number of channels?
+
+- use a `Cached` struct for `selection_start_in_samples` rather than doing that by hand with separate properties / functions
+
 - allow playing through source unaltered (add vertical line / drag-and-drop icon above buffer selection)
 
 - When lowering number of channels, allow old channels to fade out (?)
