@@ -1,4 +1,4 @@
-use yew::{function_component, html, Html};
+use yew::{function_component, html};
 
 #[function_component(IconDownload)]
 pub fn icon_download() -> Html {
