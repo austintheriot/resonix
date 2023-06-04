@@ -1,14 +1,13 @@
-use crate::audio::{
-    play_status::PlayStatus, recording_status::RecordingStatus, stream_handle::StreamHandle,
-};
+use resonix::AudioPlayer;
+
+use crate::audio::{play_status::PlayStatus, recording_status::RecordingStatus};
 use std::{sync::Arc, time::Duration};
 
 use super::app_state::NunChannels;
 
-#[derive(Debug, Clone)]
 pub enum AppAction {
     SetBuffer(Arc<Vec<f32>>),
-    SetStreamHandle(StreamHandle),
+    SetAudioPlayer(AudioPlayer<()>),
     SetBufferSelectionStart(f32),
     IncrementBufferSelectionStart,
     DecrementBufferSelectionStart,

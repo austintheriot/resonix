@@ -29,13 +29,13 @@ pub fn controls_enable_audio() -> Html {
             } else {
                 wasm_bindgen_futures::spawn_local(async move {
                     state_handle.dispatch(AppAction::SetAudioLoading(true));
-                    let new_stream_handle =
+                    let new_audio_player =
                         audio::initialize::initialize_audio(state_handle.clone()).await;
                     // save the audio stream handle so that playback continues
                     // (once the handle is dropped, the stream will stop playing)
                     state_handle.dispatch(AppAction::SetAudioLoading(false));
                     state_handle.dispatch(AppAction::SetAudioInitialized(true));
-                    state_handle.dispatch(AppAction::SetStreamHandle(new_stream_handle));
+                    state_handle.dispatch(AppAction::SetAudioPlayer(new_audio_player));
                 })
             }
         })

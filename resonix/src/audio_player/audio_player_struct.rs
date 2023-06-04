@@ -5,7 +5,7 @@ use cpal::{
     BuildStreamError, OutputCallbackInfo, Sample, Stream, StreamConfig,
 };
 
-use crate::{AudioConfig, AudioPlayerContext, GetFrame};
+use crate::{AudioConfig, AudioPlayerContext, WriteFrameToBuffer};
 
 /// Creates an audios stream and returns it, along with the
 /// audio configuration that was chosen.
@@ -22,12 +22,12 @@ where
     UserData: Send + Sync + Sync + 'static,
 {
     pub async fn from_audio_defaults_and_user_data<S, Callback, ExtractedData>(
-        get_frame: Callback,
+        write_frame_to_buffer: Callback,
         user_data: UserData,
     ) -> Result<Self, BuildStreamError>
     where
         S: Sample,
-        Callback: GetFrame<S, UserData, ExtractedData> + Send + Sync + 'static,
+        Callback: WriteFrameToBuffer<S, UserData, ExtractedData> + Send + Sync + 'static,
     {
         let host = cpal::default_host();
         let device = host
@@ -43,17 +43,17 @@ where
             stream_config,
         };
 
-        Self::from_audio_config_and_user_data(audio_config, get_frame, user_data).await
+        Self::from_audio_config_and_user_data(audio_config, write_frame_to_buffer, user_data).await
     }
 
     pub async fn from_audio_config_and_user_data<S, Callback, ExtractedData>(
         audio_config: AudioConfig,
-        get_frame: Callback,
+        write_frame_to_buffer: Callback,
         user_data: UserData,
     ) -> Result<Self, BuildStreamError>
     where
         S: Sample,
-        Callback: GetFrame<S, UserData, ExtractedData> + Send + Sync + 'static,
+        Callback: WriteFrameToBuffer<S, UserData, ExtractedData> + Send + Sync + 'static,
     {
         let context = Arc::new(AudioPlayerContext {
             host: audio_config.host,
@@ -63,9 +63,11 @@ where
             user_data,
         });
 
-        let stream =
-            Self::create_stream::<S, Callback, ExtractedData>(Arc::clone(&context), get_frame)
-                .await?;
+        let stream = Self::create_stream::<S, Callback, ExtractedData>(
+            Arc::clone(&context),
+            write_frame_to_buffer,
+        )
+        .await?;
 
         stream.play().unwrap();
 
@@ -74,11 +76,11 @@ where
 
     async fn create_stream<S, Callback, ExtractedData>(
         context: Arc<AudioPlayerContext<UserData>>,
-        get_frame: Callback,
+        mut write_frame_to_buffer: Callback,
     ) -> Result<Stream, BuildStreamError>
     where
         S: Sample,
-        Callback: GetFrame<S, UserData, ExtractedData> + Send + Sync + 'static,
+        Callback: WriteFrameToBuffer<S, UserData, ExtractedData> + Send + Sync + 'static,
     {
         let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
         let device = &context.device;
@@ -88,7 +90,7 @@ where
         device.build_output_stream(
             stream_config,
             move |buffer: &mut [S], _: &OutputCallbackInfo| {
-                get_frame.call(buffer, Arc::clone(&context))
+                write_frame_to_buffer.call(buffer, Arc::clone(&context))
             },
             err_fn,
         )
@@ -99,26 +101,26 @@ impl AudioPlayer<()> {
     /// Creates audio player using default audio settings and
     /// does not have any user context associated with it.
     pub async fn from_audio_defaults<S, Callback, ExtractedData>(
-        get_frame: Callback,
+        write_frame_to_buffer: Callback,
     ) -> Result<Self, BuildStreamError>
     where
         S: Sample,
-        Callback: GetFrame<S, (), ExtractedData> + Send + Sync + 'static,
+        Callback: WriteFrameToBuffer<S, (), ExtractedData> + Send + Sync + 'static,
     {
-        Self::from_audio_defaults_and_user_data(get_frame, ()).await
+        Self::from_audio_defaults_and_user_data(write_frame_to_buffer, ()).await
     }
 
     /// Creates audio player using specified audio config and
     /// does not have any user context associated with it.
     pub async fn from_audio_config<S, Callback, ExtractedData>(
         audio_config: AudioConfig,
-        get_frame: Callback,
+        write_frame_to_buffer: Callback,
     ) -> Result<Self, BuildStreamError>
     where
         S: Sample,
-        Callback: GetFrame<S, (), ExtractedData> + Send + Sync + 'static,
+        Callback: WriteFrameToBuffer<S, (), ExtractedData> + Send + Sync + 'static,
     {
-        Self::from_audio_config_and_user_data(audio_config, get_frame, ()).await
+        Self::from_audio_config_and_user_data(audio_config, write_frame_to_buffer, ()).await
     }
 }
 
