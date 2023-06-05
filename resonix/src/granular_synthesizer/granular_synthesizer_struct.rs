@@ -1,5 +1,6 @@
 use crate::GranularSynthesizerAction;
 use crate::GranularSynthesizerGrain as Grain;
+use crate::LazyCached;
 use crate::Percentage;
 use crate::{Envelope, EnvelopeType, NumChannels};
 use nohash_hasher::IntMap;
@@ -61,10 +62,10 @@ pub struct GranularSynthesizer {
     envelope: Envelope,
 
     /// cached for more efficient processing
-    _selection_end_in_samples: u32,
+    selection_end_in_samples: LazyCached<u32>,
 
     /// cached for more efficient processing
-    _selection_start_in_samples: u32,
+    selection_start_in_samples: LazyCached<u32>,
 }
 
 impl GranularSynthesizerAction for GranularSynthesizer {
@@ -93,8 +94,8 @@ impl GranularSynthesizerAction for GranularSynthesizer {
             finished_grains,
             envelope: Envelope::new_sine(),
             grain_initialization_delay: Self::DEFAULT_GRAIN_INITIALIZATION_DELAY,
-            _selection_end_in_samples: 0,
-            _selection_start_in_samples: 0,
+            selection_end_in_samples: LazyCached::new_uncached(),
+            selection_start_in_samples: LazyCached::new_uncached(),
         }
     }
 
@@ -108,14 +109,15 @@ impl GranularSynthesizerAction for GranularSynthesizer {
 
     fn set_buffer(&mut self, buffer: Arc<Vec<f32>>) -> &mut Self {
         self.buffer = buffer;
-        self._selection_end_in_samples = self.calculate_selection_end_in_samples();
-        self._selection_start_in_samples = self.calculate_selection_start_in_samples();
 
         // we know that none of the fresh_grains are valid anymore, since it's a new buffer
         self.fresh_grains.drain().for_each(|(uid, mut grain)| {
             grain.is_init = false;
             self.uninitialized_grains.insert(uid, grain);
         });
+
+        self.selection_start_in_samples.invalidate();
+        self.selection_end_in_samples.invalidate();
 
         self
     }
@@ -126,9 +128,10 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         if self.selection_start > self.selection_end {
             // move end to "catch up" to the beginning
             self.set_selection_end(self.selection_start);
+            self.selection_end_in_samples.invalidate();
         }
 
-        self._selection_start_in_samples = self.calculate_selection_start_in_samples();
+        self.selection_start_in_samples.invalidate();
 
         self
     }
@@ -139,9 +142,10 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         if self.selection_end < self.selection_start {
             // move beginning to be before the ending
             self.set_selection_start(self.selection_end);
+            self.selection_start_in_samples.invalidate();
         }
 
-        self._selection_end_in_samples = self.calculate_selection_end_in_samples();
+        self.selection_end_in_samples.invalidate();
 
         self
     }
@@ -349,7 +353,7 @@ impl GranularSynthesizer {
         }
     }
 
-    fn buffer_selection_is_empty(&self) -> bool {
+    fn buffer_selection_is_empty(&mut self) -> bool {
         let selection_start_index = self.selection_start_in_samples();
         let selection_end_index = self.selection_end_in_samples();
 
@@ -392,26 +396,35 @@ impl GranularSynthesizer {
         (grain_start_index as usize, grain_end_index as usize)
     }
 
-    fn selection_start_in_samples(&self) -> u32 {
-        self._selection_start_in_samples
+    fn selection_start_in_samples(&mut self) -> u32 {
+        fn calculate_selection_start_in_samples(
+            buffer_len: usize,
+            selection_start: Percentage,
+        ) -> u32 {
+            ((buffer_len as f32 * selection_start) as u32)
+                .max(0)
+                .min(buffer_len as u32)
+        }
+
+        let buffer_len = self.buffer.len();
+        let selection_start = self.selection_start;
+        *self
+            .selection_start_in_samples
+            .get(|| calculate_selection_start_in_samples(buffer_len, selection_start))
     }
 
-    /// If using on a hot code path, prefer the cached `selection_start_in_samples()` value instead
-    fn calculate_selection_start_in_samples(&self) -> u32 {
-        ((self.buffer.len() as f32 * self.selection_start) as u32)
-            .max(0)
-            .min(self.buffer.len() as u32)
-    }
+    fn selection_end_in_samples(&mut self) -> u32 {
+        fn calculate_selection_end_in_samples(buffer_len: usize, selection_end: Percentage) -> u32 {
+            ((buffer_len as f32 * selection_end) as u32)
+                .max(0)
+                .min(buffer_len as u32)
+        }
 
-    fn selection_end_in_samples(&self) -> u32 {
-        self._selection_end_in_samples
-    }
-
-    /// If using on a hot code path, prefer the cached `selection_end_in_samples()` value instead
-    fn calculate_selection_end_in_samples(&self) -> u32 {
-        ((self.buffer.len() as f32 * self.selection_end) as u32)
-            .max(0)
-            .min(self.buffer.len() as u32)
+        let buffer_len = self.buffer.len();
+        let selection_end = self.selection_end;
+        *self
+            .selection_end_in_samples
+            .get(|| calculate_selection_end_in_samples(buffer_len, selection_end))
     }
 
     /// Combines current buffer and envelope sample values to calculate a full audio frame
