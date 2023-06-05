@@ -9,20 +9,29 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 rand = { version = "0.8.4", features = ["small_rng"]}
-# This dependency is not directly used, but enabling "js"
-# Tells `getrandom` that `rand` should with wasm/js features enabled
-getrandom = { version = "0.2.6", features = ["js"] }
 nohash-hasher = "0.2.0"
 log = "0.4"
-wasm-logger = "0.2.0"
 
-
-# only enabled for platform-specific audio-out code
+# WASM-ONLY dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# only need wasm-bindgen when compiling for wasm32
 cpal = { version = "0.13.5", features = ["wasm-bindgen"], optional = true }
+# enabling "js" tells `getrandom` that `rand` should compile with wasm/js features enabled
+getrandom = { version = "0.2.6", features = ["js"] }
+
+# NATIVE-ONLY dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+cpal = { version = "0.13.5", optional = true }
+getrandom = { version = "0.2.6" }
+wasm-logger = "0.2.0"
 
 [dev-dependencies]
 cargo-husky = "1"
+# async runtime only needed while testing
 tokio = { version = "1.28.1", features = ["full"] }
 
 [features]
+# only need cpal when using audio-out (DAC) features
 cpal = ["dep:cpal"]
+
+

@@ -10,12 +10,18 @@ This repo is my investigation into using Rust for creative, cross-platform audio
 
 ## Dependencies
 
-On Linux, `alsa` or `jack` required before building/running any examples that require native audio device support (as opposed to WASM).
+On Linux, `alsa` or `jack` is required before building/running any examples that require native audio device support (as opposed to WASM).
 
-Install `alsa` like so:
+Install `alsa` like so on Ubuntu:
 
 ```sh
-sudo apt install libasound2-dev
+sudo apt-get install libasound2-dev
+```
+
+or
+
+```sh
+sudo apt-get install libjack-jackd2-dev libjack-jackd2-0
 ```
 
 ## License
