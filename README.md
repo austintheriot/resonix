@@ -8,6 +8,16 @@ This repo is my investigation into using Rust for creative, cross-platform audio
 
 ![Granular Synthesizer Demo](/screenshots/granular_synthesizer_0.png)
 
+## Dependencies
+
+On Linux, `alsa` or `jack` required before building/running any examples that require native audio device support (as opposed to WASM).
+
+Install `alsa` like so:
+
+```sh
+sudo apt install libasound2-dev
+```
+
 ## License
 
 <sup>
