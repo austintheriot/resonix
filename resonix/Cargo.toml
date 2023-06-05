@@ -12,13 +12,17 @@ rand = { version = "0.8.4", features = ["small_rng"]}
 # This dependency is not directly used, but enabling "js"
 # Tells `getrandom` that `rand` should with wasm/js features enabled
 getrandom = { version = "0.2.6", features = ["js"] }
-cpal = { version = "0.13.5", features = ["wasm-bindgen"] }
-
-# NOTE: only for use on web: These two crates enable the info!() logging macro, etc.
+nohash-hasher = "0.2.0"
 log = "0.4"
 wasm-logger = "0.2.0"
-nohash-hasher = "0.2.0"
+
+
+# only enabled for platform-specific audio-out code
+cpal = { version = "0.13.5", features = ["wasm-bindgen"], optional = true }
 
 [dev-dependencies]
 cargo-husky = "1"
 tokio = { version = "1.28.1", features = ["full"] }
+
+[features]
+cpal = ["dep:cpal"]
