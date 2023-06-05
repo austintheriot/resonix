@@ -1,8 +1,10 @@
+mod lazy_cached;
 mod max;
 mod min;
 mod num_channels;
 mod percentage;
 
+pub use lazy_cached::*;
 pub use max::*;
 pub use min::*;
 pub use num_channels::*;
