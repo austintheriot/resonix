@@ -12,6 +12,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Install Linux audio library deps
+        run: |
+          sudo apt-get install -y libasound2-dev
+
       - name: Update local toolchain
         run: |
           rustup update
