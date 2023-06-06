@@ -1,6 +1,6 @@
 use cpal::{Device, Host, SampleFormat, StreamConfig};
 
-pub struct AudioConfig {
+pub struct AudioOutConfig {
     pub host: Host,
     pub device: Device,
     pub sample_format: SampleFormat,

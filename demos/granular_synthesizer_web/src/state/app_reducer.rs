@@ -28,8 +28,8 @@ impl Reducible for AppState {
                         .set_buffer(Arc::clone(&buffer));
                     next_state.buffer_handle = BufferHandle::new(buffer);
                 }
-                AppAction::SetAudioPlayer(audio_player) => {
-                    next_state.audio_player_handle = audio_player.into();
+                AppAction::SetAudioOut(audio_out) => {
+                    next_state.audio_out_handle = audio_out.into();
                 }
                 AppAction::SetBufferSelectionStart(start) => {
                     next_state.buffer_selection_handle.set_mouse_start(start);
@@ -89,7 +89,7 @@ impl Reducible for AppState {
                 }
                 AppAction::ResetState => {
                     // drop previous stream's handle to stop audio
-                    next_state.audio_player_handle.lock().unwrap().take();
+                    next_state.audio_out_handle.lock().unwrap().take();
                     next_state = AppState::default();
                 }
                 AppAction::IncrementBufferSelectionStart => {
