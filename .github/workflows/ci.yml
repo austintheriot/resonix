@@ -31,7 +31,7 @@ jobs:
       - name: Test
         run: |
           cargo check --workspace
-          cargo test --workspace
+          cargo test --workspace --features ci
 
   build-demos-granular-synthesizer-web:
     runs-on: ubuntu-latest
