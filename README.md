@@ -1,5 +1,13 @@
 # Resonix
 
+[![CI Image]][wrend CI]
+
+[CI Image]: https://img.shields.io/github/actions/workflow/status/austintheriot/wrend/ci.yml?branch=master
+
+[wrend CI]: https://github.com/austintheriot/wrend/actions/workflows/ci.yml
+
+**This library is currently in early development**. Feel free to use it, but do so with the knowledge that APIs are likely to change without consideration for backwards compatibility.
+
 ## About
 
 This repo is my investigation into using Rust for creative, cross-platform audio programming.
@@ -26,15 +34,9 @@ sudo apt-get install libjack-jackd2-dev libjack-jackd2-0
 
 ## License
 
-<sup>
-Licensed under either of <a href="LICENSE-APACHE">Apache License, Version
-2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
-</sup>
+Licensed under either of [Apache License, Version
+2.0](LICENSE-APACHE) or [MIT license](LICENSE_mit) at your option.
 
-<br>
-
-<sub>
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in resonix by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
-</sub>
