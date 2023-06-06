@@ -1,9 +1,10 @@
-use std::sync::Arc;
+use std::{sync::Arc, vec};
 
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    BuildStreamError, OutputCallbackInfo, Sample, Stream, StreamConfig,
+    BuildStreamError, Device, Host, OutputCallbackInfo, Sample, Stream, StreamConfig, DeviceNameError, SupportedStreamConfigsError, SupportedStreamConfig, DefaultStreamConfigError,
 };
+use thiserror::Error;
 
 use crate::{AudioConfig, AudioPlayerContext, WriteFrameToBuffer};
 
@@ -14,8 +15,22 @@ pub struct AudioPlayer<D> {
     pub stream: Stream,
 }
 
-// todo: refactor to do all setup through an Enum and/or builder pattern
-// rather than calling different setup functions
+#[cfg(not(test))]
+fn get_audio_defaults() -> Result<(Host, Device), AudioPlayerError> {
+    let host = cpal::default_host();
+    let device = host
+        .default_output_device()
+        .ok_or(AudioPlayerError::NoDevicesFound)?;
+    Ok((host, device))
+}
+
+#[derive(Error, Debug)]
+pub enum AudioPlayerError {
+    #[error("error while building Audio stream")]
+    BuildStreamError(#[from] BuildStreamError),
+    #[error("no devices found on device")]
+    NoDevicesFound,
+}
 
 impl<UserData> AudioPlayer<UserData>
 where
@@ -24,15 +39,12 @@ where
     pub async fn from_audio_defaults_and_user_data<S, Callback, ExtractedData>(
         write_frame_to_buffer: Callback,
         user_data: UserData,
-    ) -> Result<Self, BuildStreamError>
+    ) -> Result<Self, AudioPlayerError>
     where
         S: Sample,
         Callback: WriteFrameToBuffer<S, UserData, ExtractedData> + Send + Sync + 'static,
     {
-        let host = cpal::default_host();
-        let device = host
-            .default_output_device()
-            .expect("failed to find a default output device");
+        let (host, device) = get_audio_defaults()?;
         let config = device.default_output_config().unwrap();
         let sample_format = config.sample_format();
         let stream_config: StreamConfig = config.into();
@@ -43,7 +55,9 @@ where
             stream_config,
         };
 
-        Self::from_audio_config_and_user_data(audio_config, write_frame_to_buffer, user_data).await
+        Self::from_audio_config_and_user_data(audio_config, write_frame_to_buffer, user_data)
+            .await
+            .map_err(|e| AudioPlayerError::BuildStreamError(e))
     }
 
     pub async fn from_audio_config_and_user_data<S, Callback, ExtractedData>(
@@ -102,7 +116,7 @@ impl AudioPlayer<()> {
     /// does not have any user context associated with it.
     pub async fn from_audio_defaults<S, Callback, ExtractedData>(
         write_frame_to_buffer: Callback,
-    ) -> Result<Self, BuildStreamError>
+    ) -> Result<Self, AudioPlayerError>
     where
         S: Sample,
         Callback: WriteFrameToBuffer<S, (), ExtractedData> + Send + Sync + 'static,
