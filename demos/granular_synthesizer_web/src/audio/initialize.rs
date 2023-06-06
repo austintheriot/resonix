@@ -13,8 +13,8 @@ use cpal::{
 };
 use gloo_net::http::Request;
 use resonix::{
-    downmix_panning_to_buffer, granular_synthesizer::GranularSynthesizerAction, AudioConfig,
-    AudioPlayer,
+    downmix_panning_to_buffer, granular_synthesizer::GranularSynthesizerAction, AudioOutConfig,
+    AudioOut,
 };
 use std::sync::Arc;
 use yew::UseReducerHandle;
@@ -43,7 +43,7 @@ async fn load_default_buffer(app_state_handle: UseReducerHandle<AppState>) -> Ar
     mp3_source_data
 }
 
-pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> AudioPlayer<()> {
+pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> AudioOut<()> {
     app_state_handle.dispatch(AppAction::SetAudioInitialized(false));
     let host = cpal::default_host();
     let device = host
@@ -58,7 +58,7 @@ pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> A
     let recording_status_handle = app_state_handle.recording_status_handle.clone();
     let mut audio_recorder_handle = app_state_handle.audio_recorder_handle.clone();
 
-    let audio_config = AudioConfig {
+    let audio_out_config = AudioOutConfig {
         device,
         host,
         sample_format,
@@ -66,8 +66,8 @@ pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> A
     };
 
     // this is the config of the output audio
-    let output_sample_rate = audio_config.stream_config.sample_rate.0;
-    let output_num_channels = audio_config.stream_config.channels as usize;
+    let output_sample_rate = audio_out_config.stream_config.sample_rate.0;
+    let output_num_channels = audio_out_config.stream_config.channels as usize;
     let num_frames_between_saving_snapshot = output_sample_rate / 120;
 
     // only load if buffer hasn't been loaded
@@ -154,7 +154,7 @@ pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> A
         }
     };
 
-    AudioPlayer::from_audio_config(audio_config, write_frame_to_buffer)
+    AudioOut::from_audio_out_config(audio_out_config, write_frame_to_buffer)
         .await
         .expect("Error initializing audio player")
 }

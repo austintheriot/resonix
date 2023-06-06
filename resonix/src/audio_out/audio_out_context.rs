@@ -5,7 +5,7 @@ use cpal::{Device, Host, SampleFormat, StreamConfig};
 use crate::UserDataFromContext;
 
 /// Contains all the created audio configuration data
-pub struct AudioPlayerContext<UserData> {
+pub struct AudioOutContext<UserData> {
     pub host: Host,
     pub device: Device,
     pub sample_format: SampleFormat,
@@ -16,10 +16,10 @@ pub struct AudioPlayerContext<UserData> {
     pub user_data: UserData,
 }
 
-impl<D> UserDataFromContext<D> for Arc<AudioPlayerContext<D>> {
-    fn from_context(context: Arc<AudioPlayerContext<D>>) -> Self {
+impl<D> UserDataFromContext<D> for Arc<AudioOutContext<D>> {
+    fn from_context(context: Arc<AudioOutContext<D>>) -> Self {
         Arc::clone(&context)
     }
 }
 
-pub type AudioPlayerContextArg<D = ()> = Arc<AudioPlayerContext<D>>;
+pub type AudioOutContextArg<D = ()> = Arc<AudioOutContext<D>>;

@@ -1955,6 +1955,7 @@ dependencies = [
  "log",
  "nohash-hasher",
  "rand",
+ "thiserror",
  "tokio",
  "wasm-logger",
 ]

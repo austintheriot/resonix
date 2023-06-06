@@ -2,29 +2,42 @@ use std::sync::Arc;
 
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    BuildStreamError, OutputCallbackInfo, Sample, Stream, StreamConfig,
+    BuildStreamError, OutputCallbackInfo, Sample, Stream, StreamConfig, DefaultStreamConfigError, PlayStreamError,
 };
+use thiserror::Error;
 
-use crate::{AudioConfig, AudioPlayerContext, WriteFrameToBuffer};
+use crate::{AudioOutConfig, AudioOutContext, WriteFrameToBuffer};
+
+#[derive(Error, Debug)]
+pub enum AudioOutBuildError {
+    #[error("failed to build stream. original error: {0:?}")]
+    Disconnect(#[from] BuildStreamError),
+    #[error("no audio output devices found")]
+    NooOutputDevicesAvailable,
+    #[error("no default stream config available. original error: {0:?}")]
+    DefaultStreamConfigError(#[from] DefaultStreamConfigError),
+    #[error("could not play stream. original error: {0:?}")]
+    PlayStreamError(#[from] PlayStreamError),
+}
 
 /// Creates an audios stream and returns it, along with the
 /// audio configuration that was chosen.
-pub struct AudioPlayer<D> {
-    pub context: Arc<AudioPlayerContext<D>>,
+pub struct AudioOut<D> {
+    pub context: Arc<AudioOutContext<D>>,
     pub stream: Stream,
 }
 
 // todo: refactor to do all setup through an Enum and/or builder pattern
 // rather than calling different setup functions
 
-impl<UserData> AudioPlayer<UserData>
+impl<UserData> AudioOut<UserData>
 where
     UserData: Send + Sync + Sync + 'static,
 {
     pub async fn from_audio_defaults_and_user_data<S, Callback, ExtractedData>(
         write_frame_to_buffer: Callback,
         user_data: UserData,
-    ) -> Result<Self, BuildStreamError>
+    ) -> Result<Self, AudioOutBuildError>
     where
         S: Sample,
         Callback: WriteFrameToBuffer<S, UserData, ExtractedData> + Send + Sync + 'static,
@@ -32,34 +45,34 @@ where
         let host = cpal::default_host();
         let device = host
             .default_output_device()
-            .expect("failed to find a default output device");
-        let config = device.default_output_config().unwrap();
+            .ok_or(AudioOutBuildError::NooOutputDevicesAvailable)?;
+        let config = device.default_output_config()?;
         let sample_format = config.sample_format();
         let stream_config: StreamConfig = config.into();
-        let audio_config = AudioConfig {
+        let audio_out_config = AudioOutConfig {
             host,
             device,
             sample_format,
             stream_config,
         };
 
-        Self::from_audio_config_and_user_data(audio_config, write_frame_to_buffer, user_data).await
+        Self::from_audio_out_config_and_user_data(audio_out_config, write_frame_to_buffer, user_data).await
     }
 
-    pub async fn from_audio_config_and_user_data<S, Callback, ExtractedData>(
-        audio_config: AudioConfig,
+    pub async fn from_audio_out_config_and_user_data<S, Callback, ExtractedData>(
+        audio_out_config: AudioOutConfig,
         write_frame_to_buffer: Callback,
         user_data: UserData,
-    ) -> Result<Self, BuildStreamError>
+    ) -> Result<Self, AudioOutBuildError>
     where
         S: Sample,
         Callback: WriteFrameToBuffer<S, UserData, ExtractedData> + Send + Sync + 'static,
     {
-        let context = Arc::new(AudioPlayerContext {
-            host: audio_config.host,
-            device: audio_config.device,
-            sample_format: audio_config.sample_format,
-            stream_config: audio_config.stream_config,
+        let context = Arc::new(AudioOutContext {
+            host: audio_out_config.host,
+            device: audio_out_config.device,
+            sample_format: audio_out_config.sample_format,
+            stream_config: audio_out_config.stream_config,
             user_data,
         });
 
@@ -69,13 +82,13 @@ where
         )
         .await?;
 
-        stream.play().unwrap();
+        stream.play()?;
 
         Ok(Self { context, stream })
     }
 
     async fn create_stream<S, Callback, ExtractedData>(
-        context: Arc<AudioPlayerContext<UserData>>,
+        context: Arc<AudioOutContext<UserData>>,
         mut write_frame_to_buffer: Callback,
     ) -> Result<Stream, BuildStreamError>
     where
@@ -97,12 +110,12 @@ where
     }
 }
 
-impl AudioPlayer<()> {
+impl AudioOut<()> {
     /// Creates audio player using default audio settings and
     /// does not have any user context associated with it.
     pub async fn from_audio_defaults<S, Callback, ExtractedData>(
         write_frame_to_buffer: Callback,
-    ) -> Result<Self, BuildStreamError>
+    ) -> Result<Self, AudioOutBuildError>
     where
         S: Sample,
         Callback: WriteFrameToBuffer<S, (), ExtractedData> + Send + Sync + 'static,
@@ -112,15 +125,15 @@ impl AudioPlayer<()> {
 
     /// Creates audio player using specified audio config and
     /// does not have any user context associated with it.
-    pub async fn from_audio_config<S, Callback, ExtractedData>(
-        audio_config: AudioConfig,
+    pub async fn from_audio_out_config<S, Callback, ExtractedData>(
+        audio_out_config: AudioOutConfig,
         write_frame_to_buffer: Callback,
-    ) -> Result<Self, BuildStreamError>
+    ) -> Result<Self, AudioOutBuildError>
     where
         S: Sample,
         Callback: WriteFrameToBuffer<S, (), ExtractedData> + Send + Sync + 'static,
     {
-        Self::from_audio_config_and_user_data(audio_config, write_frame_to_buffer, ()).await
+        Self::from_audio_out_config_and_user_data(audio_out_config, write_frame_to_buffer, ()).await
     }
 }
 
@@ -132,7 +145,7 @@ mod player_tests {
         time::Duration,
     };
 
-    use crate::{AudioPlayer, AudioPlayerContext, AudioPlayerContextArg, UserDataFromContext};
+    use crate::{AudioOut, AudioOutContext, AudioOutContextArg, UserDataFromContext};
 
     #[tokio::test]
     async fn calls_get_frame_closure() {
@@ -140,7 +153,7 @@ mod player_tests {
 
         let player = {
             let called = Arc::clone(&called);
-            AudioPlayer::from_audio_defaults(move |_: &mut [f32]| {
+            AudioOut::from_audio_defaults(move |_: &mut [f32]| {
                 *called.lock().unwrap() = true;
             })
         }
@@ -162,7 +175,7 @@ mod player_tests {
         struct Example(String);
 
         impl UserDataFromContext<UserData> for Example {
-            fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
+            fn from_context(context: Arc<AudioOutContext<UserData>>) -> Self {
                 Self(context.user_data.example.clone())
             }
         }
@@ -175,7 +188,7 @@ mod player_tests {
 
         let player = {
             let called = Arc::clone(&called);
-            AudioPlayer::from_audio_defaults_and_user_data(
+            AudioOut::from_audio_defaults_and_user_data(
                 move |_: &mut [f32], example: Example| {
                     *called.lock().unwrap() = true;
                     assert_eq!(example, Example(String::from("example")))
@@ -206,8 +219,8 @@ mod player_tests {
 
         let player = {
             let called = Arc::clone(&called);
-            AudioPlayer::from_audio_defaults_and_user_data(
-                move |_: &'_ mut [f32], context: AudioPlayerContextArg<UserData>| {
+            AudioOut::from_audio_defaults_and_user_data(
+                move |_: &'_ mut [f32], context: AudioOutContextArg<UserData>| {
                     *called.lock().unwrap() = true;
                     // possible to borrow inner context values here
                     assert_eq!(&context.user_data.example, "example");
@@ -234,25 +247,25 @@ mod player_tests {
         }
 
         impl UserDataFromContext<UserData> for String {
-            fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
+            fn from_context(context: Arc<AudioOutContext<UserData>>) -> Self {
                 context.user_data.a.clone()
             }
         }
 
         impl UserDataFromContext<UserData> for u32 {
-            fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
+            fn from_context(context: Arc<AudioOutContext<UserData>>) -> Self {
                 context.user_data.b
             }
         }
 
         impl UserDataFromContext<UserData> for f64 {
-            fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
+            fn from_context(context: Arc<AudioOutContext<UserData>>) -> Self {
                 context.user_data.c
             }
         }
 
         impl UserDataFromContext<UserData> for Vec<f32> {
-            fn from_context(context: Arc<AudioPlayerContext<UserData>>) -> Self {
+            fn from_context(context: Arc<AudioOutContext<UserData>>) -> Self {
                 context.user_data.d.clone()
             }
         }
@@ -268,9 +281,9 @@ mod player_tests {
         };
 
         let player = {
-            AudioPlayer::from_audio_defaults_and_user_data(
+            AudioOut::from_audio_defaults_and_user_data(
                 move |_: &'_ mut [f32],
-                      context: AudioPlayerContextArg<UserData>,
+                      context: AudioOutContextArg<UserData>,
                       string: String,
                       uint: u32,
                       float: f64,

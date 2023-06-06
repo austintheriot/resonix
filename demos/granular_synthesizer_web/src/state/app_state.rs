@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::audio::audio_ouput_handle::AudioOutputHandle;
-use crate::audio::audio_player_handle::AudioPlayerHandle;
+use crate::audio::audio_out_handle::AudioOutHandle;
 use crate::audio::audio_recorder_handle::AudioRecorderHandle;
 use crate::audio::buffer_handle::BufferHandle;
 use crate::audio::buffer_selection_handle::BufferSelectionHandle;
@@ -52,7 +52,7 @@ pub struct AppState {
     pub buffer_maxes_for_canvas: Vec<f32>,
 
     /// A handle to the audio context stream (keeps audio playing & stops audio when dropped)
-    pub audio_player_handle: AudioPlayerHandle,
+    pub audio_out_handle: AudioOutHandle,
 
     /// Represents what portion of the audio buffer is currently selected
     pub buffer_selection_handle: BufferSelectionHandle,
@@ -113,7 +113,7 @@ impl Default for AppState {
         Self {
             buffer_handle: Default::default(),
             buffer_maxes_for_canvas: Default::default(),
-            audio_player_handle: Default::default(),
+            audio_out_handle: Default::default(),
             gain_handle: GainHandle::new(0.75),
             play_status_handle: Default::default(),
             audio_initialized: Default::default(),

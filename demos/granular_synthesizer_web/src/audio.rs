@@ -1,7 +1,7 @@
 pub mod audio_ouput_handle;
 pub mod audio_output;
 pub mod audio_output_action;
-pub mod audio_player_handle;
+pub mod audio_out_handle;
 pub mod audio_recorder_handle;
 pub mod buffer_handle;
 pub mod buffer_selection;

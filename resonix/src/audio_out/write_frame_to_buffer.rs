@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use cpal::Sample;
 
-use crate::{AudioPlayerContext, UserDataFromContext};
+use crate::{AudioOutContext, UserDataFromContext};
 
 /// Allows any function implementing the following constraints
 /// to be called inside the `Player` struct for generating audio--
@@ -12,7 +12,7 @@ pub trait WriteFrameToBuffer<S, UserData, ExtractedData>
 where
     S: Sample,
 {
-    fn call(&mut self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>);
+    fn call(&mut self, buffer: &mut [S], context: Arc<AudioOutContext<UserData>>);
 }
 
 // macro example:
@@ -23,7 +23,7 @@ where
 //     Callback: Fn(&mut [S], ExtractedData),
 //     ExtractedData: UserDataFromContext<UserData>,
 // {
-//     fn call(&mut self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>) {
+//     fn call(&mut self, buffer: &mut [S], context: Arc<AudioOutContext<UserData>>) {
 //         (self)(buffer, ExtractedData::from_context(Arc::clone(&context)));
 //     }
 // }
@@ -46,7 +46,7 @@ macro_rules! impl_write_frame_to_bufer {
                 Callback: FnMut(&mut [S], $($param, )*),
                 $($param: UserDataFromContext<UserData>,)*
         {
-            fn call(&mut self, buffer: &mut [S], context: Arc<AudioPlayerContext<UserData>>) {
+            fn call(&mut self, buffer: &mut [S], context: Arc<AudioOutContext<UserData>>) {
                 (self)(buffer, $(
                     $param::from_context(Arc::clone(&context)),
                 )*)
