@@ -125,6 +125,7 @@ impl AudioPlayer<()> {
 }
 
 #[cfg(test)]
+#[cfg_attr(feature = "ci", ignore)]
 mod player_tests {
     use std::{
         sync::{Arc, Mutex},

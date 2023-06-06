@@ -33,5 +33,7 @@ tokio = { version = "1.28.1", features = ["full"] }
 [features]
 # only need cpal when using audio-out (DAC) features
 cpal = ["dep:cpal"]
+# ignore some platform-specific tests in CI
+ci = []
 
 
