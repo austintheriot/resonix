@@ -138,8 +138,7 @@ impl AudioOut<()> {
 }
 
 #[cfg(test)]
-#[cfg_attr(feature = "ci", ignore)]
-mod player_tests {
+mod audio_out_tests {
     use std::{
         sync::{Arc, Mutex},
         time::Duration,
