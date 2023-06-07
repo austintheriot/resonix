@@ -12,6 +12,7 @@ rand = { version = "0.8.4", features = ["small_rng"]}
 nohash-hasher = "0.2.0"
 log = "0.4"
 thiserror = "1.0.40"
+rustfft = "6.1.0"
 
 # WASM-ONLY dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
