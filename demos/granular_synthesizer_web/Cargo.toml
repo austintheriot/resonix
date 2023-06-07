@@ -69,7 +69,9 @@ features = [
   "HtmlCanvasElement",
   "CanvasRenderingContext2d",
   "File",
-  "FileList"
+  "FileList",
+  "AudioContext",
+  "AudioBuffer"
 ]
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
