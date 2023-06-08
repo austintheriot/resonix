@@ -12,4 +12,7 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
+futures = { version = "0.3.28", features = ["executor"] }
 bevy = "0.10.1"
+resonix = { path = "../../resonix", features = ["cpal"]}
+rodio = "0.15.0"

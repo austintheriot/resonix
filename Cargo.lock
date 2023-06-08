@@ -2279,6 +2279,9 @@ name = "granular_synthesizer_bevy"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "futures",
+ "resonix",
+ "rodio 0.15.0",
 ]
 
 [[package]]
