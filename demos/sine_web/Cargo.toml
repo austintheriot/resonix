@@ -1,5 +1,5 @@
 [package]
-name = "concatenative_synthesizer_web"
+name = "sine-web"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 leptos = { version = "0.3.0", features = ["stable"] }
+resonix = { path = "../../resonix", features = ["cpal"]}

@@ -327,6 +327,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "concatenative_synthesizer_web"
+version = "0.1.0"
+dependencies = [
+ "leptos",
+]
+
+[[package]]
 name = "config"
 version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1125,13 +1132,6 @@ dependencies = [
  "server_fn",
  "tracing",
  "typed-builder",
-]
-
-[[package]]
-name = "leptos-tutorial"
-version = "0.1.0"
-dependencies = [
- "leptos",
 ]
 
 [[package]]
@@ -2164,6 +2164,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8229b473baa5980ac72ef434c4415e70c4b5e71b423043adb4ba059f89c99a1"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "sine-web"
+version = "0.1.0"
+dependencies = [
+ "leptos",
+ "resonix",
 ]
 
 [[package]]
