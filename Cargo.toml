@@ -4,5 +4,6 @@ members = [
     "resonix",
     "demos/granular_synthesizer_web",
     "demos/granular_synthesizer_cli",
-    "demos/concatenative_synthesizer_web"
+    "demos/concatenative_synthesizer_web",
+    "demos/sine_web",
 ]
