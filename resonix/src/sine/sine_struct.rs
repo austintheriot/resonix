@@ -51,3 +51,58 @@ impl Sine {
         self.frequency
     }
 }
+
+#[cfg(test)]
+mod test_sine {
+    use crate::Sine;
+
+    fn assert_difference_within_tolerance(value: f32, expected: f32, tolerance: f32) {
+        let difference_from_expected_amplitude = f32::abs(expected - value);
+        assert!(dbg!(difference_from_expected_amplitude) < dbg!(tolerance));
+    }
+
+    #[test]
+    fn it_should_produce_sine_values_at_given_frequency() {
+        const SAMPLE_RATE: u32 = 44100;
+        let mut sine = Sine::new();
+        sine.set_frequency(1.0).set_sample_rate(SAMPLE_RATE);
+
+        // first value is 0.0
+        assert_difference_within_tolerance(sine.next_sample(), 0.0, 0.001);
+
+        // next value is slightly increased (following sine curve)
+        assert_difference_within_tolerance(sine.next_sample(), 0.00142, 0.00001);
+
+        for _ in 0..(SAMPLE_RATE / 4 - 2) {
+            sine.next_sample();
+        }
+
+        // after iterating 1/4 way through wave length,
+        // the value should be 1.0
+        assert_difference_within_tolerance(sine.next_sample(), 1.0, 0.001);
+
+        for _ in 0..(SAMPLE_RATE / 4 - 8) {
+            sine.next_sample();
+        }
+
+        // after iterating 1/2 way through wave length,
+        // the value should be close 0.0
+        assert_difference_within_tolerance(sine.next_sample(), 0.0, 0.001);
+
+        for _ in 0..(SAMPLE_RATE / 4 - 8) {
+            sine.next_sample();
+        }
+
+        // after iterating 3/4 way through wave length,
+        // the value should be -1.0
+        assert_difference_within_tolerance(sine.next_sample(), -1.0, 0.001);
+
+        for _ in 0..(SAMPLE_RATE / 4 - 0) {
+            sine.next_sample();
+        }
+
+        // after iterating all the way through wave length,
+        // the value should be 0.0
+        assert_difference_within_tolerance(sine.next_sample(), 0.0, 0.001);
+    }
+}
