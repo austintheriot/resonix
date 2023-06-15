@@ -57,6 +57,11 @@ jobs:
 
   build-demo-sine-web:
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: demos/sine_web
+
     steps:
       - uses: actions/checkout@v2
 
@@ -76,6 +81,6 @@ jobs:
         run: |
           cargo install --locked trunk
 
-      - name: Test
+      - name: Build
         run: |
           trunk build
