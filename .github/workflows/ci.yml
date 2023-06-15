@@ -33,7 +33,7 @@ jobs:
           cargo check --workspace
           cargo test --workspace -- --skip audio_out_tests
 
-  build-demos-granular-synthesizer-web:
+  build-demo-granular-synthesizer-web:
     runs-on: ubuntu-latest
 
     defaults:
@@ -54,3 +54,28 @@ jobs:
 
       - name: Build project
         run: npm run build
+
+  build-demo-sine-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Update local toolchain
+        run: |
+          rustup update
+          rustup component add clippy
+          rustup install stable       
+          
+      - name: Toolchain info
+        run: |
+          cargo --version --verbose
+          rustc --version
+          cargo clippy --version    
+          
+      - name: Install Trunk
+        run: |
+          cargo install --locked trunk
+
+      - name: Test
+        run: |
+          trunk build
