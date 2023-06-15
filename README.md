@@ -1,10 +1,10 @@
 # Resonix
 
-[![CI Image]][wrend CI]
+[![Tests Image]][wrend tests]
 
-[CI Image]: https://img.shields.io/github/actions/workflow/status/austintheriot/wrend/ci.yml?branch=master
+[Tests Image]: https://img.shields.io/github/actions/workflow/status/austintheriot/wrend/tests.yml?branch=master
 
-[wrend CI]: https://github.com/austintheriot/wrend/actions/workflows/ci.yml
+[wrend tests]: https://github.com/austintheriot/wrend/actions/workflows/ci.yml
 
 **This library is currently in early development**. Feel free to use it, but do so with the knowledge that APIs are likely to change without consideration for backwards compatibility.
 

@@ -1,37 +1,12 @@
-name: CI
+name: Demos
 
 on:
   push:
-    branches:
-      - master
+  pull_request:
+  # run every day at 6:40 UTC
+  schedule: [cron: "40 6 * * *"]
 
 jobs:
-
-  build-and-test-workspace:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Install Linux audio library deps
-        run: |
-          sudo apt-get install -y libasound2-dev
-
-      - name: Update local toolchain
-        run: |
-          rustup update
-          rustup component add clippy
-          rustup install stable          
-
-      - name: Toolchain info
-        run: |
-          cargo --version --verbose
-          rustc --version
-          cargo clippy --version          
-
-      - name: Test
-        run: |
-          cargo check --workspace
-          cargo test --workspace -- --skip audio_out_tests
 
   build-demo-granular-synthesizer-web:
     runs-on: ubuntu-latest
