@@ -29,8 +29,7 @@ impl Sine {
     }
 
     pub fn next_frame<const N: usize>(&mut self) -> [f32; N] {
-        let frame = [self.next_sample(); N];
-        frame
+        [self.next_sample(); N]
     }
 
     pub fn set_sample_rate(&mut self, sample_rate: impl Into<SampleRate>) -> &mut Self {
@@ -49,5 +48,59 @@ impl Sine {
 
     pub fn frequency(&self) -> f32 {
         self.frequency
+    }
+}
+
+#[cfg(test)]
+mod test_sine {
+    use crate::Sine;
+
+    #[track_caller]
+    fn assert_difference_is_within_tolerance(value: f32, expected: f32, tolerance: f32) {
+        let difference_from_expected_amplitude = f32::abs((expected) - (value));
+        assert!((difference_from_expected_amplitude) < (tolerance));
+    }
+
+    #[test]
+    fn it_should_produce_sine_values_at_given_frequency() {
+        const SAMPLE_RATE: u32 = 16;
+        const ASSERTION_TOLERANCE: f32 = 0.00001;
+        let mut sine = Sine::new();
+        sine.set_frequency(1.0).set_sample_rate(SAMPLE_RATE);
+
+        // first value is 0.0
+        assert_difference_is_within_tolerance(sine.next_sample(), 0.0, ASSERTION_TOLERANCE);
+
+        for _ in 0..(SAMPLE_RATE / 4 - 1) {
+            sine.next_sample();
+        }
+
+        // after iterating 1/4 way through wave length,
+        // the value should be 1.0
+        assert_difference_is_within_tolerance(sine.next_sample(), 1.0, ASSERTION_TOLERANCE);
+
+        for _ in 0..(SAMPLE_RATE / 4 - 1) {
+            sine.next_sample();
+        }
+
+        // after iterating 1/2 way through wave length,
+        // the value should be close 0.0
+        assert_difference_is_within_tolerance(sine.next_sample(), 0.0, ASSERTION_TOLERANCE);
+
+        for _ in 0..(SAMPLE_RATE / 4 - 1) {
+            sine.next_sample();
+        }
+
+        // after iterating 3/4 way through wave length,
+        // the value should be -1.0
+        assert_difference_is_within_tolerance(sine.next_sample(), -1.0, ASSERTION_TOLERANCE);
+
+        for _ in 0..(SAMPLE_RATE / 4 - 1) {
+            sine.next_sample();
+        }
+
+        // after iterating all the way through wave length,
+        // the value should be 0.0
+        assert_difference_is_within_tolerance(sine.next_sample(), 0.0, ASSERTION_TOLERANCE);
     }
 }
