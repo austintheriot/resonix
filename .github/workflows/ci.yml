@@ -69,7 +69,8 @@ jobs:
         run: |
           rustup update
           rustup component add clippy
-          rustup install stable       
+          rustup install stable     
+          rustup target add wasm32-unknown-unknown  
           
       - name: Toolchain info
         run: |
