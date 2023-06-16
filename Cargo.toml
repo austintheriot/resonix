@@ -1,7 +1,8 @@
 [workspace]
 
 members = [
-    "resonix",
+    "crates/resonix",
+    "crates/resonix_test_utils",
     "demos/granular_synthesizer_web",
     "demos/granular_synthesizer_cli",
     "demos/concatenative_synthesizer_web",

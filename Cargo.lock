@@ -1955,10 +1955,15 @@ dependencies = [
  "log",
  "nohash-hasher",
  "rand",
+ "resonix_test_utils",
  "thiserror",
  "tokio",
  "wasm-logger",
 ]
+
+[[package]]
+name = "resonix_test_utils"
+version = "0.1.0"
 
 [[package]]
 name = "rodio"
