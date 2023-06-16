@@ -88,7 +88,7 @@ impl Sine {
 mod test_sine {
     use resonix_test_utils::assert_difference_is_within_tolerance;
 
-    use crate::{Sine};
+    use crate::Sine;
 
     #[test]
     fn it_should_produce_sine_values_at_given_frequency() {
