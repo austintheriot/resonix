@@ -109,7 +109,7 @@ mod test_mean_square_root_amplitude {
 
     use crate::{mean_square_root_amplitude, Sine};
 
-#[test]
+    #[test]
     pub fn it_should_return_correct_result_for_identical_samples() {
         let mut buffer = Vec::with_capacity(100);
         buffer.resize(100, 0.5);
