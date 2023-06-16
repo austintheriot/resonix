@@ -86,13 +86,9 @@ impl Sine {
 
 #[cfg(test)]
 mod test_sine {
-    use crate::Sine;
+    use resonix_test_utils::assert_difference_is_within_tolerance;
 
-    #[track_caller]
-    fn assert_difference_is_within_tolerance(value: f32, expected: f32, tolerance: f32) {
-        let difference_from_expected_amplitude = f32::abs((expected) - (value));
-        assert!((difference_from_expected_amplitude) < (tolerance));
-    }
+    use crate::{Sine};
 
     #[test]
     fn it_should_produce_sine_values_at_given_frequency() {
