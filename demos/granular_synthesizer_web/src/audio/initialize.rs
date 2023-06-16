@@ -13,8 +13,8 @@ use cpal::{
 };
 use gloo_net::http::Request;
 use resonix::{
-    downmix_panning_to_buffer, granular_synthesizer::GranularSynthesizerAction, AudioOutConfig,
-    AudioOut,
+    downmix_panning_to_buffer, granular_synthesizer::GranularSynthesizerAction, AudioOut,
+    AudioOutConfig,
 };
 use std::sync::Arc;
 use yew::UseReducerHandle;

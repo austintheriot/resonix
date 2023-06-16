@@ -1,4 +1,4 @@
-use leptos::{component, view, IntoView, Scope, spawn_local, create_signal, SignalSet};
+use leptos::{component, create_signal, spawn_local, view, IntoView, Scope, SignalSet};
 
 use crate::audio::set_up_audio_stream;
 

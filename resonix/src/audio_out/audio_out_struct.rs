@@ -2,7 +2,8 @@ use std::sync::Arc;
 
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    BuildStreamError, OutputCallbackInfo, Sample, Stream, StreamConfig, DefaultStreamConfigError, PlayStreamError,
+    BuildStreamError, DefaultStreamConfigError, OutputCallbackInfo, PlayStreamError, Sample,
+    Stream, StreamConfig,
 };
 use thiserror::Error;
 
@@ -56,7 +57,12 @@ where
             stream_config,
         };
 
-        Self::from_audio_out_config_and_user_data(audio_out_config, write_frame_to_buffer, user_data).await
+        Self::from_audio_out_config_and_user_data(
+            audio_out_config,
+            write_frame_to_buffer,
+            user_data,
+        )
+        .await
     }
 
     pub async fn from_audio_out_config_and_user_data<S, Callback, ExtractedData>(
