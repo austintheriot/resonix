@@ -3,13 +3,13 @@ use std::f32::consts::PI;
 use crate::SampleRate;
 
 /// Produces a sine wave at the given frequency and sample rate
-/// 
-/// e.g. at a sample_rate of `100` and a frequency of `1.0`, 
+///
+/// e.g. at a sample_rate of `100` and a frequency of `1.0`,
 /// `Sine` will complete a full wavelength cycle after `next_sample`
 /// has been called 100 times.
-/// 
-/// At a sample_rate of `44100` and a frequency of `440.0`, the 
-/// note `A` will be produced, so long as the sample_rate 
+///
+/// At a sample_rate of `44100` and a frequency of `440.0`, the
+/// note `A` will be produced, so long as the sample_rate
 /// given to sine matches the audio context's sample rate.
 #[derive(Copy, Clone, PartialEq, PartialOrd, Debug, Default)]
 pub struct Sine {
@@ -52,7 +52,7 @@ impl Sine {
 
         // only run calculations if necessary
         if prev_sample_rate != sample_rate {
-            self.sample_rate = sample_rate.into();
+            self.sample_rate = sample_rate;
             self.angular_frequency = self.calculate_angular_frequency();
         }
 

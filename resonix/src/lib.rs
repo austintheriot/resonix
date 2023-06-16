@@ -1,3 +1,4 @@
+pub mod amplitude;
 #[cfg(feature = "cpal")]
 pub mod audio_out;
 pub mod concatenative_synthesizer;
@@ -7,6 +8,7 @@ pub mod granular_synthesizer;
 pub mod sine;
 pub mod utils;
 
+pub use amplitude::*;
 #[cfg(feature = "cpal")]
 pub use audio_out::*;
 pub use concatenative_synthesizer::*;
