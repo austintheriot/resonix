@@ -1,10 +1,10 @@
 # Resonix
 
-[![Tests Image]][wrend tests]
+[![Tests Image]][resonix tests]
 
-[Tests Image]: https://img.shields.io/github/actions/workflow/status/austintheriot/wrend/tests.yml?branch=master
+[Tests Image]: https://img.shields.io/github/actions/workflow/status/austintheriot/resonix/tests.yml?branch=master
 
-[wrend tests]: https://github.com/austintheriot/wrend/actions/workflows/tests.yml
+[resonix tests]: https://github.com/austintheriot/resonix/actions/workflows/tests.yml
 
 **This library is currently in early development**. Feel free to use it, but do so with the knowledge that APIs are likely to change without consideration for backwards compatibility.
 
