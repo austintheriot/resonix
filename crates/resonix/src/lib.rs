@@ -8,6 +8,10 @@ pub mod envelopes;
 pub mod granular_synthesizer;
 pub mod sine;
 pub mod utils;
+pub mod node;
+pub mod pass_through;
+pub mod record;
+pub mod node_type;
 
 pub use amplitude::*;
 #[cfg(feature = "cpal")]
@@ -19,6 +23,10 @@ pub use envelopes::*;
 pub use granular_synthesizer::*;
 pub use sine::*;
 pub use utils::*;
+pub use node::*;
+pub use pass_through::*;
+pub use record::*;
+pub use node_type::*;
 
 #[cfg(feature = "cpal")]
 pub use cpal;

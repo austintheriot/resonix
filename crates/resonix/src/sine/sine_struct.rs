@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use crate::SampleRate;
+use crate::{SampleRate, Node, NodeType};
 
 /// Produces a sine wave at the given frequency and sample rate
 ///
@@ -29,6 +29,10 @@ impl Sine {
             phase: 0.0,
             angular_frequency: 0.0,
         }
+    }
+
+    pub fn new_with_config(sample_rate: impl Into<SampleRate>, frequency: impl Into<f32>) -> Self {
+        Sine { sample_rate: sample_rate.into(), frequency: frequency.into(), phase: 0.0, angular_frequency: 0.0 }
     }
 
     pub fn next_sample(&mut self) -> f32 {
@@ -84,11 +88,29 @@ impl Sine {
     }
 }
 
+impl Node for Sine {
+    fn process(&mut self, _inputs: &[f32], outputs: &mut [f32]) {
+        outputs.fill(self.next_sample());
+    }
+
+    fn node_type(&self) -> NodeType {
+        NodeType::Input
+    }
+    
+    fn num_inputs(&self) -> usize {
+        0
+    }
+
+    fn num_outputs(&self) -> usize {
+        1
+    }
+}
+
 #[cfg(test)]
 mod test_sine {
     use resonix_test_utils::assert_difference_is_within_tolerance;
 
-    use crate::Sine;
+    use crate::{Sine};
 
     #[test]
     fn it_should_produce_sine_values_at_given_frequency() {

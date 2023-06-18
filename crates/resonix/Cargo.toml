@@ -23,6 +23,7 @@ getrandom = { version = "0.2.6", features = ["js"] }
 # NATIVE-ONLY dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 cpal = { version = "0.13.5", optional = true }
+petgraph = "0.6.3"
 getrandom = { version = "0.2.6" }
 wasm-logger = "0.2.0"
 
