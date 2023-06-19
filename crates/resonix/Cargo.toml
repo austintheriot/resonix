@@ -12,6 +12,8 @@ rand = { version = "0.8.4", features = ["small_rng"]}
 nohash-hasher = "0.2.0"
 log = "0.4"
 thiserror = "1.0.40"
+petgraph = "0.6.3"
+uuid = {version = "1.3.4", features = ["v4",  "fast-rng"]}
 
 # WASM-ONLY dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -23,7 +25,6 @@ getrandom = { version = "0.2.6", features = ["js"] }
 # NATIVE-ONLY dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 cpal = { version = "0.13.5", optional = true }
-petgraph = "0.6.3"
 getrandom = { version = "0.2.6" }
 wasm-logger = "0.2.0"
 

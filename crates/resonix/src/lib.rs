@@ -9,9 +9,14 @@ pub mod granular_synthesizer;
 pub mod sine;
 pub mod utils;
 pub mod node;
-pub mod pass_through;
-pub mod record;
+pub mod pass_through_node;
+pub mod record_node;
 pub mod node_type;
+pub mod multiply_node;
+pub mod edge;
+pub mod connection;
+pub mod audio_context;
+pub mod connect;
 
 pub use amplitude::*;
 #[cfg(feature = "cpal")]
@@ -24,9 +29,14 @@ pub use granular_synthesizer::*;
 pub use sine::*;
 pub use utils::*;
 pub use node::*;
-pub use pass_through::*;
-pub use record::*;
+pub use pass_through_node::*;
+pub use record_node::*;
 pub use node_type::*;
+pub use multiply_node::*;
+pub use edge::*;
+pub use connection::*;
+pub use audio_context::*;
+pub use connect::*;
 
 #[cfg(feature = "cpal")]
 pub use cpal;
