@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use resonix::{cpal, AudioOut, AudioOutContext, Sine};
+use resonix::{cpal, AudioOut, AudioOutContext, Sine, SineInterface};
 
 pub async fn set_up_audio_stream() -> AudioOut<()> {
     let mut sines = vec![Sine::new(); 0];
