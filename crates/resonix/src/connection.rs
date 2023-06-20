@@ -21,11 +21,11 @@ pub(crate) struct ConnectionInner {
 }
 
 impl ConnectionInner {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::from_indexes(0, 0)
     }
 
-    pub fn from_indexes(from_index: usize, to_index: usize) -> Self {
+    pub(crate) fn from_indexes(from_index: usize, to_index: usize) -> Self {
         Self {
             from_index,
             to_index,

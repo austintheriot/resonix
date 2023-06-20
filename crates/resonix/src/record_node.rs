@@ -5,7 +5,7 @@ use std::{
 
 use uuid::Uuid;
 
-use crate::{AudioContext, Connect, Connection, Node, NodeType};
+use crate::{AudioContext, Connect, Connection, Node, NodeType, ConnectError};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct RecordNode {
@@ -63,25 +63,22 @@ impl Node for RecordNode {
 }
 
 impl Connect for RecordNode {
-    fn connect<N: Node + Connect + Clone>(&self, other_node: &N) -> &Self {
-        self.audio_context
-            .connect_nodes(self.clone(), other_node.clone());
-        self
-    }
-
     fn connect_nodes_with_indexes<N: Node + Connect + Clone>(
         &self,
         from_index: usize,
         other_node: &N,
         to_index: usize,
-    ) -> &Self {
+    ) -> Result<&Self, ConnectError>  {
+        self.check_index_out_of_bounds(from_index, other_node, to_index)?;
+
         self.audio_context.connect_nodes_with_indexes(
             self.clone(),
             from_index,
             other_node.clone(),
             to_index,
         );
-        self
+
+        Ok(self)
     }
 }
 

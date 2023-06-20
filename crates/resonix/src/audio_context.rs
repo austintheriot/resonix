@@ -212,15 +212,15 @@ mod test_audio_context_inner {
         let constant_node_right = ConstantNode::new_with_signal_value(&mut audio_context, 0.5);
 
         let pass_through_node_left = PassThroughNode::new(&mut audio_context);
-        constant_node_left.connect(&pass_through_node_left);
+        constant_node_left.connect(&pass_through_node_left).unwrap();
         let pass_through_node_right = PassThroughNode::new(&mut audio_context);
-        constant_node_right.connect(&pass_through_node_right);
+        constant_node_right.connect(&pass_through_node_right).unwrap();
 
         let multiply_node = MultiplyNode::new(&mut audio_context);
-        pass_through_node_left.connect(&multiply_node);
-        pass_through_node_right.connect_nodes_with_indexes(0, &multiply_node, 1);
+        pass_through_node_left.connect(&multiply_node).unwrap();
+        pass_through_node_right.connect_nodes_with_indexes(0, &multiply_node, 1).unwrap();
         let record_node = RecordNode::new(&mut audio_context);
-        multiply_node.connect(&record_node);
+        multiply_node.connect(&record_node).unwrap();
         audio_context.run();
 
         // recording should now contain one sample
