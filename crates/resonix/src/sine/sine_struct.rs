@@ -1,6 +1,6 @@
-use std::{f32::consts::PI, cell::{Ref, RefMut}};
+use std::f32::consts::PI;
 
-use crate::{SampleRate, Node, NodeType, Connection, SineInterface};
+use crate::{SampleRate, SineInterface};
 
 /// Produces a sine wave at the given frequency and sample rate
 ///
@@ -40,7 +40,7 @@ impl SineInterface for Sine {
         // only run calculations if necessary
         if prev_sample_rate != sample_rate {
             self.sample_rate = sample_rate;
-            self.angular_frequency = self.calculate_angular_frequency();
+            self.angular_frequency = self.calculate_own_angular_frequency();
         }
 
         self
@@ -52,7 +52,7 @@ impl SineInterface for Sine {
         // only run calculations if necessary
         if prev_frequency != frequency {
             self.frequency = frequency;
-            self.angular_frequency = self.calculate_angular_frequency();
+            self.angular_frequency = self.calculate_own_angular_frequency();
         }
 
         self
@@ -78,11 +78,22 @@ impl Sine {
     }
 
     pub fn new_with_config(sample_rate: impl Into<SampleRate>, frequency: impl Into<f32>) -> Self {
-        Sine { sample_rate: sample_rate.into(), frequency: frequency.into(), phase: 0.0, angular_frequency: 0.0 }
+        let frequency = frequency.into();
+        let sample_rate = sample_rate.into();
+        Sine {
+            sample_rate,
+            frequency,
+            phase: 0.0,
+            angular_frequency: Self::calculate_angular_frequency(frequency, *sample_rate as f32),
+        }
     }
 
-    fn calculate_angular_frequency(&self) -> f32 {
-        TWO_PI * self.frequency / *self.sample_rate as f32
+    fn calculate_own_angular_frequency(&self) -> f32 {
+        Self::calculate_angular_frequency(self.frequency, *self.sample_rate as f32)
+    }
+
+    fn calculate_angular_frequency(frequency: f32, sample_rate: f32) -> f32 {
+        TWO_PI * frequency / sample_rate
     }
 }
 

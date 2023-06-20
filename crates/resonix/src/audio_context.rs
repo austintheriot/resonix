@@ -2,14 +2,12 @@ use std::{
     cell::{Ref, RefCell, RefMut},
     collections::{HashSet, VecDeque},
     hash::{Hash, Hasher},
-    ops::{Deref, DerefMut},
     rc::Rc,
 };
 
 use petgraph::{
-    data::Build,
     stable_graph::NodeIndex,
-    visit::{Bfs, IntoNodeIdentifiers},
+    visit::{Dfs, IntoNodeIdentifiers},
     Direction, Graph,
 };
 use uuid::Uuid;
@@ -44,7 +42,7 @@ impl AudioContextInner {
                 .map(|edge_reference| edge_reference.weight().borrow_mut())
                 .collect();
 
-            let mut node = (&self.graph[*node_index]).borrow_mut();
+            let mut node = self.graph[*node_index].borrow_mut();
 
             node.process(&input_data, &mut outgoing_connections)
         }
@@ -54,46 +52,87 @@ impl AudioContextInner {
         // if there are no inputs to the graph, then there is nothing to traverse
         if self.inputs.is_empty() {
             self.visit_order = Some(Vec::new());
+            return;
         }
 
+        // allows shuffling nodes around while determining a path through the graph
         let mut in_progress_visit_order = VecDeque::with_capacity(self.graph.node_count());
+        // the final order that will be used to traverse the graph when calling `run`
         let mut final_visit_order = Vec::with_capacity(self.graph.node_count());
-        let mut bfs_search = Bfs::new(&self.graph, self.inputs[0]);
+        // keeps track of which connections have been visited from a parent node--
+        // this mimics the behavior of nodes in a true `run`, where outgoing connections
+        // are initialized by parent nodes
+        let mut connection_visit_set: HashSet<Uuid> = HashSet::new();
 
-        // initialize bfs
-        while let Some(node_index) = bfs_search.next(&self.graph) {
-            in_progress_visit_order.push_back(node_index);
+        // prevents cycling endlessly through graph
+        const MAX_GRAPH_VISITS: u32 = 65536;
+        let mut graph_visits = 0;
+
+        {
+            // keep track of which nodes have been added to the in_progress_visit_order vec
+            let mut node_set: HashSet<NodeIndex> = HashSet::new();
+
+            // initialize visit order with all nodes, starting with the inputs
+            for input_index in &self.inputs {
+                if !node_set.contains(input_index) {
+                    in_progress_visit_order.push_back(*input_index);
+                    node_set.insert(*input_index);
+                }
+
+                let mut dfs = Dfs::new(&self.graph, *input_index);
+                while let Some(node_index) = dfs.next(&self.graph) {
+                    if !node_set.contains(&node_index) {
+                        in_progress_visit_order.push_back(node_index);
+                        node_set.insert(node_index);
+                    }
+                }
+            }
         }
 
         // find a valid path through graph, such that all inputs
         // are initialized for each node before that node's `process` function is run
         while let Some(node_index) = in_progress_visit_order.pop_front() {
+            graph_visits += 1;
+
+            // todo: make this a configurable number and a recoverable error
+            if graph_visits > MAX_GRAPH_VISITS {
+                panic!(
+                    r#"Too many iterations reached while searching for an allowable signal path though audio graph. 
+                This probably indicates a bug in your audio graph, such as an unintended infinite loop."#
+                );
+            }
+
             let mut incoming_connections = self
                 .graph
                 .edges_directed(node_index, Direction::Incoming)
                 .map(|edge_reference| edge_reference.weight().borrow());
 
             // skip for now if inputs have not been initialized
-            if incoming_connections.any(|incoming_connection| !incoming_connection.init) {
+            if incoming_connections.any(|incoming_connection| {
+                !connection_visit_set.contains(&incoming_connection.uuid)
+            }) {
                 in_progress_visit_order.push_back(node_index);
                 continue;
             }
 
+            // if made it this far, we know that this node is valid to visit 
+            // at this point in the graph traversal, since the all the node's
+            // inputs were visited prior to calling this node's `process` function
             final_visit_order.push(node_index);
 
-            // if here, that means all inputs have been
-            // initialized (or Node requires no inputs),
-            // so we can initialize all outgoing connections
-            self.graph
-                .edges_directed(node_index, Direction::Outgoing)
-                .for_each(|edge_reference| edge_reference.weight().borrow_mut().init = true);
+            let outgoing_connections = self.graph.edges_directed(node_index, Direction::Outgoing);
+
+            // mark all outgoing connections from this node has having been visited
+            outgoing_connections.for_each(|edge_reference| {
+                connection_visit_set.insert(edge_reference.weight().borrow().uuid);
+            });
         }
 
         self.visit_order = Some(final_visit_order);
     }
 
     pub(crate) fn add_node(&mut self, node: RefCell<BoxedNode>) -> &mut Self {
-        if self.node_uuids.contains(&node.borrow().uuid()) {
+        if self.node_uuids.contains(node.borrow().uuid()) {
             return self;
         }
 
@@ -132,7 +171,7 @@ impl AudioContextInner {
             return self;
         };
 
-        self.graph.update_edge(
+        self.graph.add_edge(
             node_index_1,
             node_index_2,
             RefCell::new(Connection::from_indexes(from_index, to_index)),
@@ -145,7 +184,7 @@ impl AudioContextInner {
         self.graph
             .node_identifiers()
             .map(|i| (i, &self.graph[i]))
-            .find(|(i, weight)| weight.borrow().uuid() == uuid)
+            .find(|(_, weight)| weight.borrow().uuid() == uuid)
             .map(|(i, _)| i)
     }
 }
@@ -164,20 +203,23 @@ impl Default for AudioContextInner {
 
 #[cfg(test)]
 mod test_audio_context_inner {
-    use crate::{AudioContext, Connect, MultiplyNode, PassThroughNode, RecordNode, SineNode};
+    use crate::{AudioContext, Connect, ConstantNode, MultiplyNode, PassThroughNode, RecordNode};
 
     #[test]
     fn allows_creating_audio_graph() {
         let mut audio_context = AudioContext::default();
-        let sine_node = SineNode::new_with_config(&mut audio_context, 44100, 440.0);
+        let constant_node_left = ConstantNode::new_with_signal_value(&mut audio_context, 4.0);
+        let constant_node_right = ConstantNode::new_with_signal_value(&mut audio_context, 0.5);
+
         let pass_through_node_left = PassThroughNode::new(&mut audio_context);
+        constant_node_left.connect(&pass_through_node_left);
         let pass_through_node_right = PassThroughNode::new(&mut audio_context);
+        constant_node_right.connect(&pass_through_node_right);
+
         let multiply_node = MultiplyNode::new(&mut audio_context);
-        let record_node = RecordNode::new(&mut audio_context);
-        sine_node.connect(&pass_through_node_left);
-        sine_node.connect(&pass_through_node_right);
         pass_through_node_left.connect(&multiply_node);
         pass_through_node_right.connect_nodes_with_indexes(0, &multiply_node, 1);
+        let record_node = RecordNode::new(&mut audio_context);
         multiply_node.connect(&record_node);
         audio_context.run();
 
@@ -185,15 +227,16 @@ mod test_audio_context_inner {
         {
             let record_data = record_node.data();
             assert_eq!(record_data.len(), 1);
-            assert_eq!(*record_data.first().unwrap(), 0.0);
+            assert_eq!(*record_data.first().unwrap(), 2.0);
         }
 
         audio_context.run();
 
+        // another sample should be recorded (with the same value)
         {
             let record_data = record_node.data();
             assert_eq!(record_data.len(), 2);
-            assert_eq!(*record_data.get(1).unwrap(), 0.0);
+            assert_eq!(*record_data.get(1).unwrap(), 2.0);
         }
     }
 }
@@ -242,10 +285,6 @@ impl AudioContext {
         self.inner_mut()
             .connect_nodes_with_indexes(node_1, from_index, node_2, to_index);
         self
-    }
-
-    fn inner(&self) -> Ref<AudioContextInner> {
-        self.audio_context_inner.borrow()
     }
 
     fn inner_mut(&self) -> RefMut<AudioContextInner> {

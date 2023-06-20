@@ -4,6 +4,13 @@ use uuid::Uuid;
 
 use crate::{AudioContext, Connect, Connection, Node, NodeType};
 
+/// Takes two signals and multiplies them together,
+/// outputting the signal to all connected outputs
+///
+/// Input 0 - Signal 1
+/// Input 1 - Signal 2
+///
+/// Output 0 - Multiplied signal
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct MultiplyNode {
     uuid: Uuid,
@@ -37,11 +44,21 @@ impl Node for MultiplyNode {
     }
 
     fn process(&mut self, inputs: &[Ref<Connection>], outputs: &mut [RefMut<Connection>]) {
-        outputs[0].data = inputs[0].data * inputs[1].data;
+        let result = inputs[0].data() * inputs[1].data();
+
+        // copy to all output connections
+        outputs.iter_mut().for_each(|output| {
+            output.set_data(result);
+            output.set_init(true);
+        })
     }
 
     fn uuid(&self) -> &Uuid {
         &self.uuid
+    }
+
+    fn name(&self) -> String {
+        String::from("MultiplyNode")
     }
 }
 
@@ -66,34 +83,44 @@ impl Connect for MultiplyNode {
 mod test_multiply_node {
     use std::cell::RefCell;
 
-    use crate::{AudioContext, Connection, MultiplyNode, Node};
+    use crate::{AudioContext, Connection, ConnectionInner, MultiplyNode, Node};
 
     #[test]
     fn should_multiply_1st_and_2nd_inputs() {
         let mut audio_context = AudioContext::new();
         let mut multiply_node = MultiplyNode::new(&mut audio_context);
 
-        let left_input_connection = RefCell::new(Connection {
-            from_index: 0,
-            to_index: 0,
-            data: 0.5,
-            init: true,
-        });
+        let left_input_connection =
+            RefCell::new(Connection::from_connection_inner(ConnectionInner {
+                from_index: 0,
+                to_index: 0,
+                data: 0.5,
+                init: true,
+            }));
 
-        let right_input_connection = RefCell::new(Connection {
-            from_index: 0,
-            to_index: 1,
-            data: 0.2,
-            init: true,
-        });
+        let right_input_connection =
+            RefCell::new(Connection::from_connection_inner(ConnectionInner {
+                from_index: 0,
+                to_index: 1,
+                data: 0.2,
+                init: true,
+            }));
 
-        let output_connection = RefCell::new(Connection {
+        let output_connection = RefCell::new(Connection::from_connection_inner(ConnectionInner {
             from_index: 0,
             to_index: 0,
             data: 0.0,
             init: false,
-        });
+        }));
 
+        // before processing, output data is 0.0
+        {
+            let output_connection_ref = output_connection.borrow();
+            assert_eq!(output_connection_ref.data(), 0.0);
+            assert!(!output_connection_ref.init());
+        }
+
+        // run processing for node
         {
             let left_input_connection_ref = left_input_connection.borrow();
             let right_input_connection_ref = right_input_connection.borrow();
@@ -103,6 +130,11 @@ mod test_multiply_node {
             multiply_node.process(&inputs, &mut outputs)
         }
 
-        assert_eq!(output_connection.borrow().data, 0.1);
+        // before processing, output data is 0.1
+        {
+            let output_connection_ref = output_connection.borrow();
+            assert_eq!(output_connection_ref.data(), 0.1);
+            assert!(output_connection_ref.init());
+        }
     }
 }

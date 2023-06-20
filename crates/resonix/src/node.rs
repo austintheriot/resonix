@@ -9,7 +9,7 @@ use crate::{Connection, NodeType};
 
 pub trait Node
 where
-    Self: Debug
+    Self: Debug,
 {
     fn process(&mut self, inputs: &[Ref<Connection>], outputs: &mut [RefMut<Connection>]);
 
@@ -20,6 +20,8 @@ where
     fn num_outputs(&self) -> usize;
 
     fn uuid(&self) -> &Uuid;
+
+    fn name(&self) -> String;
 }
 
 pub type BoxedNode = Box<dyn Node>;

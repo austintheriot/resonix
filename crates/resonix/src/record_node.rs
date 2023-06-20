@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{AudioContext, Connect, Connection, Node, NodeType};
 
-#[derive(Debug, Default, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct RecordNode {
     data: Rc<RefCell<Vec<f32>>>,
     uuid: Uuid,
@@ -38,7 +38,7 @@ impl Node for RecordNode {
             return
         };
 
-        self.data.borrow_mut().push(first_input.data);
+        self.data.borrow_mut().push(first_input.data());
     }
 
     fn node_type(&self) -> NodeType {
@@ -55,6 +55,10 @@ impl Node for RecordNode {
 
     fn uuid(&self) -> &Uuid {
         &self.uuid
+    }
+
+    fn name(&self) -> String {
+        String::from("RecordNode")
     }
 }
 
@@ -85,19 +89,19 @@ impl Connect for RecordNode {
 mod test_record_node {
     use std::cell::RefCell;
 
-    use crate::{AudioContext, Connection, MultiplyNode, Node, RecordNode};
+    use crate::{AudioContext, Connection, ConnectionInner, Node, RecordNode};
 
     #[test]
     fn should_record_incoming_node_data() {
         let mut audio_context = AudioContext::new();
         let mut record_node = RecordNode::new(&mut audio_context);
 
-        let input_connection = RefCell::new(Connection {
+        let input_connection = RefCell::new(Connection::from_connection_inner(ConnectionInner {
             from_index: 0,
             to_index: 0,
             data: 0.1234,
             init: true,
-        });
+        }));
 
         {
             let incoming_connection_ref = input_connection.borrow();
