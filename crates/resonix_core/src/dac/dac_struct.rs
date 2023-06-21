@@ -46,6 +46,7 @@ impl DAC {
         let config = device.default_output_config()?;
         let sample_format = config.sample_format();
         let stream_config: StreamConfig = config.into();
+
         let dac_config = DACConfig {
             host,
             device,
@@ -64,12 +65,7 @@ impl DAC {
         S: Sample,
         Callback: WriteFrameToBuffer<S, ExtractedData> + Send + Sync + 'static,
     {
-        let config = Arc::new(DACConfig {
-            host: dac_config.host,
-            device: dac_config.device,
-            sample_format: dac_config.sample_format,
-            stream_config: dac_config.stream_config,
-        });
+        let config = Arc::new(dac_config);
 
         let stream = Self::create_stream::<S, Callback, ExtractedData>(
             Arc::clone(&config),
