@@ -1,5 +1,3 @@
-use std::cell::{Ref, RefCell, RefMut};
-
 use uuid::Uuid;
 
 use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
@@ -43,7 +41,7 @@ impl Node for MultiplyNode {
         1
     }
 
-    fn process(&mut self, inputs: &[Ref<Connection>], outputs: &mut [RefMut<Connection>]) {
+    fn process(&mut self, inputs: &[Connection], outputs: &mut [Connection]) {
         let result = inputs[0].data() * inputs[1].data();
 
         // copy to all output connections
@@ -84,7 +82,6 @@ impl Connect for MultiplyNode {
 
 #[cfg(test)]
 mod test_multiply_node {
-    use std::cell::RefCell;
 
     use crate::{AudioContext, Connection, ConnectionInner, MultiplyNode, Node};
 
@@ -93,51 +90,44 @@ mod test_multiply_node {
         let mut audio_context = AudioContext::new();
         let mut multiply_node = MultiplyNode::new(&mut audio_context);
 
-        let left_input_connection =
-            RefCell::new(Connection::from_connection_inner(ConnectionInner {
-                from_index: 0,
-                to_index: 0,
-                data: 0.5,
-                init: true,
-            }));
+        let left_input_connection = Connection::from_connection_inner(ConnectionInner {
+            from_index: 0,
+            to_index: 0,
+            data: 0.5,
+            init: true,
+        });
 
-        let right_input_connection =
-            RefCell::new(Connection::from_connection_inner(ConnectionInner {
-                from_index: 0,
-                to_index: 1,
-                data: 0.2,
-                init: true,
-            }));
+        let right_input_connection = Connection::from_connection_inner(ConnectionInner {
+            from_index: 0,
+            to_index: 1,
+            data: 0.2,
+            init: true,
+        });
 
-        let output_connection = RefCell::new(Connection::from_connection_inner(ConnectionInner {
+        let output_connection = Connection::from_connection_inner(ConnectionInner {
             from_index: 0,
             to_index: 0,
             data: 0.0,
             init: false,
-        }));
+        });
 
         // before processing, output data is 0.0
         {
-            let output_connection_ref = output_connection.borrow();
-            assert_eq!(output_connection_ref.data(), 0.0);
-            assert!(!output_connection_ref.init());
+            assert_eq!(output_connection.data(), 0.0);
+            assert!(!output_connection.init());
         }
 
         // run processing for node
         {
-            let left_input_connection_ref = left_input_connection.borrow();
-            let right_input_connection_ref = right_input_connection.borrow();
-            let output_connection_ref_mut = output_connection.borrow_mut();
-            let inputs = [left_input_connection_ref, right_input_connection_ref];
-            let mut outputs = [output_connection_ref_mut];
+            let inputs = [left_input_connection, right_input_connection];
+            let mut outputs = [output_connection.clone()];
             multiply_node.process(&inputs, &mut outputs)
         }
 
         // before processing, output data is 0.1
         {
-            let output_connection_ref = output_connection.borrow();
-            assert_eq!(output_connection_ref.data(), 0.1);
-            assert!(output_connection_ref.init());
+            assert_eq!(output_connection.data(), 0.1);
+            assert!(output_connection.init());
         }
     }
 }

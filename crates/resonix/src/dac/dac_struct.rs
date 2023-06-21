@@ -147,11 +147,9 @@ mod audio_out_tests {
 
         let player = {
             let called = Arc::clone(&called);
-            DAC::from_dac_defaults(
-                move |_buffer: &'_ mut [f32], _config: Arc<DACConfig>| {
-                    *called.lock().unwrap() = true;
-                },
-            )
+            DAC::from_dac_defaults(move |_buffer: &'_ mut [f32], _config: Arc<DACConfig>| {
+                *called.lock().unwrap() = true;
+            })
         }
         .await;
 

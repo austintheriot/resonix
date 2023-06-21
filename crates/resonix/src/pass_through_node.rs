@@ -1,5 +1,3 @@
-use std::cell::{Ref, RefCell, RefMut};
-
 use uuid::Uuid;
 
 use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
@@ -30,7 +28,7 @@ impl PassThroughNode {
 }
 
 impl Node for PassThroughNode {
-    fn process(&mut self, inputs: &[Ref<Connection>], outputs: &mut [RefMut<Connection>]) {
+    fn process(&mut self, inputs: &[Connection], outputs: &mut [Connection]) {
         let input_data = inputs[0].data();
 
         // copy first input to all output connections
@@ -83,7 +81,6 @@ impl Connect for PassThroughNode {
 
 #[cfg(test)]
 mod test_pass_through_node {
-    use std::cell::RefCell;
 
     use crate::{AudioContext, Connection, ConnectionInner, Node, PassThroughNode};
 
@@ -92,40 +89,36 @@ mod test_pass_through_node {
         let mut audio_context = AudioContext::new();
         let mut pass_through_node = PassThroughNode::new(&mut audio_context);
 
-        let input_connection = RefCell::new(Connection::from_connection_inner(ConnectionInner {
+        let input_connection = Connection::from_connection_inner(ConnectionInner {
             from_index: 0,
             to_index: 0,
             data: 0.1234,
             init: true,
-        }));
+        });
 
-        let output_connection = RefCell::new(Connection::from_connection_inner(ConnectionInner {
+        let output_connection = Connection::from_connection_inner(ConnectionInner {
             from_index: 0,
             to_index: 0,
             data: 0.0,
             init: false,
-        }));
+        });
 
         // before processing, output connection holds 0.0
         {
-            let output_connection_ref = output_connection.borrow();
-            assert_eq!(output_connection_ref.data(), 0.0);
-            assert!(!output_connection_ref.init());
+            assert_eq!(output_connection.data(), 0.0);
+            assert!(!output_connection.init());
         }
 
         {
-            let incoming_connection_ref = input_connection.borrow();
-            let inputs = [incoming_connection_ref];
-            let output_connection_ref = output_connection.borrow_mut();
-            let mut outputs = [output_connection_ref];
+            let inputs = [input_connection];
+            let mut outputs = [output_connection.clone()];
             pass_through_node.process(&inputs, &mut outputs)
         }
 
         // before processing, output connection holds input data
         {
-            let output_connection_ref = output_connection.borrow();
-            assert_eq!(output_connection_ref.data(), 0.1234);
-            assert!(output_connection_ref.init());
+            assert_eq!(output_connection.data(), 0.1234);
+            assert!(output_connection.init());
         }
     }
 }

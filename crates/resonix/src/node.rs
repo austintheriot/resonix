@@ -1,18 +1,15 @@
-use std::{
-    cell::{Ref, RefMut},
-    fmt::Debug,
-};
+use std::fmt::Debug;
 
-use uuid::Uuid;
 use dyn_clone::DynClone;
+use uuid::Uuid;
 
 use crate::{Connection, NodeType};
 
 pub trait Node
 where
-    Self: Debug + DynClone,
+    Self: Debug + DynClone + Send + Sync,
 {
-    fn process(&mut self, inputs: &[Ref<Connection>], outputs: &mut [RefMut<Connection>]);
+    fn process(&mut self, inputs: &[Connection], outputs: &mut [Connection]);
 
     fn node_type(&self) -> NodeType;
 

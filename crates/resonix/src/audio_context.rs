@@ -1,9 +1,10 @@
 use std::{
     any::Any,
-    cell::{Ref, RefCell, RefMut},
+    cell::RefCell,
     collections::{HashSet, VecDeque},
     hash::{Hash, Hasher},
     rc::Rc,
+    sync::{Arc, Mutex},
 };
 
 use petgraph::{
@@ -20,7 +21,7 @@ use crate::{DACConfig, DAC};
 
 #[derive(Debug)]
 struct AudioContextInner {
-    graph: Graph<RefCell<BoxedNode>, RefCell<Connection>>,
+    graph: Graph<BoxedNode, Connection>,
     node_uuids: HashSet<Uuid>,
     visit_order: Option<Vec<NodeIndex>>,
     input_node_indexes: Vec<NodeIndex>,
@@ -35,21 +36,22 @@ impl AudioContextInner {
         }
 
         for node_index in self.visit_order.as_ref().unwrap() {
-            let input_data: Vec<Ref<'_, Connection>> = self
+            let input_data: Vec<Connection> = self
                 .graph
                 .edges_directed(*node_index, Direction::Incoming)
-                .map(|edge_reference| edge_reference.weight().borrow())
+                .map(|edge_reference| edge_reference.weight().clone())
                 .collect();
 
-            let mut outgoing_connections: Vec<RefMut<'_, Connection>> = self
+            let mut outgoing_connections: Vec<Connection> = self
                 .graph
                 .edges_directed(*node_index, Direction::Outgoing)
-                .map(|edge_reference| edge_reference.weight().borrow_mut())
+                .map(|edge_reference| edge_reference.weight().clone())
+                .filter(|outgoing_connection| !input_data.contains(outgoing_connection))
                 .collect();
 
-            let mut node = self.graph[*node_index].borrow_mut();
+            let node = &mut self.graph[*node_index];
 
-            node.process(&input_data, &mut outgoing_connections)
+            node.process(input_data.as_slice(), outgoing_connections.as_mut_slice())
         }
     }
 
@@ -110,7 +112,7 @@ impl AudioContextInner {
             let mut incoming_connections = self
                 .graph
                 .edges_directed(node_index, Direction::Incoming)
-                .map(|edge_reference| edge_reference.weight().borrow());
+                .map(|edge_reference| edge_reference.weight());
 
             // skip for now if inputs have not been initialized
             if incoming_connections.any(|incoming_connection| {
@@ -129,7 +131,7 @@ impl AudioContextInner {
 
             // mark all outgoing connections from this node has having been visited
             outgoing_connections.for_each(|edge_reference| {
-                connection_visit_set.insert(edge_reference.weight().borrow().uuid);
+                connection_visit_set.insert(edge_reference.weight().uuid);
             });
         }
 
@@ -139,7 +141,7 @@ impl AudioContextInner {
     fn input_nodes(&self) -> Vec<BoxedNode> {
         self.input_node_indexes
             .iter()
-            .map(|i| dyn_clone::clone_box(&**self.graph[*i].borrow()))
+            .map(|i| dyn_clone::clone_box(&*self.graph[*i]))
             .collect()
     }
 
@@ -147,7 +149,7 @@ impl AudioContextInner {
     fn dac_nodes(&self) -> Vec<BoxedNode> {
         self.dac_node_indexes
             .iter()
-            .map(|i| dyn_clone::clone_box(&**self.graph[*i].borrow()))
+            .map(|i| dyn_clone::clone_box(&*self.graph[*i]))
             .collect()
     }
 
@@ -158,7 +160,7 @@ impl AudioContextInner {
 
         let is_input = node.node_type() == NodeType::Input;
 
-        let node_index = self.graph.add_node(RefCell::new(Box::new(node.clone())));
+        let node_index = self.graph.add_node(Box::new(node.clone()));
 
         if is_input {
             self.input_node_indexes.push(node_index);
@@ -201,7 +203,7 @@ impl AudioContextInner {
         self.graph.add_edge(
             node_index_1,
             node_index_2,
-            RefCell::new(Connection::from_indexes(from_index, to_index)),
+            Connection::from_indexes(from_index, to_index),
         );
 
         self
@@ -211,7 +213,7 @@ impl AudioContextInner {
         self.graph
             .node_identifiers()
             .map(|i| (i, &self.graph[i]))
-            .find(|(_, weight)| weight.borrow().uuid() == uuid)
+            .find(|(_, weight)| weight.uuid() == uuid)
             .map(|(i, _)| i)
     }
 }
@@ -320,10 +322,13 @@ mod test_audio_context_inner {
 #[derive(Debug, Clone)]
 pub struct AudioContext {
     uuid: Uuid,
-    audio_context_inner: Rc<RefCell<AudioContextInner>>,
+    audio_context_inner: Arc<Mutex<AudioContextInner>>,
     #[cfg(feature = "cpal")]
-    dac: Rc<RefCell<Option<DAC>>>,
+    dac: Arc<Mutex<Option<DAC>>>,
 }
+
+unsafe impl Send for AudioContext {}
+unsafe impl Sync for AudioContext {}
 
 impl AudioContext {
     pub fn new() -> Self {
@@ -335,20 +340,44 @@ impl AudioContext {
     }
 
     pub fn input_nodes(&self) -> Vec<BoxedNode> {
-        self.audio_context_inner.borrow().input_nodes()
+        self.audio_context_inner.lock().unwrap().input_nodes()
     }
 
     #[cfg(feature = "cpal")]
     pub fn dac_nodes(&self) -> Vec<BoxedNode> {
-        self.audio_context_inner.borrow().dac_nodes()
+        self.audio_context_inner.lock().unwrap().dac_nodes()
     }
 
     pub fn run(&mut self) {
-        self.inner_mut().run();
+        self.audio_context_inner.lock().unwrap().run();
+    }
+
+    #[cfg(feature = "cpal")]
+    async fn initialize_dac_from_defaults(&mut self) -> Result<&mut Self, DACBuildError> {
+        let audio_context_inner = Arc::clone(&self.audio_context_inner);
+        let dac = DAC::from_dac_defaults(move |_buffer: &mut [f32]| {
+            let dac_nodes = audio_context_inner.lock().unwrap().dac_nodes();
+            todo!()
+        })
+        .await?;
+        self.dac.lock().unwrap().replace(dac);
+
+        Ok(self)
+    }
+
+    #[cfg(feature = "cpal")]
+    async fn initialize_dac_from_config(
+        &mut self,
+        dac_config: DACConfig,
+    ) -> Result<&mut Self, DACBuildError> {
+        let dac = DAC::from_dac_config(dac_config, |_buffer: &mut [f32]| todo!()).await?;
+        self.dac.lock().unwrap().replace(dac);
+
+        Ok(self)
     }
 
     pub(crate) fn add_node<N: Node + Clone + 'static>(&mut self, node: N) -> &mut Self {
-        self.inner_mut().add_node(node);
+        self.audio_context_inner.lock().unwrap().add_node(node);
         self
     }
 
@@ -357,7 +386,10 @@ impl AudioContext {
         node_1: N1,
         node_2: N2,
     ) -> &Self {
-        self.inner_mut().connect_nodes(node_1, node_2);
+        self.audio_context_inner
+            .lock()
+            .unwrap()
+            .connect_nodes(node_1, node_2);
         self
     }
 
@@ -368,13 +400,11 @@ impl AudioContext {
         node_2: N2,
         to_index: usize,
     ) -> &Self {
-        self.inner_mut()
+        self.audio_context_inner
+            .lock()
+            .unwrap()
             .connect_nodes_with_indexes(node_1, from_index, node_2, to_index);
         self
-    }
-
-    fn inner_mut(&self) -> RefMut<AudioContextInner> {
-        self.audio_context_inner.borrow_mut()
     }
 }
 
@@ -408,8 +438,11 @@ impl Default for AudioContext {
     fn default() -> Self {
         Self {
             uuid: Uuid::new_v4(),
-            audio_context_inner: Rc::new(RefCell::new(AudioContextInner::default())),
-            dac: Rc::new(RefCell::new(None)),
+            audio_context_inner: Arc::new(Mutex::new(AudioContextInner::default())),
+            dac: Arc::new(Mutex::new(None)),
         }
     }
 }
+
+#[cfg(test)]
+mod test_audio_context {}

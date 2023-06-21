@@ -1,7 +1,6 @@
 use std::{
-    cell::RefCell,
     hash::{Hash, Hasher},
-    rc::Rc, sync::{Arc, Mutex},
+    sync::{Arc, Mutex},
 };
 
 use uuid::Uuid;

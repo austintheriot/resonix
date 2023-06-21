@@ -1,7 +1,7 @@
 use std::{
-    cell::{Ref, RefCell, RefMut},
+    cell::RefCell,
     hash::{Hash, Hasher},
-    rc::Rc,
+    rc::Rc, sync::{Arc, Mutex},
 };
 
 use uuid::Uuid;
@@ -16,7 +16,7 @@ use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
 pub struct ConstantNode {
     uuid: Uuid,
     audio_context: AudioContext,
-    signal_value: Rc<RefCell<f32>>,
+    signal_value: Arc<Mutex<f32>>,
 }
 
 impl ConstantNode {
@@ -28,7 +28,7 @@ impl ConstantNode {
         let new_constant_node = Self {
             uuid: Uuid::new_v4(),
             audio_context: audio_context.clone(),
-            signal_value: Rc::new(RefCell::new(signal_value)),
+            signal_value: Arc::new(Mutex::new(signal_value)),
         };
 
         audio_context.add_node(new_constant_node.clone());
@@ -37,11 +37,11 @@ impl ConstantNode {
     }
 
     pub fn signal_value(&self) -> f32 {
-        *self.signal_value.borrow()
+        *self.signal_value.lock().unwrap()
     }
 
     pub fn set_signal_value(&mut self, signal_value: f32) -> &mut Self {
-        *self.signal_value.borrow_mut() = signal_value;
+        *self.signal_value.lock().unwrap() = signal_value;
         self
     }
 }
@@ -59,8 +59,8 @@ impl Node for ConstantNode {
         1
     }
 
-    fn process(&mut self, _: &[Ref<Connection>], outputs: &mut [RefMut<Connection>]) {
-        let signal_value = *self.signal_value.borrow();
+    fn process(&mut self, _: &[Connection], outputs: &mut [Connection]) {
+        let signal_value = *self.signal_value.lock().unwrap();
 
         // copy to all output connections
         outputs.iter_mut().for_each(|output| {
@@ -126,7 +126,6 @@ impl Hash for ConstantNode {
 
 #[cfg(test)]
 mod test_constant_node {
-    use std::cell::RefCell;
 
     use crate::{AudioContext, Connection, ConnectionInner, ConstantNode, Node};
 
@@ -135,33 +134,30 @@ mod test_constant_node {
         let mut audio_context = AudioContext::new();
         let mut constant_node = ConstantNode::new_with_signal_value(&mut audio_context, 1.234);
 
-        let output_connection = RefCell::new(Connection::from_connection_inner(ConnectionInner {
+        let output_connection = Connection::from_connection_inner(ConnectionInner {
             from_index: 0,
             to_index: 0,
             data: 0.0,
             init: false,
-        }));
+        });
 
         // before processing, output data is 0.0
         {
-            let output_connection_ref = output_connection.borrow();
-            assert_eq!(output_connection_ref.data(), 0.0);
-            assert!(!output_connection_ref.init());
+            assert_eq!(output_connection.data(), 0.0);
+            assert!(!output_connection.init());
         }
 
         // run processing for node
         {
-            let output_connection_ref_mut = output_connection.borrow_mut();
             let inputs = [];
-            let mut outputs = [output_connection_ref_mut];
+            let mut outputs = [output_connection.clone()];
             constant_node.process(&inputs, &mut outputs)
         }
 
         // after processing, output data is 1.234
         {
-            let output_connection_ref = output_connection.borrow();
-            assert_eq!(output_connection_ref.data(), 1.234);
-            assert!(output_connection_ref.init());
+            assert_eq!(output_connection.data(), 1.234);
+            assert!(output_connection.init());
         }
     }
 }

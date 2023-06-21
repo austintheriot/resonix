@@ -1,7 +1,4 @@
-use std::{
-    cell::{Ref, RefCell, RefMut},
-    rc::Rc,
-};
+use std::{cell::RefCell, rc::Rc, sync::{Arc, Mutex}};
 
 use uuid::Uuid;
 
@@ -13,36 +10,36 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct SineNode {
     uuid: Uuid,
-    sine: Rc<RefCell<Sine>>,
+    sine: Arc<Mutex<Sine>>,
     audio_context: AudioContext,
 }
 
 impl SineInterface for SineNode {
     fn next_sample(&mut self) -> f32 {
-        self.sine.borrow_mut().next_sample()
+        self.sine.lock().unwrap().next_sample()
     }
 
     fn set_sample_rate(&mut self, sample_rate: impl Into<SampleRate>) -> &mut Self {
-        self.sine.borrow_mut().set_sample_rate(sample_rate);
+        self.sine.lock().unwrap().set_sample_rate(sample_rate);
         self
     }
 
     fn set_frequency(&mut self, frequency: f32) -> &mut Self {
-        self.sine.borrow_mut().set_frequency(frequency);
+        self.sine.lock().unwrap().set_frequency(frequency);
         self
     }
 
     fn sample_rate(&self) -> SampleRate {
-        self.sine.borrow().sample_rate()
+        self.sine.lock().unwrap().sample_rate()
     }
 
     fn frequency(&self) -> f32 {
-        self.sine.borrow().frequency()
+        self.sine.lock().unwrap().frequency()
     }
 }
 
 impl Node for SineNode {
-    fn process(&mut self, _inputs: &[Ref<Connection>], outputs: &mut [RefMut<Connection>]) {
+    fn process(&mut self, _inputs: &[Connection], outputs: &mut [Connection]) {
         let next_sample = self.next_sample();
         outputs.iter_mut().for_each(|output| {
             output.set_data(next_sample);
@@ -104,7 +101,7 @@ impl SineNode {
         // todo - get sample rate from audio context
         let new_sine_node = Self {
             uuid: Uuid::new_v4(),
-            sine: Rc::new(RefCell::new(Sine::new_with_config(sample_rate, frequency))),
+            sine: Arc::new(Mutex::new(Sine::new_with_config(sample_rate, frequency))),
             audio_context: audio_context.clone(),
         };
 
@@ -122,9 +119,20 @@ impl PartialEq for SineNode {
 
 impl Eq for SineNode {}
 
+impl PartialOrd for SineNode {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.uuid.partial_cmp(&other.uuid)
+    }
+}
+
+impl Ord for SineNode {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.uuid.cmp(&other.uuid)
+    }
+}
+
 #[cfg(test)]
 mod test_sine_node {
-    use std::cell::RefCell;
 
     use crate::{AudioContext, Connection, ConnectionInner, Node, SineNode};
 
@@ -134,49 +142,44 @@ mod test_sine_node {
         // should finish a sine wave cycle within 4 sample
         let mut sine_node = SineNode::new_with_config(&mut audio_context, 4, 1.0);
 
-        let output_connection = RefCell::new(Connection::from_connection_inner(ConnectionInner {
+        let mut output_connection = Connection::from_connection_inner(ConnectionInner {
             from_index: 0,
             to_index: 0,
             data: 0.0,
             init: false,
-        }));
+        });
 
         // before processing, output data is 0.0
         {
-            let output_connection_ref = output_connection.borrow();
-            assert_eq!(output_connection_ref.data(), 0.0);
-            assert!(!output_connection_ref.init());
+            assert_eq!(output_connection.data(), 0.0);
+            assert!(!output_connection.init());
         }
 
         // run processing for node
         {
-            let output_connection_ref_mut = output_connection.borrow_mut();
             let inputs = [];
-            let mut outputs = [output_connection_ref_mut];
+            let mut outputs = [output_connection.clone()];
             sine_node.process(&inputs, &mut outputs);
         }
 
         // after processing once, output data is 0.0
         {
-            let output_connection_ref = output_connection.borrow();
-            assert_eq!(output_connection_ref.data(), 0.0);
-            assert!(output_connection_ref.init());
+            assert_eq!(output_connection.data(), 0.0);
+            assert!(output_connection.init());
         }
 
         // run processing for node
         {
-            let mut output_connection_ref_mut = output_connection.borrow_mut();
-            output_connection_ref_mut.set_init(false);
+            output_connection.set_init(false);
             let inputs = [];
-            let mut outputs = [output_connection_ref_mut];
+            let mut outputs = [output_connection.clone()];
             sine_node.process(&inputs, &mut outputs);
         }
 
         // after processing twice, output data is 1.0
         {
-            let output_connection_ref = output_connection.borrow();
-            assert_eq!(output_connection_ref.data(), 1.0);
-            assert!(output_connection_ref.init());
+            assert_eq!(output_connection.data(), 1.0);
+            assert!(output_connection.init());
         }
     }
 }
