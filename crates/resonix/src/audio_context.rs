@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     cell::{Ref, RefCell, RefMut},
     collections::{HashSet, VecDeque},
     hash::{Hash, Hasher},
@@ -12,14 +13,18 @@ use petgraph::{
 };
 use uuid::Uuid;
 
-use crate::{BoxedNode, Connect, Connection, Node, NodeType};
+use crate::{BoxedNode, Connect, Connection, DACBuildError, DACNode, Node, NodeType};
+
+#[cfg(feature = "cpal")]
+use crate::{DACConfig, DAC};
 
 #[derive(Debug)]
 struct AudioContextInner {
     graph: Graph<RefCell<BoxedNode>, RefCell<Connection>>,
     node_uuids: HashSet<Uuid>,
     visit_order: Option<Vec<NodeIndex>>,
-    inputs: Vec<NodeIndex>,
+    input_node_indexes: Vec<NodeIndex>,
+    dac_node_indexes: Vec<NodeIndex>,
     uuid: Uuid,
 }
 
@@ -50,7 +55,7 @@ impl AudioContextInner {
 
     fn initialize_visit_order(&mut self) {
         // if there are no inputs to the graph, then there is nothing to traverse
-        if self.inputs.is_empty() {
+        if self.input_node_indexes.is_empty() {
             self.visit_order = Some(Vec::new());
             return;
         }
@@ -73,7 +78,7 @@ impl AudioContextInner {
             let mut node_set: HashSet<NodeIndex> = HashSet::new();
 
             // initialize visit order with all nodes, starting with the inputs
-            for input_index in &self.inputs {
+            for input_index in &self.input_node_indexes {
                 if !node_set.contains(input_index) {
                     in_progress_visit_order.push_back(*input_index);
                     node_set.insert(*input_index);
@@ -115,7 +120,7 @@ impl AudioContextInner {
                 continue;
             }
 
-            // if made it this far, we know that this node is valid to visit 
+            // if made it this far, we know that this node is valid to visit
             // at this point in the graph traversal, since the all the node's
             // inputs were visited prior to calling this node's `process` function
             final_visit_order.push(node_index);
@@ -131,23 +136,45 @@ impl AudioContextInner {
         self.visit_order = Some(final_visit_order);
     }
 
-    pub(crate) fn add_node(&mut self, node: RefCell<BoxedNode>) -> &mut Self {
-        if self.node_uuids.contains(node.borrow().uuid()) {
+    fn input_nodes(&self) -> Vec<BoxedNode> {
+        self.input_node_indexes
+            .iter()
+            .map(|i| dyn_clone::clone_box(&**self.graph[*i].borrow()))
+            .collect()
+    }
+
+    #[cfg(feature = "cpal")]
+    fn dac_nodes(&self) -> Vec<BoxedNode> {
+        self.dac_node_indexes
+            .iter()
+            .map(|i| dyn_clone::clone_box(&**self.graph[*i].borrow()))
+            .collect()
+    }
+
+    fn add_node<N: Node + Clone + 'static>(&mut self, node: N) -> &mut Self {
+        if self.node_uuids.contains(node.uuid()) {
             return self;
         }
 
-        let is_input = node.borrow().node_type() == NodeType::Input;
+        let is_input = node.node_type() == NodeType::Input;
 
-        let node_index = self.graph.add_node(node);
+        let node_index = self.graph.add_node(RefCell::new(Box::new(node.clone())));
 
         if is_input {
-            self.inputs.push(node_index);
+            self.input_node_indexes.push(node_index);
+        }
+
+        {
+            let node_as_any = &node as &dyn Any;
+            if node_as_any.downcast_ref::<DACNode>().is_some() {
+                self.dac_node_indexes.push(node_index)
+            }
         }
 
         self
     }
 
-    pub(crate) fn connect_nodes<N1: Node + Connect, N2: Node + Connect>(
+    fn connect_nodes<N1: Node + Connect, N2: Node + Connect>(
         &mut self,
         node_1: N1,
         node_2: N2,
@@ -155,7 +182,7 @@ impl AudioContextInner {
         self.connect_nodes_with_indexes(node_1, Default::default(), node_2, Default::default())
     }
 
-    pub(crate) fn connect_nodes_with_indexes<N1: Node + Connect, N2: Node + Connect>(
+    fn connect_nodes_with_indexes<N1: Node + Connect, N2: Node + Connect>(
         &mut self,
         node_1: N1,
         from_index: usize,
@@ -195,7 +222,8 @@ impl Default for AudioContextInner {
             graph: Graph::new(),
             uuid: Uuid::new_v4(),
             visit_order: None,
-            inputs: Vec::new(),
+            input_node_indexes: Vec::new(),
+            dac_node_indexes: Vec::new(),
             node_uuids: HashSet::new(),
         }
     }
@@ -203,10 +231,13 @@ impl Default for AudioContextInner {
 
 #[cfg(test)]
 mod test_audio_context_inner {
-    use crate::{AudioContext, Connect, ConstantNode, MultiplyNode, PassThroughNode, RecordNode};
+    use crate::{
+        AudioContext, Connect, ConstantNode, MultiplyNode, Node, PassThroughNode, RecordNode,
+        SineNode,
+    };
 
     #[test]
-    fn allows_creating_audio_graph() {
+    fn allows_running_audio_graph() {
         let mut audio_context = AudioContext::default();
         let constant_node_left = ConstantNode::new_with_signal_value(&mut audio_context, 4.0);
         let constant_node_right = ConstantNode::new_with_signal_value(&mut audio_context, 0.5);
@@ -214,11 +245,15 @@ mod test_audio_context_inner {
         let pass_through_node_left = PassThroughNode::new(&mut audio_context);
         constant_node_left.connect(&pass_through_node_left).unwrap();
         let pass_through_node_right = PassThroughNode::new(&mut audio_context);
-        constant_node_right.connect(&pass_through_node_right).unwrap();
+        constant_node_right
+            .connect(&pass_through_node_right)
+            .unwrap();
 
         let multiply_node = MultiplyNode::new(&mut audio_context);
         pass_through_node_left.connect(&multiply_node).unwrap();
-        pass_through_node_right.connect_nodes_with_indexes(0, &multiply_node, 1).unwrap();
+        pass_through_node_right
+            .connect_nodes_with_indexes(0, &multiply_node, 1)
+            .unwrap();
         let record_node = RecordNode::new(&mut audio_context);
         multiply_node.connect(&record_node).unwrap();
         audio_context.run();
@@ -239,6 +274,45 @@ mod test_audio_context_inner {
             assert_eq!(*record_data.get(1).unwrap(), 2.0);
         }
     }
+
+    #[test]
+    fn allows_getting_input_nodes() {
+        let mut audio_context = AudioContext::new();
+        let sine_node = SineNode::new(&mut audio_context);
+        RecordNode::new(&mut audio_context);
+        PassThroughNode::new(&mut audio_context);
+        let constant_node = ConstantNode::new(&mut audio_context);
+        MultiplyNode::new(&mut audio_context);
+
+        let input_nodes = audio_context.input_nodes();
+
+        assert_eq!(input_nodes.len(), 2);
+        assert!(input_nodes
+            .iter()
+            .any(|node| node.uuid() == sine_node.uuid()));
+        assert!(input_nodes
+            .iter()
+            .any(|node| node.uuid() == constant_node.uuid()));
+    }
+
+    #[cfg(feature = "cpal")]
+    #[test]
+    fn allows_getting_dac_nodes() {
+        use crate::DACNode;
+
+        let mut audio_context = AudioContext::new();
+        SineNode::new(&mut audio_context);
+        RecordNode::new(&mut audio_context);
+        PassThroughNode::new(&mut audio_context);
+        ConstantNode::new(&mut audio_context);
+        MultiplyNode::new(&mut audio_context);
+        let dac_node = DACNode::new(&mut audio_context);
+
+        let dac_nodes = audio_context.dac_nodes();
+
+        assert_eq!(dac_nodes.len(), 1);
+        assert!(dac_nodes.iter().any(|node| node.uuid() == dac_node.uuid()));
+    }
 }
 
 /// Cloning the audio context is an outward clone of the
@@ -247,6 +321,8 @@ mod test_audio_context_inner {
 pub struct AudioContext {
     uuid: Uuid,
     audio_context_inner: Rc<RefCell<AudioContextInner>>,
+    #[cfg(feature = "cpal")]
+    dac: Rc<RefCell<Option<DAC>>>,
 }
 
 impl AudioContext {
@@ -254,14 +330,24 @@ impl AudioContext {
         Self {
             uuid: Uuid::new_v4(),
             audio_context_inner: Default::default(),
+            dac: Default::default(),
         }
+    }
+
+    pub fn input_nodes(&self) -> Vec<BoxedNode> {
+        self.audio_context_inner.borrow().input_nodes()
+    }
+
+    #[cfg(feature = "cpal")]
+    pub fn dac_nodes(&self) -> Vec<BoxedNode> {
+        self.audio_context_inner.borrow().dac_nodes()
     }
 
     pub fn run(&mut self) {
         self.inner_mut().run();
     }
 
-    pub(crate) fn add_node(&mut self, node: RefCell<BoxedNode>) -> &mut Self {
+    pub(crate) fn add_node<N: Node + Clone + 'static>(&mut self, node: N) -> &mut Self {
         self.inner_mut().add_node(node);
         self
     }
@@ -323,6 +409,7 @@ impl Default for AudioContext {
         Self {
             uuid: Uuid::new_v4(),
             audio_context_inner: Rc::new(RefCell::new(AudioContextInner::default())),
+            dac: Rc::new(RefCell::new(None)),
         }
     }
 }

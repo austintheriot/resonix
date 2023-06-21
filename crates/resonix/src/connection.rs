@@ -1,7 +1,7 @@
 use std::{
     cell::RefCell,
     hash::{Hash, Hasher},
-    rc::Rc,
+    rc::Rc, sync::{Arc, Mutex},
 };
 
 use uuid::Uuid;
@@ -37,7 +37,7 @@ impl ConnectionInner {
 
 #[derive(Debug, Clone, Default)]
 pub struct Connection {
-    connection_inner: Rc<RefCell<ConnectionInner>>,
+    connection_inner: Arc<Mutex<ConnectionInner>>,
     pub uuid: Uuid,
 }
 
@@ -48,7 +48,7 @@ impl Connection {
 
     pub fn from_indexes(from_index: usize, to_index: usize) -> Self {
         Self {
-            connection_inner: Rc::new(RefCell::new(ConnectionInner::from_indexes(
+            connection_inner: Arc::new(Mutex::new(ConnectionInner::from_indexes(
                 from_index, to_index,
             ))),
             uuid: Uuid::new_v4(),
@@ -56,28 +56,28 @@ impl Connection {
     }
 
     pub fn from_index(&self) -> usize {
-        self.connection_inner.borrow().from_index
+        self.connection_inner.lock().unwrap().from_index
     }
 
     pub fn to_index(&self) -> usize {
-        self.connection_inner.borrow().to_index
+        self.connection_inner.lock().unwrap().to_index
     }
 
     pub fn data(&self) -> f32 {
-        self.connection_inner.borrow().data
+        self.connection_inner.lock().unwrap().data
     }
 
     pub fn init(&self) -> bool {
-        self.connection_inner.borrow().init
+        self.connection_inner.lock().unwrap().init
     }
 
     pub fn set_data(&mut self, data: f32) -> &mut Self {
-        self.connection_inner.borrow_mut().data = data;
+        self.connection_inner.lock().unwrap().data = data;
         self
     }
 
     pub fn set_init(&mut self, init: bool) -> &mut Self {
-        self.connection_inner.borrow_mut().init = init;
+        self.connection_inner.lock().unwrap().init = init;
         self
     }
 
@@ -89,7 +89,7 @@ impl Connection {
     #[cfg(test)]
     pub(crate) fn from_connection_inner(connection_inner: ConnectionInner) -> Self {
         Self {
-            connection_inner: Rc::new(RefCell::new(connection_inner)),
+            connection_inner: Arc::new(Mutex::new(connection_inner)),
             uuid: Uuid::new_v4(),
         }
     }

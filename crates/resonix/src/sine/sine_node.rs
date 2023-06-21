@@ -5,7 +5,10 @@ use std::{
 
 use uuid::Uuid;
 
-use crate::{AudioContext, Connect, Connection, Node, NodeType, SampleRate, Sine, SineInterface, ConnectError};
+use crate::{
+    AudioContext, Connect, ConnectError, Connection, Node, NodeType, SampleRate, Sine,
+    SineInterface,
+};
 
 #[derive(Debug, Clone)]
 pub struct SineNode {
@@ -74,7 +77,7 @@ impl Connect for SineNode {
         from_index: usize,
         other_node: &N,
         to_index: usize,
-    ) -> Result<&Self, ConnectError>  {
+    ) -> Result<&Self, ConnectError> {
         self.check_index_out_of_bounds(from_index, other_node, to_index)?;
 
         self.audio_context.connect_nodes_with_indexes(
@@ -105,7 +108,7 @@ impl SineNode {
             audio_context: audio_context.clone(),
         };
 
-        audio_context.add_node(RefCell::new(Box::new(new_sine_node.clone())));
+        audio_context.add_node(new_sine_node.clone());
 
         new_sine_node
     }

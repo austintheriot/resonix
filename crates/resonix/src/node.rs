@@ -4,12 +4,13 @@ use std::{
 };
 
 use uuid::Uuid;
+use dyn_clone::DynClone;
 
 use crate::{Connection, NodeType};
 
 pub trait Node
 where
-    Self: Debug,
+    Self: Debug + DynClone,
 {
     fn process(&mut self, inputs: &[Ref<Connection>], outputs: &mut [RefMut<Connection>]);
 
@@ -23,5 +24,7 @@ where
 
     fn name(&self) -> String;
 }
+
+dyn_clone::clone_trait_object!(Node);
 
 pub type BoxedNode = Box<dyn Node>;

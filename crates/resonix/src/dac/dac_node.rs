@@ -8,37 +8,37 @@ use uuid::Uuid;
 use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct RecordNode {
-    data: Rc<RefCell<Vec<f32>>>,
+pub struct DACNode {
+    data: Rc<RefCell<f32>>,
     uuid: Uuid,
     audio_context: AudioContext,
 }
 
-impl RecordNode {
+impl DACNode {
     pub fn new(audio_context: &mut AudioContext) -> Self {
-        let new_record_node = Self {
+        let new_dac_node = Self {
             uuid: Uuid::new_v4(),
             audio_context: audio_context.clone(),
-            data: Rc::new(RefCell::new(Vec::new())),
+            data: Rc::new(RefCell::new(0.0)),
         };
 
-        audio_context.add_node(new_record_node.clone());
+        audio_context.add_node(new_dac_node.clone());
 
-        new_record_node
+        new_dac_node
     }
 
-    pub fn data(&self) -> Ref<Vec<f32>> {
-        self.data.borrow()
+    pub fn data(&self) -> f32 {
+        *self.data.borrow()
     }
 }
 
-impl Node for RecordNode {
+impl Node for DACNode {
     fn process(&mut self, inputs: &[Ref<Connection>], _outputs: &mut [RefMut<Connection>]) {
         let Some(first_input) = inputs.first() else {
             return
         };
 
-        self.data.borrow_mut().push(first_input.data());
+        *self.data.borrow_mut() = first_input.data();
     }
 
     fn node_type(&self) -> NodeType {
@@ -58,11 +58,11 @@ impl Node for RecordNode {
     }
 
     fn name(&self) -> String {
-        String::from("RecordNode")
+        String::from("DACNode")
     }
 }
 
-impl Connect for RecordNode {
+impl Connect for DACNode {
     fn connect_nodes_with_indexes<N: Node + Connect + Clone>(
         &self,
         from_index: usize,
@@ -83,15 +83,15 @@ impl Connect for RecordNode {
 }
 
 #[cfg(test)]
-mod test_record_node {
+mod test_dac_node {
     use std::cell::RefCell;
 
-    use crate::{AudioContext, Connection, ConnectionInner, Node, RecordNode};
+    use crate::{AudioContext, Connection, ConnectionInner, DACNode, Node};
 
     #[test]
-    fn should_record_incoming_node_data() {
+    fn should_record_one_sample_of_incoming_data() {
         let mut audio_context = AudioContext::new();
-        let mut record_node = RecordNode::new(&mut audio_context);
+        let mut dac_node = DACNode::new(&mut audio_context);
 
         let input_connection = RefCell::new(Connection::from_connection_inner(ConnectionInner {
             from_index: 0,
@@ -100,15 +100,16 @@ mod test_record_node {
             init: true,
         }));
 
+
+        assert_eq!(dac_node.data(), 0.0);
+
         {
             let incoming_connection_ref = input_connection.borrow();
             let inputs = [incoming_connection_ref];
             let mut outputs = [];
-            record_node.process(&inputs, &mut outputs)
+            dac_node.process(&inputs, &mut outputs)
         }
 
-        let record_data = record_node.data.borrow();
-        assert_eq!(record_data.len(), 1);
-        assert_eq!(*record_data.first().unwrap(), 0.1234);
+        assert_eq!(dac_node.data(), 0.1234);
     }
 }

@@ -31,7 +31,7 @@ impl ConstantNode {
             signal_value: Rc::new(RefCell::new(signal_value)),
         };
 
-        audio_context.add_node(RefCell::new(Box::new(new_constant_node.clone())));
+        audio_context.add_node(new_constant_node.clone());
 
         new_constant_node
     }

@@ -1,11 +1,11 @@
 pub mod amplitude;
 pub mod audio_context;
-#[cfg(feature = "cpal")]
-pub mod audio_out;
 pub mod concatenative_synthesizer;
 pub mod connect;
 pub mod connection;
 pub mod constant_node;
+#[cfg(feature = "cpal")]
+pub mod dac;
 pub mod decibel;
 pub mod downmixers;
 pub mod edge;
@@ -21,12 +21,12 @@ pub mod utils;
 
 pub use amplitude::*;
 pub use audio_context::*;
-#[cfg(feature = "cpal")]
-pub use audio_out::*;
 pub use concatenative_synthesizer::*;
 pub use connect::*;
 pub use connection::*;
 pub use constant_node::*;
+#[cfg(feature = "cpal")]
+pub use dac::*;
 pub use decibel::*;
 pub use downmixers::*;
 pub use edge::*;

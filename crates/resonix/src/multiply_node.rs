@@ -2,7 +2,7 @@ use std::cell::{Ref, RefCell, RefMut};
 
 use uuid::Uuid;
 
-use crate::{AudioContext, Connect, Connection, Node, NodeType, ConnectError};
+use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
 
 /// Takes two signals and multiplies them together,
 /// outputting the signal to all connected outputs
@@ -24,7 +24,7 @@ impl MultiplyNode {
             audio_context: audio_context.clone(),
         };
 
-        audio_context.add_node(RefCell::new(Box::new(new_multiply_node.clone())));
+        audio_context.add_node(new_multiply_node.clone());
 
         new_multiply_node
     }
@@ -68,16 +68,16 @@ impl Connect for MultiplyNode {
         from_index: usize,
         other_node: &N,
         to_index: usize,
-    ) -> Result<&Self, ConnectError>  {
+    ) -> Result<&Self, ConnectError> {
         self.check_index_out_of_bounds(from_index, other_node, to_index)?;
-        
+
         self.audio_context.connect_nodes_with_indexes(
             self.clone(),
             from_index,
             other_node.clone(),
             to_index,
         );
-        
+
         Ok(self)
     }
 }

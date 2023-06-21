@@ -2,7 +2,7 @@ use std::cell::{Ref, RefCell, RefMut};
 
 use uuid::Uuid;
 
-use crate::{AudioContext, Connect, Connection, Node, NodeType, ConnectError};
+use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
 
 /// Takes one signal and passed it through, unaltered
 /// to all connected outputs.
@@ -23,7 +23,7 @@ impl PassThroughNode {
             audio_context: audio_context.clone(),
         };
 
-        audio_context.add_node(RefCell::new(Box::new(new_pass_through_node.clone())));
+        audio_context.add_node(new_pass_through_node.clone());
 
         new_pass_through_node
     }
@@ -67,7 +67,7 @@ impl Connect for PassThroughNode {
         from_index: usize,
         other_node: &N,
         to_index: usize,
-    ) -> Result<&Self, ConnectError>  {
+    ) -> Result<&Self, ConnectError> {
         self.check_index_out_of_bounds(from_index, other_node, to_index)?;
 
         self.audio_context.connect_nodes_with_indexes(
@@ -76,7 +76,7 @@ impl Connect for PassThroughNode {
             other_node.clone(),
             to_index,
         );
-        
+
         Ok(self)
     }
 }
