@@ -1,0 +1,21 @@
+[package]
+name = "resonix_dac"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "1.0.40"
+
+# WASM-ONLY dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# only need wasm-bindgen when compiling for wasm32
+cpal = { version = "0.13.5", features = ["wasm-bindgen"] }
+
+# NATIVE-ONLY dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+cpal = { version = "0.13.5" }
+
+
+[dev-dependencies]
+# async runtime only needed while testing
+tokio = { version = "1.28.1", features = ["full"] }

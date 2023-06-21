@@ -142,7 +142,7 @@ impl From<SampleRate> for u32 {
     }
 }
 
-#[cfg(feature = "cpal")]
+#[cfg(feature = "dac")]
 impl From<cpal::SampleRate> for SampleRate {
     fn from(sample_rate: cpal::SampleRate) -> Self {
         Self(sample_rate.0)

@@ -1,6 +1,4 @@
 pub mod amplitude;
-#[cfg(feature = "cpal")]
-pub mod dac;
 pub mod downmixers;
 pub mod envelopes;
 pub mod granular_synthesizer;
@@ -9,8 +7,6 @@ pub mod units;
 pub mod utils;
 
 pub use amplitude::*;
-#[cfg(feature = "cpal")]
-pub use dac::*;
 pub use decibel::*;
 pub use downmixers::*;
 pub use envelopes::*;

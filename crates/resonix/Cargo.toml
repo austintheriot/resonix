@@ -10,10 +10,11 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 resonix_core = { path = "../resonix_core" }
 resonix_graph = { path = "../resonix_graph" }
+resonix_dac = { path = "../resonix_dac", optional = true}
 cpal = { version = "0.13.5", optional = true }
 
 [features]
 # only need cpal when using audio-out (DAC) features
-cpal = ["dep:cpal", "resonix_core/cpal", "resonix_graph/cpal"]
+dac = ["dep:cpal", "dep:resonix_dac", "resonix_graph/dac", "resonix_core/dac"]
 
 

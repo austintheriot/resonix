@@ -4,6 +4,7 @@ members = [
     "crates/resonix",
     "crates/resonix_test_utils",
     "crates/resonix_core",
+    "crates/resonix_dac",
     "crates/resonix_graph",
     "demos/audio_graph_web",
     "demos/granular_synthesizer_web",

@@ -10,8 +10,8 @@ use petgraph::{
     visit::{Dfs, IntoNodeIdentifiers},
     Direction, Graph,
 };
-#[cfg(feature = "cpal")]
-use resonix_core::{DACBuildError, DACConfig, DAC};
+#[cfg(feature = "dac")]
+use resonix_dac::{DACBuildError, DACConfig, DAC};
 use uuid::Uuid;
 
 use crate::{BoxedNode, Connect, Connection, DACNode, Node, NodeType};
@@ -142,7 +142,7 @@ impl AudioContextInner {
             .collect()
     }
 
-    #[cfg(feature = "cpal")]
+    #[cfg(feature = "dac")]
     fn dac_nodes(&self) -> Vec<DACNode> {
         self.dac_node_indexes
             .iter()
@@ -299,7 +299,7 @@ mod test_audio_context_inner {
             .any(|node| node.uuid() == constant_node.uuid()));
     }
 
-    #[cfg(feature = "cpal")]
+    #[cfg(feature = "dac")]
     #[test]
     fn allows_getting_dac_nodes() {
         use crate::DACNode;
@@ -325,7 +325,7 @@ mod test_audio_context_inner {
 pub struct AudioContext {
     uuid: Uuid,
     audio_context_inner: Arc<Mutex<AudioContextInner>>,
-    #[cfg(feature = "cpal")]
+    #[cfg(feature = "dac")]
     dac: Arc<Mutex<Option<DAC>>>,
 }
 
@@ -345,12 +345,12 @@ impl AudioContext {
         self.audio_context_inner.lock().unwrap().input_nodes()
     }
 
-    #[cfg(feature = "cpal")]
+    #[cfg(feature = "dac")]
     pub fn dac_nodes(&self) -> Vec<DACNode> {
         self.audio_context_inner.lock().unwrap().dac_nodes()
     }
 
-    #[cfg(feature = "cpal")]
+    #[cfg(feature = "dac")]
     pub fn num_channels(&self) -> Option<u16> {
         self.dac
             .lock()
@@ -359,7 +359,7 @@ impl AudioContext {
             .map(|dac| dac.config.stream_config.channels)
     }
 
-    #[cfg(feature = "cpal")]
+    #[cfg(feature = "dac")]
     pub fn sample_rate(&self) -> Option<u32> {
         self.dac
             .lock()
@@ -372,7 +372,7 @@ impl AudioContext {
         self.audio_context_inner.lock().unwrap().run();
     }
 
-    #[cfg(feature = "cpal")]
+    #[cfg(feature = "dac")]
     pub async fn initialize_dac_from_defaults(&mut self) -> Result<&mut Self, DACBuildError> {
         let audio_context_inner = Arc::clone(&self.audio_context_inner);
         let dac = DAC::from_dac_defaults(move |buffer: &mut [f32], config: Arc<DACConfig>| {
@@ -394,7 +394,7 @@ impl AudioContext {
         Ok(self)
     }
 
-    #[cfg(feature = "cpal")]
+    #[cfg(feature = "dac")]
     pub async fn initialize_dac_from_config(
         &mut self,
         _dac_config: DACConfig,
