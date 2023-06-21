@@ -8,6 +8,6 @@ pub async fn set_up_audio_graph() -> Result<AudioContext, DACBuildError> {
     let sine_node = SineNode::new_with_config(&mut audio_context, sample_rate, 440.0);
     let dac_node = DACNode::new(&mut audio_context);
     sine_node.connect(&dac_node).unwrap();
-    
+
     Ok(audio_context)
 }

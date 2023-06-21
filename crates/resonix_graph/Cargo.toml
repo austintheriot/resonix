@@ -1,0 +1,26 @@
+[package]
+name = "resonix_graph"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dyn-clone = "1.0.11"
+uuid = {version = "1.3.4", features = ["v4",  "fast-rng"]}
+petgraph = "0.6.3"
+thiserror = "1.0.40"
+resonix_core = { path = "../resonix_core" }
+
+# WASM-ONLY dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+cpal = { version = "0.13.5", features = ["wasm-bindgen"], optional = true }
+
+# NATIVE-ONLY dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+cpal = { version = "0.13.5", optional = true }
+
+[features]
+# only need cpal when using audio-out (DAC) features
+cpal = ["dep:cpal", "resonix_core/cpal"]
+

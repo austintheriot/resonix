@@ -3,12 +3,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use resonix_core::{SampleRate, Sine, SineInterface};
 use uuid::Uuid;
 
-use crate::{
-    AudioContext, Connect, ConnectError, Connection, Node, NodeType, SampleRate, Sine,
-    SineInterface,
-};
+use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
 
 #[derive(Debug, Clone)]
 pub struct SineNode {
