@@ -1979,6 +1979,15 @@ dependencies = [
 name = "resonix"
 version = "0.1.0"
 dependencies = [
+ "cpal",
+ "resonix_core",
+ "resonix_graph",
+]
+
+[[package]]
+name = "resonix_core"
+version = "0.1.0"
+dependencies = [
  "cargo-husky",
  "cpal",
  "dyn-clone",
@@ -1992,6 +2001,18 @@ dependencies = [
  "tokio",
  "uuid",
  "wasm-logger",
+]
+
+[[package]]
+name = "resonix_graph"
+version = "0.1.0"
+dependencies = [
+ "cpal",
+ "dyn-clone",
+ "petgraph",
+ "resonix_core",
+ "thiserror",
+ "uuid",
 ]
 
 [[package]]

@@ -5,8 +5,7 @@ use std::ops::{Div, Mul};
 /// and 0 dB to be inaudibly quiet at any reasonable listening level
 pub const DECIBEL_DEFAULT_REFERENCE_AMPLITUDE: f32 = 0.00001;
 
-/// decibel (dB) level d as:
-/// d = 20 · log10(a/a0)
+/// decibel (dB) level is defined as: `d = 20 · log10(a/a0)`
 /// where a0 is a given reference amplitude.
 #[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
 pub struct Decibel {

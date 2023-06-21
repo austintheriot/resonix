@@ -10,12 +10,11 @@ use petgraph::{
     visit::{Dfs, IntoNodeIdentifiers},
     Direction, Graph,
 };
+#[cfg(feature = "cpal")]
+use resonix_core::{DACBuildError, DACConfig, DAC};
 use uuid::Uuid;
 
-use crate::{BoxedNode, Connect, Connection, DACBuildError, DACNode, Node, NodeType};
-
-#[cfg(feature = "cpal")]
-use crate::{DACConfig, DAC};
+use crate::{BoxedNode, Connect, Connection, DACNode, Node, NodeType};
 
 #[derive(Debug)]
 struct AudioContextInner {
@@ -400,7 +399,7 @@ impl AudioContext {
         &mut self,
         _dac_config: DACConfig,
     ) -> Result<&mut Self, DACBuildError> {
-      todo!()
+        todo!()
     }
 
     pub fn uninitialize_dac(&mut self) -> Option<DAC> {
