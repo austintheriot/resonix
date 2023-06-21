@@ -1,6 +1,6 @@
 use std::{
-    cell::{Ref, RefCell},
-    rc::Rc, sync::{Arc, Mutex, MutexGuard},
+    any::Any,
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use uuid::Uuid;
@@ -59,6 +59,10 @@ impl Node for RecordNode {
 
     fn name(&self) -> String {
         String::from("RecordNode")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

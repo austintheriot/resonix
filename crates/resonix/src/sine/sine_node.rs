@@ -1,4 +1,7 @@
-use std::{cell::RefCell, rc::Rc, sync::{Arc, Mutex}};
+use std::{
+    any::Any,
+    sync::{Arc, Mutex},
+};
 
 use uuid::Uuid;
 
@@ -65,6 +68,10 @@ impl Node for SineNode {
 
     fn name(&self) -> String {
         String::from("SineNode")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

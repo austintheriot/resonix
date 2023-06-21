@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{any::Any, fmt::Debug};
 
 use dyn_clone::DynClone;
 use uuid::Uuid;
@@ -20,6 +20,8 @@ where
     fn uuid(&self) -> &Uuid;
 
     fn name(&self) -> String;
+
+    fn as_any(&self) -> &dyn Any;
 }
 
 dyn_clone::clone_trait_object!(Node);

@@ -1,4 +1,7 @@
-use std::{cell::RefCell, rc::Rc, sync::{Arc, Mutex}};
+use std::{
+    any::Any,
+    sync::{Arc, Mutex},
+};
 
 use uuid::Uuid;
 
@@ -56,6 +59,10 @@ impl Node for DACNode {
 
     fn name(&self) -> String {
         String::from("DACNode")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

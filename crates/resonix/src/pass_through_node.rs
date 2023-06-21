@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use uuid::Uuid;
 
 use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
@@ -56,6 +58,10 @@ impl Node for PassThroughNode {
 
     fn name(&self) -> String {
         String::from("PassThroughNode")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

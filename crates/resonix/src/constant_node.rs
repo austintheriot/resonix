@@ -1,7 +1,7 @@
 use std::{
-    cell::RefCell,
+    any::Any,
     hash::{Hash, Hasher},
-    rc::Rc, sync::{Arc, Mutex},
+    sync::{Arc, Mutex},
 };
 
 use uuid::Uuid;
@@ -75,6 +75,10 @@ impl Node for ConstantNode {
 
     fn name(&self) -> String {
         String::from("ConstantNode")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 

@@ -1,9 +1,7 @@
 use std::{
     any::Any,
-    cell::RefCell,
     collections::{HashSet, VecDeque},
     hash::{Hash, Hasher},
-    rc::Rc,
     sync::{Arc, Mutex},
 };
 
@@ -146,10 +144,15 @@ impl AudioContextInner {
     }
 
     #[cfg(feature = "cpal")]
-    fn dac_nodes(&self) -> Vec<BoxedNode> {
+    fn dac_nodes(&self) -> Vec<DACNode> {
         self.dac_node_indexes
             .iter()
-            .map(|i| dyn_clone::clone_box(&*self.graph[*i]))
+            .filter_map(|i: &NodeIndex| {
+                self.graph[*i]
+                    .as_any()
+                    .downcast_ref::<DACNode>()
+                    .map(Clone::clone)
+            })
             .collect()
     }
 
@@ -344,8 +347,26 @@ impl AudioContext {
     }
 
     #[cfg(feature = "cpal")]
-    pub fn dac_nodes(&self) -> Vec<BoxedNode> {
+    pub fn dac_nodes(&self) -> Vec<DACNode> {
         self.audio_context_inner.lock().unwrap().dac_nodes()
+    }
+
+    #[cfg(feature = "cpal")]
+    pub fn num_channels(&self) -> Option<u16> {
+        self.dac
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|dac| dac.config.stream_config.channels)
+    }
+
+    #[cfg(feature = "cpal")]
+    pub fn sample_rate(&self) -> Option<u32> {
+        self.dac
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|dac| dac.config.stream_config.sample_rate.0)
     }
 
     pub fn run(&mut self) {
@@ -353,11 +374,20 @@ impl AudioContext {
     }
 
     #[cfg(feature = "cpal")]
-    async fn initialize_dac_from_defaults(&mut self) -> Result<&mut Self, DACBuildError> {
+    pub async fn initialize_dac_from_defaults(&mut self) -> Result<&mut Self, DACBuildError> {
         let audio_context_inner = Arc::clone(&self.audio_context_inner);
-        let dac = DAC::from_dac_defaults(move |_buffer: &mut [f32]| {
-            let dac_nodes = audio_context_inner.lock().unwrap().dac_nodes();
-            todo!()
+        let dac = DAC::from_dac_defaults(move |buffer: &mut [f32], config: Arc<DACConfig>| {
+            let mut audio_context_inner = audio_context_inner.lock().unwrap();
+            let num_channels = config.stream_config.channels as usize;
+            let dac_nodes = audio_context_inner.dac_nodes();
+
+            for frame in buffer.chunks_mut(num_channels) {
+                audio_context_inner.run();
+                let sample_sim = dac_nodes.iter().map(|node| node.data()).sum();
+                for channel in frame.iter_mut() {
+                    *channel = cpal::Sample::from::<f32>(&sample_sim);
+                }
+            }
         })
         .await?;
         self.dac.lock().unwrap().replace(dac);
@@ -366,14 +396,15 @@ impl AudioContext {
     }
 
     #[cfg(feature = "cpal")]
-    async fn initialize_dac_from_config(
+    pub async fn initialize_dac_from_config(
         &mut self,
-        dac_config: DACConfig,
+        _dac_config: DACConfig,
     ) -> Result<&mut Self, DACBuildError> {
-        let dac = DAC::from_dac_config(dac_config, |_buffer: &mut [f32]| todo!()).await?;
-        self.dac.lock().unwrap().replace(dac);
+      todo!()
+    }
 
-        Ok(self)
+    pub fn uninitialize_dac(&mut self) -> Option<DAC> {
+        self.dac.lock().unwrap().take()
     }
 
     pub(crate) fn add_node<N: Node + Clone + 'static>(&mut self, node: N) -> &mut Self {

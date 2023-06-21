@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use uuid::Uuid;
 
 use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
@@ -57,6 +59,10 @@ impl Node for MultiplyNode {
 
     fn name(&self) -> String {
         String::from("MultiplyNode")
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
