@@ -2,31 +2,18 @@ use std::sync::Arc;
 
 use cpal::Sample;
 
-use crate::{AudioOutContext, UserDataFromContext};
+use crate::{DACConfig, DataFromDACConfig};
 
 /// Allows any function implementing the following constraints
 /// to be called inside the `Player` struct for generating audio--
 /// also allows arbitrary arguments, so long as they can be extracted
-/// from the audio context
-pub trait WriteFrameToBuffer<S, UserData, ExtractedData>
+/// from the audio config
+pub trait WriteFrameToBuffer<S, ExtractedData>
 where
     S: Sample,
 {
-    fn call(&mut self, buffer: &mut [S], context: Arc<AudioOutContext<UserData>>);
+    fn call(&mut self, buffer: &mut [S], config: Arc<DACConfig>);
 }
-
-// macro example:
-//
-// impl<S, Callback, UserData, ExtractedData> WriteFrameToBuffer<S, UserData, (ExtractedData,)> for Callback
-// where
-//     S: Sample,
-//     Callback: Fn(&mut [S], ExtractedData),
-//     ExtractedData: UserDataFromContext<UserData>,
-// {
-//     fn call(&mut self, buffer: &mut [S], context: Arc<AudioOutContext<UserData>>) {
-//         (self)(buffer, ExtractedData::from_context(Arc::clone(&context)));
-//     }
-// }
 
 macro_rules! impl_write_frame_to_bufer {
     (
@@ -35,20 +22,20 @@ macro_rules! impl_write_frame_to_bufer {
         #[allow(non_snake_case)]
         #[allow(unused)]
         impl<
-        S, Callback, UserData, $($param, )*
+        S, Callback, $($param, )*
         >
             WriteFrameToBuffer<
-            S, UserData, ($($param, )*)
+            S, ($($param, )*)
             >
             for Callback
             where
                 S: Sample,
                 Callback: FnMut(&mut [S], $($param, )*),
-                $($param: UserDataFromContext<UserData>,)*
+                $($param: DataFromDACConfig,)*
         {
-            fn call(&mut self, buffer: &mut [S], context: Arc<AudioOutContext<UserData>>) {
+            fn call(&mut self, buffer: &mut [S], config: Arc<DACConfig>) {
                 (self)(buffer, $(
-                    $param::from_context(Arc::clone(&context)),
+                    $param::from_config(Arc::clone(&config)),
                 )*)
                 ;
             }

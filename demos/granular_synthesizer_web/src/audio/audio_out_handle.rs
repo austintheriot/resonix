@@ -1,4 +1,4 @@
-use resonix::AudioOut;
+use resonix::DAC;
 use std::ops::Deref;
 use std::{
     fmt::Debug,
@@ -6,12 +6,12 @@ use std::{
 };
 
 pub struct AudioOutHandle {
-    data: Arc<Mutex<Option<AudioOut<()>>>>,
+    data: Arc<Mutex<Option<DAC>>>,
     uid: u32,
 }
 
-impl From<AudioOut<()>> for AudioOutHandle {
-    fn from(data: AudioOut<()>) -> Self {
+impl From<DAC> for AudioOutHandle {
+    fn from(data: DAC) -> Self {
         Self {
             data: Arc::new(Mutex::new(Some(data))),
             uid: 0,
@@ -54,7 +54,7 @@ impl Default for AudioOutHandle {
 impl Eq for AudioOutHandle {}
 
 impl Deref for AudioOutHandle {
-    type Target = Arc<Mutex<Option<AudioOut<()>>>>;
+    type Target = Arc<Mutex<Option<DAC>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.data

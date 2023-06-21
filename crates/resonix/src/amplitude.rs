@@ -107,7 +107,7 @@ pub fn mean_square_root_amplitude(buffer: &[f32]) -> Option<f32> {
 mod test_mean_square_root_amplitude {
     use resonix_test_utils::assert_difference_is_within_tolerance;
 
-    use crate::{mean_square_root_amplitude, Sine};
+    use crate::{mean_square_root_amplitude, Sine, SineInterface};
 
     #[test]
     pub fn it_should_return_correct_result_for_identical_samples() {

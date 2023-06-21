@@ -1,6 +1,6 @@
 use std::f32::consts::PI;
 
-use crate::SampleRate;
+use crate::{SampleRate, SineInterface};
 
 /// Produces a sine wave at the given frequency and sample rate
 ///
@@ -21,17 +21,8 @@ pub struct Sine {
 
 const TWO_PI: f32 = 2.0 * PI;
 
-impl Sine {
-    pub fn new() -> Self {
-        Self {
-            sample_rate: SampleRate::new(1u32),
-            frequency: 0.0,
-            phase: 0.0,
-            angular_frequency: 0.0,
-        }
-    }
-
-    pub fn next_sample(&mut self) -> f32 {
+impl SineInterface for Sine {
+    fn next_sample(&mut self) -> f32 {
         let sample = self.phase.sin();
 
         self.phase += self.angular_frequency;
@@ -42,45 +33,67 @@ impl Sine {
         sample
     }
 
-    pub fn next_frame<const N: usize>(&mut self) -> [f32; N] {
-        [self.next_sample(); N]
-    }
-
-    pub fn set_sample_rate(&mut self, sample_rate: impl Into<SampleRate>) -> &mut Self {
+    fn set_sample_rate(&mut self, sample_rate: impl Into<SampleRate>) -> &mut Self {
         let prev_sample_rate = self.sample_rate;
         let sample_rate = sample_rate.into();
 
         // only run calculations if necessary
         if prev_sample_rate != sample_rate {
             self.sample_rate = sample_rate;
-            self.angular_frequency = self.calculate_angular_frequency();
+            self.angular_frequency = self.calculate_own_angular_frequency();
         }
 
         self
     }
 
-    pub fn set_frequency(&mut self, frequency: f32) -> &mut Self {
+    fn set_frequency(&mut self, frequency: f32) -> &mut Self {
         let prev_frequency = self.frequency;
 
         // only run calculations if necessary
         if prev_frequency != frequency {
             self.frequency = frequency;
-            self.angular_frequency = self.calculate_angular_frequency();
+            self.angular_frequency = self.calculate_own_angular_frequency();
         }
 
         self
     }
 
-    pub fn sample_rate(&self) -> SampleRate {
+    fn sample_rate(&self) -> SampleRate {
         self.sample_rate
     }
 
-    pub fn frequency(&self) -> f32 {
+    fn frequency(&self) -> f32 {
         self.frequency
     }
+}
 
-    fn calculate_angular_frequency(&self) -> f32 {
-        TWO_PI * self.frequency / *self.sample_rate as f32
+impl Sine {
+    pub fn new() -> Self {
+        Self {
+            sample_rate: SampleRate::new(1u32),
+            frequency: 0.0,
+            phase: 0.0,
+            angular_frequency: 0.0,
+        }
+    }
+
+    pub fn new_with_config(sample_rate: impl Into<SampleRate>, frequency: impl Into<f32>) -> Self {
+        let frequency = frequency.into();
+        let sample_rate = sample_rate.into();
+        Sine {
+            sample_rate,
+            frequency,
+            phase: 0.0,
+            angular_frequency: Self::calculate_angular_frequency(frequency, *sample_rate as f32),
+        }
+    }
+
+    fn calculate_own_angular_frequency(&self) -> f32 {
+        Self::calculate_angular_frequency(self.frequency, *self.sample_rate as f32)
+    }
+
+    fn calculate_angular_frequency(frequency: f32, sample_rate: f32) -> f32 {
+        TWO_PI * frequency / sample_rate
     }
 }
 
@@ -88,7 +101,7 @@ impl Sine {
 mod test_sine {
     use resonix_test_utils::assert_difference_is_within_tolerance;
 
-    use crate::Sine;
+    use crate::{Sine, SineInterface};
 
     #[test]
     fn it_should_produce_sine_values_at_given_frequency() {
