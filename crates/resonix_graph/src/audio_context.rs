@@ -24,6 +24,10 @@ struct AudioContextInner {
     input_node_indexes: Vec<NodeIndex>,
     dac_node_indexes: Vec<NodeIndex>,
     uuid: Uuid,
+
+    // intermediate storage for caching connections to and from nodes
+    incoming_connections: Vec<Connection>,
+    outgoing_connections: Vec<Connection>,
 }
 
 impl AudioContextInner {
@@ -33,22 +37,29 @@ impl AudioContextInner {
         }
 
         for node_index in self.visit_order.as_ref().unwrap() {
-            let input_data: Vec<Connection> = self
-                .graph
-                .edges_directed(*node_index, Direction::Incoming)
-                .map(|edge_reference| edge_reference.weight().clone())
-                .collect();
+            self.incoming_connections.clear();
+            self.incoming_connections.extend(
+                self.graph
+                    .edges_directed(*node_index, Direction::Incoming)
+                    .map(|edge_reference| edge_reference.weight().clone()),
+            );
 
-            let mut outgoing_connections: Vec<Connection> = self
-                .graph
-                .edges_directed(*node_index, Direction::Outgoing)
-                .map(|edge_reference| edge_reference.weight().clone())
-                .filter(|outgoing_connection| !input_data.contains(outgoing_connection))
-                .collect();
+            self.outgoing_connections.clear();
+            self.outgoing_connections.extend(
+                self.graph
+                    .edges_directed(*node_index, Direction::Outgoing)
+                    .map(|edge_reference| edge_reference.weight().clone())
+                    .filter(|outgoing_connection| {
+                        !self.incoming_connections.contains(outgoing_connection)
+                    }),
+            );
 
             let node = &mut self.graph[*node_index];
 
-            node.process(input_data.as_slice(), outgoing_connections.as_mut_slice())
+            node.process(
+                self.incoming_connections.as_slice(),
+                self.outgoing_connections.as_mut_slice(),
+            )
         }
     }
 
@@ -229,6 +240,8 @@ impl Default for AudioContextInner {
             input_node_indexes: Vec::new(),
             dac_node_indexes: Vec::new(),
             node_uuids: HashSet::new(),
+            incoming_connections: Vec::new(),
+            outgoing_connections: Vec::new(),
         }
     }
 }

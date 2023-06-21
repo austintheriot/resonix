@@ -21,10 +21,10 @@ pub enum ConnectError {
 /// the child node that is receiving a new connection.
 pub trait Connect
 where
-    Self: Clone + Node,
+    Self: Node,
 {
     /// connects the current Node's output to the input of the next node
-    fn connect<N: Node + Connect>(&self, other_node: &N) -> Result<&Self, ConnectError> {
+    fn connect<N: Node + Connect + Clone>(&self, other_node: &N) -> Result<&Self, ConnectError> {
         self.connect_nodes_with_indexes(Default::default(), other_node, Default::default())
     }
 
