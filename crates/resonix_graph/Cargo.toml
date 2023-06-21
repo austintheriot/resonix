@@ -11,16 +11,19 @@ uuid = {version = "1.3.4", features = ["v4",  "fast-rng"]}
 petgraph = "0.6.3"
 thiserror = "1.0.40"
 resonix_core = { path = "../resonix_core" }
+resonix_dac = { path ="../resonix_dac", optional = true}
 
 # WASM-ONLY dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# only need wasm-bindgen when compiling for wasm32
 cpal = { version = "0.13.5", features = ["wasm-bindgen"], optional = true }
 
 # NATIVE-ONLY dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-cpal = { version = "0.13.5", optional = true }
+cpal = { version = "0.13.5", optional = true}
+
 
 [features]
 # only need cpal when using audio-out (DAC) features
-cpal = ["dep:cpal", "resonix_core/cpal"]
+dac = ["dep:cpal", "dep:resonix_dac"]
 

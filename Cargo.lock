@@ -1981,6 +1981,7 @@ version = "0.1.0"
 dependencies = [
  "cpal",
  "resonix_core",
+ "resonix_dac",
  "resonix_graph",
 ]
 
@@ -1990,17 +1991,22 @@ version = "0.1.0"
 dependencies = [
  "cargo-husky",
  "cpal",
- "dyn-clone",
  "getrandom",
  "log",
  "nohash-hasher",
- "petgraph",
  "rand",
  "resonix_test_utils",
+ "tokio",
+ "wasm-logger",
+]
+
+[[package]]
+name = "resonix_dac"
+version = "0.1.0"
+dependencies = [
+ "cpal",
  "thiserror",
  "tokio",
- "uuid",
- "wasm-logger",
 ]
 
 [[package]]
@@ -2011,6 +2017,7 @@ dependencies = [
  "dyn-clone",
  "petgraph",
  "resonix_core",
+ "resonix_dac",
  "thiserror",
  "uuid",
 ]

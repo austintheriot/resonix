@@ -14,4 +14,4 @@ anyhow = "1.0.57"
 clap = "3.1.18"
 # Wrapper around the C library
 minimp3 = "0.5.1"
-resonix = { path = "../../crates/resonix", features = ["cpal"]}
+resonix = { path = "../../crates/resonix", features = ["dac"]}
