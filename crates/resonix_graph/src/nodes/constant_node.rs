@@ -3,9 +3,10 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
 
-use crate::{AddToContext, Connection, Node, NodeType};
+use crate::{AddConnectionError, AddToContext, Connection, Node, NodeType};
 
 /// Takes no input signals and outputs a single,
 /// constant signal value to all output connections.
@@ -15,6 +16,7 @@ use crate::{AddToContext, Connection, Node, NodeType};
 pub struct ConstantNode {
     uuid: Uuid,
     signal_value: f32,
+    outgoing_connection_indexes: Vec<EdgeIndex>,
 }
 
 impl ConstantNode {
@@ -26,6 +28,7 @@ impl ConstantNode {
         Self {
             uuid: Uuid::new_v4(),
             signal_value,
+            outgoing_connection_indexes: Vec::new(),
         }
     }
 
@@ -74,6 +77,30 @@ impl Node for ConstantNode {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn incoming_connection_indexes(&self) -> &[EdgeIndex] {
+        &[]
+    }
+
+    fn outgoing_connection_indexes(&self) -> &[EdgeIndex] {
+        &self.outgoing_connection_indexes
+    }
+
+    fn add_incoming_connection_index(
+        &mut self,
+        _edge_index: EdgeIndex,
+    ) -> Result<(), AddConnectionError> {
+        Err(AddConnectionError::CantAcceptInputConnections { name: self.name() })
+    }
+
+    fn add_outgoing_connection_index(
+        &mut self,
+        edge_index: EdgeIndex,
+    ) -> Result<(), AddConnectionError> {
+        self.outgoing_connection_indexes.push(edge_index);
+
+        Ok(())
+    }
 }
 
 impl AddToContext for ConstantNode {}
@@ -106,7 +133,6 @@ impl Hash for ConstantNode {
 
 #[cfg(test)]
 mod test_constant_node {
-    use uuid::Uuid;
 
     use crate::{Connection, ConstantNode, Node};
 
@@ -114,12 +140,7 @@ mod test_constant_node {
     fn should_output_constant_signal_value() {
         let mut constant_node = ConstantNode::new_with_signal_value(1.234);
 
-        let mut output_connection = Connection {
-            from_index: 0,
-            to_index: 0,
-            data: 0.0,
-            uuid: Uuid::new_v4(),
-        };
+        let mut output_connection = Connection::default();
 
         // before processing, output data is 0.0
         {

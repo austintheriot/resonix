@@ -17,8 +17,8 @@ async fn main() {
 
     let mut prev_node_index = pass_through_node_index;
 
-    // string 2500 pass-through nodes together to stress test audio
-    for _ in 0..2500 {
+    // string many pass-through nodes together to stress test audio
+    for _ in 0..3000 {
         let pass_through_node_index = PassThroughNode::new()
             .add_to_context(&mut audio_context)
             .unwrap();

@@ -1,13 +1,15 @@
 use std::any::Any;
 
+use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
 
-use crate::{AddToContext, Connection, Node, NodeType};
+use crate::{AddConnectionError, AddToContext, Connection, Node, NodeType};
 
 #[derive(Debug, Clone)]
 pub struct DACNode {
     data: f32,
     uuid: Uuid,
+    incoming_connection_indexes: Vec<EdgeIndex>,
 }
 
 impl DACNode {
@@ -58,6 +60,30 @@ impl Node for DACNode {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn incoming_connection_indexes(&self) -> &[petgraph::prelude::EdgeIndex] {
+        &self.incoming_connection_indexes
+    }
+
+    fn outgoing_connection_indexes(&self) -> &[EdgeIndex] {
+        &[]
+    }
+
+    fn add_incoming_connection_index(
+        &mut self,
+        edge_index: EdgeIndex,
+    ) -> Result<(), AddConnectionError> {
+        self.incoming_connection_indexes.push(edge_index);
+
+        Ok(())
+    }
+
+    fn add_outgoing_connection_index(
+        &mut self,
+        _edge_index: EdgeIndex,
+    ) -> Result<(), AddConnectionError> {
+        Err(AddConnectionError::CantAcceptOutputConnections { name: self.name() })
+    }
 }
 
 impl AddToContext for DACNode {}
@@ -67,6 +93,7 @@ impl Default for DACNode {
         Self {
             uuid: Uuid::new_v4(),
             data: 0.0,
+            incoming_connection_indexes: Vec::new(),
         }
     }
 }
@@ -94,20 +121,13 @@ impl Ord for DACNode {
 #[cfg(test)]
 mod test_dac_node {
 
-    use uuid::Uuid;
-
     use crate::{Connection, DACNode, Node};
 
     #[test]
     fn should_record_one_sample_of_incoming_data() {
         let mut dac_node = DACNode::new();
 
-        let input_connection = Connection {
-            from_index: 0,
-            to_index: 0,
-            data: 0.1234,
-            uuid: Uuid::new_v4(),
-        };
+        let input_connection = Connection::from_test_data(0.1234, 0, 0);
 
         assert_eq!(dac_node.data(), 0.0);
 

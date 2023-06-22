@@ -5,12 +5,12 @@ use uuid::Uuid;
 #[derive(Debug, Default, Clone)]
 pub struct Connection {
     /// where the connection is coming from
-    pub(crate) from_index: usize,
+    from_index: usize,
     /// where the connection is going to
-    pub(crate) to_index: usize,
+    to_index: usize,
     /// the data that the connection is carrying (if any)
-    pub(crate) data: f32,
-    pub uuid: Uuid,
+    data: f32,
+    uuid: Uuid,
 }
 
 impl Connection {
@@ -46,6 +46,16 @@ impl Connection {
 
     pub fn uuid(&self) -> &Uuid {
         &self.uuid
+    }
+
+    #[cfg(test)]
+    pub(crate) fn from_test_data(data: f32, from_index: usize, to_index: usize) -> Self {
+        Self {
+            from_index,
+            to_index,
+            data,
+            uuid: Uuid::new_v4(),
+        }
     }
 }
 
