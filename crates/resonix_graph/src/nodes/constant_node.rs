@@ -59,11 +59,15 @@ impl Node for ConstantNode {
         1
     }
 
-    fn process(&mut self, _: &[Connection], outputs: &mut [Connection]) {
+    fn process(
+        &mut self,
+        _: &mut dyn Iterator<Item = Connection>,
+        outputs: &mut dyn Iterator<Item = Connection>,
+    ) {
         let signal_value = *self.signal_value.lock().unwrap();
 
         // copy to all output connections
-        outputs.iter_mut().for_each(|output| {
+        outputs.into_iter().for_each(|mut output| {
             output.set_data(signal_value);
             output.set_init(true);
         })
@@ -154,8 +158,8 @@ mod test_constant_node {
         // run processing for node
         {
             let inputs = [];
-            let mut outputs = [output_connection.clone()];
-            constant_node.process(&inputs, &mut outputs)
+            let outputs = [output_connection.clone()];
+            constant_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
 
         // after processing, output data is 1.234

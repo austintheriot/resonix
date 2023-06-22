@@ -1,24 +1,26 @@
 use std::{fmt::Debug, sync::Arc};
 
 use cpal::{
-    traits::{DeviceTrait, HostTrait, StreamTrait},
+    traits::{DeviceTrait, HostTrait},
     BuildStreamError, DefaultStreamConfigError, OutputCallbackInfo, PlayStreamError, Sample,
     Stream, StreamConfig,
 };
 use thiserror::Error;
 
-use crate::{DACConfig, WriteFrameToBuffer};
+use crate::{DACConfig, DACConfigBuildError, WriteFrameToBuffer};
 
 #[derive(Error, Debug)]
 pub enum DACBuildError {
-    #[error("failed to build stream. original error: {0:?}")]
+    #[error("Failed to build stream. original error: {0:?}")]
     Disconnect(#[from] BuildStreamError),
-    #[error("no audio output devices found")]
+    #[error("No audio output devices found")]
     NooOutputDevicesAvailable,
-    #[error("no default stream config available. original error: {0:?}")]
+    #[error("No default stream config available. original error: {0:?}")]
     DefaultStreamConfigError(#[from] DefaultStreamConfigError),
-    #[error("could not play stream. original error: {0:?}")]
+    #[error("Could not play stream. original error: {0:?}")]
     PlayStreamError(#[from] PlayStreamError),
+    #[error("Could not create DACConfig. original error: {0:?}")]
+    DACConfigBuildError(#[from] DACConfigBuildError),
 }
 
 /// Creates an audios stream and returns it, along with the
@@ -72,8 +74,6 @@ impl DAC {
             write_frame_to_buffer,
         )
         .await?;
-
-        stream.play()?;
 
         Ok(Self { config, stream })
     }

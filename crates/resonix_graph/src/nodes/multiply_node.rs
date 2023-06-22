@@ -43,11 +43,17 @@ impl Node for MultiplyNode {
         1
     }
 
-    fn process(&mut self, inputs: &[Connection], outputs: &mut [Connection]) {
-        let result = inputs[0].data() * inputs[1].data();
+    fn process(
+        &mut self,
+        inputs: &mut dyn Iterator<Item = Connection>,
+        outputs: &mut dyn Iterator<Item = Connection>,
+    ) {
+        let first_input = inputs.next().unwrap();
+        let second_input = inputs.next().unwrap();
+        let result = first_input.data() * second_input.data();
 
         // copy to all output connections
-        outputs.iter_mut().for_each(|output| {
+        outputs.into_iter().for_each(|mut output| {
             output.set_data(result);
             output.set_init(true);
         })
@@ -126,8 +132,8 @@ mod test_multiply_node {
         // run processing for node
         {
             let inputs = [left_input_connection, right_input_connection];
-            let mut outputs = [output_connection.clone()];
-            multiply_node.process(&inputs, &mut outputs)
+            let outputs = [output_connection.clone()];
+            multiply_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
 
         // before processing, output data is 0.1

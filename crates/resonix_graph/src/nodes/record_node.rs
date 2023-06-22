@@ -33,8 +33,12 @@ impl RecordNode {
 }
 
 impl Node for RecordNode {
-    fn process(&mut self, inputs: &[Connection], _outputs: &mut [Connection]) {
-        let Some(first_input) = inputs.first() else {
+    fn process(
+        &mut self,
+        inputs: &mut dyn Iterator<Item = Connection>,
+        _outputs: &mut dyn Iterator<Item = Connection>,
+    ) {
+        let Some(first_input) = inputs.next() else {
             return
         };
 
@@ -125,8 +129,8 @@ mod test_record_node {
 
         {
             let inputs = [input_connection];
-            let mut outputs = [];
-            record_node.process(&inputs, &mut outputs)
+            let outputs = [];
+            record_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
 
         assert_eq!(record_node.data().len(), 1);
