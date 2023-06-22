@@ -2,7 +2,7 @@ use std::any::Any;
 
 use uuid::Uuid;
 
-use crate::{AudioContext, Connection, Node, NodeType, AddToContext};
+use crate::{AddToContext, Connection, Node, NodeType};
 
 /// Takes one signal and passed it through, unaltered
 /// to all connected outputs.
@@ -24,15 +24,14 @@ impl PassThroughNode {
 impl Node for PassThroughNode {
     fn process(
         &mut self,
-        inputs: &[&Connection],
-        outputs: &mut [&mut Connection],
+        inputs: &mut dyn Iterator<Item = &Connection>,
+        outputs: &mut dyn Iterator<Item = &mut Connection>,
     ) {
-        let input_data = inputs.iter().map(|c| c.data()).sum();
+        let input_data = inputs.next().map(|c| c.data()).unwrap_or(0.0);
 
         // copy first input to all output connections
         for output in outputs.into_iter() {
             output.set_data(input_data);
-           
         }
     }
 
@@ -76,7 +75,7 @@ mod test_pass_through_node {
 
     use uuid::Uuid;
 
-    use crate::{AudioContext, Connection, Node, PassThroughNode, AddToContext};
+    use crate::{Connection, Node, PassThroughNode};
 
     #[test]
     fn should_pass_audio_data_through_output_connections() {
@@ -86,14 +85,14 @@ mod test_pass_through_node {
             from_index: 0,
             to_index: 0,
             data: 0.1234,
-            uuid: Uuid::new_v4()
+            uuid: Uuid::new_v4(),
         };
 
         let mut output_connection = Connection {
             from_index: 0,
             to_index: 0,
             data: 0.0,
-            uuid: Uuid::new_v4()
+            uuid: Uuid::new_v4(),
         };
 
         // before processing, output connection holds 0.0
@@ -103,8 +102,8 @@ mod test_pass_through_node {
 
         {
             let inputs = [&input_connection];
-            let mut outputs = [&mut output_connection];
-            pass_through_node.process(&inputs, &mut outputs)
+            let outputs = [&mut output_connection];
+            pass_through_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
 
         // before processing, output connection holds input data

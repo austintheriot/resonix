@@ -2,7 +2,7 @@ use std::any::Any;
 
 use uuid::Uuid;
 
-use crate::{AddToContext, AudioContext, Connection, Node, NodeType};
+use crate::{AddToContext, Connection, Node, NodeType};
 
 #[derive(Debug, Clone)]
 pub struct RecordNode {
@@ -21,8 +21,12 @@ impl RecordNode {
 }
 
 impl Node for RecordNode {
-    fn process(&mut self, inputs: &[&Connection], _: &mut [&mut Connection]) {
-        let Some(first_input) = inputs.first() else {
+    fn process(
+        &mut self,
+        inputs: &mut dyn Iterator<Item = &Connection>,
+        _: &mut dyn Iterator<Item = &mut Connection>,
+    ) {
+        let Some(first_input) = inputs.next() else {
             return
         };
 
@@ -105,8 +109,8 @@ mod test_record_node {
 
         {
             let inputs = [&input_connection];
-            let mut outputs = [];
-            record_node.process(&inputs, &mut outputs)
+            let outputs = [];
+            record_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
 
         assert_eq!(record_node.data().len(), 1);

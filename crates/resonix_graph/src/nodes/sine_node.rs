@@ -36,7 +36,11 @@ impl SineInterface for SineNode {
 }
 
 impl Node for SineNode {
-    fn process(&mut self, inputs: &[&Connection], outputs: &mut [&mut Connection]) {
+    fn process(
+        &mut self,
+        _inputs: &mut dyn Iterator<Item = &Connection>,
+        outputs: &mut dyn Iterator<Item = &mut Connection>,
+    ) {
         let next_sample = self.next_sample();
 
         outputs.into_iter().for_each(|output| {
@@ -134,8 +138,8 @@ mod test_sine_node {
         // run processing for node
         {
             let inputs = [];
-            let mut outputs = [&mut output_connection];
-            sine_node.process(&inputs, &mut outputs);
+            let outputs = [&mut output_connection];
+            sine_node.process(&mut inputs.into_iter(), &mut outputs.into_iter());
         }
 
         // after processing once, output data is 0.0
@@ -146,8 +150,8 @@ mod test_sine_node {
         // run processing for node
         {
             let inputs = [];
-            let mut outputs = [&mut output_connection];
-            sine_node.process(&inputs, &mut outputs);
+            let outputs = [&mut output_connection];
+            sine_node.process(&mut inputs.into_iter(), &mut outputs.into_iter());
         }
 
         // after processing twice, output data is 1.0
