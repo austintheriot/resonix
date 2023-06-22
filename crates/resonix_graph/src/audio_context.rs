@@ -2,9 +2,12 @@ use std::{
     any::Any,
     collections::{HashSet, VecDeque},
     hash::{Hash, Hasher},
+    ptr::addr_of,
     sync::{Arc, Mutex},
 };
 
+#[cfg(feature = "dac")]
+use cpal::{traits::StreamTrait, PauseStreamError, PlayStreamError};
 use petgraph::{
     stable_graph::NodeIndex,
     visit::{Dfs, IntoNodeIdentifiers},
@@ -37,29 +40,24 @@ impl AudioContextInner {
         }
 
         for node_index in self.visit_order.as_ref().unwrap() {
-            self.incoming_connections.clear();
-            self.incoming_connections.extend(
-                self.graph
-                    .edges_directed(*node_index, Direction::Incoming)
-                    .map(|edge_reference| edge_reference.weight().clone()),
-            );
+            let mut incoming_connections = self
+                .graph
+                .edges_directed(*node_index, Direction::Incoming)
+                .map(|edge_reference| edge_reference.weight().clone());
 
-            self.outgoing_connections.clear();
-            self.outgoing_connections.extend(
-                self.graph
-                    .edges_directed(*node_index, Direction::Outgoing)
-                    .map(|edge_reference| edge_reference.weight().clone())
-                    .filter(|outgoing_connection| {
-                        !self.incoming_connections.contains(outgoing_connection)
-                    }),
-            );
+            let mut outgoing_connections = self
+                .graph
+                .edges_directed(*node_index, Direction::Outgoing)
+                .map(|edge_reference| edge_reference.weight().clone());
 
-            let node = &mut self.graph[*node_index];
+            // some shenanigans here, since Rust doesn't know that the immutable borrows values from the Graph (above)
+            // are not the same parts of the graph that are borrowed mutably here
+            // this should be safe-ish since we are only borrowing connections above, and here we are only borrowing nodes
+            let graph_ptr_mut = addr_of!(self.graph) as *mut Graph<BoxedNode, Connection>;
+            let graph_mut = unsafe { &mut *graph_ptr_mut as &mut Graph<BoxedNode, Connection> };
+            let node = &mut graph_mut[*node_index];
 
-            node.process(
-                self.incoming_connections.as_slice(),
-                self.outgoing_connections.as_mut_slice(),
-            )
+            node.process(&mut incoming_connections, &mut outgoing_connections)
         }
     }
 
@@ -387,20 +385,32 @@ impl AudioContext {
 
     #[cfg(feature = "dac")]
     pub async fn initialize_dac_from_defaults(&mut self) -> Result<&mut Self, DACBuildError> {
-        let audio_context_inner = Arc::clone(&self.audio_context_inner);
-        let dac = DAC::from_dac_defaults(move |buffer: &mut [f32], config: Arc<DACConfig>| {
-            let mut audio_context_inner = audio_context_inner.lock().unwrap();
-            let num_channels = config.stream_config.channels as usize;
-            let dac_nodes = audio_context_inner.dac_nodes();
+        self.initialize_dac_from_config(DACConfig::from_defaults()?)
+            .await
+    }
 
-            for frame in buffer.chunks_mut(num_channels) {
-                audio_context_inner.run();
-                let sample_sim = dac_nodes.iter().map(|node| node.data()).sum();
-                for channel in frame.iter_mut() {
-                    *channel = cpal::Sample::from::<f32>(&sample_sim);
+    #[cfg(feature = "dac")]
+    pub async fn initialize_dac_from_config(
+        &mut self,
+        dac_config: DACConfig,
+    ) -> Result<&mut Self, DACBuildError> {
+        let audio_context_inner = Arc::clone(&self.audio_context_inner);
+        let dac = DAC::from_dac_config(
+            dac_config,
+            move |buffer: &mut [f32], config: Arc<DACConfig>| {
+                let mut audio_context_inner = audio_context_inner.lock().unwrap();
+                let num_channels = config.stream_config.channels as usize;
+                let dac_nodes = audio_context_inner.dac_nodes();
+
+                for frame in buffer.chunks_mut(num_channels) {
+                    audio_context_inner.run();
+                    let sample_sum = dac_nodes.iter().map(|node| node.data()).sum();
+                    for channel in frame.iter_mut() {
+                        *channel = cpal::Sample::from::<f32>(&sample_sum);
+                    }
                 }
-            }
-        })
+            },
+        )
         .await?;
         self.dac.lock().unwrap().replace(dac);
 
@@ -408,15 +418,26 @@ impl AudioContext {
     }
 
     #[cfg(feature = "dac")]
-    pub async fn initialize_dac_from_config(
-        &mut self,
-        _dac_config: DACConfig,
-    ) -> Result<&mut Self, DACBuildError> {
-        todo!()
-    }
-
     pub fn uninitialize_dac(&mut self) -> Option<DAC> {
         self.dac.lock().unwrap().take()
+    }
+
+    #[cfg(feature = "dac")]
+    pub fn play_stream(&mut self) -> Result<(), PlayStreamError> {
+        if let Some(dac) = &*self.dac.lock().unwrap() {
+            return dac.stream.play();
+        }
+
+        Ok(())
+    }
+
+    #[cfg(feature = "dac")]
+    pub fn pause_stream(&mut self) -> Result<(), PauseStreamError> {
+        if let Some(dac) = &*self.dac.lock().unwrap() {
+            return dac.stream.pause();
+        }
+
+        Ok(())
     }
 
     pub(crate) fn add_node<N: Node + Clone + 'static>(&mut self, node: N) -> &mut Self {

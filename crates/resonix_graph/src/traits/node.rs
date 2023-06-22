@@ -9,7 +9,11 @@ pub trait Node
 where
     Self: Debug + DynClone + Send + Sync,
 {
-    fn process(&mut self, inputs: &[Connection], outputs: &mut [Connection]);
+    fn process(
+        &mut self,
+        inputs: &mut dyn Iterator<Item = Connection>,
+        outputs: &mut dyn Iterator<Item = Connection>,
+    );
 
     fn node_type(&self) -> NodeType;
 

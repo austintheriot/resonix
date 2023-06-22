@@ -30,11 +30,15 @@ impl PassThroughNode {
 }
 
 impl Node for PassThroughNode {
-    fn process(&mut self, inputs: &[Connection], outputs: &mut [Connection]) {
-        let input_data = inputs[0].data();
+    fn process(
+        &mut self,
+        inputs: &mut dyn Iterator<Item = Connection>,
+        outputs: &mut dyn Iterator<Item = Connection>,
+    ) {
+        let input_data = inputs.next().unwrap().data();
 
         // copy first input to all output connections
-        for output in outputs.iter_mut() {
+        for mut output in outputs.into_iter() {
             output.set_data(input_data);
             output.set_init(true);
         }
@@ -117,8 +121,8 @@ mod test_pass_through_node {
 
         {
             let inputs = [input_connection];
-            let mut outputs = [output_connection.clone()];
-            pass_through_node.process(&inputs, &mut outputs)
+            let outputs = [output_connection.clone()];
+            pass_through_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
 
         // before processing, output connection holds input data

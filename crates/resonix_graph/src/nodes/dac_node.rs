@@ -33,12 +33,18 @@ impl DACNode {
 }
 
 impl Node for DACNode {
-    fn process(&mut self, inputs: &[Connection], _outputs: &mut [Connection]) {
-        let Some(first_input) = inputs.first() else {
+    fn process(
+        &mut self,
+        inputs: &mut dyn Iterator<Item = Connection>,
+        _outputs: &mut dyn Iterator<Item = Connection>,
+    ) {
+        let Some(first_input) = inputs.next() else {
             return
         };
 
-        *self.data.lock().unwrap() = first_input.data();
+        let sample = first_input.data();
+
+        *self.data.lock().unwrap() = sample;
     }
 
     fn node_type(&self) -> NodeType {
@@ -127,8 +133,8 @@ mod test_dac_node {
 
         {
             let inputs = [input_connection];
-            let mut outputs = [];
-            dac_node.process(&inputs, &mut outputs)
+            let outputs = [];
+            dac_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
 
         assert_eq!(dac_node.data(), 0.1234);
