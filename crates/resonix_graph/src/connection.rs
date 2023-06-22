@@ -1,7 +1,4 @@
-use std::{
-    hash::{Hash, Hasher},
-    sync::{Arc, Mutex},
-};
+use std::hash::{Hash, Hasher};
 
 use uuid::Uuid;
 
@@ -21,7 +18,7 @@ impl Connection {
         Self::from_indexes(0, 0)
     }
 
-    pub fn from_indexes(from_index: usize, to_index: usize) -> Self {
+    pub fn from_indexes(_from_index: usize, _to_index: usize) -> Self {
         Self {
             data: 0.0,
             from_index: 0,

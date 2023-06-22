@@ -1,13 +1,13 @@
 use std::time::Duration;
 
-use resonix::{
-    AddToContext, AudioContext, DACNode, PassThroughNode, SineNode,
-};
+use resonix::{AddToContext, AudioContext, DACNode, PassThroughNode, SineNode};
 
 #[tokio::main]
 async fn main() {
     let mut audio_context = AudioContext::new();
-    let sine_node_index = SineNode::new_with_config(44100, 440.0).add_to_context(&mut audio_context).unwrap();
+    let sine_node_index = SineNode::new_with_config(44100, 440.0)
+        .add_to_context(&mut audio_context)
+        .unwrap();
     let pass_through_node_index = PassThroughNode::new()
         .add_to_context(&mut audio_context)
         .unwrap();
@@ -17,8 +17,8 @@ async fn main() {
 
     let mut prev_node_index = pass_through_node_index;
 
-    // string 50 pass-through nodes together to stress test audio
-    for _ in 0..200 {
+    // string 2500 pass-through nodes together to stress test audio
+    for _ in 0..2500 {
         let pass_through_node_index = PassThroughNode::new()
             .add_to_context(&mut audio_context)
             .unwrap();

@@ -1,13 +1,11 @@
 use std::{
     any::Any,
     hash::{Hash, Hasher},
-    sync::{Arc, Mutex},
 };
-
 
 use uuid::Uuid;
 
-use crate::{Connection, Node, NodeType, AddToContext};
+use crate::{AddToContext, Connection, Node, NodeType};
 
 /// Takes no input signals and outputs a single,
 /// constant signal value to all output connections.
@@ -56,13 +54,12 @@ impl Node for ConstantNode {
 
     fn process(
         &mut self,
-        inputs: &[&Connection],
-        outputs: &mut [&mut Connection],
+        _inputs: &mut dyn Iterator<Item = &Connection>,
+        outputs: &mut dyn Iterator<Item = &mut Connection>,
     ) {
         // copy to all output connections
-        outputs.into_iter().for_each(|mut output| {
+        outputs.into_iter().for_each(|output| {
             output.set_data(self.signal_value);
-           
         })
     }
 
@@ -113,9 +110,6 @@ mod test_constant_node {
 
     use crate::{Connection, ConstantNode, Node};
 
-
-    
-
     #[test]
     fn should_output_constant_signal_value() {
         let mut constant_node = ConstantNode::new_with_signal_value(1.234);
@@ -135,8 +129,8 @@ mod test_constant_node {
         // run processing for node
         {
             let inputs = [];
-            let mut outputs = [&mut output_connection];
-            constant_node.process(&inputs, &mut outputs)
+            let outputs = [&mut output_connection];
+            constant_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
 
         // after processing, output data is 1.234

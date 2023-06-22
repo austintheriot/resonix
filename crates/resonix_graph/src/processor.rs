@@ -1,20 +1,16 @@
 use std::{
     any::Any,
     collections::{HashSet, VecDeque},
-    hash::{Hash, Hasher},
-    ptr::{addr_of, addr_of_mut},
-    sync::{mpsc::Sender, Arc},
+    ptr::addr_of,
 };
 
-#[cfg(feature = "dac")]
-use cpal::{traits::StreamTrait, PauseStreamError, PlayStreamError};
 use petgraph::{
+    graph::EdgeReference,
     stable_graph::NodeIndex,
-    visit::{Dfs, IntoNodeIdentifiers, IntoEdgesDirected},
-    Direction, Graph, graph::EdgeReference,
+    visit::{Dfs, IntoNodeIdentifiers},
+    Direction, Graph,
 };
-#[cfg(feature = "dac")]
-use resonix_dac::{DACBuildError, DACConfig, DAC};
+
 use uuid::Uuid;
 
 use crate::{BoxedNode, ConnectError, Connection, DACNode, Node, NodeType};
@@ -126,34 +122,34 @@ impl Processor {
         }
 
         for node_index in self.visit_order.as_ref().unwrap() {
-            let incoming_connections: Vec<_> = self
+            let mut incoming_connections = self
                 .graph
                 .edges_directed(*node_index, Direction::Incoming)
-                .map(|edge_reference| edge_reference.weight())
-                .collect();
+                .map(|edge_reference| edge_reference.weight());
 
-            let mut outgoing_connections: Vec<_> = self
+            let mut outgoing_connections = self
                 .graph
                 .edges_directed(*node_index, Direction::Outgoing)
-                .filter(|edge_reference: &EdgeReference<'_, Connection>| !incoming_connections.contains(&edge_reference.weight()))
+                // NODE: if `resonix` should ever support cyclic graphs, it will be imperative
+                // to filter outgoing_connections so that we are not creating
+                // multiple mutable references to the same Connection
                 .map(|edge_reference: EdgeReference<'_, Connection>| edge_reference.weight())
                 .map(|connection| unsafe {
+                    // `petgraph` provides no way of obtaining a mutable reference to the edges
+                    // from a node. todo - move this step into a pre-compute function to keep
+                    // this hot path clear
                     let ptr_mut = addr_of!(*connection) as *mut Connection;
-                    &mut(*ptr_mut) as &mut Connection
-                })
-                .collect();
+                    &mut (*ptr_mut) as &mut Connection
+                });
 
-            // some shenanigans here, since Rust doesn't know that the immutable borrows values from the Graph (above)
+            // some very unsafe shenanigans here, since Rust doesn't know that the immutable borrows values from the Graph (above)
             // are not the same parts of the graph that are borrowed mutably here
-            // this should be safe-ish since we are only borrowing connections above, and here we are only borrowing nodes
+            // this should be safe-ish since we are only borrowing connections above, and here we are only borrowing a node
             let graph_ptr_mut = addr_of!(self.graph) as *mut Graph<BoxedNode, Connection>;
             let graph_mut = unsafe { &mut *graph_ptr_mut as &mut Graph<BoxedNode, Connection> };
             let node = &mut graph_mut[*node_index];
 
-            node.process(
-                incoming_connections.as_slice(),
-                outgoing_connections.as_mut_slice(),
-            )
+            node.process(&mut incoming_connections, &mut outgoing_connections)
         }
     }
 
@@ -240,9 +236,8 @@ impl Processor {
         self.visit_order = Some(final_visit_order);
     }
 
-
     #[cfg(feature = "dac")]
-    pub (crate) fn dac_nodes_sum(&self) -> f32 {
+    pub(crate) fn dac_nodes_sum(&self) -> f32 {
         self.dac_node_indexes
             .iter()
             .map(|i: &NodeIndex| {
@@ -251,7 +246,8 @@ impl Processor {
                     .downcast_ref::<DACNode>()
                     .unwrap()
                     .data()
-            }).sum()
+            })
+            .sum()
     }
 
     pub fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, N> {

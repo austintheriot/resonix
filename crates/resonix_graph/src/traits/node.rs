@@ -11,8 +11,8 @@ where
 {
     fn process(
         &mut self,
-        inputs: &[&Connection],
-        outputs: &mut [&mut Connection],
+        inputs: &mut dyn Iterator<Item = &Connection>,
+        outputs: &mut dyn Iterator<Item = &mut Connection>,
     );
 
     fn node_type(&self) -> NodeType;

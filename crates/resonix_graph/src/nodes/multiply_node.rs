@@ -2,7 +2,7 @@ use std::any::Any;
 
 use uuid::Uuid;
 
-use crate::{AudioContext, Connection, Node, NodeType, AddToContext};
+use crate::{AddToContext, Connection, Node, NodeType};
 
 /// Takes two signals and multiplies them together,
 /// outputting the signal to all connected outputs
@@ -39,17 +39,16 @@ impl Node for MultiplyNode {
 
     fn process(
         &mut self,
-        inputs: &[&Connection],
-        outputs: &mut [&mut Connection],
+        inputs: &mut dyn Iterator<Item = &Connection>,
+        outputs: &mut dyn Iterator<Item = &mut Connection>,
     ) {
-        let first_input = inputs.get(0).unwrap();
-        let second_input = inputs.get(1).unwrap();
+        let first_input = inputs.next().unwrap();
+        let second_input = inputs.next().unwrap();
         let result = first_input.data() * second_input.data();
 
         // copy to all output connections
-        outputs.into_iter().for_each(|mut output| {
+        outputs.into_iter().for_each(|output| {
             output.set_data(result);
-           
         })
     }
 
@@ -71,7 +70,7 @@ impl AddToContext for MultiplyNode {}
 impl Default for MultiplyNode {
     fn default() -> Self {
         Self {
-            uuid: Uuid::new_v4()
+            uuid: Uuid::new_v4(),
         }
     }
 }
@@ -81,7 +80,7 @@ mod test_multiply_node {
 
     use uuid::Uuid;
 
-    use crate::{AudioContext, Connection, MultiplyNode, Node};
+    use crate::{Connection, MultiplyNode, Node};
 
     #[test]
     fn should_multiply_1st_and_2nd_inputs() {
@@ -116,8 +115,8 @@ mod test_multiply_node {
         // run processing for node
         {
             let inputs = [&left_input_connection, &right_input_connection];
-            let mut outputs = [&mut output_connection];
-            multiply_node.process(&inputs, &mut outputs)
+            let outputs = [&mut output_connection];
+            multiply_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
 
         // before processing, output data is 0.1

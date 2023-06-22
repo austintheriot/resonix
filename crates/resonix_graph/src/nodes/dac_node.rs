@@ -1,10 +1,8 @@
-use std::{
-    any::Any,
-};
+use std::any::Any;
 
 use uuid::Uuid;
 
-use crate::{AudioContext, Connection, Node, NodeType, AddToContext};
+use crate::{AddToContext, Connection, Node, NodeType};
 
 #[derive(Debug, Clone)]
 pub struct DACNode {
@@ -25,10 +23,10 @@ impl DACNode {
 impl Node for DACNode {
     fn process(
         &mut self,
-        inputs: &[&Connection],
-        outputs: &mut [&mut Connection],
+        inputs: &mut dyn Iterator<Item = &Connection>,
+        _outputs: &mut dyn Iterator<Item = &mut Connection>,
     ) {
-        let Some(first_input) = inputs.first() else {
+        let Some(first_input) = inputs.next() else {
             return
         };
 
@@ -68,7 +66,7 @@ impl Default for DACNode {
     fn default() -> Self {
         Self {
             uuid: Uuid::new_v4(),
-            data: 0.0
+            data: 0.0,
         }
     }
 }
@@ -98,7 +96,7 @@ mod test_dac_node {
 
     use uuid::Uuid;
 
-    use crate::{AudioContext, Connection, DACNode, Node};
+    use crate::{Connection, DACNode, Node};
 
     #[test]
     fn should_record_one_sample_of_incoming_data() {
@@ -108,15 +106,15 @@ mod test_dac_node {
             from_index: 0,
             to_index: 0,
             data: 0.1234,
-            uuid: Uuid::new_v4()
+            uuid: Uuid::new_v4(),
         };
 
         assert_eq!(dac_node.data(), 0.0);
 
         {
             let inputs = [&input_connection];
-            let mut outputs = [];
-            dac_node.process(&inputs, &mut outputs)
+            let outputs = [];
+            dac_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
 
         assert_eq!(dac_node.data(), 0.1234);

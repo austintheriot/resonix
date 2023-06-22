@@ -1,5 +1,11 @@
 # Todos
 
+## Audio Graph
+
+- Precompute edge indexes for each node
+
+## Granular Synthesizer
+
 - add handle below buffer selection to allow dragging
 
 - scale amplitude by number of ACTIVE grains rather than by number of channels?
