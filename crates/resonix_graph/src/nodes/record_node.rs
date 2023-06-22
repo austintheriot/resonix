@@ -1,48 +1,32 @@
-use std::{
-    any::Any,
-    sync::{Arc, Mutex, MutexGuard},
-};
+use std::any::Any;
 
 use uuid::Uuid;
 
-use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
+use crate::{AddToContext, AudioContext, Connection, Node, NodeType};
 
 #[derive(Debug, Clone)]
 pub struct RecordNode {
-    data: Arc<Mutex<Vec<f32>>>,
+    data: Vec<f32>,
     uuid: Uuid,
-    audio_context: AudioContext,
 }
 
 impl RecordNode {
-    pub fn new(audio_context: &mut AudioContext) -> Self {
-        let new_record_node = Self {
-            uuid: Uuid::new_v4(),
-            audio_context: audio_context.clone(),
-            data: Arc::new(Mutex::new(Vec::new())),
-        };
-
-        audio_context.add_node(new_record_node.clone());
-
-        new_record_node
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    pub fn data(&self) -> MutexGuard<Vec<f32>> {
-        self.data.lock().unwrap()
+    pub fn data(&self) -> &Vec<f32> {
+        &self.data
     }
 }
 
 impl Node for RecordNode {
-    fn process(
-        &mut self,
-        inputs: &mut dyn Iterator<Item = Connection>,
-        _outputs: &mut dyn Iterator<Item = Connection>,
-    ) {
-        let Some(first_input) = inputs.next() else {
+    fn process(&mut self, inputs: &[&Connection], _: &mut [&mut Connection]) {
+        let Some(first_input) = inputs.first() else {
             return
         };
 
-        self.data.lock().unwrap().push(first_input.data());
+        self.data.push(first_input.data());
     }
 
     fn node_type(&self) -> NodeType {
@@ -70,23 +54,14 @@ impl Node for RecordNode {
     }
 }
 
-impl Connect for RecordNode {
-    fn connect_nodes_with_indexes<N: Node + Connect + Clone>(
-        &self,
-        from_index: usize,
-        other_node: &N,
-        to_index: usize,
-    ) -> Result<&Self, ConnectError> {
-        self.check_index_out_of_bounds(from_index, other_node, to_index)?;
+impl AddToContext for RecordNode {}
 
-        self.audio_context.connect_nodes_with_indexes(
-            self.clone(),
-            from_index,
-            other_node.clone(),
-            to_index,
-        );
-
-        Ok(self)
+impl Default for RecordNode {
+    fn default() -> Self {
+        Self {
+            uuid: Uuid::new_v4(),
+            data: Vec::new(),
+        }
     }
 }
 
@@ -113,24 +88,25 @@ impl Ord for RecordNode {
 #[cfg(test)]
 mod test_record_node {
 
-    use crate::{AudioContext, Connection, ConnectionInner, Node, RecordNode};
+    use uuid::Uuid;
+
+    use crate::{Connection, Node, RecordNode};
 
     #[test]
     fn should_record_incoming_node_data() {
-        let mut audio_context = AudioContext::new();
-        let mut record_node = RecordNode::new(&mut audio_context);
+        let mut record_node = RecordNode::new();
 
-        let input_connection = Connection::from_connection_inner(ConnectionInner {
+        let input_connection = Connection {
             from_index: 0,
             to_index: 0,
             data: 0.1234,
-            init: true,
-        });
+            uuid: Uuid::new_v4(),
+        };
 
         {
-            let inputs = [input_connection];
-            let outputs = [];
-            record_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
+            let inputs = [&input_connection];
+            let mut outputs = [];
+            record_node.process(&inputs, &mut outputs)
         }
 
         assert_eq!(record_node.data().len(), 1);

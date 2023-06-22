@@ -4,9 +4,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+
 use uuid::Uuid;
 
-use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
+use crate::{Connection, Node, NodeType, AddToContext};
 
 /// Takes no input signals and outputs a single,
 /// constant signal value to all output connections.
@@ -15,33 +16,27 @@ use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
 #[derive(Debug, Clone)]
 pub struct ConstantNode {
     uuid: Uuid,
-    audio_context: AudioContext,
-    signal_value: Arc<Mutex<f32>>,
+    signal_value: f32,
 }
 
 impl ConstantNode {
-    pub fn new(audio_context: &mut AudioContext) -> Self {
-        Self::new_with_signal_value(audio_context, 0.0)
+    pub fn new() -> Self {
+        Self::new_with_signal_value(0.0)
     }
 
-    pub fn new_with_signal_value(audio_context: &mut AudioContext, signal_value: f32) -> Self {
-        let new_constant_node = Self {
+    pub fn new_with_signal_value(signal_value: f32) -> Self {
+        Self {
             uuid: Uuid::new_v4(),
-            audio_context: audio_context.clone(),
-            signal_value: Arc::new(Mutex::new(signal_value)),
-        };
-
-        audio_context.add_node(new_constant_node.clone());
-
-        new_constant_node
+            signal_value,
+        }
     }
 
     pub fn signal_value(&self) -> f32 {
-        *self.signal_value.lock().unwrap()
+        self.signal_value
     }
 
     pub fn set_signal_value(&mut self, signal_value: f32) -> &mut Self {
-        *self.signal_value.lock().unwrap() = signal_value;
+        self.signal_value = signal_value;
         self
     }
 }
@@ -61,15 +56,13 @@ impl Node for ConstantNode {
 
     fn process(
         &mut self,
-        _: &mut dyn Iterator<Item = Connection>,
-        outputs: &mut dyn Iterator<Item = Connection>,
+        inputs: &[&Connection],
+        outputs: &mut [&mut Connection],
     ) {
-        let signal_value = *self.signal_value.lock().unwrap();
-
         // copy to all output connections
         outputs.into_iter().for_each(|mut output| {
-            output.set_data(signal_value);
-            output.set_init(true);
+            output.set_data(self.signal_value);
+           
         })
     }
 
@@ -86,25 +79,7 @@ impl Node for ConstantNode {
     }
 }
 
-impl Connect for ConstantNode {
-    fn connect_nodes_with_indexes<N: Node + Connect + Clone>(
-        &self,
-        from_index: usize,
-        other_node: &N,
-        to_index: usize,
-    ) -> Result<&Self, ConnectError> {
-        self.check_index_out_of_bounds(from_index, other_node, to_index)?;
-
-        self.audio_context.connect_nodes_with_indexes(
-            self.clone(),
-            from_index,
-            other_node.clone(),
-            to_index,
-        );
-
-        Ok(self)
-    }
-}
+impl AddToContext for ConstantNode {}
 
 impl PartialEq for ConstantNode {
     fn eq(&self, other: &Self) -> bool {
@@ -134,38 +109,39 @@ impl Hash for ConstantNode {
 
 #[cfg(test)]
 mod test_constant_node {
+    use uuid::Uuid;
 
-    use crate::{AudioContext, Connection, ConnectionInner, ConstantNode, Node};
+    use crate::{Connection, ConstantNode, Node};
+
+
+    
 
     #[test]
     fn should_output_constant_signal_value() {
-        let mut audio_context = AudioContext::new();
-        let mut constant_node = ConstantNode::new_with_signal_value(&mut audio_context, 1.234);
+        let mut constant_node = ConstantNode::new_with_signal_value(1.234);
 
-        let output_connection = Connection::from_connection_inner(ConnectionInner {
+        let mut output_connection = Connection {
             from_index: 0,
             to_index: 0,
             data: 0.0,
-            init: false,
-        });
+            uuid: Uuid::new_v4(),
+        };
 
         // before processing, output data is 0.0
         {
             assert_eq!(output_connection.data(), 0.0);
-            assert!(!output_connection.init());
         }
 
         // run processing for node
         {
             let inputs = [];
-            let outputs = [output_connection.clone()];
-            constant_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
+            let mut outputs = [&mut output_connection];
+            constant_node.process(&inputs, &mut outputs)
         }
 
         // after processing, output data is 1.234
         {
             assert_eq!(output_connection.data(), 1.234);
-            assert!(output_connection.init());
         }
     }
 }

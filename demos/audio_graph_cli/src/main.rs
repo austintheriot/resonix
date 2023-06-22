@@ -1,32 +1,51 @@
 use std::time::Duration;
 
-use resonix::{AudioContext, Connect, DACNode, PassThroughNode, SineInterface, SineNode};
+use resonix::{
+    AddToContext, AudioContext, DACNode, PassThroughNode, SineNode,
+};
 
 #[tokio::main]
 async fn main() {
     let mut audio_context = AudioContext::new();
-    let mut sine_node = SineNode::new(&mut audio_context);
+    let sine_node_index = SineNode::new_with_config(44100, 440.0).add_to_context(&mut audio_context).unwrap();
+    let pass_through_node_index = PassThroughNode::new()
+        .add_to_context(&mut audio_context)
+        .unwrap();
+    audio_context
+        .connect(sine_node_index, pass_through_node_index)
+        .unwrap();
 
-    let pass_through_node = PassThroughNode::new(&mut audio_context);
-    sine_node.connect(&pass_through_node).unwrap();
-
-    let mut prev_node = pass_through_node;
+    let mut prev_node_index = pass_through_node_index;
 
     // string 50 pass-through nodes together to stress test audio
-    for _ in 0..50 {
-        let pass_through_node = PassThroughNode::new(&mut audio_context);
-        prev_node.connect(&pass_through_node).unwrap();
-        prev_node = pass_through_node;
+    for _ in 0..200 {
+        let pass_through_node_index = PassThroughNode::new()
+            .add_to_context(&mut audio_context)
+            .unwrap();
+        audio_context
+            .connect(prev_node_index, pass_through_node_index)
+            .unwrap();
+        prev_node_index = pass_through_node_index;
     }
 
-    let dac_node = DACNode::new(&mut audio_context);
-    prev_node.connect(&dac_node).unwrap();
+    let dac_node_index = DACNode::new().add_to_context(&mut audio_context).unwrap();
+    audio_context
+        .connect(prev_node_index, dac_node_index)
+        .unwrap();
 
     audio_context.initialize_dac_from_defaults().await.unwrap();
     audio_context.play_stream().unwrap();
 
     let sample_rate = audio_context.sample_rate().unwrap();
-    sine_node.set_sample_rate(sample_rate).set_frequency(440.0);
+    // sine_node.set_sample_rate(sample_rate).set_frequency(440.0);
+
+    println!("{:?}", sample_rate);
+
+    tokio::time::sleep(Duration::from_millis(3000)).await;
+
+    audio_context.send_message(0);
+
+    // audio_context.send_message(1);
 
     tokio::time::sleep(Duration::MAX).await;
 }

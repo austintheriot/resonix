@@ -2,7 +2,7 @@ use std::any::Any;
 
 use uuid::Uuid;
 
-use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
+use crate::{AudioContext, Connection, Node, NodeType, AddToContext};
 
 /// Takes one signal and passed it through, unaltered
 /// to all connected outputs.
@@ -13,34 +13,26 @@ use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
 #[derive(Debug, Clone, PartialEq, PartialOrd, Hash, Eq, Ord)]
 pub struct PassThroughNode {
     uuid: Uuid,
-    audio_context: AudioContext,
 }
 
 impl PassThroughNode {
-    pub fn new(audio_context: &mut AudioContext) -> Self {
-        let new_pass_through_node = Self {
-            uuid: Uuid::new_v4(),
-            audio_context: audio_context.clone(),
-        };
-
-        audio_context.add_node(new_pass_through_node.clone());
-
-        new_pass_through_node
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
 impl Node for PassThroughNode {
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = Connection>,
-        outputs: &mut dyn Iterator<Item = Connection>,
+        inputs: &[&Connection],
+        outputs: &mut [&mut Connection],
     ) {
-        let input_data = inputs.next().unwrap().data();
+        let input_data = inputs.iter().map(|c| c.data()).sum();
 
         // copy first input to all output connections
-        for mut output in outputs.into_iter() {
+        for output in outputs.into_iter() {
             output.set_data(input_data);
-            output.set_init(true);
+           
         }
     }
 
@@ -69,66 +61,55 @@ impl Node for PassThroughNode {
     }
 }
 
-impl Connect for PassThroughNode {
-    fn connect_nodes_with_indexes<N: Node + Connect + Clone>(
-        &self,
-        from_index: usize,
-        other_node: &N,
-        to_index: usize,
-    ) -> Result<&Self, ConnectError> {
-        self.check_index_out_of_bounds(from_index, other_node, to_index)?;
+impl AddToContext for PassThroughNode {}
 
-        self.audio_context.connect_nodes_with_indexes(
-            self.clone(),
-            from_index,
-            other_node.clone(),
-            to_index,
-        );
-
-        Ok(self)
+impl Default for PassThroughNode {
+    fn default() -> Self {
+        Self {
+            uuid: Uuid::new_v4(),
+        }
     }
 }
 
 #[cfg(test)]
 mod test_pass_through_node {
 
-    use crate::{AudioContext, Connection, ConnectionInner, Node, PassThroughNode};
+    use uuid::Uuid;
+
+    use crate::{AudioContext, Connection, Node, PassThroughNode, AddToContext};
 
     #[test]
     fn should_pass_audio_data_through_output_connections() {
-        let mut audio_context = AudioContext::new();
-        let mut pass_through_node = PassThroughNode::new(&mut audio_context);
+        let mut pass_through_node = PassThroughNode::new();
 
-        let input_connection = Connection::from_connection_inner(ConnectionInner {
+        let input_connection = Connection {
             from_index: 0,
             to_index: 0,
             data: 0.1234,
-            init: true,
-        });
+            uuid: Uuid::new_v4()
+        };
 
-        let output_connection = Connection::from_connection_inner(ConnectionInner {
+        let mut output_connection = Connection {
             from_index: 0,
             to_index: 0,
             data: 0.0,
-            init: false,
-        });
+            uuid: Uuid::new_v4()
+        };
 
         // before processing, output connection holds 0.0
         {
             assert_eq!(output_connection.data(), 0.0);
-            assert!(!output_connection.init());
         }
 
         {
-            let inputs = [input_connection];
-            let outputs = [output_connection.clone()];
-            pass_through_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
+            let inputs = [&input_connection];
+            let mut outputs = [&mut output_connection];
+            pass_through_node.process(&inputs, &mut outputs)
         }
 
         // before processing, output connection holds input data
         {
             assert_eq!(output_connection.data(), 0.1234);
-            assert!(output_connection.init());
         }
     }
 }
