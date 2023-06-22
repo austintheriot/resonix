@@ -65,7 +65,7 @@ impl DAC {
     ) -> Result<Self, DACBuildError>
     where
         S: Sample,
-        Callback: WriteFrameToBuffer<S, ExtractedData> + Send + Sync + 'static,
+        Callback: WriteFrameToBuffer<S, ExtractedData> + Send + 'static,
     {
         let config = Arc::new(dac_config);
 
@@ -84,7 +84,7 @@ impl DAC {
     ) -> Result<Stream, BuildStreamError>
     where
         S: Sample,
-        Callback: WriteFrameToBuffer<S, ExtractedData> + Send + Sync + 'static,
+        Callback: WriteFrameToBuffer<S, ExtractedData> + Send  + 'static,
     {
         let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
         let device = &config.device;

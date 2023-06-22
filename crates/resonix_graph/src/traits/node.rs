@@ -7,12 +7,12 @@ use crate::{Connection, NodeType};
 
 pub trait Node
 where
-    Self: Debug + DynClone + Send + Sync,
+    Self: Debug + Send + DynClone,
 {
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = Connection>,
-        outputs: &mut dyn Iterator<Item = Connection>,
+        inputs: &[&Connection],
+        outputs: &mut [&mut Connection],
     );
 
     fn node_type(&self) -> NodeType;

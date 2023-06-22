@@ -1,25 +1,34 @@
-use resonix::{AudioContext, Connect, DACBuildError, DACNode, PassThroughNode, SineNode};
+use resonix::{AudioContext, DACBuildError, DACNode, PassThroughNode, SineNode, AddToContext};
 
 pub async fn set_up_audio_graph() -> Result<AudioContext, DACBuildError> {
     let mut audio_context = AudioContext::new();
-    audio_context.initialize_dac_from_defaults().await?;
+    let sine_node_index = SineNode::new_with_config(44100, 440.0).add_to_context(&mut audio_context).unwrap();
+    let pass_through_node_index = PassThroughNode::new()
+        .add_to_context(&mut audio_context)
+        .unwrap();
+    audio_context
+        .connect(sine_node_index, pass_through_node_index)
+        .unwrap();
 
-    let sample_rate = audio_context.sample_rate().unwrap();
-    let sine_node = SineNode::new_with_config(&mut audio_context, sample_rate, 440.0);
+    let mut prev_node_index = pass_through_node_index;
 
-    let pass_through_node = PassThroughNode::new(&mut audio_context);
-    sine_node.connect(&pass_through_node).unwrap();
-
-    let mut prev_node = pass_through_node;
-
-    for _ in 0..200 {
-        let pass_through_node = PassThroughNode::new(&mut audio_context);
-        prev_node.connect(&pass_through_node).unwrap();
-        prev_node = pass_through_node;
+    // string 50 pass-through nodes together to stress test audio
+    for _ in 0..100 {
+        let pass_through_node_index = PassThroughNode::new()
+            .add_to_context(&mut audio_context)
+            .unwrap();
+        audio_context
+            .connect(prev_node_index, pass_through_node_index)
+            .unwrap();
+        prev_node_index = pass_through_node_index;
     }
 
-    let dac_node = DACNode::new(&mut audio_context);
-    prev_node.connect(&dac_node).unwrap();
+    let dac_node_index = DACNode::new().add_to_context(&mut audio_context).unwrap();
+    audio_context
+        .connect(prev_node_index, dac_node_index)
+        .unwrap();
+
+    audio_context.initialize_dac_from_defaults().await.unwrap();
     audio_context.play_stream().unwrap();
 
     Ok(audio_context)

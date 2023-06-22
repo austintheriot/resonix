@@ -5,38 +5,14 @@ use std::{
 
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Default, PartialEq, PartialOrd)]
-pub(crate) struct ConnectionInner {
+#[derive(Debug, Default, Clone)]
+pub struct Connection {
     /// where the connection is coming from
     pub(crate) from_index: usize,
     /// where the connection is going to
     pub(crate) to_index: usize,
     /// the data that the connection is carrying (if any)
     pub(crate) data: f32,
-    /// used while building a dependency graph of audio connections
-    /// if `true`, then that connection has been provided data by
-    /// parent node
-    pub(crate) init: bool,
-}
-
-impl ConnectionInner {
-    pub(crate) fn new() -> Self {
-        Self::from_indexes(0, 0)
-    }
-
-    pub(crate) fn from_indexes(from_index: usize, to_index: usize) -> Self {
-        Self {
-            from_index,
-            to_index,
-            data: 0.0,
-            init: false,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct Connection {
-    connection_inner: Arc<Mutex<ConnectionInner>>,
     pub uuid: Uuid,
 }
 
@@ -47,50 +23,32 @@ impl Connection {
 
     pub fn from_indexes(from_index: usize, to_index: usize) -> Self {
         Self {
-            connection_inner: Arc::new(Mutex::new(ConnectionInner::from_indexes(
-                from_index, to_index,
-            ))),
+            data: 0.0,
+            from_index: 0,
+            to_index: 0,
             uuid: Uuid::new_v4(),
         }
     }
 
     pub fn from_index(&self) -> usize {
-        self.connection_inner.lock().unwrap().from_index
+        self.from_index
     }
 
     pub fn to_index(&self) -> usize {
-        self.connection_inner.lock().unwrap().to_index
+        self.to_index
     }
 
     pub fn data(&self) -> f32 {
-        self.connection_inner.lock().unwrap().data
-    }
-
-    pub fn init(&self) -> bool {
-        self.connection_inner.lock().unwrap().init
+        self.data
     }
 
     pub fn set_data(&mut self, data: f32) -> &mut Self {
-        self.connection_inner.lock().unwrap().data = data;
-        self
-    }
-
-    pub fn set_init(&mut self, init: bool) -> &mut Self {
-        self.connection_inner.lock().unwrap().init = init;
+        self.data = data;
         self
     }
 
     pub fn uuid(&self) -> &Uuid {
         &self.uuid
-    }
-
-    /// for easier testing
-    #[cfg(test)]
-    pub(crate) fn from_connection_inner(connection_inner: ConnectionInner) -> Self {
-        Self {
-            connection_inner: Arc::new(Mutex::new(connection_inner)),
-            uuid: Uuid::new_v4(),
-        }
     }
 }
 

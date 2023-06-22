@@ -2,7 +2,7 @@ use std::any::Any;
 
 use uuid::Uuid;
 
-use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
+use crate::{AudioContext, Connection, Node, NodeType, AddToContext};
 
 /// Takes two signals and multiplies them together,
 /// outputting the signal to all connected outputs
@@ -14,19 +14,13 @@ use crate::{AudioContext, Connect, ConnectError, Connection, Node, NodeType};
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct MultiplyNode {
     uuid: Uuid,
-    audio_context: AudioContext,
 }
 
 impl MultiplyNode {
-    pub fn new(audio_context: &mut AudioContext) -> Self {
-        let new_multiply_node = Self {
+    pub fn new() -> Self {
+        Self {
             uuid: Uuid::new_v4(),
-            audio_context: audio_context.clone(),
-        };
-
-        audio_context.add_node(new_multiply_node.clone());
-
-        new_multiply_node
+        }
     }
 }
 
@@ -45,17 +39,17 @@ impl Node for MultiplyNode {
 
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = Connection>,
-        outputs: &mut dyn Iterator<Item = Connection>,
+        inputs: &[&Connection],
+        outputs: &mut [&mut Connection],
     ) {
-        let first_input = inputs.next().unwrap();
-        let second_input = inputs.next().unwrap();
+        let first_input = inputs.get(0).unwrap();
+        let second_input = inputs.get(1).unwrap();
         let result = first_input.data() * second_input.data();
 
         // copy to all output connections
         outputs.into_iter().for_each(|mut output| {
             output.set_data(result);
-            output.set_init(true);
+           
         })
     }
 
@@ -72,74 +66,63 @@ impl Node for MultiplyNode {
     }
 }
 
-impl Connect for MultiplyNode {
-    fn connect_nodes_with_indexes<N: Node + Connect + Clone>(
-        &self,
-        from_index: usize,
-        other_node: &N,
-        to_index: usize,
-    ) -> Result<&Self, ConnectError> {
-        self.check_index_out_of_bounds(from_index, other_node, to_index)?;
+impl AddToContext for MultiplyNode {}
 
-        self.audio_context.connect_nodes_with_indexes(
-            self.clone(),
-            from_index,
-            other_node.clone(),
-            to_index,
-        );
-
-        Ok(self)
+impl Default for MultiplyNode {
+    fn default() -> Self {
+        Self {
+            uuid: Uuid::new_v4()
+        }
     }
 }
 
 #[cfg(test)]
 mod test_multiply_node {
 
-    use crate::{AudioContext, Connection, ConnectionInner, MultiplyNode, Node};
+    use uuid::Uuid;
+
+    use crate::{AudioContext, Connection, MultiplyNode, Node};
 
     #[test]
     fn should_multiply_1st_and_2nd_inputs() {
-        let mut audio_context = AudioContext::new();
-        let mut multiply_node = MultiplyNode::new(&mut audio_context);
+        let mut multiply_node = MultiplyNode::new();
 
-        let left_input_connection = Connection::from_connection_inner(ConnectionInner {
+        let left_input_connection = Connection {
             from_index: 0,
             to_index: 0,
             data: 0.5,
-            init: true,
-        });
+            uuid: Uuid::new_v4(),
+        };
 
-        let right_input_connection = Connection::from_connection_inner(ConnectionInner {
+        let right_input_connection = Connection {
             from_index: 0,
             to_index: 1,
             data: 0.2,
-            init: true,
-        });
+            uuid: Uuid::new_v4(),
+        };
 
-        let output_connection = Connection::from_connection_inner(ConnectionInner {
+        let mut output_connection = Connection {
             from_index: 0,
             to_index: 0,
             data: 0.0,
-            init: false,
-        });
+            uuid: Uuid::new_v4(),
+        };
 
         // before processing, output data is 0.0
         {
             assert_eq!(output_connection.data(), 0.0);
-            assert!(!output_connection.init());
         }
 
         // run processing for node
         {
-            let inputs = [left_input_connection, right_input_connection];
-            let outputs = [output_connection.clone()];
-            multiply_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
+            let inputs = [&left_input_connection, &right_input_connection];
+            let mut outputs = [&mut output_connection];
+            multiply_node.process(&inputs, &mut outputs)
         }
 
         // before processing, output data is 0.1
         {
             assert_eq!(output_connection.data(), 0.1);
-            assert!(output_connection.init());
         }
     }
 }

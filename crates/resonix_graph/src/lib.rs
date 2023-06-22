@@ -3,9 +3,11 @@ pub mod connection;
 pub mod node_type;
 pub mod nodes;
 pub mod traits;
+pub mod processor;
 
 pub use audio_context::*;
 pub use connection::*;
 pub use node_type::*;
 pub use nodes::*;
 pub use traits::*;
+pub use processor::*;
