@@ -1,9 +1,19 @@
 use std::{any::Any, fmt::Debug};
 
 use dyn_clone::DynClone;
+use petgraph::prelude::EdgeIndex;
+use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{Connection, NodeType};
+
+#[derive(Error, Debug)]
+pub enum AddConnectionError {
+    #[error("Could not add incoming connection for {name:?}, because it only accepts outgoing connections")]
+    CantAcceptInputConnections { name: String },
+    #[error("Could not add incoming connection for {name:?}, because it only accepts incoming connections")]
+    CantAcceptOutputConnections { name: String },
+}
 
 pub trait Node
 where
@@ -26,6 +36,20 @@ where
     fn name(&self) -> String;
 
     fn as_any(&self) -> &dyn Any;
+
+    fn incoming_connection_indexes(&self) -> &[EdgeIndex];
+
+    fn outgoing_connection_indexes(&self) -> &[EdgeIndex];
+
+    fn add_incoming_connection_index(
+        &mut self,
+        edge_index: EdgeIndex,
+    ) -> Result<(), AddConnectionError>;
+
+    fn add_outgoing_connection_index(
+        &mut self,
+        edge_index: EdgeIndex,
+    ) -> Result<(), AddConnectionError>;
 }
 
 dyn_clone::clone_trait_object!(Node);

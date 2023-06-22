@@ -1,14 +1,16 @@
 use std::any::Any;
 
+use petgraph::prelude::EdgeIndex;
 use resonix_core::{SampleRate, Sine, SineInterface};
 use uuid::Uuid;
 
-use crate::{AddToContext, Connection, Node, NodeType};
+use crate::{AddConnectionError, AddToContext, Connection, Node, NodeType};
 
 #[derive(Debug, Clone)]
 pub struct SineNode {
     uuid: Uuid,
     sine: Sine,
+    outgoing_connection_indexes: Vec<EdgeIndex>,
 }
 
 impl SineInterface for SineNode {
@@ -71,6 +73,30 @@ impl Node for SineNode {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn incoming_connection_indexes(&self) -> &[EdgeIndex] {
+        &[]
+    }
+
+    fn outgoing_connection_indexes(&self) -> &[EdgeIndex] {
+        &self.outgoing_connection_indexes
+    }
+
+    fn add_incoming_connection_index(
+        &mut self,
+        _edge_index: EdgeIndex,
+    ) -> Result<(), AddConnectionError> {
+        Err(AddConnectionError::CantAcceptInputConnections { name: self.name() })
+    }
+
+    fn add_outgoing_connection_index(
+        &mut self,
+        edge_index: EdgeIndex,
+    ) -> Result<(), AddConnectionError> {
+        self.outgoing_connection_indexes.push(edge_index);
+
+        Ok(())
+    }
 }
 
 impl SineNode {
@@ -84,6 +110,7 @@ impl SineNode {
         Self {
             uuid: Uuid::new_v4(),
             sine: Sine::new_with_config(sample_rate, frequency),
+            outgoing_connection_indexes: Vec::new(),
         }
     }
 }
@@ -113,8 +140,6 @@ impl Ord for SineNode {
 #[cfg(test)]
 mod test_sine_node {
 
-    use uuid::Uuid;
-
     use crate::{AudioContext, Connection, Node, SineNode};
 
     #[test]
@@ -123,12 +148,7 @@ mod test_sine_node {
         // should finish a sine wave cycle within 4 sample
         let mut sine_node = SineNode::new_with_config(4, 1.0);
 
-        let mut output_connection = Connection {
-            from_index: 0,
-            to_index: 0,
-            data: 0.0,
-            uuid: Uuid::new_v4(),
-        };
+        let mut output_connection = Connection::default();
 
         // before processing, output data is 0.0
         {

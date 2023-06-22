@@ -6,115 +6,13 @@ use std::{
 
 #[cfg(feature = "dac")]
 use cpal::{traits::StreamTrait, PauseStreamError, PlayStreamError};
-use petgraph::stable_graph::NodeIndex;
+
 #[cfg(feature = "dac")]
 use resonix_dac::{DACBuildError, DACConfig, DAC};
 use uuid::Uuid;
 
 use crate::Processor;
 
-#[derive(thiserror::Error, Debug)]
-pub enum ConnectError {
-    #[error("Node could not be found in the audio graph for index {node_index:?}. Are you sure you added it?")]
-    NodeNotFound { node_index: NodeIndex },
-    #[error("Node connection from {parent_node_name:?} to {child_node_name:?} failed. Expected `from_index` to be a max of {expected_from_index:?} and `to_index`  to be a max of {expected_to_index:?}. Received `from_index`  of {from_index:?} and `to_index` of {to_index:?}")]
-    IncorrectIndex {
-        expected_from_index: usize,
-        expected_to_index: usize,
-        from_index: usize,
-        to_index: usize,
-        parent_node_name: String,
-        child_node_name: String,
-    },
-}
-
-#[cfg(test)]
-mod test_audio_context_inner {
-
-    #[test]
-    fn allows_running_audio_graph() {
-        todo!()
-        // let mut audio_context = AudioContext::default();
-        // let constant_node_left = ConstantNode::new_with_signal_value(&mut audio_context, 4.0);
-        // let constant_node_right = ConstantNode::new_with_signal_value(&mut audio_context, 0.5);
-
-        // let pass_through_node_left = PassThroughNode::new(&mut audio_context);
-        // constant_node_left.connect(&pass_through_node_left).unwrap();
-        // let pass_through_node_right = PassThroughNode::new(&mut audio_context);
-        // constant_node_right
-        //     .connect(&pass_through_node_right)
-        //     .unwrap();
-
-        // let multiply_node = MultiplyNode::new(&mut audio_context);
-        // pass_through_node_left.connect(&multiply_node).unwrap();
-        // pass_through_node_right
-        //     .connect_nodes_with_indexes(0, &multiply_node, 1)
-        //     .unwrap();
-        // let record_node = RecordNode::new(&mut audio_context);
-        // multiply_node.connect(&record_node).unwrap();
-        // audio_context.run();
-
-        // // recording should now contain one sample
-        // {
-        //     let record_data = record_node.data();
-        //     assert_eq!(record_data.len(), 1);
-        //     assert_eq!(*record_data.first().unwrap(), 2.0);
-        // }
-
-        // audio_context.run();
-
-        // // another sample should be recorded (with the same value)
-        // {
-        //     let record_data = record_node.data();
-        //     assert_eq!(record_data.len(), 2);
-        //     assert_eq!(*record_data.get(1).unwrap(), 2.0);
-        // }
-    }
-
-    #[test]
-    fn allows_getting_input_nodes() {
-        todo!()
-        // let mut audio_context = AudioContext::new();
-        // let sine_node = SineNode::new(&mut audio_context);
-        // RecordNode::new(&mut audio_context);
-        // PassThroughNode::new(&mut audio_context);
-        // let constant_node = ConstantNode::new(&mut audio_context);
-        // MultiplyNode::new(&mut audio_context);
-
-        // let input_nodes = audio_context.input_nodes();
-
-        // assert_eq!(input_nodes.len(), 2);
-        // assert!(input_nodes
-        //     .iter()
-        //     .any(|node| node.uuid() == sine_node.uuid()));
-        // assert!(input_nodes
-        //     .iter()
-        //     .any(|node| node.uuid() == constant_node.uuid()));
-    }
-
-    #[cfg(feature = "dac")]
-    #[test]
-    fn allows_getting_dac_nodes() {
-        todo!()
-        // use crate::DACNode;
-
-        // let mut audio_context = AudioContext::new();
-        // SineNode::new(&mut audio_context);
-        // RecordNode::new(&mut audio_context);
-        // PassThroughNode::new(&mut audio_context);
-        // ConstantNode::new(&mut audio_context);
-        // MultiplyNode::new(&mut audio_context);
-        // let dac_node = DACNode::new(&mut audio_context);
-
-        // let dac_nodes = audio_context.dac_nodes();
-
-        // assert_eq!(dac_nodes.len(), 1);
-        // assert!(dac_nodes.iter().any(|node| node.uuid() == dac_node.uuid()));
-    }
-}
-
-/// Cloning the audio context is an outward clone of the
-/// audio context handle
 #[derive(Debug)]
 pub struct AudioContext {
     processor: Processor,

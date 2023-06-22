@@ -1,103 +1,30 @@
 use std::{
     any::Any,
     collections::{HashSet, VecDeque},
-    ptr::addr_of,
+    ptr::{addr_of, addr_of_mut},
 };
 
-use petgraph::{
-    graph::EdgeReference,
-    stable_graph::NodeIndex,
-    visit::{Dfs, IntoNodeIdentifiers},
-    Direction, Graph,
-};
+use petgraph::{stable_graph::NodeIndex, visit::Dfs, Direction, Graph};
 
 use uuid::Uuid;
 
-use crate::{BoxedNode, ConnectError, Connection, DACNode, Node, NodeType};
+use crate::{AddConnectionError, BoxedNode, Connection, DACNode, Node, NodeType};
 
-#[cfg(test)]
-mod test_audio_context_inner {
-
-    #[test]
-    fn allows_running_audio_graph() {
-        todo!()
-        // let mut audio_context = Processor::default();
-        // let constant_node_left = ConstantNode::new_with_signal_value(&mut audio_context, 4.0);
-        // let constant_node_right = ConstantNode::new_with_signal_value(&mut audio_context, 0.5);
-
-        // let pass_through_node_left = PassThroughNode::new(&mut audio_context);
-        // constant_node_left.connect(&pass_through_node_left).unwrap();
-        // let pass_through_node_right = PassThroughNode::new(&mut audio_context);
-        // constant_node_right
-        //     .connect(&pass_through_node_right)
-        //     .unwrap();
-
-        // let multiply_node = MultiplyNode::new(&mut audio_context);
-        // pass_through_node_left.connect(&multiply_node).unwrap();
-        // pass_through_node_right
-        //     .connect_nodes_with_indexes(0, &multiply_node, 1)
-        //     .unwrap();
-        // let record_node = RecordNode::new(&mut audio_context);
-        // multiply_node.connect(&record_node).unwrap();
-        // audio_context.run();
-
-        // // recording should now contain one sample
-        // {
-        //     let record_data = record_node.data();
-        //     assert_eq!(record_data.len(), 1);
-        //     assert_eq!(*record_data.first().unwrap(), 2.0);
-        // }
-
-        // audio_context.run();
-
-        // // another sample should be recorded (with the same value)
-        // {
-        //     let record_data = record_node.data();
-        //     assert_eq!(record_data.len(), 2);
-        //     assert_eq!(*record_data.get(1).unwrap(), 2.0);
-        // }
-    }
-
-    #[test]
-    fn allows_getting_input_nodes() {
-        todo!()
-        // let mut audio_context = Processor::new();
-        // let sine_node = SineNode::new(&mut audio_context);
-        // RecordNode::new(&mut audio_context);
-        // PassThroughNode::new(&mut audio_context);
-        // let constant_node = ConstantNode::new(&mut audio_context);
-        // MultiplyNode::new(&mut audio_context);
-
-        // let input_nodes = audio_context.input_nodes();
-
-        // assert_eq!(input_nodes.len(), 2);
-        // assert!(input_nodes
-        //     .iter()
-        //     .any(|node| node.uuid() == sine_node.uuid()));
-        // assert!(input_nodes
-        //     .iter()
-        //     .any(|node| node.uuid() == constant_node.uuid()));
-    }
-
-    #[cfg(feature = "dac")]
-    #[test]
-    fn allows_getting_dac_nodes() {
-        todo!()
-        // use crate::DACNode;
-
-        // let mut audio_context = Processor::new();
-        // SineNode::new(&mut audio_context);
-        // RecordNode::new(&mut audio_context);
-        // PassThroughNode::new(&mut audio_context);
-        // ConstantNode::new(&mut audio_context);
-        // MultiplyNode::new(&mut audio_context);
-        // let dac_node = DACNode::new(&mut audio_context);
-
-        // let dac_nodes = audio_context.dac_nodes();
-
-        // assert_eq!(dac_nodes.len(), 1);
-        // assert!(dac_nodes.iter().any(|node| node.uuid() == dac_node.uuid()));
-    }
+#[derive(thiserror::Error, Debug)]
+pub enum ConnectError {
+    #[error("Node could not be found in the audio graph for index {node_index:?}. Are you sure you added it?")]
+    NodeNotFound { node_index: NodeIndex },
+    #[error("Node connection from {parent_node_name:?} to {child_node_name:?} failed. Expected `from_index` to be a max of {expected_from_index:?} and `to_index`  to be a max of {expected_to_index:?}. Received `from_index`  of {from_index:?} and `to_index` of {to_index:?}")]
+    IncorrectIndex {
+        expected_from_index: usize,
+        expected_to_index: usize,
+        from_index: usize,
+        to_index: usize,
+        parent_node_name: String,
+        child_node_name: String,
+    },
+    #[error("Node connection failed. Original error: {0:?}")]
+    AddConnectionError(#[from] AddConnectionError),
 }
 
 /// Cloning the audio context is an outward clone of the
@@ -116,44 +43,71 @@ impl Processor {
         Default::default()
     }
 
+    /// Executes the audio graph
     pub(crate) fn run(&mut self) {
         if self.visit_order.is_none() {
             self.initialize_visit_order();
         }
 
         for node_index in self.visit_order.as_ref().unwrap() {
-            let mut incoming_connections = self
-                .graph
-                .edges_directed(*node_index, Direction::Incoming)
-                .map(|edge_reference| edge_reference.weight());
-
-            let mut outgoing_connections = self
-                .graph
-                .edges_directed(*node_index, Direction::Outgoing)
-                // NODE: if `resonix` should ever support cyclic graphs, it will be imperative
-                // to filter outgoing_connections so that we are not creating
-                // multiple mutable references to the same Connection
-                .map(|edge_reference: EdgeReference<'_, Connection>| edge_reference.weight())
-                .map(|connection| unsafe {
-                    // `petgraph` provides no way of obtaining a mutable reference to the edges
-                    // from a node. todo - move this step into a pre-compute function to keep
-                    // this hot path clear
-                    let ptr_mut = addr_of!(*connection) as *mut Connection;
-                    &mut (*ptr_mut) as &mut Connection
-                });
-
-            // some very unsafe shenanigans here, since Rust doesn't know that the immutable borrows values from the Graph (above)
-            // are not the same parts of the graph that are borrowed mutably here
+            // some very unsafe shenanigans here, since Rust doesn't know that the immutable borrows
+            // of Connections from the Graph below are not the same mutable borrow of the Node
             // this should be safe-ish since we are only borrowing connections above, and here we are only borrowing a node
-            let graph_ptr_mut = addr_of!(self.graph) as *mut Graph<BoxedNode, Connection>;
-            let graph_mut = unsafe { &mut *graph_ptr_mut as &mut Graph<BoxedNode, Connection> };
-            let node = &mut graph_mut[*node_index];
+            // let graph_ptr_mut = addr_of!(self.graph) as *mut Graph<BoxedNode, Connection>;
+            // let graph_mut = unsafe { &mut *graph_ptr_mut as &mut Graph<BoxedNode, Connection> };
+            // let node = &mut graph_mut[*node_index];
+            let graph_ptr = addr_of!(self.graph);
 
-            node.process(&mut incoming_connections, &mut outgoing_connections)
+            let node_mut: &mut Box<dyn Node> = &mut self.graph[*node_index];
+
+            // it is safe to immutably borrow `node_mut` for its connections, AS LONG AS the
+            // connections are not touched within the Node's `process` implementation
+            // todo => refactor `Node::process` to make this impossible (and therefore actually safe)
+            let node_ptr = addr_of!(*node_mut);
+            let node = unsafe { &*node_ptr as &BoxedNode };
+            let incoming_edge_indexes = node.incoming_connection_indexes();
+            let outgoing_edge_indexes = node.outgoing_connection_indexes();
+
+            let mut incoming_connections = {
+                let graph_for_incoming_edges =
+                    unsafe { &*(graph_ptr) as &Graph<BoxedNode, Connection> };
+                incoming_edge_indexes.iter().map(|i| {
+                    let connection = graph_for_incoming_edges.edge_weight(*i).unwrap();
+                    let ptr = addr_of!(*connection);
+                    unsafe { &*(ptr) as &Connection }
+                })
+            };
+
+            let mut outgoing_connections = {
+                let graph_mut_for_outgoing_edges = unsafe {
+                    let ptr_mut = graph_ptr as *mut Graph<BoxedNode, Connection>;
+                    &mut *(ptr_mut) as &mut Graph<BoxedNode, Connection>
+                };
+                outgoing_edge_indexes.iter().map(|i| {
+                    let connection = graph_mut_for_outgoing_edges.edge_weight_mut(*i).unwrap();
+                    let ptr = addr_of_mut!(*connection);
+                    unsafe { &mut *(ptr) as &mut Connection }
+                })
+            };
+
+            node_mut.process(&mut incoming_connections, &mut outgoing_connections)
         }
     }
 
-    fn initialize_visit_order(&mut self) {
+    /// This pre-processes the audio graph to a create a fixed graph traversal order
+    /// such that nodes are only visited once all their connections are guaranteed
+    /// to have been initialized by their parent nodes (if applicable)
+    ///
+    /// It is called by default on the first run of the audio graph, but can be called
+    /// manually before then to preemptively prepare the audio processor before it's time
+    /// to start processing audio in real time.
+    ///
+    /// Subsequent calls to this function are ignored.
+    pub fn initialize_visit_order(&mut self) {
+        if self.visit_order.is_some() {
+            return;
+        }
+
         // if there are no inputs to the graph, then there is nothing to traverse
         if self.input_node_indexes.is_empty() {
             self.visit_order = Some(Vec::new());
@@ -214,7 +168,7 @@ impl Processor {
 
             // skip for now if inputs have not been initialized
             if incoming_connections.any(|incoming_connection| {
-                !connection_visit_set.contains(&incoming_connection.uuid)
+                !connection_visit_set.contains(incoming_connection.uuid())
             }) {
                 in_progress_visit_order.push_back(node_index);
                 continue;
@@ -229,13 +183,14 @@ impl Processor {
 
             // mark all outgoing connections from this node has having been visited
             outgoing_connections.for_each(|edge_reference| {
-                connection_visit_set.insert(edge_reference.weight().uuid);
+                connection_visit_set.insert(*edge_reference.weight().uuid());
             });
         }
 
         self.visit_order = Some(final_visit_order);
     }
 
+    /// Used in audio thread to extract audio information from all the DACs
     #[cfg(feature = "dac")]
     pub(crate) fn dac_nodes_sum(&self) -> f32 {
         self.dac_node_indexes
@@ -282,27 +237,49 @@ impl Processor {
         from_index: usize,
         to_index: usize,
     ) -> Result<&mut Self, ConnectError> {
-        let parent_node =
-            &self
-                .graph
-                .node_weight(parent_node_index)
-                .ok_or(ConnectError::NodeNotFound {
-                    node_index: parent_node_index,
-                })?;
-        let child_node =
-            &self
-                .graph
-                .node_weight(child_node_index)
-                .ok_or(ConnectError::NodeNotFound {
-                    node_index: child_node_index,
-                })?;
-        Self::check_index_out_of_bounds(parent_node, child_node, from_index, to_index)?;
+        // check if connection indexes are out of bounds
+        {
+            let parent_node =
+                &self
+                    .graph
+                    .node_weight(parent_node_index)
+                    .ok_or(ConnectError::NodeNotFound {
+                        node_index: parent_node_index,
+                    })?;
+            let child_node =
+                &self
+                    .graph
+                    .node_weight(child_node_index)
+                    .ok_or(ConnectError::NodeNotFound {
+                        node_index: child_node_index,
+                    })?;
 
-        self.graph.add_edge(
+            Self::check_index_out_of_bounds(parent_node, child_node, from_index, to_index)?;
+        }
+
+        // add connection to graph
+        let edge_index = self.graph.add_edge(
             parent_node_index,
             child_node_index,
             Connection::from_indexes(from_index, to_index),
         );
+
+        // add connection indexes to nodes themselves for faster retrieval later
+        self.graph
+            .node_weight_mut(parent_node_index)
+            .ok_or(ConnectError::NodeNotFound {
+                node_index: parent_node_index,
+            })?
+            .add_outgoing_connection_index(edge_index)
+            .unwrap();
+
+        self.graph
+            .node_weight_mut(child_node_index)
+            .ok_or(ConnectError::NodeNotFound {
+                node_index: child_node_index,
+            })?
+            .add_incoming_connection_index(edge_index)
+            .unwrap();
 
         Ok(self)
     }
@@ -333,14 +310,6 @@ impl Processor {
         }
 
         Ok(())
-    }
-
-    fn find_node_index(&self, uuid: &Uuid) -> Option<NodeIndex> {
-        self.graph
-            .node_identifiers()
-            .map(|i| (i, &self.graph[i]))
-            .find(|(_, weight)| weight.uuid() == uuid)
-            .map(|(i, _)| i)
     }
 }
 
