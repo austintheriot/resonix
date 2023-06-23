@@ -1,4 +1,4 @@
-use resonix::{AddToContext, AudioContext, DACBuildError, DACNode, PassThroughNode, SineNode};
+use resonix::{AddToContext, AudioContext, DACBuildError, DACNode, PassThroughNode, SineNode, ProcessorInterface};
 
 pub async fn set_up_audio_graph() -> Result<AudioContext, DACBuildError> {
     let mut audio_context = AudioContext::new();
@@ -10,6 +10,7 @@ pub async fn set_up_audio_graph() -> Result<AudioContext, DACBuildError> {
         .unwrap();
     audio_context
         .connect(sine_node_index, pass_through_node_index)
+        .await
         .unwrap();
 
     let mut prev_node_index = pass_through_node_index;
@@ -21,6 +22,7 @@ pub async fn set_up_audio_graph() -> Result<AudioContext, DACBuildError> {
             .unwrap();
         audio_context
             .connect(prev_node_index, pass_through_node_index)
+            .await
             .unwrap();
         prev_node_index = pass_through_node_index;
     }
@@ -28,6 +30,7 @@ pub async fn set_up_audio_graph() -> Result<AudioContext, DACBuildError> {
     let dac_node_index = DACNode::new().add_to_context(&mut audio_context).unwrap();
     audio_context
         .connect(prev_node_index, dac_node_index)
+        .await
         .unwrap();
 
     audio_context.initialize_dac_from_defaults().await.unwrap();

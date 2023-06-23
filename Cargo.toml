@@ -8,6 +8,8 @@ members = [
     "crates/resonix_graph",
     "demos/audio_graph_web",
     "demos/audio_graph_cli",
+    "demos/channels_test_cli",
+    "demos/channels_test_web",
     "demos/granular_synthesizer_web",
     "demos/granular_synthesizer_cli",
     "demos/concatenative_synthesizer_web",

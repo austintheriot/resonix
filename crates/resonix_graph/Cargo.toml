@@ -12,6 +12,8 @@ petgraph = "0.6.3"
 thiserror = "1.0.40"
 resonix_core = { path = "../resonix_core" }
 resonix_dac = { path ="../resonix_dac", optional = true}
+async-trait = "0.1.68"
+log = "0.4"
 
 # WASM-ONLY dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -21,7 +23,6 @@ cpal = { version = "0.13.5", features = ["wasm-bindgen"], optional = true }
 # NATIVE-ONLY dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 cpal = { version = "0.13.5", optional = true}
-
 
 [features]
 # only need cpal when using audio-out (DAC) features
