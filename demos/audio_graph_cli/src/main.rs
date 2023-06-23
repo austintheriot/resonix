@@ -1,18 +1,20 @@
 use std::time::Duration;
 
-use resonix::{AddToContext, AudioContext, DACNode, PassThroughNode, SineNode};
+use resonix::{AddToContext, AudioContext, DACNode, PassThroughNode, SineNode, ProcessorInterface};
 
 #[tokio::main]
 async fn main() {
     let mut audio_context = AudioContext::new();
     let sine_node_index = SineNode::new_with_config(44100, 440.0)
         .add_to_context(&mut audio_context)
+        .await
         .unwrap();
     let pass_through_node_index = PassThroughNode::new()
         .add_to_context(&mut audio_context)
+        .await
         .unwrap();
     audio_context
-        .connect(sine_node_index, pass_through_node_index)
+        .connect(sine_node_index, pass_through_node_index).await
         .unwrap();
 
     let mut prev_node_index = pass_through_node_index;
@@ -21,16 +23,18 @@ async fn main() {
     for _ in 0..3000 {
         let pass_through_node_index = PassThroughNode::new()
             .add_to_context(&mut audio_context)
+            .await
             .unwrap();
         audio_context
             .connect(prev_node_index, pass_through_node_index)
+            .await
             .unwrap();
         prev_node_index = pass_through_node_index;
     }
 
-    let dac_node_index = DACNode::new().add_to_context(&mut audio_context).unwrap();
+    let dac_node_index = DACNode::new().add_to_context(&mut audio_context).await.unwrap();
     audio_context
-        .connect(prev_node_index, dac_node_index)
+        .connect(prev_node_index, dac_node_index).await
         .unwrap();
 
     audio_context.initialize_dac_from_defaults().await.unwrap();
