@@ -10,6 +10,8 @@
 
 - allow multichannel audio connections
 
+- make it so that nodes NEVER have to specify sample_rate--this is provided by default from the audio_context
+
 ## Granular Synthesizer
 
 - add handle below buffer selection to allow dragging
