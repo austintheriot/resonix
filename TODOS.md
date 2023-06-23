@@ -6,6 +6,10 @@
   - During the phase where the visit_order is being constructed, mark any nodes that were moved to the end of the array. If those nodes are visited again, we can assume that they require cyclical references, and just add them as-is to the processing order. With this logic, on the first run, all incoming connections to cyclical nodes will have data of 0.0 on the first pass but will get data on subsequent passes as their child nodes process data.
   - One sticky part here is figuring out the correct processing order for these nodes: how can we guarantee that long, cyclical chains are ordered correctly? Process them as a sub-tree? See cyclical graph unfolding for a possible solution here: basically only allow one level of recursion on every iteration.
 
+- The return value of a node getting attached to the audio context is a node_index and message sender for sending messages to the audio context for after the process has moved into the audio thread
+
+- allow multichannel audio connections
+
 ## Granular Synthesizer
 
 - add handle below buffer selection to allow dragging
