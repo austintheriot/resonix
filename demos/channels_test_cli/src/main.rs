@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use resonix::{, AudioContext, DACNode, PassThroughNode, SineNode, ProcessorInterface};
 use log::info;
+use resonix::{AudioContext, SineNode};
 
 #[tokio::main]
 async fn main() {
@@ -10,6 +10,9 @@ async fn main() {
     let mut audio_context = AudioContext::new();
     audio_context.initialize_dac_from_defaults().await.unwrap();
     audio_context.play_stream().unwrap();
+
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
     let sine_node = SineNode::new_with_config(44100, 440.0);
     let sine_node_index = audio_context.add_node(sine_node).await.unwrap();
     info!("main.rs sine_node_index = {sine_node_index:?}");
