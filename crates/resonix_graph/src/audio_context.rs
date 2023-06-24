@@ -1,20 +1,23 @@
 use std::{
     hash::{Hash, Hasher},
     ops::{Deref, DerefMut},
-    sync::{Arc, mpsc::{Sender, Receiver}},
+    sync::{
+        mpsc::{Receiver, Sender},
+        Arc,
+    },
 };
 
 use async_trait::async_trait;
 #[cfg(feature = "dac")]
 use cpal::{traits::StreamTrait, PauseStreamError, PlayStreamError};
 
+use log::info;
 use petgraph::stable_graph::NodeIndex;
 use resonix_dac::DACConfigBuildError;
 #[cfg(feature = "dac")]
 use resonix_dac::{DACBuildError, DACConfig, DAC};
 use thiserror::Error;
 use uuid::Uuid;
-use log::info;
 
 use crate::{ConnectError, Node, Processor, ProcessorInterface};
 
@@ -97,10 +100,10 @@ impl AudioContext {
 
                 // testing sending and receiving messages
                 if let Ok(message) = processor_rx.try_recv() {
-                    println!("message received: {message:?}");
+                    info!("message received: {message:?}");
 
                     let processor_tx = processor_tx.clone();
-                    
+
                     processor_tx.send(message).unwrap();
                 }
 
@@ -164,25 +167,38 @@ impl ProcessorInterface for AudioContext {
                 .send(1234)
                 .unwrap();
 
+
+            // TODO - this doesn't work in WASM,
+            // since there is no separate audio thread,
+            // meaning the message can't be received without
+            // either first returning from this function
+            // OR allowing a breakpoint here by sleeping
             let mut count = 0;
             loop {
                 count += 1;
                 if count > 100_000 {
-                    info!("no message received!");
+                    info!("audio_context.add_log(): no message received!");
                     break;
                 }
                 if let Ok(message) = self.rx.as_mut().unwrap().try_recv() {
-                    println!("audio context received back message! {:?}", message);
+                    info!(
+                        "audio_context.add_log(): received back message from dac! {:?}",
+                        message
+                    );
                     break;
                 }
             }
-            
+
             // todo : delete
             Ok(NodeIndex::new(0))
         }
     }
 
-    async fn connect(&mut self, node_1: NodeIndex, node_2: NodeIndex) -> Result<&mut Self, ConnectError> {
+    async fn connect(
+        &mut self,
+        node_1: NodeIndex,
+        node_2: NodeIndex,
+    ) -> Result<&mut Self, ConnectError> {
         if let Some(processor) = &mut self.processor {
             processor.connect(node_1, node_2).await.unwrap();
             Ok(self)
@@ -193,7 +209,7 @@ impl ProcessorInterface for AudioContext {
                 .send(5678)
                 .unwrap();
             let message = self.rx.as_mut().unwrap().try_recv().unwrap();
-            println!("audio context received back message! {:?}", message);
+            info!("audio context received back message! {:?}", message);
             // todo : delete
             Ok(self)
         }
