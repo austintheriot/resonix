@@ -55,3 +55,59 @@ where
 dyn_clone::clone_trait_object!(Node);
 
 pub type BoxedNode = Box<dyn Node>;
+
+impl Node for BoxedNode {
+    fn process(
+        &mut self,
+        inputs: &mut dyn Iterator<Item = &Connection>,
+        outputs: &mut dyn Iterator<Item = &mut Connection>,
+    ) {
+        (**self).process(inputs, outputs)
+    }
+
+    fn node_type(&self) -> NodeType {
+        (**self).node_type()
+    }
+
+    fn num_inputs(&self) -> usize {
+        (**self).num_inputs()
+    }
+
+    fn num_outputs(&self) -> usize {
+        (**self).num_outputs()
+    }
+
+    fn uuid(&self) -> &Uuid {
+        (**self).uuid()
+    }
+
+    fn name(&self) -> String {
+        (**self).name()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        (**self).as_any()
+    }
+
+    fn incoming_connection_indexes(&self) -> &[EdgeIndex] {
+        (**self).incoming_connection_indexes()
+    }
+
+    fn outgoing_connection_indexes(&self) -> &[EdgeIndex] {
+        (**self).outgoing_connection_indexes()
+    }
+
+    fn add_incoming_connection_index(
+        &mut self,
+        edge_index: EdgeIndex,
+    ) -> Result<(), AddConnectionError> {
+        (**self).add_incoming_connection_index(edge_index)
+    }
+
+    fn add_outgoing_connection_index(
+        &mut self,
+        edge_index: EdgeIndex,
+    ) -> Result<(), AddConnectionError> {
+        (**self).add_incoming_connection_index(edge_index)
+    }
+}

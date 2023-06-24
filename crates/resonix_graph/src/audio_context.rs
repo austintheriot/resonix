@@ -13,7 +13,7 @@ use resonix_dac::{DACBuildError, DACConfig, DACConfigBuildError, DAC};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{ConnectError, Node, Processor};
+use crate::{BoxedNode, ConnectError, MessageRequest, MessageResponse, Node, Processor, AddNodeError};
 
 #[cfg(feature = "dac")]
 #[derive(Error, Debug)]
@@ -32,10 +32,11 @@ pub struct AudioContext {
     #[cfg(feature = "dac")]
     dac: Option<DAC>,
     /// sends message to Processor once it has been moved into the audio thread
-    tx: Option<Sender<usize>>,
+    tx: Option<Sender<MessageRequest<BoxedNode>>>,
     /// receives messages from Processor once it has been moved into the audio thread
-    rx: Option<Receiver<usize>>,
+    rx: Option<Receiver<MessageResponse>>,
     uuid: Uuid,
+    request_id: u32,
 }
 
 unsafe impl Send for AudioContext {}
@@ -66,12 +67,6 @@ impl AudioContext {
             .await
     }
 
-    pub async fn send_message(&self, int: usize) {
-        if let Some(tx) = &self.tx {
-            tx.send(int).await.unwrap();
-        }
-    }
-
     #[cfg(feature = "dac")]
     pub async fn initialize_dac_from_config(
         &mut self,
@@ -91,13 +86,11 @@ impl AudioContext {
             move |buffer: &mut [f32], config: Arc<DACConfig>| {
                 let num_channels = config.stream_config.channels as usize;
 
-                // testing sending and receiving messages
+                // run any messages that are ready
                 if let Ok(message) = processor_rx.try_recv() {
                     info!("message received: {message:?}");
-
                     let processor_tx = processor_tx.clone();
-
-                    processor_tx.try_send(message).unwrap();
+                    run_message(message, &mut processor, processor_tx);
                 }
 
                 for frame in buffer.chunks_mut(num_channels) {
@@ -147,28 +140,29 @@ impl AudioContext {
         self.processor.as_mut()
     }
 
-    pub async fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, N> {
+    pub async fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, AddNodeError> {
         if let Some(processor) = &mut self.processor {
-            processor.add_node(node).await
+            processor.add_node(node)
         } else {
+            let new_request_id = self.new_request_id();
             self.tx
                 .as_ref()
                 .expect("If `processor` is `None`, then `tx` should be defined")
-                .send(1234)
+                .send(MessageRequest::AddNode {
+                    id: new_request_id,
+                    node: Box::new(node),
+                })
                 .await
                 .unwrap();
 
-            if let Ok(message) = self.rx.as_mut().unwrap().recv().await {
-                info!(
-                    "audio_context.add_log(): received back message from dac! {:?}",
-                    message
-                );
-            } else {
-                error!("audio_context.add_log(): could not get message back from dac!")
-            }
-
-            // todo : delete
-            Ok(NodeIndex::new(0))
+                loop {
+                    match self.rx.as_mut().unwrap().recv().await {
+                        Ok(MessageResponse::AddNode { id, result }) if id == new_request_id => {
+                           break result;
+                        }
+                        _ => continue,
+                    }
+                }
         }
     }
 
@@ -178,19 +172,38 @@ impl AudioContext {
         node_2: NodeIndex,
     ) -> Result<&mut Self, ConnectError> {
         if let Some(processor) = &mut self.processor {
-            processor.connect(node_1, node_2).await.unwrap();
+            processor.connect(node_1, node_2).unwrap();
             Ok(self)
         } else {
             self.tx
                 .as_mut()
                 .expect("If `processor` is `None`, then `tx` should be defined")
-                .send(5678)
+                .send(todo!())
                 .await
                 .unwrap();
             let message = self.rx.as_mut().unwrap().recv().await.unwrap();
             info!("audio context received back message! {:?}", message);
             // todo : delete
             Ok(self)
+        }
+    }
+
+    fn new_request_id(&mut self) -> u32 {
+        self.request_id = self.request_id.wrapping_add(1);
+        self.request_id
+    }
+}
+
+fn run_message<N: Node + 'static>(
+    message: MessageRequest<N>,
+    processor: &mut Processor,
+    processor_tx: Sender<MessageResponse>,
+) {
+    match message {
+        MessageRequest::AddNode { id, node } => {
+            let result = processor.add_node(node);
+            let response = MessageResponse::AddNode { id, result };
+            processor_tx.try_send(response).unwrap();
         }
     }
 }
@@ -230,6 +243,7 @@ impl Default for AudioContext {
             dac: Default::default(),
             tx: None,
             rx: None,
+            request_id: 0,
         }
     }
 }
