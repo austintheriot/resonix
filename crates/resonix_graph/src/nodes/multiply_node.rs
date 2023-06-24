@@ -3,7 +3,7 @@ use std::any::Any;
 use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
 
-use crate::{AddConnectionError, AddToContext, Connection, Node, NodeType};
+use crate::{AddConnectionError, Connection, Node, NodeType};
 
 /// Takes two signals and multiplies them together,
 /// outputting the signal to all connected outputs
@@ -95,8 +95,6 @@ impl Node for MultiplyNode {
         Ok(())
     }
 }
-
-impl AddToContext for MultiplyNode {}
 
 impl Default for MultiplyNode {
     fn default() -> Self {

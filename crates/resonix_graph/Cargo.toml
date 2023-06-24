@@ -19,6 +19,7 @@ log = "0.4"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # only need wasm-bindgen when compiling for wasm32
 cpal = { version = "0.13.5", features = ["wasm-bindgen"], optional = true }
+gloo-timers = {version = "0.2.6", features = ["futures"]}
 
 # NATIVE-ONLY dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

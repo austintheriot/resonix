@@ -19,10 +19,3 @@ pub enum ConnectError {
     #[error("Node connection failed. Original error: {0:?}")]
     AddConnectionError(#[from] AddConnectionError),
 }
-
-#[async_trait]
-pub trait ProcessorInterface {
-    async fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, N>;
-
-    async fn connect(&mut self, node_1: NodeIndex, node_2: NodeIndex) -> Result<&mut Self, ConnectError>;
-}

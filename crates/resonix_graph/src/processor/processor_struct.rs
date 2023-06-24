@@ -11,7 +11,6 @@ use uuid::Uuid;
 
 use crate::{
     AddConnectionError, BoxedNode, ConnectError, Connection, DACNode, Node, NodeType,
-    ProcessorInterface,
 };
 
 /// Cloning the audio context is an outward clone of the
@@ -265,11 +264,8 @@ impl Processor {
 
         Ok(())
     }
-}
 
-#[async_trait]
-impl ProcessorInterface for Processor {
-    async fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, N> {
+    pub async fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, N> {
         if self.node_uuids.contains(node.uuid()) {
             return Err(node);
         }
@@ -294,7 +290,7 @@ impl ProcessorInterface for Processor {
         Ok(node_index)
     }
 
-    async fn connect(&mut self, node_1: NodeIndex, node_2: NodeIndex) -> Result<&mut Self, ConnectError> {
+    pub async fn connect(&mut self, node_1: NodeIndex, node_2: NodeIndex) -> Result<&mut Self, ConnectError> {
         self.connect_with_indexes(node_1, node_2, Default::default(), Default::default())
     }
 }

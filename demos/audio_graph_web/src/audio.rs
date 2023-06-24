@@ -1,4 +1,4 @@
-use resonix::{AddToContext, AudioContext, DACBuildError, DACNode, PassThroughNode, SineNode, ProcessorInterface};
+use resonix::{, AudioContext, DACBuildError, DACNode, PassThroughNode, SineNode, ProcessorInterface};
 
 pub async fn set_up_audio_graph() -> Result<AudioContext, DACBuildError> {
     let mut audio_context = AudioContext::new();

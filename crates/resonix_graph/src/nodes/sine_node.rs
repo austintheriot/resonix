@@ -4,7 +4,7 @@ use petgraph::prelude::EdgeIndex;
 use resonix_core::{SampleRate, Sine, SineInterface};
 use uuid::Uuid;
 
-use crate::{AddConnectionError, AddToContext, Connection, Node, NodeType};
+use crate::{AddConnectionError, Connection, Node, NodeType};
 
 #[derive(Debug, Clone)]
 pub struct SineNode {
@@ -114,8 +114,6 @@ impl SineNode {
         }
     }
 }
-
-impl AddToContext for SineNode {}
 
 impl PartialEq for SineNode {
     fn eq(&self, other: &Self) -> bool {

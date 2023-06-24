@@ -3,7 +3,7 @@ use std::any::Any;
 use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
 
-use crate::{AddConnectionError, AddToContext, Connection, Node, NodeType};
+use crate::{AddConnectionError, Connection, Node, NodeType};
 
 #[derive(Debug, Clone)]
 pub struct DACNode {
@@ -85,8 +85,6 @@ impl Node for DACNode {
         Err(AddConnectionError::CantAcceptOutputConnections { name: self.name() })
     }
 }
-
-impl AddToContext for DACNode {}
 
 impl Default for DACNode {
     fn default() -> Self {

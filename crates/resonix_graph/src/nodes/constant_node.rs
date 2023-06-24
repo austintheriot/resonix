@@ -6,7 +6,7 @@ use std::{
 use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
 
-use crate::{AddConnectionError, AddToContext, Connection, Node, NodeType};
+use crate::{AddConnectionError, Connection, Node, NodeType};
 
 /// Takes no input signals and outputs a single,
 /// constant signal value to all output connections.
@@ -102,8 +102,6 @@ impl Node for ConstantNode {
         Ok(())
     }
 }
-
-impl AddToContext for ConstantNode {}
 
 impl PartialEq for ConstantNode {
     fn eq(&self, other: &Self) -> bool {
