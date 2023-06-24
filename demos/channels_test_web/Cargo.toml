@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 leptos = { version = "0.3.0", features = ["stable"] }
 resonix = { path = "../../crates/resonix", features = ["dac"]}
+gloo-timers = { version = "0.2.6", features = ["futures"] }
 
 # logging
 log = "0.4"

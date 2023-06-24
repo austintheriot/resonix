@@ -131,10 +131,17 @@ mod audio_out_tests {
         }
         .await;
 
-        std::thread::sleep(Duration::from_millis(1000));
-
         assert!(player.is_ok());
-        assert!(*called.lock().unwrap());
+
+        let mut tries = 0;
+        while !*called.lock().unwrap() {
+            tries += 1;
+
+            if tries >= 30 {
+                panic!("Failed to call closure callback after {tries:?} tries");
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
     }
 
     #[tokio::test]
@@ -151,7 +158,14 @@ mod audio_out_tests {
 
         assert!(player.is_ok());
 
-        std::thread::sleep(Duration::from_millis(1000));
-        assert!(*called.lock().unwrap());
+        let mut tries = 0;
+        while !*called.lock().unwrap() {
+            tries += 1;
+
+            if tries >= 30 {
+                panic!("Failed to call closure callback after {tries:?} tries");
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
     }
 }

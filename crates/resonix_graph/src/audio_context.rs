@@ -1,17 +1,12 @@
 use std::{
     hash::{Hash, Hasher},
-    ops::{Deref, DerefMut},
-    sync::{
-        mpsc::{Receiver, Sender},
-        Arc,
-    },
+    sync::Arc,
 };
 
-use async_trait::async_trait;
+use async_channel::{Receiver, Sender};
 #[cfg(feature = "dac")]
 use cpal::{traits::StreamTrait, PauseStreamError, PlayStreamError};
-
-use log::{info, error};
+use log::{error, info};
 use petgraph::stable_graph::NodeIndex;
 use resonix_dac::DACConfigBuildError;
 #[cfg(feature = "dac")]
@@ -20,9 +15,9 @@ use thiserror::Error;
 use uuid::Uuid;
 
 #[cfg(target_arch = "wasm32")]
-use std::time::Duration;
-#[cfg(target_arch = "wasm32")]
 use gloo_timers::future::sleep;
+#[cfg(target_arch = "wasm32")]
+use std::time::Duration;
 
 use crate::{ConnectError, Node, Processor};
 
@@ -78,9 +73,9 @@ impl AudioContext {
             .await
     }
 
-    pub fn send_message(&self, int: usize) {
+    pub async fn send_message(&self, int: usize) {
         if let Some(tx) = &self.tx {
-            tx.send(int).unwrap();
+            tx.send(int).await.unwrap();
         }
     }
 
@@ -89,8 +84,8 @@ impl AudioContext {
         &mut self,
         dac_config: DACConfig,
     ) -> Result<&mut Self, DacInitializeError> {
-        let (mut audio_context_tx, mut processor_rx) = std::sync::mpsc::channel();
-        let (mut processor_tx, mut audio_context_rx) = std::sync::mpsc::channel();
+        let (audio_context_tx, processor_rx) = async_channel::unbounded();
+        let (processor_tx, audio_context_rx) = async_channel::unbounded();
         self.tx.replace(audio_context_tx);
         self.rx.replace(audio_context_rx);
         let mut processor = self
@@ -109,7 +104,7 @@ impl AudioContext {
 
                     let processor_tx = processor_tx.clone();
 
-                    processor_tx.send(message).unwrap();
+                    processor_tx.try_send(message).unwrap();
                 }
 
                 for frame in buffer.chunks_mut(num_channels) {
@@ -167,14 +162,10 @@ impl AudioContext {
                 .as_ref()
                 .expect("If `processor` is `None`, then `tx` should be defined")
                 .send(1234)
+                .await
                 .unwrap();
 
-            #[cfg(target_arch = "wasm32")]
-            {
-                sleep(Duration::from_millis(1000)).await;
-            }
-
-            if let Ok(message) = self.rx.as_mut().unwrap().try_recv() {
+            if let Ok(message) = self.rx.as_mut().unwrap().recv().await {
                 info!(
                     "audio_context.add_log(): received back message from dac! {:?}",
                     message
@@ -201,8 +192,9 @@ impl AudioContext {
                 .as_mut()
                 .expect("If `processor` is `None`, then `tx` should be defined")
                 .send(5678)
+                .await
                 .unwrap();
-            let message = self.rx.as_mut().unwrap().try_recv().unwrap();
+            let message = self.rx.as_mut().unwrap().recv().await.unwrap();
             info!("audio context received back message! {:?}", message);
             // todo : delete
             Ok(self)

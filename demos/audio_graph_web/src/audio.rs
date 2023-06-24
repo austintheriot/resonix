@@ -1,13 +1,12 @@
-use resonix::{, AudioContext, DACBuildError, DACNode, PassThroughNode, SineNode, ProcessorInterface};
+use resonix::{AudioContext, DACBuildError, DACNode, PassThroughNode, SineNode};
 
 pub async fn set_up_audio_graph() -> Result<AudioContext, DACBuildError> {
     let mut audio_context = AudioContext::new();
-    let sine_node_index = SineNode::new_with_config(44100, 440.0)
-        .add_to_context(&mut audio_context)
-        .unwrap();
-    let pass_through_node_index = PassThroughNode::new()
-        .add_to_context(&mut audio_context)
-        .unwrap();
+    let sine_node = SineNode::new_with_config(44100, 440.0);
+    let sine_node_index = audio_context.add_node(sine_node).await.unwrap();
+
+    let pass_through_node = PassThroughNode::new();
+    let pass_through_node_index = audio_context.add_node(pass_through_node).await.unwrap();
     audio_context
         .connect(sine_node_index, pass_through_node_index)
         .await
@@ -17,9 +16,8 @@ pub async fn set_up_audio_graph() -> Result<AudioContext, DACBuildError> {
 
     // string 500 pass-through nodes together to stress test audio
     for _ in 0..500 {
-        let pass_through_node_index = PassThroughNode::new()
-            .add_to_context(&mut audio_context)
-            .unwrap();
+        let pass_through_node = PassThroughNode::new();
+        let pass_through_node_index = audio_context.add_node(pass_through_node).await.unwrap();
         audio_context
             .connect(prev_node_index, pass_through_node_index)
             .await
@@ -27,7 +25,8 @@ pub async fn set_up_audio_graph() -> Result<AudioContext, DACBuildError> {
         prev_node_index = pass_through_node_index;
     }
 
-    let dac_node_index = DACNode::new().add_to_context(&mut audio_context).unwrap();
+    let dac_node = DACNode::new();
+    let dac_node_index = audio_context.add_node(dac_node).await.unwrap();
     audio_context
         .connect(prev_node_index, dac_node_index)
         .await
