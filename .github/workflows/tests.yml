@@ -33,3 +33,9 @@ jobs:
         run: |
           cargo check --workspace
           cargo test --workspace -- --skip audio_out_tests
+
+      - name: Check compilation with and without DAC
+        run: |
+          working-directory: crates/resonix
+          cargo check
+          cargo check --features dac

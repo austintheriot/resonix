@@ -2168,7 +2168,6 @@ dependencies = [
  "async-channel",
  "cpal",
  "dyn-clone",
- "gloo-timers",
  "log",
  "petgraph",
  "resonix_core",

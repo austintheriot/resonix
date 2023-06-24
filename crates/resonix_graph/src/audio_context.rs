@@ -8,19 +8,14 @@ use async_channel::{Receiver, Sender};
 use cpal::{traits::StreamTrait, PauseStreamError, PlayStreamError};
 use log::{error, info};
 use petgraph::stable_graph::NodeIndex;
-use resonix_dac::DACConfigBuildError;
 #[cfg(feature = "dac")]
-use resonix_dac::{DACBuildError, DACConfig, DAC};
+use resonix_dac::{DACBuildError, DACConfig, DACConfigBuildError, DAC};
 use thiserror::Error;
 use uuid::Uuid;
 
-#[cfg(target_arch = "wasm32")]
-use gloo_timers::future::sleep;
-#[cfg(target_arch = "wasm32")]
-use std::time::Duration;
-
 use crate::{ConnectError, Node, Processor};
 
+#[cfg(feature = "dac")]
 #[derive(Error, Debug)]
 pub enum DacInitializeError {
     #[error("Error occurred while initializing DAC for the audio context because there is no Processor in the Audio Context. This indicates that the DAC has already been set up.")]
@@ -36,11 +31,9 @@ pub struct AudioContext {
     processor: Option<Processor>,
     #[cfg(feature = "dac")]
     dac: Option<DAC>,
-    /// sends message to Processor once it moves into the audio thread
-    #[cfg(feature = "dac")]
+    /// sends message to Processor once it has been moved into the audio thread
     tx: Option<Sender<usize>>,
-    /// receives messages from Processor once it moves into the audio thread
-    #[cfg(feature = "dac")]
+    /// receives messages from Processor once it has been moved into the audio thread
     rx: Option<Receiver<usize>>,
     uuid: Uuid,
 }
