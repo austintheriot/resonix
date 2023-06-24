@@ -42,11 +42,6 @@ async fn main() {
 
     println!("{:?}", sample_rate);
 
-    tokio::time::sleep(Duration::from_millis(3000)).await;
-
-    audio_context.send_message(0);
-
-    // audio_context.send_message(1);
 
     tokio::time::sleep(Duration::MAX).await;
 }

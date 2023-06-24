@@ -27,6 +27,14 @@ pub enum ConnectError {
     AddConnectionError(#[from] AddConnectionError),
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum AddNodeError {
+    #[error("Cannot add {name:?} to the audio graph, since it has already been added.")]
+    AlreadyExists {
+        name: String,
+    },
+}
+
 /// Cloning the audio context is an outward clone of the
 /// audio context handle
 #[derive(Debug, Default, Clone)]
@@ -279,9 +287,11 @@ impl Processor {
         Ok(())
     }
 
-    pub async fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, N> {
+    pub fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, AddNodeError> {
         if self.node_uuids.contains(node.uuid()) {
-            return Err(node);
+            return Err(AddNodeError::AlreadyExists {
+                name: node.name(),
+            });
         }
 
         let is_input = node.node_type() == NodeType::Input;
@@ -304,7 +314,7 @@ impl Processor {
         Ok(node_index)
     }
 
-    pub async fn connect(
+    pub fn connect(
         &mut self,
         node_1: NodeIndex,
         node_2: NodeIndex,
