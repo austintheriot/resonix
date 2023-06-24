@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use resonix::{AddToContext, AudioContext, DACNode, PassThroughNode, SineNode, ProcessorInterface};
+use resonix::{, AudioContext, DACNode, PassThroughNode, SineNode, ProcessorInterface};
 
 #[tokio::main]
 async fn main() {

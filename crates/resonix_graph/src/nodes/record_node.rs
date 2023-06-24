@@ -3,7 +3,7 @@ use std::any::Any;
 use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
 
-use crate::{AddConnectionError, AddToContext, Connection, Node, NodeType};
+use crate::{AddConnectionError, Connection, Node, NodeType};
 
 #[derive(Debug, Clone)]
 pub struct RecordNode {
@@ -83,8 +83,6 @@ impl Node for RecordNode {
         Err(AddConnectionError::CantAcceptOutputConnections { name: self.name() })
     }
 }
-
-impl AddToContext for RecordNode {}
 
 impl Default for RecordNode {
     fn default() -> Self {

@@ -11,7 +11,7 @@ use async_trait::async_trait;
 #[cfg(feature = "dac")]
 use cpal::{traits::StreamTrait, PauseStreamError, PlayStreamError};
 
-use log::info;
+use log::{info, error};
 use petgraph::stable_graph::NodeIndex;
 use resonix_dac::DACConfigBuildError;
 #[cfg(feature = "dac")]
@@ -19,7 +19,12 @@ use resonix_dac::{DACBuildError, DACConfig, DAC};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{ConnectError, Node, Processor, ProcessorInterface};
+#[cfg(target_arch = "wasm32")]
+use std::time::Duration;
+#[cfg(target_arch = "wasm32")]
+use gloo_timers::future::sleep;
+
+use crate::{ConnectError, Node, Processor};
 
 #[derive(Error, Debug)]
 pub enum DacInitializeError {
@@ -153,11 +158,8 @@ impl AudioContext {
     pub fn processor_mut(&mut self) -> Option<&mut Processor> {
         self.processor.as_mut()
     }
-}
 
-#[async_trait]
-impl ProcessorInterface for AudioContext {
-    async fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, N> {
+    pub async fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, N> {
         if let Some(processor) = &mut self.processor {
             processor.add_node(node).await
         } else {
@@ -167,26 +169,18 @@ impl ProcessorInterface for AudioContext {
                 .send(1234)
                 .unwrap();
 
+            #[cfg(target_arch = "wasm32")]
+            {
+                sleep(Duration::from_millis(1000)).await;
+            }
 
-            // TODO - this doesn't work in WASM,
-            // since there is no separate audio thread,
-            // meaning the message can't be received without
-            // either first returning from this function
-            // OR allowing a breakpoint here by sleeping
-            let mut count = 0;
-            loop {
-                count += 1;
-                if count > 100_000 {
-                    info!("audio_context.add_log(): no message received!");
-                    break;
-                }
-                if let Ok(message) = self.rx.as_mut().unwrap().try_recv() {
-                    info!(
-                        "audio_context.add_log(): received back message from dac! {:?}",
-                        message
-                    );
-                    break;
-                }
+            if let Ok(message) = self.rx.as_mut().unwrap().try_recv() {
+                info!(
+                    "audio_context.add_log(): received back message from dac! {:?}",
+                    message
+                );
+            } else {
+                error!("audio_context.add_log(): could not get message back from dac!")
             }
 
             // todo : delete
@@ -194,7 +188,7 @@ impl ProcessorInterface for AudioContext {
         }
     }
 
-    async fn connect(
+    pub async fn connect(
         &mut self,
         node_1: NodeIndex,
         node_2: NodeIndex,

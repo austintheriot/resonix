@@ -3,7 +3,7 @@ use std::any::Any;
 use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
 
-use crate::{AddConnectionError, AddToContext, Connection, Node, NodeType};
+use crate::{AddConnectionError, Connection, Node, NodeType};
 
 /// Takes one signal and passed it through, unaltered
 /// to all connected outputs.
@@ -88,8 +88,6 @@ impl Node for PassThroughNode {
         Ok(())
     }
 }
-
-impl AddToContext for PassThroughNode {}
 
 impl Default for PassThroughNode {
     fn default() -> Self {

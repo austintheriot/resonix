@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use log::info;
-use resonix::{cpal, DACConfig, Sine, SineInterface, DAC, AudioContext, SineNode, ProcessorInterface, DACNode};
+use resonix::{cpal, DACConfig, Sine, SineInterface, DAC, AudioContext, SineNode, DACNode};
 
 pub async fn set_up_audio_context() -> AudioContext {
     let mut audio_context = AudioContext::new();
