@@ -17,11 +17,11 @@ async fn main() {
     let mut prev_node_index = pass_through_node_index;
 
     // string many pass-through nodes together to stress test audio
-    for _ in 0..3000 {
+    for _ in 0..1000 {
         let pass_through_node = PassThroughNode::new();
         let pass_through_node_index = audio_context.add_node(pass_through_node).await.unwrap();
         audio_context
-            .connect(pass_through_node_index, pass_through_node_index)
+            .connect(prev_node_index, pass_through_node_index)
             .await
             .unwrap();
         prev_node_index = pass_through_node_index;
@@ -41,7 +41,6 @@ async fn main() {
     // sine_node.set_sample_rate(sample_rate).set_frequency(440.0);
 
     println!("{:?}", sample_rate);
-
 
     tokio::time::sleep(Duration::MAX).await;
 }

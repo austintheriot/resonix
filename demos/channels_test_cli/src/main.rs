@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use log::info;
-use resonix::{AudioContext, SineNode};
+use resonix::{AudioContext, DACNode, SineNode};
 
 #[tokio::main]
 async fn main() {
@@ -11,17 +11,19 @@ async fn main() {
     audio_context.initialize_dac_from_defaults().await.unwrap();
     audio_context.play_stream().unwrap();
 
-    tokio::time::sleep(Duration::from_secs(2)).await;
-
-    let sine_node = SineNode::new_with_config(44100, 440.0);
+    let sine_node = SineNode::new_with_config(audio_context.sample_rate().unwrap(), 440.0);
     let sine_node_index = audio_context.add_node(sine_node).await.unwrap();
     info!("main.rs sine_node_index = {sine_node_index:?}");
 
-    // let dac_node = DACNode::new();
-    // let dac_node_index = audio_context.add_node(dac_node).await.unwrap();
-    // info!("main.rs dac_node_index = {dac_node_index:?}");
+    let dac_node = DACNode::new();
+    let dac_node_index = audio_context.add_node(dac_node).await.unwrap();
+    info!("main.rs dac_node_index = {dac_node_index:?}");
 
-    // audio_context.connect(sine_node_index, dac_node_index).await.unwrap();
+    let edge_index = audio_context
+        .connect(sine_node_index, dac_node_index)
+        .await
+        .unwrap();
+    info!("main.rs edge_index = {edge_index:?}");
 
     tokio::time::sleep(Duration::MAX).await;
 }

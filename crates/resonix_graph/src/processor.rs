@@ -1,10 +1,13 @@
 use std::{
-    any::Any,
     collections::{HashSet, VecDeque},
     ptr::{addr_of, addr_of_mut},
 };
 
-use petgraph::{stable_graph::NodeIndex, visit::Dfs, Direction, Graph};
+use petgraph::{
+    stable_graph::{EdgeIndex, NodeIndex},
+    visit::Dfs,
+    Direction, Graph,
+};
 
 use uuid::Uuid;
 
@@ -30,9 +33,7 @@ pub enum ConnectError {
 #[derive(thiserror::Error, Debug)]
 pub enum AddNodeError {
     #[error("Cannot add {name:?} to the audio graph, since it has already been added.")]
-    AlreadyExists {
-        name: String,
-    },
+    AlreadyExists { name: String },
 }
 
 /// Cloning the audio context is an outward clone of the
@@ -219,7 +220,7 @@ impl Processor {
         child_node_index: NodeIndex,
         from_index: usize,
         to_index: usize,
-    ) -> Result<&mut Self, ConnectError> {
+    ) -> Result<EdgeIndex, ConnectError> {
         // check if connection indexes are out of bounds
         {
             let parent_node =
@@ -264,7 +265,7 @@ impl Processor {
             .add_incoming_connection_index(edge_index)
             .unwrap();
 
-        Ok(self)
+        Ok(edge_index)
     }
 
     fn check_index_out_of_bounds(
@@ -287,19 +288,18 @@ impl Processor {
         Ok(())
     }
 
+    pub fn reset_visit_order_cache(&mut self) {
+        self.visit_order.take();
+    }
+
     pub fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, AddNodeError> {
         if self.node_uuids.contains(node.uuid()) {
-            return Err(AddNodeError::AlreadyExists {
-                name: node.name(),
-            });
+            return Err(AddNodeError::AlreadyExists { name: node.name() });
         }
 
         let is_input = node.node_type() == NodeType::Input;
 
-        let is_dac = {
-            let node_as_any = &node as &dyn Any;
-            node_as_any.downcast_ref::<DACNode>().is_some()
-        };
+        let is_dac = { node.as_any().downcast_ref::<DACNode>().is_some() };
 
         let node_index = self.graph.add_node(Box::new(node));
 
@@ -311,15 +311,29 @@ impl Processor {
             self.dac_node_indexes.push(node_index);
         }
 
+        self.reset_visit_order_cache();
+
         Ok(node_index)
     }
 
     pub fn connect(
         &mut self,
-        node_1: NodeIndex,
-        node_2: NodeIndex,
-    ) -> Result<&mut Self, ConnectError> {
-        self.connect_with_indexes(node_1, node_2, Default::default(), Default::default())
+        parent_node_index: NodeIndex,
+        child_node_index: NodeIndex,
+    ) -> Result<EdgeIndex, ConnectError> {
+        let result = self.connect_with_indexes(
+            parent_node_index,
+            child_node_index,
+            Default::default(),
+            Default::default(),
+        );
+
+        // reset visit order cache
+        if result.is_ok() {
+            self.reset_visit_order_cache();
+        }
+
+        result
     }
 }
 
