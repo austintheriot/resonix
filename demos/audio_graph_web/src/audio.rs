@@ -14,8 +14,8 @@ pub async fn set_up_audio_graph() -> Result<AudioContext, DACBuildError> {
 
     let mut prev_node_index = pass_through_node_index;
 
-    // string 500 pass-through nodes together to stress test audio
-    for _ in 0..500 {
+    // string many pass-through nodes together to stress test audio
+    for _ in 0..250 {
         let pass_through_node = PassThroughNode::new();
         let pass_through_node_index = audio_context.add_node(pass_through_node).await.unwrap();
         audio_context

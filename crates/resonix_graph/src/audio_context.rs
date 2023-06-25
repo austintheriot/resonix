@@ -7,13 +7,15 @@ use async_channel::{Receiver, Sender};
 #[cfg(feature = "dac")]
 use cpal::{traits::StreamTrait, PauseStreamError, PlayStreamError};
 use log::{error, info};
-use petgraph::stable_graph::NodeIndex;
+use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex};
 #[cfg(feature = "dac")]
 use resonix_dac::{DACBuildError, DACConfig, DACConfigBuildError, DAC};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::{BoxedNode, ConnectError, MessageRequest, MessageResponse, Node, Processor, AddNodeError};
+use crate::{
+    AddNodeError, BoxedNode, ConnectError, MessageRequest, MessageResponse, Node, Processor,
+};
 
 #[cfg(feature = "dac")]
 #[derive(Error, Debug)]
@@ -86,9 +88,9 @@ impl AudioContext {
             move |buffer: &mut [f32], config: Arc<DACConfig>| {
                 let num_channels = config.stream_config.channels as usize;
 
-                // run any messages that are ready
-                if let Ok(message) = processor_rx.try_recv() {
-                    info!("message received: {message:?}");
+                // run any messages send from the main thread that are ready to be processed
+                while let Ok(message) = processor_rx.try_recv() {
+                    info!("message received in DAC loop: {message:?}");
                     let processor_tx = processor_tx.clone();
                     run_message(message, &mut processor, processor_tx);
                 }
@@ -140,7 +142,10 @@ impl AudioContext {
         self.processor.as_mut()
     }
 
-    pub async fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, AddNodeError> {
+    pub async fn add_node<N: Node + 'static>(
+        &mut self,
+        node: N,
+    ) -> Result<NodeIndex, AddNodeError> {
         if let Some(processor) = &mut self.processor {
             processor.add_node(node)
         } else {
@@ -155,36 +160,53 @@ impl AudioContext {
                 .await
                 .unwrap();
 
-                loop {
-                    match self.rx.as_mut().unwrap().recv().await {
-                        Ok(MessageResponse::AddNode { id, result }) if id == new_request_id => {
-                           break result;
-                        }
-                        _ => continue,
+            // it's necessary to `await` for a return value here,
+            // since, in Wasm, there are not actual, multiple threads
+            // going on--because of this, if the main thread is not
+            // yielded with an await, the audio thread will never run
+            // the message that was sent and no response will come
+            loop {
+                // probably unnecessary to loop here, but just in case
+                // messages get out of order, filtering by request id
+                // ensures that the response matches the request
+                match self.rx.as_mut().unwrap().recv().await {
+                    Ok(MessageResponse::AddNode { id, result }) if id == new_request_id => {
+                        break result;
                     }
+                    _ => continue,
                 }
+            }
         }
     }
 
     pub async fn connect(
         &mut self,
-        node_1: NodeIndex,
-        node_2: NodeIndex,
-    ) -> Result<&mut Self, ConnectError> {
+        parent_node_index: NodeIndex,
+        child_node_index: NodeIndex,
+    ) -> Result<EdgeIndex, ConnectError> {
         if let Some(processor) = &mut self.processor {
-            processor.connect(node_1, node_2).unwrap();
-            Ok(self)
+            processor.connect(parent_node_index, child_node_index)
         } else {
+            let new_request_id = self.new_request_id();
             self.tx
                 .as_mut()
                 .expect("If `processor` is `None`, then `tx` should be defined")
-                .send(todo!())
+                .send(MessageRequest::Connect {
+                    id: new_request_id,
+                    parent_node_index,
+                    child_node_index,
+                })
                 .await
                 .unwrap();
-            let message = self.rx.as_mut().unwrap().recv().await.unwrap();
-            info!("audio context received back message! {:?}", message);
-            // todo : delete
-            Ok(self)
+
+            loop {
+                match self.rx.as_mut().unwrap().recv().await {
+                    Ok(MessageResponse::Connect { id, result }) if id == new_request_id => {
+                        break result;
+                    }
+                    _ => continue,
+                }
+            }
         }
     }
 
@@ -203,6 +225,15 @@ fn run_message<N: Node + 'static>(
         MessageRequest::AddNode { id, node } => {
             let result = processor.add_node(node);
             let response = MessageResponse::AddNode { id, result };
+            processor_tx.try_send(response).unwrap();
+        }
+        MessageRequest::Connect {
+            id,
+            parent_node_index,
+            child_node_index,
+        } => {
+            let result = processor.connect(parent_node_index, child_node_index);
+            let response = MessageResponse::Connect { id, result };
             processor_tx.try_send(response).unwrap();
         }
     }

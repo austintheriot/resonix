@@ -11,7 +11,7 @@ use crate::{Connection, NodeType};
 pub enum AddConnectionError {
     #[error("Could not add incoming connection for {name:?}, because it only accepts outgoing connections")]
     CantAcceptInputConnections { name: String },
-    #[error("Could not add incoming connection for {name:?}, because it only accepts incoming connections")]
+    #[error("Could not add outgoing connection for {name:?}, because it only accepts incoming connections")]
     CantAcceptOutputConnections { name: String },
 }
 
@@ -108,6 +108,6 @@ impl Node for BoxedNode {
         &mut self,
         edge_index: EdgeIndex,
     ) -> Result<(), AddConnectionError> {
-        (**self).add_incoming_connection_index(edge_index)
+        (**self).add_outgoing_connection_index(edge_index)
     }
 }

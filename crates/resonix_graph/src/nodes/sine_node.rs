@@ -105,7 +105,7 @@ impl SineNode {
     }
 
     pub fn new_with_config(sample_rate: impl Into<SampleRate>, frequency: impl Into<f32>) -> Self {
-        // todo - get sample rate from audio context
+        // todo - get sample rate from audio context by default
 
         Self {
             uuid: Uuid::new_v4(),
