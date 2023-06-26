@@ -1,6 +1,6 @@
 use std::{
     hash::{Hash, Hasher},
-    sync::Arc,
+    sync::Arc, collections::HashMap, marker::PhantomData,
 };
 
 use async_channel::{Receiver, Sender};
@@ -14,7 +14,7 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
-    AddNodeError, BoxedNode, ConnectError, MessageRequest, MessageResponse, Node, Processor,
+    AddNodeError, BoxedNode, ConnectError, ProcessorMessageRequest, ProcessorMessageResponse, Node, Processor, messages::{NodeMessageRequest, NodeMessageResponse}, NodeHandle,
 };
 
 #[cfg(feature = "dac")]
@@ -34,9 +34,13 @@ pub struct AudioContext {
     #[cfg(feature = "dac")]
     dac: Option<DAC>,
     /// sends message to Processor once it has been moved into the audio thread
-    tx: Option<Sender<MessageRequest<BoxedNode>>>,
+    processor_request_tx: Option<Sender<ProcessorMessageRequest<BoxedNode>>>,
     /// receives messages from Processor once it has been moved into the audio thread
-    rx: Option<Receiver<MessageResponse>>,
+    processor_response_rx: Option<Receiver<ProcessorMessageResponse>>,
+    node_request_tx: Sender<NodeMessageRequest>,
+    /// this receiver is moved into audio thread once it is initialized
+    node_request_rx: Option<Receiver<NodeMessageRequest>>,
+    node_response_txs: HashMap<Uuid, Sender<NodeMessageResponse>>,
     uuid: Uuid,
     request_id: u32,
 }
@@ -76,12 +80,13 @@ impl AudioContext {
     ) -> Result<&mut Self, DacInitializeError> {
         let (audio_context_tx, processor_rx) = async_channel::unbounded();
         let (processor_tx, audio_context_rx) = async_channel::unbounded();
-        self.tx.replace(audio_context_tx);
-        self.rx.replace(audio_context_rx);
+        self.processor_request_tx.replace(audio_context_tx);
+        self.processor_response_rx.replace(audio_context_rx);
         let mut processor = self
             .processor
             .take()
             .ok_or(DacInitializeError::NoProcessor)?;
+        let node_request_rx = self.node_request_rx.take().expect("DAC was initialized but node_request_rx was `None`");
 
         let dac = DAC::from_dac_config(
             dac_config,
@@ -90,9 +95,13 @@ impl AudioContext {
 
                 // run any messages send from the main thread that are ready to be processed
                 while let Ok(message) = processor_rx.try_recv() {
-                    info!("message received in DAC loop: {message:?}");
+                    info!("processor message received in DAC loop: {message:?}");
                     let processor_tx = processor_tx.clone();
                     run_message(message, &mut processor, processor_tx);
+                }
+
+                while let Ok(message) = node_request_rx.try_recv() {
+                    info!("node message received in DAC loop: {message:?}");
                 }
 
                 for frame in buffer.chunks_mut(num_channels) {
@@ -145,15 +154,16 @@ impl AudioContext {
     pub async fn add_node<N: Node + 'static>(
         &mut self,
         node: N,
-    ) -> Result<NodeIndex, AddNodeError> {
+    ) -> Result<NodeHandle<N>, AddNodeError> {
+        let uuid = *node.uuid();
         if let Some(processor) = &mut self.processor {
-            processor.add_node(node)
+            processor.add_node(node).map(self.map_add_node_response_to_handle(uuid))
         } else {
             let new_request_id = self.new_request_id();
-            self.tx
+            self.processor_request_tx
                 .as_ref()
                 .expect("If `processor` is `None`, then `tx` should be defined")
-                .send(MessageRequest::AddNode {
+                .send(ProcessorMessageRequest::AddNode {
                     id: new_request_id,
                     node: Box::new(node),
                 })
@@ -169,9 +179,9 @@ impl AudioContext {
                 // probably unnecessary to loop here, but just in case
                 // messages get out of order, filtering by request id
                 // ensures that the response matches the request
-                match self.rx.as_mut().unwrap().recv().await {
-                    Ok(MessageResponse::AddNode { id, result }) if id == new_request_id => {
-                        break result;
+                match self.processor_response_rx.as_mut().unwrap().recv().await {
+                    Ok(ProcessorMessageResponse::AddNode { id, result }) if id == new_request_id => {
+                        break result.map(self.map_add_node_response_to_handle(uuid));
                     }
                     _ => continue,
                 }
@@ -179,29 +189,43 @@ impl AudioContext {
         }
     }
 
+    fn map_add_node_response_to_handle<'a, N: Node>(&'a mut self, uuid: Uuid) -> impl FnMut(NodeIndex) -> NodeHandle<N> + 'a {
+         move |node_index| {
+            let (node_response_tx, node_response_rx) = async_channel::unbounded();
+            self.node_response_txs.insert(uuid, node_response_tx);
+            NodeHandle::<N> {
+                uuid,
+                node_index,
+                node_request_tx: self.node_request_tx.clone(),
+                node_response_rx,
+                node_type: PhantomData::default(),
+            }
+        }
+    }
+
     pub async fn connect(
         &mut self,
-        parent_node_index: NodeIndex,
-        child_node_index: NodeIndex,
+        parent_node_index: impl AsRef<NodeIndex>,
+        child_node_index: impl AsRef<NodeIndex>,
     ) -> Result<EdgeIndex, ConnectError> {
         if let Some(processor) = &mut self.processor {
-            processor.connect(parent_node_index, child_node_index)
+            processor.connect(*parent_node_index.as_ref(), *child_node_index.as_ref())
         } else {
             let new_request_id = self.new_request_id();
-            self.tx
+            self.processor_request_tx
                 .as_mut()
                 .expect("If `processor` is `None`, then `tx` should be defined")
-                .send(MessageRequest::Connect {
+                .send(ProcessorMessageRequest::Connect {
                     id: new_request_id,
-                    parent_node_index,
-                    child_node_index,
+                    parent_node_index: *parent_node_index.as_ref(),
+                    child_node_index: *child_node_index.as_ref(),
                 })
                 .await
                 .unwrap();
 
             loop {
-                match self.rx.as_mut().unwrap().recv().await {
-                    Ok(MessageResponse::Connect { id, result }) if id == new_request_id => {
+                match self.processor_response_rx.as_mut().unwrap().recv().await {
+                    Ok(ProcessorMessageResponse::Connect { id, result }) if id == new_request_id => {
                         break result;
                     }
                     _ => continue,
@@ -217,23 +241,23 @@ impl AudioContext {
 }
 
 fn run_message<N: Node + 'static>(
-    message: MessageRequest<N>,
+    message: ProcessorMessageRequest<N>,
     processor: &mut Processor,
-    processor_tx: Sender<MessageResponse>,
+    processor_tx: Sender<ProcessorMessageResponse>,
 ) {
     match message {
-        MessageRequest::AddNode { id, node } => {
+        ProcessorMessageRequest::AddNode { id, node } => {
             let result = processor.add_node(node);
-            let response = MessageResponse::AddNode { id, result };
+            let response = ProcessorMessageResponse::AddNode { id, result };
             processor_tx.try_send(response).unwrap();
         }
-        MessageRequest::Connect {
+        ProcessorMessageRequest::Connect {
             id,
             parent_node_index,
             child_node_index,
         } => {
             let result = processor.connect(parent_node_index, child_node_index);
-            let response = MessageResponse::Connect { id, result };
+            let response = ProcessorMessageResponse::Connect { id, result };
             processor_tx.try_send(response).unwrap();
         }
     }
@@ -267,14 +291,18 @@ impl Hash for AudioContext {
 
 impl Default for AudioContext {
     fn default() -> Self {
+        let (node_request_tx, node_request_rx) = async_channel::unbounded();
         Self {
             processor: Some(Processor::default()),
             uuid: Uuid::new_v4(),
             #[cfg(feature = "dac")]
             dac: Default::default(),
-            tx: None,
-            rx: None,
+            processor_request_tx: None,
+            processor_response_rx: None,
             request_id: 0,
+            node_request_tx,
+            node_request_rx: Some(node_request_rx),
+            node_response_txs: HashMap::default(),
         }
     }
 }

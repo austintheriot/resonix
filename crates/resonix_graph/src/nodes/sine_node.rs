@@ -4,7 +4,9 @@ use petgraph::prelude::EdgeIndex;
 use resonix_core::{SampleRate, Sine, SineInterface};
 use uuid::Uuid;
 
-use crate::{AddConnectionError, Connection, Node, NodeType};
+use crate::{
+    messages::{NodeMessageRequest, NodeMessageResponse}, AddConnectionError, Connection, Node, NodeHandle, NodeType, NodeHandleMessageError,
+};
 
 #[derive(Debug, Clone)]
 pub struct SineNode {
@@ -34,6 +36,24 @@ impl SineInterface for SineNode {
 
     fn frequency(&self) -> f32 {
         self.sine.frequency()
+    }
+}
+
+impl NodeHandle<SineNode> {
+    pub async fn set_frequency(&self, new_frequency: f32) -> Result<(), NodeHandleMessageError> {
+        self.node_request_tx
+            .send(NodeMessageRequest::SineSetFrequency {
+                uuid: self.uuid,
+                node_index: self.node_index,
+                new_frequency,
+            }).await.unwrap();
+
+            match self.node_response_rx.recv().await {
+                Ok(NodeMessageResponse::SineSetFrequency { result }) => {
+                    return Ok(result)
+                }
+                _ => Err(NodeHandleMessageError::UnexpectedResponseReceived),
+            }
     }
 }
 

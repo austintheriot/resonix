@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{Connection, NodeType};
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug,  PartialEq, Eq, PartialOrd, Ord)]
 pub enum AddConnectionError {
     #[error("Could not add incoming connection for {name:?}, because it only accepts outgoing connections")]
     CantAcceptInputConnections { name: String },

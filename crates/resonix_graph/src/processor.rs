@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::{AddConnectionError, BoxedNode, Connection, DACNode, Node, NodeType};
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ConnectError {
     #[error("Node could not be found in the audio graph for index {node_index:?}. Are you sure you added it?")]
     NodeNotFound { node_index: NodeIndex },

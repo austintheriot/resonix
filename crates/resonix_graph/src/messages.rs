@@ -1,4 +1,5 @@
 use petgraph::{prelude::NodeIndex, stable_graph::EdgeIndex};
+use uuid::Uuid;
 
 use crate::{AddNodeError, ConnectError, Node};
 
@@ -9,8 +10,8 @@ use crate::{AddNodeError, ConnectError, Node};
 /// Once the Processor (audio graph) has been sent to the audio thread,
 /// all edits to the audio graph have to be done
 /// via message between the audio thread and main thread.
-#[derive(Debug)]
-pub(crate) enum MessageRequest<N: Node + 'static> {
+#[derive(Debug,  PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) enum ProcessorMessageRequest<N: Node + 'static> {
     AddNode {
         id: u32,
         node: N,
@@ -23,7 +24,7 @@ pub(crate) enum MessageRequest<N: Node + 'static> {
 }
 
 #[derive(Debug)]
-pub(crate) enum MessageResponse {
+pub(crate) enum ProcessorMessageResponse {
     AddNode {
         id: u32,
         result: Result<NodeIndex, AddNodeError>,
@@ -32,4 +33,21 @@ pub(crate) enum MessageResponse {
         id: u32,
         result: Result<EdgeIndex, ConnectError>,
     },
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+pub(crate) enum NodeMessageRequest {
+    SineSetFrequency {
+        uuid: Uuid,
+        node_index: NodeIndex,
+        new_frequency: f32,
+    }
+}
+
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) enum NodeMessageResponse {
+    SineSetFrequency {
+        result: (),
+    }
 }
