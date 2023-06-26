@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{Connection, NodeType};
 
-#[derive(Error, Debug,  PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Error, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AddConnectionError {
     #[error("Could not add incoming connection for {name:?}, because it only accepts outgoing connections")]
     CantAcceptInputConnections { name: String },
@@ -36,6 +36,8 @@ where
     fn name(&self) -> String;
 
     fn as_any(&self) -> &dyn Any;
+
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 
     fn incoming_connection_indexes(&self) -> &[EdgeIndex];
 
@@ -109,5 +111,9 @@ impl Node for BoxedNode {
         edge_index: EdgeIndex,
     ) -> Result<(), AddConnectionError> {
         (**self).add_outgoing_connection_index(edge_index)
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        (**self).as_any_mut()
     }
 }

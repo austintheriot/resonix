@@ -10,7 +10,7 @@ use crate::{AddNodeError, ConnectError, Node};
 /// Once the Processor (audio graph) has been sent to the audio thread,
 /// all edits to the audio graph have to be done
 /// via message between the audio thread and main thread.
-#[derive(Debug,  PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum ProcessorMessageRequest<N: Node + 'static> {
     AddNode {
         id: u32,
@@ -35,19 +35,32 @@ pub(crate) enum ProcessorMessageResponse {
     },
 }
 
+/// These are internal errors that can occur while sending messages back
+/// and forth between a node on the main thread and the audio thread
+#[derive(thiserror::Error, Debug)]
+pub enum NodeMessageError {
+    #[error("No corresponding node found in the graph for node with uuid {uuid:?} at node index {node_index:?}")]
+    NodeNotFound { uuid: Uuid, node_index: NodeIndex },
+    #[error("Node message was sent for the wrong node type")]
+    WrongNodeType { uuid: Uuid, node_index: NodeIndex },
+}
+
+/// These messages are sent by individual `NodeHandle` instances
+/// to effect some change in the audio graph.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub(crate) enum NodeMessageRequest {
     SineSetFrequency {
         uuid: Uuid,
         node_index: NodeIndex,
         new_frequency: f32,
-    }
+    },
 }
 
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// These messages acknowledge whether a change to an audio graph node was successful or not
+#[derive(Debug)]
 pub(crate) enum NodeMessageResponse {
     SineSetFrequency {
-        result: (),
-    }
+        uuid: Uuid,
+        result: Result<(), NodeMessageError>,
+    },
 }

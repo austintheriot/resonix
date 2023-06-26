@@ -1,18 +1,34 @@
 use std::marker::PhantomData;
 
-use async_channel::{Sender, Receiver};
-use uuid::Uuid;
+use async_channel::{Receiver, Sender};
 use petgraph::prelude::NodeIndex;
+use uuid::Uuid;
 
-use crate::{messages::{NodeMessageRequest, NodeMessageResponse}, Node};
+use crate::{
+    messages::{NodeMessageError, NodeMessageRequest, NodeMessageResponse},
+    Node,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum NodeHandleMessageError {
-    #[error("Unexpected response received in node_handle while trying to communicate with Processor")]
-    UnexpectedResponseReceived
+    #[error("A message was sent from the `NodeHandle` to the processor, but no corresponding message was received")]
+    NoMatchingMessageReceived,
+    #[error("Error occurred while communicating with Processor. Original error: {0:?}")]
+    NodeMessageError(#[from] NodeMessageError),
 }
 
-/// This struct can be cheaply cloned
+/// The `NodeHandle` allows mutating audio a node's data from
+/// the main thread, even after that node has been sent to
+/// the audio thread. `NodeHandle` implements specific functionality
+/// for whatever generic `node_type` the `NodeHandle` is.
+///
+/// This is accomplished by sending messages between the main
+/// thread and the audio thread.
+///
+/// All audio graph mutations are processed in the order in which
+/// they were received.
+///
+/// This struct can be safely and cheaply cloned
 #[derive(Debug, Clone)]
 pub struct NodeHandle<NodeType: Node> {
     pub(crate) uuid: Uuid,

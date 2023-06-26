@@ -1,20 +1,24 @@
 use std::{
     hash::{Hash, Hasher},
-    sync::Arc, collections::HashMap, marker::PhantomData,
+    marker::PhantomData,
+    sync::Arc,
 };
 
 use async_channel::{Receiver, Sender};
 #[cfg(feature = "dac")]
 use cpal::{traits::StreamTrait, PauseStreamError, PlayStreamError};
 use log::{error, info};
-use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex};
+use petgraph::{data::DataMapMut, stable_graph::EdgeIndex, stable_graph::NodeIndex};
+use resonix_core::SineInterface;
 #[cfg(feature = "dac")]
 use resonix_dac::{DACBuildError, DACConfig, DACConfigBuildError, DAC};
 use thiserror::Error;
 use uuid::Uuid;
 
 use crate::{
-    AddNodeError, BoxedNode, ConnectError, ProcessorMessageRequest, ProcessorMessageResponse, Node, Processor, messages::{NodeMessageRequest, NodeMessageResponse}, NodeHandle,
+    messages::{NodeMessageError, NodeMessageRequest, NodeMessageResponse},
+    AddNodeError, BoxedNode, ConnectError, Node, NodeHandle, Processor, ProcessorMessageRequest,
+    ProcessorMessageResponse, SineNode,
 };
 
 #[cfg(feature = "dac")]
@@ -40,7 +44,13 @@ pub struct AudioContext {
     node_request_tx: Sender<NodeMessageRequest>,
     /// this receiver is moved into audio thread once it is initialized
     node_request_rx: Option<Receiver<NodeMessageRequest>>,
-    node_response_txs: HashMap<Uuid, Sender<NodeMessageResponse>>,
+    /// Cloned into `NodeHandle`s when they are created,
+    /// allowing `NodeHandle`s to receive messages back from
+    /// the audio thread
+    node_response_rx: Receiver<NodeMessageResponse>,
+    /// Allows sending messages from audio thread
+    /// to `NodeHandle`s
+    node_response_tx: Sender<NodeMessageResponse>,
     uuid: Uuid,
     request_id: u32,
 }
@@ -86,24 +96,30 @@ impl AudioContext {
             .processor
             .take()
             .ok_or(DacInitializeError::NoProcessor)?;
-        let node_request_rx = self.node_request_rx.take().expect("DAC was initialized but node_request_rx was `None`");
-
+        let node_request_rx = self
+            .node_request_rx
+            .take()
+            .expect("DAC was initialized but node_request_rx was `None`");
+        let node_response_tx = self.node_response_tx.clone();
         let dac = DAC::from_dac_config(
             dac_config,
             move |buffer: &mut [f32], config: Arc<DACConfig>| {
                 let num_channels = config.stream_config.channels as usize;
 
-                // run any messages send from the main thread that are ready to be processed
+                // run any messages for the processor, sent from the main thread, that are ready to be processed
                 while let Ok(message) = processor_rx.try_recv() {
                     info!("processor message received in DAC loop: {message:?}");
                     let processor_tx = processor_tx.clone();
-                    run_message(message, &mut processor, processor_tx);
+                    run_processor_message(message, &mut processor, processor_tx);
                 }
 
+                // run any messages for individual nodes, sent from the main thread, that are ready to be processed
                 while let Ok(message) = node_request_rx.try_recv() {
                     info!("node message received in DAC loop: {message:?}");
+                    run_node_message(message, &mut processor, &node_response_tx);
                 }
 
+                // run audio graph and copy audio graph output information into actual audio-out buffer
                 for frame in buffer.chunks_mut(num_channels) {
                     processor.run();
                     let dac_nodes_sum = processor.dac_nodes_sum();
@@ -157,7 +173,9 @@ impl AudioContext {
     ) -> Result<NodeHandle<N>, AddNodeError> {
         let uuid = *node.uuid();
         if let Some(processor) = &mut self.processor {
-            processor.add_node(node).map(self.map_add_node_response_to_handle(uuid))
+            processor
+                .add_node(node)
+                .map(self.node_index_into_node_handle(uuid))
         } else {
             let new_request_id = self.new_request_id();
             self.processor_request_tx
@@ -170,36 +188,41 @@ impl AudioContext {
                 .await
                 .unwrap();
 
-            // it's necessary to `await` for a return value here,
+            // it's necessary to `await` for a channel values here,
             // since, in Wasm, there are not actual, multiple threads
             // going on--because of this, if the main thread is not
             // yielded with an await, the audio thread will never run
             // the message that was sent and no response will come
-            loop {
-                // probably unnecessary to loop here, but just in case
-                // messages get out of order, filtering by request id
-                // ensures that the response matches the request
-                match self.processor_response_rx.as_mut().unwrap().recv().await {
-                    Ok(ProcessorMessageResponse::AddNode { id, result }) if id == new_request_id => {
-                        break result.map(self.map_add_node_response_to_handle(uuid));
-                    }
-                    _ => continue,
+            //
+            // probably unnecessary to loop here, but just in case
+            // messages get out of order, filtering by request id
+            // ensures that the response matches the request
+            while let Ok(response) = self.processor_response_rx.as_mut().unwrap().recv().await {
+                let ProcessorMessageResponse::AddNode { id, result } = response else {
+                    continue;
+                };
+
+                if id != new_request_id {
+                    continue;
                 }
+
+                return result.map(self.node_index_into_node_handle(uuid));
             }
+
+            Err(AddNodeError::NoMatchingMessageReceived)
         }
     }
 
-    fn map_add_node_response_to_handle<'a, N: Node>(&'a mut self, uuid: Uuid) -> impl FnMut(NodeIndex) -> NodeHandle<N> + 'a {
-         move |node_index| {
-            let (node_response_tx, node_response_rx) = async_channel::unbounded();
-            self.node_response_txs.insert(uuid, node_response_tx);
-            NodeHandle::<N> {
-                uuid,
-                node_index,
-                node_request_tx: self.node_request_tx.clone(),
-                node_response_rx,
-                node_type: PhantomData::default(),
-            }
+    fn node_index_into_node_handle<N: Node>(
+        &mut self,
+        uuid: Uuid,
+    ) -> impl FnMut(NodeIndex) -> NodeHandle<N> + '_ {
+        move |node_index| NodeHandle::<N> {
+            uuid,
+            node_index,
+            node_request_tx: self.node_request_tx.clone(),
+            node_response_rx: self.node_response_rx.clone(),
+            node_type: PhantomData::default(),
         }
     }
 
@@ -223,14 +246,19 @@ impl AudioContext {
                 .await
                 .unwrap();
 
-            loop {
-                match self.processor_response_rx.as_mut().unwrap().recv().await {
-                    Ok(ProcessorMessageResponse::Connect { id, result }) if id == new_request_id => {
-                        break result;
-                    }
-                    _ => continue,
+            while let Ok(response) = self.processor_response_rx.as_mut().unwrap().recv().await {
+                let ProcessorMessageResponse::Connect { id, result } = response else {
+                    continue;
+                };
+
+                if id != new_request_id {
+                    continue;
                 }
+
+                return result;
             }
+
+            Err(ConnectError::NoMatchingMessageReceived)
         }
     }
 
@@ -240,7 +268,43 @@ impl AudioContext {
     }
 }
 
-fn run_message<N: Node + 'static>(
+fn run_node_message(
+    message: NodeMessageRequest,
+    processor: &mut Processor,
+    node_response_tx: &Sender<NodeMessageResponse>,
+) {
+    match message {
+        NodeMessageRequest::SineSetFrequency {
+            uuid,
+            node_index,
+            new_frequency,
+        } => {
+            let result = set_sine_node_frequency(processor, node_index, uuid, new_frequency);
+            node_response_tx
+                .try_send(NodeMessageResponse::SineSetFrequency { uuid, result })
+                .unwrap();
+        }
+    };
+}
+
+fn set_sine_node_frequency(
+    processor: &mut Processor,
+    node_index: NodeIndex,
+    uuid: Uuid,
+    new_frequency: f32,
+) -> Result<(), NodeMessageError> {
+    let node = processor
+        .node_weight_mut(node_index)
+        .ok_or(NodeMessageError::NodeNotFound { uuid, node_index })?;
+    let sine_node = node
+        .as_any_mut()
+        .downcast_mut::<SineNode>()
+        .ok_or(NodeMessageError::WrongNodeType { uuid, node_index })?;
+    sine_node.set_frequency(new_frequency);
+    Ok(())
+}
+
+fn run_processor_message<N: Node + 'static>(
     message: ProcessorMessageRequest<N>,
     processor: &mut Processor,
     processor_tx: Sender<ProcessorMessageResponse>,
@@ -292,6 +356,7 @@ impl Hash for AudioContext {
 impl Default for AudioContext {
     fn default() -> Self {
         let (node_request_tx, node_request_rx) = async_channel::unbounded();
+        let (node_response_tx, node_response_rx) = async_channel::unbounded();
         Self {
             processor: Some(Processor::default()),
             uuid: Uuid::new_v4(),
@@ -302,7 +367,8 @@ impl Default for AudioContext {
             request_id: 0,
             node_request_tx,
             node_request_rx: Some(node_request_rx),
-            node_response_txs: HashMap::default(),
+            node_response_tx,
+            node_response_rx,
         }
     }
 }

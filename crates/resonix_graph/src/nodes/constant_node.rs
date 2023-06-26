@@ -78,6 +78,10 @@ impl Node for ConstantNode {
         self
     }
 
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
     fn incoming_connection_indexes(&self) -> &[EdgeIndex] {
         &[]
     }

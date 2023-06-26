@@ -61,6 +61,10 @@ impl Node for DACNode {
         self
     }
 
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
     fn incoming_connection_indexes(&self) -> &[petgraph::prelude::EdgeIndex] {
         &self.incoming_connection_indexes
     }

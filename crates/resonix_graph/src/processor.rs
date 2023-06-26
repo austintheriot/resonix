@@ -1,5 +1,6 @@
 use std::{
     collections::{HashSet, VecDeque},
+    ops::{Deref, DerefMut},
     ptr::{addr_of, addr_of_mut},
 };
 
@@ -28,12 +29,16 @@ pub enum ConnectError {
     },
     #[error("Node connection failed. Original error: {0:?}")]
     AddConnectionError(#[from] AddConnectionError),
+    #[error("A message was sent to the `Processor` in the audio thread to connect 2 nodes, but no corresponding response was received")]
+    NoMatchingMessageReceived,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum AddNodeError {
     #[error("Cannot add {name:?} to the audio graph, since it has already been added.")]
     AlreadyExists { name: String },
+    #[error("A message was sent to the `Processor` in the audio thread to add a node, but no corresponding response was received")]
+    NoMatchingMessageReceived,
 }
 
 /// Cloning the audio context is an outward clone of the
@@ -337,5 +342,16 @@ impl Processor {
     }
 }
 
-#[cfg(test)]
-mod test_audio_context {}
+impl Deref for Processor {
+    type Target = Graph<BoxedNode, Connection>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.graph
+    }
+}
+
+impl DerefMut for Processor {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.graph
+    }
+}
