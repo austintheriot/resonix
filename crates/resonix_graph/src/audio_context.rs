@@ -55,9 +55,6 @@ pub struct AudioContext {
     request_id: u32,
 }
 
-unsafe impl Send for AudioContext {}
-unsafe impl Sync for AudioContext {}
-
 impl AudioContext {
     pub fn new() -> Self {
         Default::default()
