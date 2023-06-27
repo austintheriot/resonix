@@ -42,6 +42,7 @@ impl Node for MultiplyNode {
         1
     }
 
+    #[inline]
     fn process(
         &mut self,
         inputs: &mut dyn Iterator<Item = &Connection>,

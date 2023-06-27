@@ -23,6 +23,7 @@ impl RecordNode {
 }
 
 impl Node for RecordNode {
+    #[inline]
     fn process(
         &mut self,
         inputs: &mut dyn Iterator<Item = &Connection>,

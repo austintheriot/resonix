@@ -12,8 +12,10 @@ use std::sync::Arc;
 
 #[cfg(not(test))]
 pub struct DACConfig {
+    #[allow(unused)]
     pub(crate) host: Host,
     pub(crate) device: Device,
+    #[allow(unused)]
     pub(crate) sample_format: SampleFormat,
     pub(crate) stream_config: StreamConfig,
 }

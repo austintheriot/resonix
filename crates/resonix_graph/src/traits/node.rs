@@ -59,6 +59,7 @@ dyn_clone::clone_trait_object!(Node);
 pub type BoxedNode = Box<dyn Node>;
 
 impl Node for BoxedNode {
+    #[inline]
     fn process(
         &mut self,
         inputs: &mut dyn Iterator<Item = &Connection>,
@@ -91,10 +92,12 @@ impl Node for BoxedNode {
         (**self).as_any()
     }
 
+    #[inline]
     fn incoming_connection_indexes(&self) -> &[EdgeIndex] {
         (**self).incoming_connection_indexes()
     }
 
+    #[inline]
     fn outgoing_connection_indexes(&self) -> &[EdgeIndex] {
         (**self).outgoing_connection_indexes()
     }

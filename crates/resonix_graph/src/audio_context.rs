@@ -8,7 +8,7 @@ use async_channel::{Receiver, Sender};
 #[cfg(feature = "dac")]
 use cpal::{traits::StreamTrait, PauseStreamError, PlayStreamError};
 use log::{error, info};
-use petgraph::{data::DataMapMut, stable_graph::EdgeIndex, stable_graph::NodeIndex};
+use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex};
 use resonix_core::SineInterface;
 #[cfg(feature = "dac")]
 use resonix_dac::{DACBuildError, DACConfig, DACConfigBuildError, DAC};

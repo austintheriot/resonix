@@ -58,6 +58,7 @@ impl Processor {
     }
 
     /// Executes the audio graph
+    #[inline]
     pub(crate) fn run(&mut self) {
         if self.visit_order.is_none() {
             self.initialize_visit_order();

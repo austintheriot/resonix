@@ -23,6 +23,7 @@ impl DACNode {
 }
 
 impl Node for DACNode {
+    #[inline]
     fn process(
         &mut self,
         inputs: &mut dyn Iterator<Item = &Connection>,

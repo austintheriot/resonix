@@ -66,6 +66,7 @@ impl NodeHandle<SineNode> {
 }
 
 impl Node for SineNode {
+    #[inline]
     fn process(
         &mut self,
         _inputs: &mut dyn Iterator<Item = &Connection>,

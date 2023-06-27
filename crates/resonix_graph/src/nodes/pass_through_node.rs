@@ -25,6 +25,7 @@ impl PassThroughNode {
 }
 
 impl Node for PassThroughNode {
+    #[inline]
     fn process(
         &mut self,
         inputs: &mut dyn Iterator<Item = &Connection>,
