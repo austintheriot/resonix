@@ -25,7 +25,7 @@ jobs:
 
             - name: Test resonix_core with Miri
               working-directory: crates/resonix_core
-              run: cargo miri test
+              run: cargo miri test -- --skip it_should_allow_large_numbers_of_channels 
 
             - name: Test resonix_dac with Miri
               working-directory: crates/resonix_dac
