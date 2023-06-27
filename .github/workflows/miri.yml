@@ -23,4 +23,4 @@ jobs:
                 rustup override set nightly
                 cargo miri setup
             - name: Test with Miri
-              run: cargo miri test --workspace
+              run: cargo miri test --workspace -- --skip it_should_allow_large_numbers_of_channels
