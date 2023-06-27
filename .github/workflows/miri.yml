@@ -1,0 +1,21 @@
+name: "Miri"
+
+on:
+  push:
+  pull_request:
+  # run 4 times a month at 6:40 UTC
+  schedule: [cron: "40 6 1,8,15,22 * *"]
+
+jobs:
+
+    miri:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v3
+            - name: Install Miri
+              run: |
+                rustup toolchain install nightly --component miri
+                rustup override set nightly
+                cargo miri setup
+            - name: Test with Miri
+              run: cargo miri test --workspace

@@ -1,5 +1,10 @@
 use std::{fmt::Debug, sync::Arc};
 
+#[cfg(not(test))]
+use cpal::{
+    traits::{DeviceTrait, HostTrait},
+    Stream, StreamConfig,
+};
 use cpal::{BuildStreamError, DefaultStreamConfigError, PlayStreamError, Sample};
 #[cfg(test)]
 use std::any::Any;
@@ -117,6 +122,8 @@ impl DAC {
         S: Sample,
         Callback: WriteFrameToBuffer<S, ExtractedData> + Send + 'static,
     {
+        use cpal::{traits::DeviceTrait, OutputCallbackInfo};
+
         let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
         let device = &config.device;
         let stream_config = &config.stream_config;

@@ -3,8 +3,8 @@ name: Tests
 on:
   push:
   pull_request:
-  # run every day at 6:40 UTC
-  schedule: [cron: "40 6 * * *"]
+  # run 4 times a month at 6:40 UTC
+  schedule: [cron: "40 6 1,8,15,22 * *"]
 
 jobs:
 
@@ -32,7 +32,7 @@ jobs:
       - name: Test
         run: |
           cargo check --workspace
-          cargo test --workspace -- --skip audio_out_tests
+          cargo test --workspace
 
       - name: Check compilation with and without DAC
         working-directory: crates/resonix
