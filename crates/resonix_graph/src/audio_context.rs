@@ -62,16 +62,12 @@ impl AudioContext {
 
     #[cfg(feature = "dac")]
     pub fn num_channels(&self) -> Option<u16> {
-        self.dac
-            .as_ref()
-            .map(|dac| dac.config.stream_config.channels)
+        self.dac.as_ref().map(|dac| dac.config.num_channels())
     }
 
     #[cfg(feature = "dac")]
     pub fn sample_rate(&self) -> Option<u32> {
-        self.dac
-            .as_ref()
-            .map(|dac| dac.config.stream_config.sample_rate.0)
+        self.dac.as_ref().map(|dac| dac.config.sample_rate())
     }
 
     #[cfg(feature = "dac")]
@@ -101,7 +97,7 @@ impl AudioContext {
         let dac = DAC::from_dac_config(
             dac_config,
             move |buffer: &mut [f32], config: Arc<DACConfig>| {
-                let num_channels = config.stream_config.channels as usize;
+                let num_channels = config.num_channels() as usize;
 
                 // run any messages for the processor, sent from the main thread, that are ready to be processed
                 while let Ok(message) = processor_rx.try_recv() {
@@ -125,8 +121,7 @@ impl AudioContext {
                     }
                 }
             },
-        )
-        .await?;
+        )?;
 
         self.dac.replace(dac);
 

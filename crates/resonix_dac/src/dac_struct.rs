@@ -36,18 +36,24 @@ pub enum DACBuildError {
 /// Creates an audios stream and returns it, along with the
 /// audio configuration that was chosen.
 pub struct DAC {
+    // "actual" implementation fields:
     pub config: Arc<DACConfig>,
     #[cfg(not(test))]
     pub stream: Stream,
+
+    // test-specific fields for mocking:
+    /// must use `Any` for this type, since `!` has not been stabilized yet
     #[cfg(test)]
-    pub handle: Box<dyn Any>,
+    pub join_handle: Box<dyn Any>,
+    #[cfg(test)]
+    pub data_written: Arc<Mutex<Vec<f32>>>,
 }
 
 // todo: refactor to do all setup through an Enum and/or builder pattern
 // rather than calling different setup functions
 
 impl DAC {
-    pub async fn from_dac_defaults<S, Callback, ExtractedData>(
+    pub fn from_dac_defaults<S, Callback, ExtractedData>(
         write_frame_to_buffer: Callback,
     ) -> Result<Self, DACBuildError>
     where
@@ -64,23 +70,16 @@ impl DAC {
             let sample_format = config.sample_format();
             let stream_config: StreamConfig = config.into();
 
-            DACConfig {
-                host,
-                device,
-                sample_format,
-                stream_config,
-            }
+            DACConfig::new(host, device, sample_format, stream_config)
         };
 
         #[cfg(test)]
-        let dac_config = DACConfig {
-            data_written: Arc::new(Mutex::new(Vec::new())),
-        };
+        let dac_config = DACConfig;
 
-        Self::from_dac_config(dac_config, write_frame_to_buffer).await
+        Self::from_dac_config(dac_config, write_frame_to_buffer)
     }
 
-    pub async fn from_dac_config<S, Callback, ExtractedData>(
+    pub fn from_dac_config<S, Callback, ExtractedData>(
         dac_config: DACConfig,
         write_frame_to_buffer: Callback,
     ) -> Result<Self, DACBuildError>
@@ -89,32 +88,35 @@ impl DAC {
         Callback: WriteFrameToBuffer<S, ExtractedData> + Send + 'static,
     {
         let config = Arc::new(dac_config);
-
         #[cfg(not(test))]
         {
             let stream = Self::create_stream::<S, Callback, ExtractedData>(
                 Arc::clone(&config),
                 write_frame_to_buffer,
-            )
-            .await?;
+            )?;
 
             Ok(Self { config, stream })
         }
 
         #[cfg(test)]
         {
+            let data_written = Arc::new(Mutex::new(Vec::new()));
             let handle = Self::create_mock_stream::<S, Callback, ExtractedData>(
                 Arc::clone(&config),
+                Arc::clone(&data_written),
                 write_frame_to_buffer,
-            )
-            .await?;
+            )?;
 
-            Ok(Self { config, handle })
+            Ok(Self {
+                config,
+                join_handle: handle,
+                data_written,
+            })
         }
     }
 
     #[cfg(not(test))]
-    async fn create_stream<S, Callback, ExtractedData>(
+    fn create_stream<S, Callback, ExtractedData>(
         config: Arc<DACConfig>,
         mut write_frame_to_buffer: Callback,
     ) -> Result<Stream, BuildStreamError>
@@ -122,7 +124,7 @@ impl DAC {
         S: Sample,
         Callback: WriteFrameToBuffer<S, ExtractedData> + Send + 'static,
     {
-        use cpal::{traits::DeviceTrait, OutputCallbackInfo};
+        use cpal::OutputCallbackInfo;
 
         let err_fn = |err| eprintln!("an error occurred on stream: {}", err);
         let device = &config.device;
@@ -140,8 +142,9 @@ impl DAC {
 
     /// Mock calling from audio thread
     #[cfg(test)]
-    async fn create_mock_stream<S, Callback, ExtractedData>(
+    fn create_mock_stream<S, Callback, ExtractedData>(
         config: Arc<DACConfig>,
+        data_written: Arc<Mutex<Vec<f32>>>,
         mut write_frame_to_buffer: Callback,
     ) -> Result<Box<dyn Any>, BuildStreamError>
     where
@@ -151,7 +154,7 @@ impl DAC {
         use std::time::Duration;
 
         Ok(Box::new(std::thread::spawn(move || loop {
-            let num_frames = 1024;
+            let num_frames = 1;
             let num_channels = 2;
 
             // new buffer to write data into
@@ -160,8 +163,7 @@ impl DAC {
             write_frame_to_buffer.call(buffer.as_mut_slice(), Arc::clone(&config));
 
             // copy into a stored buffer for testing against later
-            config
-                .data_written
+            data_written
                 .lock()
                 .unwrap()
                 .extend(buffer.into_iter().map(|s| s.to_f32()));
@@ -197,8 +199,7 @@ mod audio_out_tests {
             DAC::from_dac_defaults(move |_: &mut [f32]| {
                 *called.lock().unwrap() = true;
             })
-        }
-        .await;
+        };
 
         assert!(player.is_ok());
 
@@ -216,18 +217,14 @@ mod audio_out_tests {
     #[tokio::test]
     async fn allows_getting_config_itself_as_arg() {
         let called = Arc::new(Mutex::new(false));
-        let mock_config = Arc::new(Mutex::new(None));
 
         let player = {
             let called = Arc::clone(&called);
-            DAC::from_dac_defaults(move |_buffer: &'_ mut [f32], config: Arc<DACConfig>| {
+            DAC::from_dac_defaults(move |_buffer: &'_ mut [f32], _config: Arc<DACConfig>| {
                 *called.lock().unwrap() = true;
-                mock_config.lock().unwrap().replace(Arc::clone(&config));
             })
         }
-        .await;
-
-        assert!(player.is_ok());
+        .unwrap();
 
         let mut tries = 0;
         while !*called.lock().unwrap() {
@@ -238,5 +235,32 @@ mod audio_out_tests {
             }
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
+
+        assert!(!player.data_written.lock().unwrap().is_empty())
+    }
+
+    #[tokio::test]
+    async fn mock_implementation_saves_written_data() {
+        let mut current_sample = 0.0;
+
+        let player = {
+            DAC::from_dac_defaults(move |buffer: &'_ mut [f32], config: Arc<DACConfig>| {
+                // write basic sequential data to outgoing buffer
+                let num_channels = config.num_channels();
+                for frame in buffer.chunks_mut(num_channels as usize) {
+                    for channel in frame.iter_mut() {
+                        *channel = cpal::Sample::from::<f32>(&current_sample);
+                    }
+
+                    current_sample += 0.5;
+                }
+            })
+        }
+        .unwrap();
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        let data_written = player.data_written.lock().unwrap();
+        assert_eq!(data_written[0..6], [0.0, 0.0, 0.5, 0.5, 1.0, 1.0]);
     }
 }
