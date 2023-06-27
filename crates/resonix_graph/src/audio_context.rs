@@ -71,13 +71,12 @@ impl AudioContext {
     }
 
     #[cfg(feature = "dac")]
-    pub async fn initialize_dac_from_defaults(&mut self) -> Result<&mut Self, DacInitializeError> {
+    pub fn initialize_dac_from_defaults(&mut self) -> Result<&mut Self, DacInitializeError> {
         self.initialize_dac_from_config(DACConfig::from_defaults()?)
-            .await
     }
 
     #[cfg(feature = "dac")]
-    pub async fn initialize_dac_from_config(
+    pub fn initialize_dac_from_config(
         &mut self,
         dac_config: DACConfig,
     ) -> Result<&mut Self, DacInitializeError> {

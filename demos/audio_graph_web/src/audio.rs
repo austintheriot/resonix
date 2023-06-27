@@ -32,7 +32,7 @@ pub async fn set_up_audio_graph() -> Result<AudioContext, DACBuildError> {
         .await
         .unwrap();
 
-    audio_context.initialize_dac_from_defaults().await.unwrap();
+    audio_context.initialize_dac_from_defaults().unwrap();
     audio_context.play_stream().unwrap();
 
     Ok(audio_context)

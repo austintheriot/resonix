@@ -36,7 +36,7 @@ async fn main() {
         .await
         .unwrap();
 
-    audio_context.initialize_dac_from_defaults().await.unwrap();
+    audio_context.initialize_dac_from_defaults().unwrap();
     audio_context.play_stream().unwrap();
 
     let sample_rate = audio_context.sample_rate().unwrap();
