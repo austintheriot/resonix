@@ -1,10 +1,9 @@
-#[cfg(not(all(test, feature = "mock_dac")))]
 use cpal::{
     traits::{DeviceTrait, HostTrait},
-    DefaultStreamConfigError, Device, Host, SampleFormat, StreamConfig,
+    Device, Host, SampleFormat, StreamConfig,
 };
 
-use thiserror::Error;
+use crate::DACConfigBuildError;
 
 pub struct DACConfig {
     #[allow(unused)]
@@ -13,14 +12,6 @@ pub struct DACConfig {
     #[allow(unused)]
     pub(crate) sample_format: SampleFormat,
     pub(crate) stream_config: StreamConfig,
-}
-
-#[derive(Error, Debug)]
-pub enum DACConfigBuildError {
-    #[error("no audio output devices found")]
-    NooOutputDevicesAvailable,
-    #[error("no default stream config available. original error: {0:?}")]
-    DefaultStreamConfigError(#[from] DefaultStreamConfigError),
 }
 
 impl DACConfig {

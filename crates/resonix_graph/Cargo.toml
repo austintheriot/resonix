@@ -27,4 +27,4 @@ cpal = { version = "0.13.5", optional = true }
 [features]
 # only need cpal when using audio-out (DAC) features
 dac = ["dep:cpal", "dep:resonix_dac"]
-mock_dac = []
+mock_dac = ["resonix_dac?/mock_dac"]

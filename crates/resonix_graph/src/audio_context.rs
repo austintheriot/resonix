@@ -15,6 +15,9 @@ use resonix_dac::{DACBuildError, DACConfig, DACConfigBuildError, DAC};
 use thiserror::Error;
 use uuid::Uuid;
 
+#[cfg(feature = "mock_dac")]
+use std::sync::Mutex;
+
 use crate::{
     messages::{NodeMessageError, NodeMessageRequest, NodeMessageResponse},
     AddNodeError, BoxedNode, ConnectError, Node, NodeHandle, Processor, ProcessorMessageRequest,
@@ -70,15 +73,23 @@ impl AudioContext {
         self.dac.as_ref().map(|dac| dac.config.sample_rate())
     }
 
-    #[cfg(feature = "dac")]
-    pub fn initialize_dac_from_defaults(&mut self) -> Result<&mut Self, DacInitializeError> {
-        self.initialize_dac_from_config(DACConfig::from_defaults()?)
+    #[cfg(all(feature = "dac"))]
+    pub fn initialize_dac_from_defaults(
+        &mut self,
+        #[cfg(feature = "mock_dac")] data_written: Arc<Mutex<Vec<f32>>>,
+    ) -> Result<&mut Self, DacInitializeError> {
+        self.initialize_dac_from_config(
+            DACConfig::from_defaults()?,
+            #[cfg(feature = "mock_dac")]
+            data_written,
+        )
     }
 
-    #[cfg(feature = "dac")]
+    #[cfg(all(feature = "dac"))]
     pub fn initialize_dac_from_config(
         &mut self,
         dac_config: DACConfig,
+        #[cfg(feature = "mock_dac")] data_written: Arc<Mutex<Vec<f32>>>,
     ) -> Result<&mut Self, DacInitializeError> {
         let (audio_context_tx, processor_rx) = async_channel::unbounded();
         let (processor_tx, audio_context_rx) = async_channel::unbounded();
@@ -120,6 +131,8 @@ impl AudioContext {
                     }
                 }
             },
+            #[cfg(feature = "mock_dac")]
+            data_written,
         )?;
 
         self.dac.replace(dac);
@@ -132,7 +145,7 @@ impl AudioContext {
         self.dac.take()
     }
 
-    #[cfg(feature = "dac")]
+    #[cfg(all(feature = "dac", not(feature = "mock_dac")))]
     pub fn play_stream(&mut self) -> Result<(), PlayStreamError> {
         if let Some(dac) = &self.dac {
             return dac.stream.play();
@@ -141,7 +154,7 @@ impl AudioContext {
         Ok(())
     }
 
-    #[cfg(feature = "dac")]
+    #[cfg(all(feature = "dac", not(feature = "mock_dac")))]
     pub fn pause_stream(&mut self) -> Result<(), PauseStreamError> {
         if let Some(dac) = &self.dac {
             return dac.stream.pause();
