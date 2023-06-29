@@ -1,22 +1,21 @@
 use std::{fmt::Debug, sync::Arc};
 
-#[cfg(not(test))]
-use cpal::{
-    traits::{DeviceTrait, HostTrait},
-    Stream, StreamConfig,
-};
 use cpal::{BuildStreamError, DefaultStreamConfigError, PlayStreamError, Sample};
-#[cfg(test)]
-use std::any::Any;
-#[cfg(test)]
-use std::sync::Mutex;
 use thiserror::Error;
-
-#[cfg(test)]
-use crate::{DACConfig, WriteFrameToBuffer};
-
-#[cfg(not(test))]
-use crate::{DACConfig, DACConfigBuildError, WriteFrameToBuffer};
+#[cfg(not(all(test, feature = "mock_dac")))]
+use {
+    crate::{DACConfig, DACConfigBuildError, WriteFrameToBuffer},
+    cpal::{
+        traits::{DeviceTrait, HostTrait},
+        Stream, StreamConfig,
+    },
+};
+#[cfg(all(test, feature = "mock_dac"))]
+use {
+    crate::{DACConfig, WriteFrameToBuffer},
+    std::any::Any,
+    std::sync::Mutex,
+};
 
 #[derive(Error, Debug)]
 pub enum DACBuildError {
@@ -28,7 +27,7 @@ pub enum DACBuildError {
     DefaultStreamConfigError(#[from] DefaultStreamConfigError),
     #[error("Could not play stream. original error: {0:?}")]
     PlayStreamError(#[from] PlayStreamError),
-    #[cfg(not(test))]
+    #[cfg(not(all(test, feature = "mock_dac")))]
     #[error("Could not create DACConfig. original error: {0:?}")]
     DACConfigBuildError(#[from] DACConfigBuildError),
 }
@@ -38,14 +37,14 @@ pub enum DACBuildError {
 pub struct DAC {
     // "actual" implementation fields:
     pub config: Arc<DACConfig>,
-    #[cfg(not(test))]
+    #[cfg(not(all(test, feature = "mock_dac")))]
     pub stream: Stream,
 
     // test-specific fields for mocking:
     /// must use `Any` for this type, since `!` has not been stabilized yet
-    #[cfg(test)]
+    #[cfg(all(test, feature = "mock_dac"))]
     pub join_handle: Box<dyn Any>,
-    #[cfg(test)]
+    #[cfg(all(test, feature = "mock_dac"))]
     pub data_written: Arc<Mutex<Vec<f32>>>,
 }
 
@@ -60,7 +59,7 @@ impl DAC {
         S: Sample,
         Callback: WriteFrameToBuffer<S, ExtractedData> + Send + Sync + 'static,
     {
-        #[cfg(not(test))]
+        #[cfg(not(all(test, feature = "mock_dac")))]
         let dac_config = {
             let host = cpal::default_host();
             let device = host
@@ -73,7 +72,7 @@ impl DAC {
             DACConfig::new(host, device, sample_format, stream_config)
         };
 
-        #[cfg(test)]
+        #[cfg(all(test, feature = "mock_dac"))]
         let dac_config = DACConfig;
 
         Self::from_dac_config(dac_config, write_frame_to_buffer)
@@ -88,7 +87,7 @@ impl DAC {
         Callback: WriteFrameToBuffer<S, ExtractedData> + Send + 'static,
     {
         let config = Arc::new(dac_config);
-        #[cfg(not(test))]
+        #[cfg(not(all(test, feature = "mock_dac")))]
         {
             let stream = Self::create_stream::<S, Callback, ExtractedData>(
                 Arc::clone(&config),
@@ -98,7 +97,7 @@ impl DAC {
             Ok(Self { config, stream })
         }
 
-        #[cfg(test)]
+        #[cfg(all(test, feature = "mock_dac"))]
         {
             let data_written = Arc::new(Mutex::new(Vec::new()));
             let handle = Self::create_mock_stream::<S, Callback, ExtractedData>(
@@ -115,7 +114,7 @@ impl DAC {
         }
     }
 
-    #[cfg(not(test))]
+    #[cfg(not(all(test, feature = "mock_dac")))]
     fn create_stream<S, Callback, ExtractedData>(
         config: Arc<DACConfig>,
         mut write_frame_to_buffer: Callback,
@@ -141,7 +140,7 @@ impl DAC {
     }
 
     /// Mock calling from audio thread
-    #[cfg(test)]
+    #[cfg(all(test, feature = "mock_dac"))]
     fn create_mock_stream<S, Callback, ExtractedData>(
         config: Arc<DACConfig>,
         data_written: Arc<Mutex<Vec<f32>>>,
@@ -181,14 +180,14 @@ impl Debug for DAC {
     }
 }
 
-#[cfg(test)]
-mod audio_out_tests {
+#[cfg(all(test, not(feature = "mock_dac")))]
+mod hardware_dac_tests {
     use std::{
         sync::{Arc, Mutex},
         time::Duration,
     };
 
-    use crate::{DACConfig, DAC};
+    use crate::DAC;
 
     #[tokio::test]
     async fn calls_get_frame_closure() {
@@ -213,6 +212,16 @@ mod audio_out_tests {
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }
+}
+
+#[cfg(all(test, feature = "mock_dac"))]
+mod mocked_dac_tests {
+    use std::{
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
+
+    use crate::{DACConfig, DAC};
 
     #[tokio::test]
     async fn allows_getting_config_itself_as_arg() {

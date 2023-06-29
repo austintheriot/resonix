@@ -13,6 +13,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
+
       - name: Install Linux audio library deps
         run: |
           sudo apt-get install -y libasound2-dev
@@ -31,8 +34,8 @@ jobs:
 
       - name: Test
         run: |
-          cargo check --workspace
-          cargo test --workspace
+          cargo hack check --workspace --each-feature 
+          cargo hack test --workspace --feature-powerset --skip hardware_dac_tests
 
       - name: Check compilation with and without DAC
         working-directory: crates/resonix
