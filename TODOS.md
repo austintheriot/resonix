@@ -8,6 +8,8 @@
   - Sending node updates via channels (set_frequency)
   - Updating audio_context before initializing DAC vs after initializing DAC
 
+- Use snapshot testing for complex audio
+
 - Should DAC be initialized by default always when `"dac"` feature is enabled?
 
 - The return value of a node getting attached to the audio context is a node_index and message sender for sending messages to the audio context for after the process has moved into the audio thread
