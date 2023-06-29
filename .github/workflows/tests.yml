@@ -3,8 +3,8 @@ name: Tests
 on:
   push:
   pull_request:
-  # run every day at 6:40 UTC
-  schedule: [cron: "40 6 * * *"]
+  # run 4 times a month at 6:40 UTC
+  schedule: [cron: "40 6 1,8,15,22 * *"]
 
 jobs:
 
@@ -12,6 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+
+      - name: Install cargo-hack
+        uses: taiki-e/install-action@cargo-hack
 
       - name: Install Linux audio library deps
         run: |
@@ -31,8 +34,8 @@ jobs:
 
       - name: Test
         run: |
-          cargo check --workspace
-          cargo test --workspace -- --skip audio_out_tests
+          cargo hack check --workspace --feature-powerset
+          cargo hack test --workspace --feature-powerset --skip dac_tests_on_hardware
 
       - name: Check compilation with and without DAC
         working-directory: crates/resonix

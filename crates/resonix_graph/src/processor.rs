@@ -1,5 +1,6 @@
 use std::{
     collections::{HashSet, VecDeque},
+    ops::{Deref, DerefMut},
     ptr::{addr_of, addr_of_mut},
 };
 
@@ -13,7 +14,7 @@ use uuid::Uuid;
 
 use crate::{AddConnectionError, BoxedNode, Connection, DACNode, Node, NodeType};
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ConnectError {
     #[error("Node could not be found in the audio graph for index {node_index:?}. Are you sure you added it?")]
     NodeNotFound { node_index: NodeIndex },
@@ -28,12 +29,16 @@ pub enum ConnectError {
     },
     #[error("Node connection failed. Original error: {0:?}")]
     AddConnectionError(#[from] AddConnectionError),
+    #[error("A message was sent to the `Processor` in the audio thread to connect 2 nodes, but no corresponding response was received")]
+    NoMatchingMessageReceived,
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum AddNodeError {
     #[error("Cannot add {name:?} to the audio graph, since it has already been added.")]
     AlreadyExists { name: String },
+    #[error("A message was sent to the `Processor` in the audio thread to add a node, but no corresponding response was received")]
+    NoMatchingMessageReceived,
 }
 
 /// Cloning the audio context is an outward clone of the
@@ -53,6 +58,7 @@ impl Processor {
     }
 
     /// Executes the audio graph
+    #[inline]
     pub(crate) fn run(&mut self) {
         if self.visit_order.is_none() {
             self.initialize_visit_order();
@@ -337,5 +343,16 @@ impl Processor {
     }
 }
 
-#[cfg(test)]
-mod test_audio_context {}
+impl Deref for Processor {
+    type Target = Graph<BoxedNode, Connection>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.graph
+    }
+}
+
+impl DerefMut for Processor {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.graph
+    }
+}

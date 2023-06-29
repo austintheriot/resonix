@@ -55,6 +55,7 @@ impl Node for ConstantNode {
         1
     }
 
+    #[inline]
     fn process(
         &mut self,
         _inputs: &mut dyn Iterator<Item = &Connection>,
@@ -75,6 +76,10 @@ impl Node for ConstantNode {
     }
 
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
@@ -100,6 +105,16 @@ impl Node for ConstantNode {
         self.outgoing_connection_indexes.push(edge_index);
 
         Ok(())
+    }
+}
+
+impl Default for ConstantNode {
+    fn default() -> Self {
+        Self {
+            uuid: Uuid::new_v4(),
+            signal_value: 0.0,
+            outgoing_connection_indexes: Vec::new(),
+        }
     }
 }
 

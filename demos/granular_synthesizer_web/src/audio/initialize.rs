@@ -57,16 +57,11 @@ pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> D
     let recording_status_handle = app_state_handle.recording_status_handle.clone();
     let mut audio_recorder_handle = app_state_handle.audio_recorder_handle.clone();
 
-    let dac_config = DACConfig {
-        device,
-        host,
-        sample_format,
-        stream_config,
-    };
+    let dac_config = DACConfig::new(host, device, sample_format, stream_config);
 
     // this is the config of the output audio
-    let output_sample_rate = dac_config.stream_config.sample_rate.0;
-    let output_num_channels = dac_config.stream_config.channels as usize;
+    let output_sample_rate = dac_config.sample_rate();
+    let output_num_channels = dac_config.num_channels() as usize;
     let num_frames_between_saving_snapshot = output_sample_rate / 120;
 
     // only load if buffer hasn't been loaded
@@ -154,6 +149,5 @@ pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> D
     };
 
     DAC::from_dac_config(dac_config, write_frame_to_buffer)
-        .await
         .expect("Error initializing audio player")
 }

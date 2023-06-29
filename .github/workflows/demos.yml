@@ -3,8 +3,8 @@ name: Demos
 on:
   push:
   pull_request:
-  # run every day at 6:40 UTC
-  schedule: [cron: "40 6 * * *"]
+  # run 4 times a month at 6:40 UTC
+  schedule: [cron: "40 6 1,8,15,22 * *"]
 
 jobs:
 
