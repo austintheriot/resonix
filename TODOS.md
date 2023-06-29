@@ -2,6 +2,14 @@
 
 ## Audio Graph
 
+- Convert current demos into audio_graph tests
+  - Basic audio graph with DAC
+  - Sending processor updates via channels (add_node, connect)
+  - Sending node updates via channels (set_frequency)
+  - Updating audio_context before initializing DAC vs after initializing DAC
+
+- Should DAC be initialized by default always when `"dac"` feature is enabled?
+
 - The return value of a node getting attached to the audio context is a node_index and message sender for sending messages to the audio context for after the process has moved into the audio thread
 
 - BUG: currently, if a NodeHandle tries to update a Node property, the async function will hang indefinitely, because there is no DAC running to run the update. Consider when the `audio_context` should run updates to its nodes IF THERE IS NO DAC - since currently the only time those updates are made are when the DAC is running.
@@ -14,8 +22,6 @@
   - Could keep track of which nodes require a specific sample_rate and then auto-update all of them when a sample_rate has been decided (?)
 
 - make sure there are no race conditions when adding multiple nodes simultaneously
-
-- implement a mock cpal Device for testing purposes
 
 - Use state machine on the AudioContext to manage state relating to whether there is a DAC, if it has been initialized, etc. (make it so that users don't have to worry about it at all if `dac` feature is never initialized)
   - Make all calls to the audio graph synchronous if DAC has not been initialized yet

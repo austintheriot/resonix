@@ -1,16 +1,16 @@
-#[cfg(not(test))]
+#[cfg(not(all(test, feature = "mock_test_dac")))]
 use cpal::{
     traits::{DeviceTrait, HostTrait},
     DefaultStreamConfigError, Device, Host, SampleFormat, StreamConfig,
 };
 
-#[cfg(not(test))]
+#[cfg(not(all(test, feature = "mock_test_dac")))]
 use thiserror::Error;
 
 use crate::DataFromDACConfig;
 use std::sync::Arc;
 
-#[cfg(not(test))]
+#[cfg(not(all(test, feature = "mock_test_dac")))]
 pub struct DACConfig {
     #[allow(unused)]
     pub(crate) host: Host,
@@ -21,10 +21,10 @@ pub struct DACConfig {
 }
 
 /// when testing, mock functionality
-#[cfg(test)]
+#[cfg(all(test, feature = "mock_test_dac"))]
 pub struct DACConfig;
 
-#[cfg(not(test))]
+#[cfg(not(all(test, feature = "mock_test_dac")))]
 #[derive(Error, Debug)]
 pub enum DACConfigBuildError {
     #[error("no audio output devices found")]
@@ -33,7 +33,7 @@ pub enum DACConfigBuildError {
     DefaultStreamConfigError(#[from] DefaultStreamConfigError),
 }
 
-#[cfg(not(test))]
+#[cfg(not(all(test, feature = "mock_test_dac")))]
 impl DACConfig {
     pub fn new(
         host: Host,
@@ -75,7 +75,7 @@ impl DACConfig {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "mock_test_dac"))]
 impl DACConfig {
     pub fn from_defaults() -> Result<Self, ()> {
         Ok(Self)

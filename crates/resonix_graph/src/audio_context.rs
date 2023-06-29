@@ -15,6 +15,9 @@ use resonix_dac::{DACBuildError, DACConfig, DACConfigBuildError, DAC};
 use thiserror::Error;
 use uuid::Uuid;
 
+#[cfg(all(test, feature = "mock_test_dac"))]
+use std::sync::Mutex;
+
 use crate::{
     messages::{NodeMessageError, NodeMessageRequest, NodeMessageResponse},
     AddNodeError, BoxedNode, ConnectError, Node, NodeHandle, Processor, ProcessorMessageRequest,
@@ -71,15 +74,27 @@ impl AudioContext {
     }
 
     #[cfg(feature = "dac")]
-    pub fn initialize_dac_from_defaults(&mut self) -> Result<&mut Self, DacInitializeError> {
-        self.initialize_dac_from_config(DACConfig::from_defaults()?)
+    pub fn initialize_dac_from_defaults(
+        &mut self,
+        #[cfg(all(test, feature = "mock_test_dac"))] data_written: Arc<Mutex<Vec<f32>>>,
+    ) -> Result<&mut Self, DacInitializeError> {
+
+        self.initialize_dac_from_config(
+            DACConfig::from_defaults()?,
+            #[cfg(all(test, feature = "mock_test_dac"))]
+            data_written,
+        )
     }
 
-    #[cfg(feature = "dac")]
+    #[cfg(all(test, feature = "dac", feature = "mock_test_dac"))]
     pub fn initialize_dac_from_config(
         &mut self,
         dac_config: DACConfig,
+        #[cfg(all(test, feature = "mock_test_dac"))] data_written: Arc<Mutex<Vec<f32>>>,
     ) -> Result<&mut Self, DacInitializeError> {
+        #[cfg(all(test, feature = "mock_test_dac"))]
+        use std::sync::Mutex;
+
         let (audio_context_tx, processor_rx) = async_channel::unbounded();
         let (processor_tx, audio_context_rx) = async_channel::unbounded();
         self.processor_request_tx.replace(audio_context_tx);
@@ -120,6 +135,8 @@ impl AudioContext {
                     }
                 }
             },
+            #[cfg(all(test, feature = "mock_test_dac"))]
+            data_written,
         )?;
 
         self.dac.replace(dac);
