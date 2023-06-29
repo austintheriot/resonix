@@ -1,0 +1,36 @@
+name: "Miri"
+
+on:
+  push:
+  pull_request:
+  # run 4 times a month at 6:40 UTC
+  schedule: [cron: "40 6 1,8,15,22 * *"]
+
+jobs:
+
+    miri:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v3
+
+            - name: Install Linux audio library deps
+              run: |
+                sudo apt-get install -y libasound2-dev
+
+            - name: Install Miri
+              run: |
+                rustup toolchain install nightly --component miri
+                rustup override set nightly
+                cargo miri setup
+
+            - name: Test resonix_core with Miri
+              working-directory: crates/resonix_core
+              run: cargo miri test -- --skip it_should_allow_large_numbers_of_channels 
+
+            - name: Test resonix_dac with Miri
+              working-directory: crates/resonix_dac
+              run: cargo miri test
+
+            - name: Test resonix_graph with Miri
+              working-directory: crates/resonix_graph
+              run: cargo miri test

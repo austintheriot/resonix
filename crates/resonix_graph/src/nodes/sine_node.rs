@@ -1,10 +1,14 @@
 use std::any::Any;
 
+use log::info;
 use petgraph::prelude::EdgeIndex;
 use resonix_core::{SampleRate, Sine, SineInterface};
 use uuid::Uuid;
 
-use crate::{AddConnectionError, Connection, Node, NodeType};
+use crate::{
+    messages::{NodeMessageRequest, NodeMessageResponse},
+    AddConnectionError, Connection, Node, NodeHandle, NodeHandleMessageError, NodeType,
+};
 
 #[derive(Debug, Clone)]
 pub struct SineNode {
@@ -37,7 +41,32 @@ impl SineInterface for SineNode {
     }
 }
 
+impl NodeHandle<SineNode> {
+    pub async fn set_frequency(&self, new_frequency: f32) -> Result<&Self, NodeHandleMessageError> {
+        self.node_request_tx
+            .send(NodeMessageRequest::SineSetFrequency {
+                uuid: self.uuid,
+                node_index: self.node_index,
+                new_frequency,
+            })
+            .await
+            .unwrap();
+
+        while let Ok(response) = self.node_response_rx.recv().await {
+            let NodeMessageResponse::SineSetFrequency { uuid, result } = response;
+            if uuid != self.uuid {
+                continue;
+            }
+            info!("sine_node message received!: {uuid:?}, {result:?}");
+            return result.map_err(|e| e.into()).map(|_| self);
+        }
+
+        Err(NodeHandleMessageError::NoMatchingMessageReceived)
+    }
+}
+
 impl Node for SineNode {
+    #[inline]
     fn process(
         &mut self,
         _inputs: &mut dyn Iterator<Item = &Connection>,
@@ -71,6 +100,10 @@ impl Node for SineNode {
     }
 
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 

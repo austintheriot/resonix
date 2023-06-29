@@ -146,6 +146,8 @@ dependencies = [
 name = "audio_graph_cli"
 version = "0.1.0"
 dependencies = [
+ "log",
+ "pretty_env_logger",
  "resonix",
  "tokio",
 ]
@@ -2135,6 +2137,7 @@ dependencies = [
  "resonix_core",
  "resonix_dac",
  "resonix_graph",
+ "tokio",
 ]
 
 [[package]]

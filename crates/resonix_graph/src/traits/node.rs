@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{Connection, NodeType};
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AddConnectionError {
     #[error("Could not add incoming connection for {name:?}, because it only accepts outgoing connections")]
     CantAcceptInputConnections { name: String },
@@ -37,6 +37,8 @@ where
 
     fn as_any(&self) -> &dyn Any;
 
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+
     fn incoming_connection_indexes(&self) -> &[EdgeIndex];
 
     fn outgoing_connection_indexes(&self) -> &[EdgeIndex];
@@ -57,6 +59,7 @@ dyn_clone::clone_trait_object!(Node);
 pub type BoxedNode = Box<dyn Node>;
 
 impl Node for BoxedNode {
+    #[inline]
     fn process(
         &mut self,
         inputs: &mut dyn Iterator<Item = &Connection>,
@@ -89,10 +92,12 @@ impl Node for BoxedNode {
         (**self).as_any()
     }
 
+    #[inline]
     fn incoming_connection_indexes(&self) -> &[EdgeIndex] {
         (**self).incoming_connection_indexes()
     }
 
+    #[inline]
     fn outgoing_connection_indexes(&self) -> &[EdgeIndex] {
         (**self).outgoing_connection_indexes()
     }
@@ -109,5 +114,9 @@ impl Node for BoxedNode {
         edge_index: EdgeIndex,
     ) -> Result<(), AddConnectionError> {
         (**self).add_outgoing_connection_index(edge_index)
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        (**self).as_any_mut()
     }
 }

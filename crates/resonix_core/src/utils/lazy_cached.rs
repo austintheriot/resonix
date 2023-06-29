@@ -11,6 +11,7 @@ pub(crate) struct LazyCached<V> {
 }
 
 impl<V> LazyCached<V> {
+    #[allow(unused)]
     pub fn new_cached(v: V) -> Self {
         Self { v: Some(v) }
     }
@@ -26,6 +27,7 @@ impl<V> LazyCached<V> {
         self.v.as_ref().unwrap()
     }
 
+    #[allow(unused)]
     pub fn get_mut<F: FnOnce() -> V>(&mut self, f: F) -> &mut V {
         if self.v.is_none() {
             self.v.replace((f)());

@@ -19,3 +19,6 @@ cpal = { version = "0.13.5" }
 [dev-dependencies]
 # async runtime only needed while testing
 tokio = { version = "1.28.1", features = ["full"] }
+
+[features]
+mock_dac = []

@@ -14,7 +14,14 @@ resonix_dac = { path = "../resonix_dac", optional = true}
 cpal = { version = "0.13.5", optional = true }
 
 [features]
-# only need cpal when using audio-out (DAC) features
+# enables DAC-related functions--only need cpal when using audio-out (DAC) features
 dac = ["dep:cpal", "dep:resonix_dac", "resonix_graph/dac", "resonix_core/dac"]
+# enables mocking DAC-related functionality in tests
+mock_dac = ["resonix_dac?/mock_dac", "resonix_graph/mock_dac"]
 
-
+[dev-dependencies]
+tokio = { version = "1.28.2", features = ["full"]}
+# resonix_dac = { path = "../resonix_dac", features = ["mock_dac"]}
+# resonix_graph = { path = "../resonix_graph", features = ["dac", "mock_dac"]}
+# resonix_core = { path = "../resonix_core", features = ["dac"]}
+# cpal = { version = "0.13.5" }
