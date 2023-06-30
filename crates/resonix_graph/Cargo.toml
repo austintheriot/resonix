@@ -28,3 +28,6 @@ cpal = { version = "0.13.5", optional = true }
 # only need cpal when using audio-out (DAC) features
 dac = ["dep:cpal", "dep:resonix_dac"]
 mock_dac = ["resonix_dac?/mock_dac"]
+
+[dev-dependencies]
+tokio = { version = "1.28.2", features = ["full"]}

@@ -356,3 +356,57 @@ impl DerefMut for Processor {
         &mut self.graph
     }
 }
+
+#[cfg(test)]
+mod test_processor {
+    use crate::{ConstantNode, DACNode, PassThroughNode, Processor};
+
+    #[test]
+    fn running_processor_should_fill_connections_with_data() {
+        let mut processor = Processor::default();
+        let constant_node = ConstantNode::new_with_signal_value(0.5);
+        let pass_through_node = PassThroughNode::new();
+        let dac_node = DACNode::new();
+
+        let constant_node_index = processor.add_node(constant_node).unwrap();
+        let pass_through_node_index = processor.add_node(pass_through_node).unwrap();
+        let dac_node_index = processor.add_node(dac_node).unwrap();
+
+        let constant_to_pass_through_edge_index = processor
+            .connect(constant_node_index, pass_through_node_index)
+            .unwrap();
+        let pass_through_to_dac_edge_index = processor
+            .connect(pass_through_node_index, dac_node_index)
+            .unwrap();
+
+        // no data yet in connections
+        {
+            let constant_to_pass_through_edge = processor
+                .graph
+                .edge_weight(constant_to_pass_through_edge_index)
+                .unwrap();
+            let pass_through_to_dac_edge = processor
+                .graph
+                .edge_weight(pass_through_to_dac_edge_index)
+                .unwrap();
+            assert_eq!(constant_to_pass_through_edge.data(), 0.0);
+            assert_eq!(pass_through_to_dac_edge.data(), 0.0);
+        }
+
+        processor.run();
+
+        // data is in connections now
+        {
+            let constant_to_pass_through_edge = processor
+                .graph
+                .edge_weight(constant_to_pass_through_edge_index)
+                .unwrap();
+            let pass_through_to_dac_edge = processor
+                .graph
+                .edge_weight(pass_through_to_dac_edge_index)
+                .unwrap();
+            assert_eq!(constant_to_pass_through_edge.data(), 0.5);
+            assert_eq!(pass_through_to_dac_edge.data(), 0.5);
+        }
+    }
+}
