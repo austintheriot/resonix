@@ -1,4 +1,4 @@
-use std::{any::Any, fmt::Debug};
+use std::{any::Any, fmt::Debug, rc::Rc, cell::{RefCell, Ref, RefMut}};
 
 use dyn_clone::DynClone;
 use petgraph::prelude::EdgeIndex;
@@ -17,12 +17,12 @@ pub enum AddConnectionError {
 
 pub trait Node
 where
-    Self: Debug + Send + DynClone,
+    Self: Debug + DynClone + Send,
 {
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = &Connection>,
-        outputs: &mut dyn Iterator<Item = &mut Connection>,
+        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     );
 
     fn node_type(&self) -> NodeType;
@@ -62,8 +62,8 @@ impl Node for BoxedNode {
     #[inline]
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = &Connection>,
-        outputs: &mut dyn Iterator<Item = &mut Connection>,
+        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
         (**self).process(inputs, outputs)
     }
@@ -120,3 +120,66 @@ impl Node for BoxedNode {
         (**self).as_any_mut()
     }
 }
+
+// impl Node for Rc<RefCell<BoxedNode>> {
+//     #[inline]
+//     fn process(
+//         &mut self,
+//         inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+//         outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
+//     ) {
+//         (**self).borrow_mut().process(inputs, outputs)
+//     }
+
+//     fn node_type(&self) -> NodeType {
+//         (**self).borrow().node_type()
+//     }
+
+//     fn num_inputs(&self) -> usize {
+//         (**self).borrow().num_inputs()
+//     }
+
+//     fn num_outputs(&self) -> usize {
+//         (**self).borrow().num_outputs()
+//     }
+
+//     fn uuid(&self) -> &Uuid {
+//         (**self).borrow().uuid()
+//     }
+
+//     fn name(&self) -> String {
+//         (**self).borrow().name()
+//     }
+
+//     fn as_any(&self) -> &dyn Any {
+//         (**self).borrow().as_any()
+//     }
+
+//     #[inline]
+//     fn incoming_connection_indexes(&self) -> &[EdgeIndex] {
+//         (**self).borrow().incoming_connection_indexes()
+//     }
+
+//     #[inline]
+//     fn outgoing_connection_indexes(&self) -> &[EdgeIndex] {
+//         (**self).borrow().outgoing_connection_indexes()
+//     }
+
+//     fn add_incoming_connection_index(
+//         &mut self,
+//         edge_index: EdgeIndex,
+//     ) -> Result<(), AddConnectionError> {
+//         (**self).borrow_mut().add_incoming_connection_index(edge_index)
+//     }
+
+//     fn add_outgoing_connection_index(
+//         &mut self,
+//         edge_index: EdgeIndex,
+//     ) -> Result<(), AddConnectionError> {
+//         (**self).borrow_mut().add_outgoing_connection_index(edge_index)
+//     }
+
+//     fn as_any_mut(&mut self) -> &mut dyn Any {
+//         (**self).borrow_mut().as_any_mut()
+//     }
+// }

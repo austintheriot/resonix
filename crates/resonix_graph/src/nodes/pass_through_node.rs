@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, cell::{Ref, RefMut}};
 
 use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
@@ -28,13 +28,13 @@ impl Node for PassThroughNode {
     #[inline]
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = &Connection>,
-        outputs: &mut dyn Iterator<Item = &mut Connection>,
+        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
         let input_data = inputs.next().map(|c| c.data()).unwrap_or(0.0);
 
         // copy first input to all output connections
-        for output in outputs.into_iter() {
+        for mut output in outputs.into_iter() {
             output.set_data(input_data);
         }
     }

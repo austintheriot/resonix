@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, cell::{Ref, RefMut}};
 
 use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
@@ -26,8 +26,8 @@ impl Node for DACNode {
     #[inline]
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = &Connection>,
-        _outputs: &mut dyn Iterator<Item = &mut Connection>,
+        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+        _outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
         let Some(first_input) = inputs.next() else {
             return

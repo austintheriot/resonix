@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, cell::{Ref, RefMut}};
 
 use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
@@ -45,15 +45,15 @@ impl Node for MultiplyNode {
     #[inline]
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = &Connection>,
-        outputs: &mut dyn Iterator<Item = &mut Connection>,
+        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
         let first_input = inputs.next().unwrap();
         let second_input = inputs.next().unwrap();
         let result = first_input.data() * second_input.data();
 
         // copy to all output connections
-        outputs.into_iter().for_each(|output| {
+        outputs.into_iter().for_each(|mut output| {
             output.set_data(result);
         })
     }

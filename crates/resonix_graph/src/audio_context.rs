@@ -21,7 +21,7 @@ use std::sync::Mutex;
 use crate::{
     messages::{NodeMessageError, NodeMessageRequest, NodeMessageResponse},
     AddNodeError, BoxedNode, ConnectError, Node, NodeHandle, Processor, ProcessorMessageRequest,
-    ProcessorMessageResponse, SineNode,
+    ProcessorMessageResponse, SineNode, NonSharedGraph, SharedGraph,
 };
 
 #[cfg(feature = "dac")]
@@ -37,7 +37,7 @@ pub enum DacInitializeError {
 
 #[derive(Debug)]
 pub struct AudioContext {
-    processor: Option<Processor>,
+    processor: Option<Processor<NonSharedGraph>>,
     #[cfg(feature = "dac")]
     dac: Option<DAC>,
     /// sends message to Processor once it has been moved into the audio thread
@@ -76,7 +76,9 @@ impl AudioContext {
     #[cfg(all(feature = "dac"))]
     pub fn initialize_dac_from_defaults(
         &mut self,
-        #[cfg(feature = "mock_dac")] data_written: Arc<Mutex<Vec<f32>>>,
+        #[rustfmt::skip]
+        #[cfg(feature = "mock_dac")]
+         data_written: Arc<Mutex<Vec<f32>>>,
     ) -> Result<&mut Self, DacInitializeError> {
         self.initialize_dac_from_config(
             DACConfig::from_defaults()?,
@@ -89,24 +91,36 @@ impl AudioContext {
     pub fn initialize_dac_from_config(
         &mut self,
         dac_config: DACConfig,
-        #[cfg(feature = "mock_dac")] data_written: Arc<Mutex<Vec<f32>>>,
+        #[rustfmt::skip]
+        #[cfg(feature = "mock_dac")] 
+        data_written: Arc<Mutex<Vec<f32>>>,
     ) -> Result<&mut Self, DacInitializeError> {
+        use crate::SharedGraph;
+
         let (audio_context_tx, processor_rx) = async_channel::unbounded();
         let (processor_tx, audio_context_rx) = async_channel::unbounded();
         self.processor_request_tx.replace(audio_context_tx);
         self.processor_response_rx.replace(audio_context_rx);
-        let mut processor = self
+        let mut non_shared_processor = Some(self
             .processor
             .take()
-            .ok_or(DacInitializeError::NoProcessor)?;
+            .ok_or(DacInitializeError::NoProcessor)?);
         let node_request_rx = self
             .node_request_rx
             .take()
             .expect("DAC was initialized but node_request_rx was `None`");
         let node_response_tx = self.node_response_tx.clone();
+        let mut shared_processor = None;              
         let dac = DAC::from_dac_config(
             dac_config,
             move |buffer: &mut [f32], config: Arc<DACConfig>| {
+                if non_shared_processor.is_some() && shared_processor.is_none() {
+                    let non_shared_processor = non_shared_processor.take().unwrap();
+                    let new_shared_processor: Processor<SharedGraph> = non_shared_processor.into();
+                    shared_processor.replace(new_shared_processor);
+                }
+                
+                let processor = /* shared_processor.unwrap(); */ todo!();
                 let num_channels = config.num_channels() as usize;
 
                 // run any messages for the processor, sent from the main thread, that are ready to be processed
@@ -163,11 +177,11 @@ impl AudioContext {
         Ok(())
     }
 
-    pub fn processor(&self) -> Option<&Processor> {
+    pub fn processor(&self) -> Option<&Processor<NonSharedGraph>> {
         self.processor.as_ref()
     }
 
-    pub fn processor_mut(&mut self) -> Option<&mut Processor> {
+    pub fn processor_mut(&mut self) -> Option<&mut Processor<NonSharedGraph>> {
         self.processor.as_mut()
     }
 
@@ -274,7 +288,7 @@ impl AudioContext {
 
 fn run_node_message(
     message: NodeMessageRequest,
-    processor: &mut Processor,
+    processor: &mut Processor<SharedGraph>,
     node_response_tx: &Sender<NodeMessageResponse>,
 ) {
     match message {
@@ -292,7 +306,7 @@ fn run_node_message(
 }
 
 fn set_sine_node_frequency(
-    processor: &mut Processor,
+    processor: &mut Processor<SharedGraph>,
     node_index: NodeIndex,
     uuid: Uuid,
     new_frequency: f32,
@@ -310,7 +324,7 @@ fn set_sine_node_frequency(
 
 fn run_processor_message<N: Node + 'static>(
     message: ProcessorMessageRequest<N>,
-    processor: &mut Processor,
+    processor: &mut Processor<SharedGraph>,
     processor_tx: Sender<ProcessorMessageResponse>,
 ) {
     match message {

@@ -108,7 +108,9 @@ impl DAC {
         write_frame_to_buffer: Callback,
 
         // allows providing a buffer to write DAC data into while testing
-        #[cfg(feature = "mock_dac")] data_written: Arc<Mutex<Vec<f32>>>,
+        #[rustfmt::skip]
+        #[cfg(feature = "mock_dac")]
+        data_written: Arc<Mutex<Vec<f32>>>,
     ) -> Result<Self, DACBuildError>
     where
         S: Sample,

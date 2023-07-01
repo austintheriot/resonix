@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, cell::{Ref, RefMut}};
 
 use log::info;
 use petgraph::prelude::EdgeIndex;
@@ -69,12 +69,12 @@ impl Node for SineNode {
     #[inline]
     fn process(
         &mut self,
-        _inputs: &mut dyn Iterator<Item = &Connection>,
-        outputs: &mut dyn Iterator<Item = &mut Connection>,
+        _inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
         let next_sample = self.next_sample();
 
-        outputs.into_iter().for_each(|output| {
+        outputs.into_iter().for_each(|mut output| {
             output.set_data(next_sample);
         });
     }

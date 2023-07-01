@@ -1,6 +1,6 @@
 use std::{
     any::Any,
-    hash::{Hash, Hasher},
+    hash::{Hash, Hasher}, cell::{Ref, RefMut},
 };
 
 use petgraph::prelude::EdgeIndex;
@@ -58,11 +58,11 @@ impl Node for ConstantNode {
     #[inline]
     fn process(
         &mut self,
-        _inputs: &mut dyn Iterator<Item = &Connection>,
-        outputs: &mut dyn Iterator<Item = &mut Connection>,
+        _inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
         // copy to all output connections
-        outputs.into_iter().for_each(|output| {
+        outputs.into_iter().for_each(|mut output| {
             output.set_data(self.signal_value);
         })
     }
