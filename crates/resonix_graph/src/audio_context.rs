@@ -298,7 +298,7 @@ fn set_sine_node_frequency(
     new_frequency: f32,
 ) -> Result<(), NodeMessageError> {
     let node = processor
-        .node_weight_mut(node_index)
+        .boxed_node_mut_by_node_index(node_index)
         .ok_or(NodeMessageError::NodeNotFound { uuid, node_index })?;
     let sine_node = node
         .as_any_mut()
