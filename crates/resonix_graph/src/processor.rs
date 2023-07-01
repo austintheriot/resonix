@@ -65,27 +65,20 @@ impl Processor {
         }
 
         for node_index in self.visit_order.as_ref().unwrap() {
-            // some very unsafe shenanigans here, since Rust doesn't know that the immutable borrows
-            // of Connections from the Graph below are not the same mutable borrow of the Node
-            // this should be safe-ish since we are only borrowing connections above, and here we are only borrowing a node
-            // let graph_ptr_mut = addr_of!(self.graph) as *mut Graph<BoxedNode, Connection>;
-            // let graph_mut = unsafe { &mut *graph_ptr_mut as &mut Graph<BoxedNode, Connection> };
-            // let node = &mut graph_mut[*node_index];
-            let graph_ptr = addr_of!(self.graph);
-
-            let node_mut: &mut Box<dyn Node> = &mut self.graph[*node_index];
-
             // it is safe to immutably borrow `node_mut` for its connections, AS LONG AS the
             // connections are not touched within the Node's `process` implementation
             // todo => refactor `Node::process` to make this impossible (and therefore actually safe)
-            let node_ptr = addr_of!(*node_mut);
-            let node = unsafe { &*node_ptr as &BoxedNode };
+            let node = {
+                let node_mut: &mut Box<dyn Node> = &mut self.graph[*node_index];
+                let node_ptr = addr_of!(*node_mut);
+                unsafe { &*node_ptr as &BoxedNode }
+            };
             let incoming_edge_indexes = node.incoming_connection_indexes();
             let outgoing_edge_indexes = node.outgoing_connection_indexes();
 
             let mut incoming_connections = {
                 let graph_for_incoming_edges =
-                    unsafe { &*(graph_ptr) as &Graph<BoxedNode, Connection> };
+                    unsafe { &*(addr_of!(self.graph)) as &Graph<BoxedNode, Connection> };
                 incoming_edge_indexes.iter().map(|i| {
                     let connection = graph_for_incoming_edges.edge_weight(*i).unwrap();
                     let ptr = addr_of!(*connection);
@@ -94,17 +87,22 @@ impl Processor {
             };
 
             let mut outgoing_connections = {
-                let graph_mut_for_outgoing_edges = unsafe {
-                    let ptr_mut = graph_ptr as *mut Graph<BoxedNode, Connection>;
-                    &mut *(ptr_mut) as &mut Graph<BoxedNode, Connection>
+                let graph_mut_for_outgoing_edges = {
+                    let graph_ptr_mut = addr_of_mut!(self.graph);
+                    unsafe { &mut *(graph_ptr_mut) as &mut Graph<BoxedNode, Connection> }
                 };
                 outgoing_edge_indexes.iter().map(|i| {
                     let connection = graph_mut_for_outgoing_edges.edge_weight_mut(*i).unwrap();
-                    let ptr = addr_of_mut!(*connection);
-                    unsafe { &mut *(ptr) as &mut Connection }
+                    let connection_ptr_mut = addr_of_mut!(*connection);
+                    unsafe { &mut *(connection_ptr_mut) as &mut Connection }
                 })
             };
 
+            let node_mut = {
+                let node_mut: &mut Box<dyn Node> = &mut self.graph[*node_index];
+                let node_ptr_mut = addr_of_mut!(*node_mut);
+                unsafe { &mut *node_ptr_mut as &mut BoxedNode }
+            };
             node_mut.process(&mut incoming_connections, &mut outgoing_connections)
         }
     }
