@@ -53,6 +53,8 @@ pub struct Processor {
     visit_order: Option<Vec<NodeIndex>>,
     input_node_indexes: Vec<NodeIndex>,
     dac_node_indexes: Vec<NodeIndex>,
+    _outgoing_connections: Vec<Connection>,
+    _incoming_connections: Vec<Connection>,
 }
 
 impl Processor {
@@ -90,30 +92,27 @@ impl Processor {
                 (incoming_connection_uuids, outgoing_connection_uuids)
             };
 
-            let mut incoming_connections = Vec::new();
-            for uuid in incoming_connection_uuids {
-                incoming_connections.push(self.connections_by_id.remove(&uuid).unwrap());
-            }
-
-            let mut outgoing_connections = Vec::new();
-            for uuid in outgoing_connection_uuids {
-                outgoing_connections.push(self.connections_by_id.remove(&uuid).unwrap());
-            }
+            self._incoming_connections.extend(
+                incoming_connection_uuids.map(|uuid| self.connections_by_id.remove(&uuid).unwrap()),
+            );
+            self._outgoing_connections.extend(
+                outgoing_connection_uuids.map(|uuid| self.connections_by_id.remove(&uuid).unwrap()),
+            );
 
             let node_mut = self.nodes_by_id.get_mut(node_uuid).unwrap();
             node_mut.process(
-                &mut incoming_connections.iter(),
-                &mut outgoing_connections.iter_mut(),
+                &mut self._incoming_connections.iter(),
+                &mut self._outgoing_connections.iter_mut(),
             );
 
             self.connections_by_id.extend(
-                incoming_connections
-                    .into_iter()
+                self._incoming_connections
+                    .drain(..)
                     .map(|connection| (*connection.uuid(), connection)),
             );
             self.connections_by_id.extend(
-                outgoing_connections
-                    .into_iter()
+                self._outgoing_connections
+                    .drain(..)
                     .map(|connection| (*connection.uuid(), connection)),
             );
         }
@@ -362,7 +361,10 @@ impl Processor {
         result
     }
 
-    pub(crate) fn node_by_node_index<N: Node + 'static>(&self, node_index: NodeIndex) -> Option<&N> {
+    pub(crate) fn node_by_node_index<N: Node + 'static>(
+        &self,
+        node_index: NodeIndex,
+    ) -> Option<&N> {
         self.boxed_node_by_node_index(node_index)
             .and_then(|boxed_node| (*boxed_node).as_any().downcast_ref::<N>())
     }
@@ -373,7 +375,10 @@ impl Processor {
             .and_then(|uuid| self.nodes_by_id.get(uuid))
     }
 
-    pub(crate) fn boxed_node_mut_by_node_index(&mut self, node_index: NodeIndex) -> Option<&mut BoxedNode> {
+    pub(crate) fn boxed_node_mut_by_node_index(
+        &mut self,
+        node_index: NodeIndex,
+    ) -> Option<&mut BoxedNode> {
         self.graph
             .node_weight_mut(node_index)
             .and_then(|uuid| self.nodes_by_id.get_mut(uuid))
