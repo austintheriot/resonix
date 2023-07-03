@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, cell::{Ref, RefMut}};
 
 use log::info;
 use petgraph::prelude::EdgeIndex;
@@ -69,12 +69,12 @@ impl Node for SineNode {
     #[inline]
     fn process(
         &mut self,
-        _inputs: &mut dyn Iterator<Item = &Connection>,
-        outputs: &mut dyn Iterator<Item = &mut Connection>,
+        _inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
         let next_sample = self.next_sample();
 
-        outputs.into_iter().for_each(|output| {
+        outputs.into_iter().for_each(|mut output| {
             output.set_data(next_sample);
         });
     }
@@ -105,30 +105,6 @@ impl Node for SineNode {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
-    }
-
-    fn incoming_connection_indexes(&self) -> &[EdgeIndex] {
-        &[]
-    }
-
-    fn outgoing_connection_indexes(&self) -> &[EdgeIndex] {
-        &self.outgoing_connection_indexes
-    }
-
-    fn add_incoming_connection_index(
-        &mut self,
-        _edge_index: EdgeIndex,
-    ) -> Result<(), AddConnectionError> {
-        Err(AddConnectionError::CantAcceptInputConnections { name: self.name() })
-    }
-
-    fn add_outgoing_connection_index(
-        &mut self,
-        edge_index: EdgeIndex,
-    ) -> Result<(), AddConnectionError> {
-        self.outgoing_connection_indexes.push(edge_index);
-
-        Ok(())
     }
 }
 
@@ -171,6 +147,8 @@ impl Ord for SineNode {
 #[cfg(test)]
 mod test_sine_node {
 
+    use std::cell::RefCell;
+
     use crate::{AudioContext, Connection, Node, SineNode};
 
     #[test]
@@ -179,35 +157,35 @@ mod test_sine_node {
         // should finish a sine wave cycle within 4 sample
         let mut sine_node = SineNode::new_with_config(4, 1.0);
 
-        let mut output_connection = Connection::default();
+        let mut output_connection = RefCell::new(Connection::default());
 
         // before processing, output data is 0.0
         {
-            assert_eq!(output_connection.data(), 0.0);
+            assert_eq!(output_connection.borrow().data(), 0.0);
         }
 
         // run processing for node
         {
             let inputs = [];
-            let outputs = [&mut output_connection];
+            let outputs = [output_connection.borrow_mut()];
             sine_node.process(&mut inputs.into_iter(), &mut outputs.into_iter());
         }
 
         // after processing once, output data is 0.0
         {
-            assert_eq!(output_connection.data(), 0.0);
+            assert_eq!(output_connection.borrow().data(), 0.0);
         }
 
         // run processing for node
         {
             let inputs = [];
-            let outputs = [&mut output_connection];
+            let outputs = [output_connection.borrow_mut()];
             sine_node.process(&mut inputs.into_iter(), &mut outputs.into_iter());
         }
 
         // after processing twice, output data is 1.0
         {
-            assert_eq!(output_connection.data(), 1.0);
+            assert_eq!(output_connection.borrow().data(), 1.0);
         }
     }
 }

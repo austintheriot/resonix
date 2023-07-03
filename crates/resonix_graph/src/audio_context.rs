@@ -300,7 +300,8 @@ fn set_sine_node_frequency(
     let node = processor
         .node_weight_mut(node_index)
         .ok_or(NodeMessageError::NodeNotFound { uuid, node_index })?;
-    let sine_node = node
+    let mut sine_node = node.borrow_mut();
+    let sine_node = sine_node
         .as_any_mut()
         .downcast_mut::<SineNode>()
         .ok_or(NodeMessageError::WrongNodeType { uuid, node_index })?;

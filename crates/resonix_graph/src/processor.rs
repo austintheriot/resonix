@@ -1,7 +1,7 @@
 use std::{
-    collections::{HashSet, VecDeque},
+    cell::RefCell,
+    collections::{HashMap, HashSet, VecDeque},
     ops::{Deref, DerefMut},
-    ptr::{addr_of, addr_of_mut},
 };
 
 use petgraph::{
@@ -45,12 +45,18 @@ pub enum AddNodeError {
 /// audio context handle
 #[derive(Debug, Default, Clone)]
 pub struct Processor {
-    graph: Graph<BoxedNode, Connection>,
+    graph: Graph<RefCell<BoxedNode>, RefCell<Connection>>,
     node_uuids: HashSet<Uuid>,
     visit_order: Option<Vec<NodeIndex>>,
     input_node_indexes: Vec<NodeIndex>,
     dac_node_indexes: Vec<NodeIndex>,
+    incoming_connection_indexes: HashMap<Uuid, Vec<EdgeIndex>>,
+    outgoing_connection_indexes: HashMap<Uuid, Vec<EdgeIndex>>,
 }
+
+// data in `Processor` is never shared across threads or sent
+// to any other thread besides the audio thread
+unsafe impl Send for Processor {}
 
 impl Processor {
     pub fn new() -> Self {
@@ -65,47 +71,25 @@ impl Processor {
         }
 
         for node_index in self.visit_order.as_ref().unwrap() {
-            // some very unsafe shenanigans here, since Rust doesn't know that the immutable borrows
-            // of Connections from the Graph below are not the same mutable borrow of the Node
-            // this should be safe-ish since we are only borrowing connections above, and here we are only borrowing a node
-            // let graph_ptr_mut = addr_of!(self.graph) as *mut Graph<BoxedNode, Connection>;
-            // let graph_mut = unsafe { &mut *graph_ptr_mut as &mut Graph<BoxedNode, Connection> };
-            // let node = &mut graph_mut[*node_index];
-            let graph_ptr = addr_of!(self.graph);
-
-            let node_mut: &mut Box<dyn Node> = &mut self.graph[*node_index];
-
-            // it is safe to immutably borrow `node_mut` for its connections, AS LONG AS the
-            // connections are not touched within the Node's `process` implementation
-            // todo => refactor `Node::process` to make this impossible (and therefore actually safe)
-            let node_ptr = addr_of!(*node_mut);
-            let node = unsafe { &*node_ptr as &BoxedNode };
-            let incoming_edge_indexes = node.incoming_connection_indexes();
-            let outgoing_edge_indexes = node.outgoing_connection_indexes();
+            let node = &self.graph[*node_index];
+            let node_uuid = *node.borrow().uuid();
+            let incoming_edge_indexes = self.incoming_connection_indexes(&node_uuid).unwrap_or(&[]);
+            let outgoing_edge_indexes = self.outgoing_connection_indexes(&node_uuid).unwrap_or(&[]);
 
             let mut incoming_connections = {
-                let graph_for_incoming_edges =
-                    unsafe { &*(graph_ptr) as &Graph<BoxedNode, Connection> };
-                incoming_edge_indexes.iter().map(|i| {
-                    let connection = graph_for_incoming_edges.edge_weight(*i).unwrap();
-                    let ptr = addr_of!(*connection);
-                    unsafe { &*(ptr) as &Connection }
-                })
+                incoming_edge_indexes
+                    .iter()
+                    .map(|i| self.graph.edge_weight(*i).unwrap().borrow())
             };
 
             let mut outgoing_connections = {
-                let graph_mut_for_outgoing_edges = unsafe {
-                    let ptr_mut = graph_ptr as *mut Graph<BoxedNode, Connection>;
-                    &mut *(ptr_mut) as &mut Graph<BoxedNode, Connection>
-                };
-                outgoing_edge_indexes.iter().map(|i| {
-                    let connection = graph_mut_for_outgoing_edges.edge_weight_mut(*i).unwrap();
-                    let ptr = addr_of_mut!(*connection);
-                    unsafe { &mut *(ptr) as &mut Connection }
-                })
+                outgoing_edge_indexes
+                    .iter()
+                    .map(|i| self.graph.edge_weight(*i).unwrap().borrow_mut())
             };
 
-            node_mut.process(&mut incoming_connections, &mut outgoing_connections)
+            node.borrow_mut()
+                .process(&mut incoming_connections, &mut outgoing_connections)
         }
     }
 
@@ -183,7 +167,7 @@ impl Processor {
 
             // skip for now if inputs have not been initialized
             if incoming_connections.any(|incoming_connection| {
-                !connection_visit_set.contains(incoming_connection.uuid())
+                !connection_visit_set.contains(incoming_connection.borrow().uuid())
             }) {
                 in_progress_visit_order.push_back(node_index);
                 continue;
@@ -198,7 +182,7 @@ impl Processor {
 
             // mark all outgoing connections from this node has having been visited
             outgoing_connections.for_each(|edge_reference| {
-                connection_visit_set.insert(*edge_reference.weight().uuid());
+                connection_visit_set.insert(*edge_reference.weight().borrow().uuid());
             });
         }
 
@@ -212,6 +196,7 @@ impl Processor {
             .iter()
             .map(|i: &NodeIndex| {
                 self.graph[*i]
+                    .borrow()
                     .as_any()
                     .downcast_ref::<DACNode>()
                     .unwrap()
@@ -228,7 +213,7 @@ impl Processor {
         to_index: usize,
     ) -> Result<EdgeIndex, ConnectError> {
         // check if connection indexes are out of bounds
-        {
+        let (parent_uuid, child_uuid) = {
             let parent_node =
                 &self
                     .graph
@@ -244,34 +229,49 @@ impl Processor {
                         node_index: child_node_index,
                     })?;
 
-            Self::check_index_out_of_bounds(parent_node, child_node, from_index, to_index)?;
-        }
+            Self::check_index_out_of_bounds(
+                &*parent_node.borrow(),
+                &*child_node.borrow(),
+                from_index,
+                to_index,
+            )?;
+
+            (*parent_node.borrow().uuid(), *child_node.borrow().uuid())
+        };
 
         // add connection to graph
         let edge_index = self.graph.add_edge(
             parent_node_index,
             child_node_index,
-            Connection::from_indexes(from_index, to_index),
+            RefCell::new(Connection::from_indexes(from_index, to_index)),
         );
 
-        // add connection indexes to nodes themselves for faster retrieval later
-        self.graph
-            .node_weight_mut(parent_node_index)
-            .ok_or(ConnectError::NodeNotFound {
-                node_index: parent_node_index,
-            })?
-            .add_outgoing_connection_index(edge_index)
-            .unwrap();
-
-        self.graph
-            .node_weight_mut(child_node_index)
-            .ok_or(ConnectError::NodeNotFound {
-                node_index: child_node_index,
-            })?
-            .add_incoming_connection_index(edge_index)
-            .unwrap();
+        self.add_outgoing_connection_index(parent_uuid, edge_index);
+        self.add_incoming_connection_index(child_uuid, edge_index);
 
         Ok(edge_index)
+    }
+
+    fn incoming_connection_indexes(&self, uuid: &Uuid) -> Option<&[EdgeIndex]> {
+        self.incoming_connection_indexes.get(uuid).map(|indexes| indexes.as_slice())
+    }
+
+    fn outgoing_connection_indexes(&self, uuid: &Uuid) -> Option<&[EdgeIndex]> {
+        self.outgoing_connection_indexes.get(uuid).map(|indexes| indexes.as_slice())
+    }
+
+    fn add_incoming_connection_index(&mut self, uuid: Uuid, edge_index: EdgeIndex) {
+        self.incoming_connection_indexes
+            .entry(uuid)
+            .and_modify(|edge_indexes| edge_indexes.push(edge_index))
+            .or_insert_with(|| vec![edge_index]);
+    }
+
+    fn add_outgoing_connection_index(&mut self, uuid: Uuid, edge_index: EdgeIndex) {
+        self.outgoing_connection_indexes
+            .entry(uuid)
+            .and_modify(|edge_indexes| edge_indexes.push(edge_index))
+            .or_insert_with(|| vec![edge_index]);
     }
 
     fn check_index_out_of_bounds(
@@ -307,7 +307,7 @@ impl Processor {
 
         let is_dac = { node.as_any().downcast_ref::<DACNode>().is_some() };
 
-        let node_index = self.graph.add_node(Box::new(node));
+        let node_index = self.graph.add_node(RefCell::new(Box::new(node)));
 
         if is_input {
             self.input_node_indexes.push(node_index);
@@ -344,7 +344,7 @@ impl Processor {
 }
 
 impl Deref for Processor {
-    type Target = Graph<BoxedNode, Connection>;
+    type Target = Graph<RefCell<BoxedNode>, RefCell<Connection>>;
 
     fn deref(&self) -> &Self::Target {
         &self.graph
@@ -389,8 +389,8 @@ mod test_processor {
                 .graph
                 .edge_weight(pass_through_to_dac_edge_index)
                 .unwrap();
-            assert_eq!(constant_to_pass_through_edge.data(), 0.0);
-            assert_eq!(pass_through_to_dac_edge.data(), 0.0);
+            assert_eq!(constant_to_pass_through_edge.borrow().data(), 0.0);
+            assert_eq!(pass_through_to_dac_edge.borrow().data(), 0.0);
         }
 
         processor.run();
@@ -405,8 +405,8 @@ mod test_processor {
                 .graph
                 .edge_weight(pass_through_to_dac_edge_index)
                 .unwrap();
-            assert_eq!(constant_to_pass_through_edge.data(), 0.5);
-            assert_eq!(pass_through_to_dac_edge.data(), 0.5);
+            assert_eq!(constant_to_pass_through_edge.borrow().data(), 0.5);
+            assert_eq!(pass_through_to_dac_edge.borrow().data(), 0.5);
         }
     }
 }

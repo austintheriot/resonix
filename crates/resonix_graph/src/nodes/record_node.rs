@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, cell::{Ref, RefMut}};
 
 use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
@@ -26,8 +26,8 @@ impl Node for RecordNode {
     #[inline]
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = &Connection>,
-        _: &mut dyn Iterator<Item = &mut Connection>,
+        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+        _: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
         let Some(first_input) = inputs.next() else {
             return
@@ -62,30 +62,6 @@ impl Node for RecordNode {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
-    }
-
-    fn incoming_connection_indexes(&self) -> &[petgraph::prelude::EdgeIndex] {
-        &self.incoming_connection_indexes
-    }
-
-    fn outgoing_connection_indexes(&self) -> &[EdgeIndex] {
-        &[]
-    }
-
-    fn add_incoming_connection_index(
-        &mut self,
-        edge_index: EdgeIndex,
-    ) -> Result<(), AddConnectionError> {
-        self.incoming_connection_indexes.push(edge_index);
-
-        Ok(())
-    }
-
-    fn add_outgoing_connection_index(
-        &mut self,
-        _edge_index: EdgeIndex,
-    ) -> Result<(), AddConnectionError> {
-        Err(AddConnectionError::CantAcceptOutputConnections { name: self.name() })
     }
 }
 
@@ -122,16 +98,18 @@ impl Ord for RecordNode {
 #[cfg(test)]
 mod test_record_node {
 
+    use std::cell::RefCell;
+
     use crate::{Connection, Node, RecordNode};
 
     #[test]
     fn should_record_incoming_node_data() {
         let mut record_node = RecordNode::new();
 
-        let input_connection = Connection::from_test_data(0.1234, 0, 0);
+        let input_connection = RefCell::new(Connection::from_test_data(0.1234, 0, 0));
 
         {
-            let inputs = [&input_connection];
+            let inputs = [input_connection.borrow()];
             let outputs = [];
             record_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }

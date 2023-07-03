@@ -1,4 +1,4 @@
-use std::{any::Any, fmt::Debug};
+use std::{any::Any, fmt::Debug, cell::{Ref, RefMut}};
 
 use dyn_clone::DynClone;
 use petgraph::prelude::EdgeIndex;
@@ -21,8 +21,8 @@ where
 {
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = &Connection>,
-        outputs: &mut dyn Iterator<Item = &mut Connection>,
+        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     );
 
     fn node_type(&self) -> NodeType;
@@ -38,20 +38,6 @@ where
     fn as_any(&self) -> &dyn Any;
 
     fn as_any_mut(&mut self) -> &mut dyn Any;
-
-    fn incoming_connection_indexes(&self) -> &[EdgeIndex];
-
-    fn outgoing_connection_indexes(&self) -> &[EdgeIndex];
-
-    fn add_incoming_connection_index(
-        &mut self,
-        edge_index: EdgeIndex,
-    ) -> Result<(), AddConnectionError>;
-
-    fn add_outgoing_connection_index(
-        &mut self,
-        edge_index: EdgeIndex,
-    ) -> Result<(), AddConnectionError>;
 }
 
 dyn_clone::clone_trait_object!(Node);
@@ -62,8 +48,8 @@ impl Node for BoxedNode {
     #[inline]
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = &Connection>,
-        outputs: &mut dyn Iterator<Item = &mut Connection>,
+        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
         (**self).process(inputs, outputs)
     }
@@ -90,30 +76,6 @@ impl Node for BoxedNode {
 
     fn as_any(&self) -> &dyn Any {
         (**self).as_any()
-    }
-
-    #[inline]
-    fn incoming_connection_indexes(&self) -> &[EdgeIndex] {
-        (**self).incoming_connection_indexes()
-    }
-
-    #[inline]
-    fn outgoing_connection_indexes(&self) -> &[EdgeIndex] {
-        (**self).outgoing_connection_indexes()
-    }
-
-    fn add_incoming_connection_index(
-        &mut self,
-        edge_index: EdgeIndex,
-    ) -> Result<(), AddConnectionError> {
-        (**self).add_incoming_connection_index(edge_index)
-    }
-
-    fn add_outgoing_connection_index(
-        &mut self,
-        edge_index: EdgeIndex,
-    ) -> Result<(), AddConnectionError> {
-        (**self).add_outgoing_connection_index(edge_index)
     }
 
     fn as_any_mut(&mut self) -> &mut dyn Any {

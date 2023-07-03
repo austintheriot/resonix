@@ -1,4 +1,4 @@
-use std::any::Any;
+use std::{any::Any, cell::{Ref, RefMut}};
 
 use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
@@ -28,13 +28,13 @@ impl Node for PassThroughNode {
     #[inline]
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = &Connection>,
-        outputs: &mut dyn Iterator<Item = &mut Connection>,
+        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
         let input_data = inputs.next().map(|c| c.data()).unwrap_or(0.0);
 
         // copy first input to all output connections
-        for output in outputs.into_iter() {
+        for mut output in outputs.into_iter() {
             output.set_data(input_data);
         }
     }
@@ -66,32 +66,6 @@ impl Node for PassThroughNode {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
-
-    fn incoming_connection_indexes(&self) -> &[EdgeIndex] {
-        &self.incoming_connection_indexes
-    }
-
-    fn outgoing_connection_indexes(&self) -> &[EdgeIndex] {
-        &self.outgoing_connection_indexes
-    }
-
-    fn add_incoming_connection_index(
-        &mut self,
-        edge_index: EdgeIndex,
-    ) -> Result<(), AddConnectionError> {
-        self.incoming_connection_indexes.push(edge_index);
-
-        Ok(())
-    }
-
-    fn add_outgoing_connection_index(
-        &mut self,
-        edge_index: EdgeIndex,
-    ) -> Result<(), AddConnectionError> {
-        self.outgoing_connection_indexes.push(edge_index);
-
-        Ok(())
-    }
 }
 
 impl Default for PassThroughNode {
@@ -107,30 +81,32 @@ impl Default for PassThroughNode {
 #[cfg(test)]
 mod test_pass_through_node {
 
+    use std::cell::RefCell;
+
     use crate::{Connection, Node, PassThroughNode};
 
     #[test]
     fn should_pass_audio_data_through_output_connections() {
         let mut pass_through_node = PassThroughNode::new();
 
-        let input_connection = Connection::from_test_data(0.1234, 0, 0);
+        let input_connection = RefCell::new(Connection::from_test_data(0.1234, 0, 0));
 
-        let mut output_connection = Connection::default();
+        let mut output_connection = RefCell::new(Connection::default());
 
         // before processing, output connection holds 0.0
         {
-            assert_eq!(output_connection.data(), 0.0);
+            assert_eq!(output_connection.borrow().data(), 0.0);
         }
 
         {
-            let inputs = [&input_connection];
-            let outputs = [&mut output_connection];
+            let inputs = [input_connection.borrow()];
+            let outputs = [output_connection.borrow_mut()];
             pass_through_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
 
         // before processing, output connection holds input data
         {
-            assert_eq!(output_connection.data(), 0.1234);
+            assert_eq!(output_connection.borrow().data(), 0.1234);
         }
     }
 }

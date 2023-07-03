@@ -1,6 +1,6 @@
 use std::{
     any::Any,
-    hash::{Hash, Hasher},
+    hash::{Hash, Hasher}, cell::{Ref, RefMut},
 };
 
 use petgraph::prelude::EdgeIndex;
@@ -58,11 +58,11 @@ impl Node for ConstantNode {
     #[inline]
     fn process(
         &mut self,
-        _inputs: &mut dyn Iterator<Item = &Connection>,
-        outputs: &mut dyn Iterator<Item = &mut Connection>,
+        _inputs: &mut dyn Iterator<Item = Ref<Connection>>,
+        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
         // copy to all output connections
-        outputs.into_iter().for_each(|output| {
+        outputs.into_iter().for_each(|mut output| {
             output.set_data(self.signal_value);
         })
     }
@@ -81,30 +81,6 @@ impl Node for ConstantNode {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
-    }
-
-    fn incoming_connection_indexes(&self) -> &[EdgeIndex] {
-        &[]
-    }
-
-    fn outgoing_connection_indexes(&self) -> &[EdgeIndex] {
-        &self.outgoing_connection_indexes
-    }
-
-    fn add_incoming_connection_index(
-        &mut self,
-        _edge_index: EdgeIndex,
-    ) -> Result<(), AddConnectionError> {
-        Err(AddConnectionError::CantAcceptInputConnections { name: self.name() })
-    }
-
-    fn add_outgoing_connection_index(
-        &mut self,
-        edge_index: EdgeIndex,
-    ) -> Result<(), AddConnectionError> {
-        self.outgoing_connection_indexes.push(edge_index);
-
-        Ok(())
     }
 }
 
@@ -147,29 +123,31 @@ impl Hash for ConstantNode {
 #[cfg(test)]
 mod test_constant_node {
 
+    use std::cell::RefCell;
+
     use crate::{Connection, ConstantNode, Node};
 
     #[test]
     fn should_output_constant_signal_value() {
         let mut constant_node = ConstantNode::new_with_signal_value(1.234);
 
-        let mut output_connection = Connection::default();
+        let output_connection = RefCell::new(Connection::default());
 
         // before processing, output data is 0.0
         {
-            assert_eq!(output_connection.data(), 0.0);
+            assert_eq!(output_connection.borrow().data(), 0.0);
         }
 
         // run processing for node
         {
             let inputs = [];
-            let outputs = [&mut output_connection];
+            let outputs = [output_connection.borrow_mut()];
             constant_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
 
         // after processing, output data is 1.234
         {
-            assert_eq!(output_connection.data(), 1.234);
+            assert_eq!(output_connection.borrow().data(), 1.234);
         }
     }
 }
