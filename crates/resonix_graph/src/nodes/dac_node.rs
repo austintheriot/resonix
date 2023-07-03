@@ -5,16 +5,23 @@ use uuid::Uuid;
 
 use crate::{AddConnectionError, Connection, Node, NodeType};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct DACNode {
     data: f32,
-    uuid: Uuid,
-    incoming_connection_indexes: Vec<EdgeIndex>,
+    uid: u32,
 }
 
 impl DACNode {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_uid(uid: u32) -> Self {
+        Self {
+            uid,
+            ..Default::default()
+        }
     }
 
     pub fn data(&self) -> f32 {
@@ -50,10 +57,13 @@ impl Node for DACNode {
         0
     }
 
-    fn uuid(&self) -> &Uuid {
-        &self.uuid
+    fn uid(&self) -> u32 {
+        self.uid
     }
 
+    fn set_uid(&mut self, uid: u32) {
+        self.uid = uid;
+    }
     fn name(&self) -> String {
         String::from("DACNode")
     }
@@ -67,19 +77,9 @@ impl Node for DACNode {
     }
 }
 
-impl Default for DACNode {
-    fn default() -> Self {
-        Self {
-            uuid: Uuid::new_v4(),
-            data: 0.0,
-            incoming_connection_indexes: Vec::new(),
-        }
-    }
-}
-
 impl PartialEq for DACNode {
     fn eq(&self, other: &Self) -> bool {
-        self.uuid == other.uuid
+        self.uid == other.uid
     }
 }
 
@@ -87,13 +87,13 @@ impl Eq for DACNode {}
 
 impl PartialOrd for DACNode {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.uuid.partial_cmp(&other.uuid)
+        self.uid.partial_cmp(&other.uid)
     }
 }
 
 impl Ord for DACNode {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.uuid.cmp(&other.uuid)
+        self.uid.cmp(&other.uid)
     }
 }
 

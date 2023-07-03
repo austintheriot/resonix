@@ -12,19 +12,21 @@ use crate::{AddConnectionError, Connection, Node, NodeType};
 /// Input 1 - Signal 2
 ///
 /// Output 0 - Multiplied signal
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct MultiplyNode {
-    uuid: Uuid,
-    incoming_connection_indexes: Vec<EdgeIndex>,
-    outgoing_connection_indexes: Vec<EdgeIndex>,
+    uid: u32,
 }
 
 impl MultiplyNode {
     pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_uid(uid: u32) -> Self {
         Self {
-            uuid: Uuid::new_v4(),
-            incoming_connection_indexes: Vec::new(),
-            outgoing_connection_indexes: Vec::new(),
+            uid,
+            ..Default::default()
         }
     }
 }
@@ -58,10 +60,13 @@ impl Node for MultiplyNode {
         })
     }
 
-    fn uuid(&self) -> &Uuid {
-        &self.uuid
+    fn uid(&self) -> u32 {
+        self.uid
     }
 
+    fn set_uid(&mut self, uid: u32) {
+        self.uid = uid;
+    }
     fn name(&self) -> String {
         String::from("MultiplyNode")
     }
@@ -72,16 +77,6 @@ impl Node for MultiplyNode {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
-    }
-}
-
-impl Default for MultiplyNode {
-    fn default() -> Self {
-        Self {
-            uuid: Uuid::new_v4(),
-            incoming_connection_indexes: Vec::new(),
-            outgoing_connection_indexes: Vec::new(),
-        }
     }
 }
 

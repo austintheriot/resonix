@@ -56,6 +56,7 @@ pub struct AudioContext {
     node_response_tx: Sender<NodeMessageResponse>,
     uuid: Uuid,
     request_id: u32,
+    node_uid_counter: u32,
 }
 
 impl AudioContext {
@@ -173,20 +174,26 @@ impl AudioContext {
 
     pub async fn add_node<N: Node + 'static>(
         &mut self,
-        node: N,
+        mut node: N,
     ) -> Result<NodeHandle<N>, AddNodeError> {
-        let uuid = *node.uuid();
+        if node.uid() == 0 {
+            node.set_uid(self.next_node_uid());
+        }
+
+        // node should be immutable for the rest of the block
+        let node = node;
+        let uid = node.uid();
         if let Some(processor) = &mut self.processor {
             processor
                 .add_node(node)
-                .map(self.node_index_into_node_handle(uuid))
+                .map(self.node_index_into_node_handle(uid))
         } else {
             let new_request_id = self.new_request_id();
             self.processor_request_tx
                 .as_ref()
                 .expect("If `processor` is `None`, then `tx` should be defined")
                 .send(ProcessorMessageRequest::AddNode {
-                    id: new_request_id,
+                    request_id: new_request_id,
                     node: Box::new(node),
                 })
                 .await
@@ -210,7 +217,7 @@ impl AudioContext {
                     continue;
                 }
 
-                return result.map(self.node_index_into_node_handle(uuid));
+                return result.map(self.node_index_into_node_handle(uid));
             }
 
             Err(AddNodeError::NoMatchingMessageReceived)
@@ -219,10 +226,10 @@ impl AudioContext {
 
     fn node_index_into_node_handle<N: Node>(
         &mut self,
-        uuid: Uuid,
+        uid: u32,
     ) -> impl FnMut(NodeIndex) -> NodeHandle<N> + '_ {
         move |node_index| NodeHandle::<N> {
-            uuid,
+            uid,
             node_index,
             node_request_tx: self.node_request_tx.clone(),
             node_response_rx: self.node_response_rx.clone(),
@@ -243,7 +250,7 @@ impl AudioContext {
                 .as_mut()
                 .expect("If `processor` is `None`, then `tx` should be defined")
                 .send(ProcessorMessageRequest::Connect {
-                    id: new_request_id,
+                    request_id: new_request_id,
                     parent_node_index: *parent_node_index.as_ref(),
                     child_node_index: *child_node_index.as_ref(),
                 })
@@ -270,6 +277,12 @@ impl AudioContext {
         self.request_id = self.request_id.wrapping_add(1);
         self.request_id
     }
+
+    fn next_node_uid(&mut self) -> u32 {
+        let value = self.node_uid_counter;
+        self.node_uid_counter += 1;
+        value
+    }
 }
 
 fn run_node_message(
@@ -279,13 +292,13 @@ fn run_node_message(
 ) {
     match message {
         NodeMessageRequest::SineSetFrequency {
-            uuid,
+            node_uid: uuid,
             node_index,
             new_frequency,
         } => {
             let result = set_sine_node_frequency(processor, node_index, uuid, new_frequency);
             node_response_tx
-                .try_send(NodeMessageResponse::SineSetFrequency { uuid, result })
+                .try_send(NodeMessageResponse::SineSetFrequency { node_uid: uuid, result })
                 .unwrap();
         }
     };
@@ -294,17 +307,17 @@ fn run_node_message(
 fn set_sine_node_frequency(
     processor: &mut Processor,
     node_index: NodeIndex,
-    uuid: Uuid,
+    uid: u32,
     new_frequency: f32,
 ) -> Result<(), NodeMessageError> {
     let node = processor
         .node_weight_mut(node_index)
-        .ok_or(NodeMessageError::NodeNotFound { uuid, node_index })?;
+        .ok_or(NodeMessageError::NodeNotFound { uid, node_index })?;
     let mut sine_node = node.borrow_mut();
     let sine_node = sine_node
         .as_any_mut()
         .downcast_mut::<SineNode>()
-        .ok_or(NodeMessageError::WrongNodeType { uuid, node_index })?;
+        .ok_or(NodeMessageError::WrongNodeType { uid, node_index })?;
     sine_node.set_frequency(new_frequency);
     Ok(())
 }
@@ -315,13 +328,13 @@ fn run_processor_message<N: Node + 'static>(
     processor_tx: Sender<ProcessorMessageResponse>,
 ) {
     match message {
-        ProcessorMessageRequest::AddNode { id, node } => {
+        ProcessorMessageRequest::AddNode { request_id: id, node } => {
             let result = processor.add_node(node);
             let response = ProcessorMessageResponse::AddNode { id, result };
             processor_tx.try_send(response).unwrap();
         }
         ProcessorMessageRequest::Connect {
-            id,
+            request_id: id,
             parent_node_index,
             child_node_index,
         } => {
@@ -374,6 +387,7 @@ impl Default for AudioContext {
             node_request_rx: Some(node_request_rx),
             node_response_tx,
             node_response_rx,
+            node_uid_counter: 0,
         }
     }
 }

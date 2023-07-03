@@ -12,7 +12,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct SineNode {
-    uuid: Uuid,
+    uid: u32,
     sine: Sine,
     outgoing_connection_indexes: Vec<EdgeIndex>,
 }
@@ -45,7 +45,7 @@ impl NodeHandle<SineNode> {
     pub async fn set_frequency(&self, new_frequency: f32) -> Result<&Self, NodeHandleMessageError> {
         self.node_request_tx
             .send(NodeMessageRequest::SineSetFrequency {
-                uuid: self.uuid,
+                node_uid: self.uid,
                 node_index: self.node_index,
                 new_frequency,
             })
@@ -53,8 +53,8 @@ impl NodeHandle<SineNode> {
             .unwrap();
 
         while let Ok(response) = self.node_response_rx.recv().await {
-            let NodeMessageResponse::SineSetFrequency { uuid, result } = response;
-            if uuid != self.uuid {
+            let NodeMessageResponse::SineSetFrequency { node_uid: uuid, result } = response;
+            if uuid != self.uid {
                 continue;
             }
             info!("sine_node message received!: {uuid:?}, {result:?}");
@@ -91,10 +91,13 @@ impl Node for SineNode {
         1
     }
 
-    fn uuid(&self) -> &Uuid {
-        &self.uuid
+    fn uid(&self) -> u32 {
+        self.uid
     }
 
+    fn set_uid(&mut self, uid: u32) {
+        self.uid = uid;
+    }
     fn name(&self) -> String {
         String::from("SineNode")
     }
@@ -117,7 +120,16 @@ impl SineNode {
         // todo - get sample rate from audio context by default
 
         Self {
-            uuid: Uuid::new_v4(),
+            uid: 0,
+            sine: Sine::new_with_config(sample_rate, frequency),
+            outgoing_connection_indexes: Vec::new(),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_uid(uid: u32, sample_rate: impl Into<SampleRate>, frequency: impl Into<f32>) -> Self {
+        Self {
+            uid,
             sine: Sine::new_with_config(sample_rate, frequency),
             outgoing_connection_indexes: Vec::new(),
         }
@@ -126,7 +138,7 @@ impl SineNode {
 
 impl PartialEq for SineNode {
     fn eq(&self, other: &Self) -> bool {
-        self.uuid == other.uuid
+        self.uid == other.uid
     }
 }
 
@@ -134,13 +146,13 @@ impl Eq for SineNode {}
 
 impl PartialOrd for SineNode {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.uuid.partial_cmp(&other.uuid)
+        self.uid.partial_cmp(&other.uid)
     }
 }
 
 impl Ord for SineNode {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.uuid.cmp(&other.uuid)
+        self.uid.cmp(&other.uid)
     }
 }
 

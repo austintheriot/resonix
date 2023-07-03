@@ -46,12 +46,16 @@ pub enum AddNodeError {
 #[derive(Debug, Default, Clone)]
 pub struct Processor {
     graph: Graph<RefCell<BoxedNode>, RefCell<Connection>>,
-    node_uuids: HashSet<Uuid>,
+    /// Makes sure we don't try to add duplicate nodes to the graph
+    node_uids: HashSet<u32>,
+    /// Created while nodes are being added, so that when it's time `run` the graph,
+    /// there is no analysis that needs to happen, it's just simple list of node_indexes,
+    /// ordered by what value they need to be visited in
     visit_order: Option<Vec<NodeIndex>>,
     input_node_indexes: Vec<NodeIndex>,
     dac_node_indexes: Vec<NodeIndex>,
-    incoming_connection_indexes: HashMap<Uuid, Vec<EdgeIndex>>,
-    outgoing_connection_indexes: HashMap<Uuid, Vec<EdgeIndex>>,
+    incoming_connection_indexes: HashMap<u32, Vec<EdgeIndex>>,
+    outgoing_connection_indexes: HashMap<u32, Vec<EdgeIndex>>,
 }
 
 // data in `Processor` is never shared across threads or sent
@@ -72,9 +76,9 @@ impl Processor {
 
         for node_index in self.visit_order.as_ref().unwrap() {
             let node = &self.graph[*node_index];
-            let node_uuid = *node.borrow().uuid();
-            let incoming_edge_indexes = self.incoming_connection_indexes(&node_uuid).unwrap_or(&[]);
-            let outgoing_edge_indexes = self.outgoing_connection_indexes(&node_uuid).unwrap_or(&[]);
+            let node_uid = node.borrow().uid();
+            let incoming_edge_indexes = self.incoming_connection_indexes(&node_uid).unwrap_or(&[]);
+            let outgoing_edge_indexes = self.outgoing_connection_indexes(&node_uid).unwrap_or(&[]);
 
             let mut incoming_connections = {
                 incoming_edge_indexes
@@ -236,7 +240,7 @@ impl Processor {
                 to_index,
             )?;
 
-            (*parent_node.borrow().uuid(), *child_node.borrow().uuid())
+            (parent_node.borrow().uid(), child_node.borrow().uid())
         };
 
         // add connection to graph
@@ -252,24 +256,24 @@ impl Processor {
         Ok(edge_index)
     }
 
-    fn incoming_connection_indexes(&self, uuid: &Uuid) -> Option<&[EdgeIndex]> {
-        self.incoming_connection_indexes.get(uuid).map(|indexes| indexes.as_slice())
+    fn incoming_connection_indexes(&self, uid: &u32) -> Option<&[EdgeIndex]> {
+        self.incoming_connection_indexes.get(uid).map(|indexes| indexes.as_slice())
     }
 
-    fn outgoing_connection_indexes(&self, uuid: &Uuid) -> Option<&[EdgeIndex]> {
-        self.outgoing_connection_indexes.get(uuid).map(|indexes| indexes.as_slice())
+    fn outgoing_connection_indexes(&self, uid: &u32) -> Option<&[EdgeIndex]> {
+        self.outgoing_connection_indexes.get(uid).map(|indexes| indexes.as_slice())
     }
 
-    fn add_incoming_connection_index(&mut self, uuid: Uuid, edge_index: EdgeIndex) {
+    fn add_incoming_connection_index(&mut self, uid: u32, edge_index: EdgeIndex) {
         self.incoming_connection_indexes
-            .entry(uuid)
+            .entry(uid)
             .and_modify(|edge_indexes| edge_indexes.push(edge_index))
             .or_insert_with(|| vec![edge_index]);
     }
 
-    fn add_outgoing_connection_index(&mut self, uuid: Uuid, edge_index: EdgeIndex) {
+    fn add_outgoing_connection_index(&mut self, uid: u32, edge_index: EdgeIndex) {
         self.outgoing_connection_indexes
-            .entry(uuid)
+            .entry(uid)
             .and_modify(|edge_indexes| edge_indexes.push(edge_index))
             .or_insert_with(|| vec![edge_index]);
     }
@@ -299,7 +303,7 @@ impl Processor {
     }
 
     pub fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, AddNodeError> {
-        if self.node_uuids.contains(node.uuid()) {
+        if self.node_uids.contains(&node.uid()) {
             return Err(AddNodeError::AlreadyExists { name: node.name() });
         }
 
@@ -364,9 +368,9 @@ mod test_processor {
     #[test]
     fn running_processor_should_fill_connections_with_data() {
         let mut processor = Processor::default();
-        let constant_node = ConstantNode::new_with_signal_value(0.5);
-        let pass_through_node = PassThroughNode::new();
-        let dac_node = DACNode::new();
+        let constant_node = ConstantNode::new_with_uid(0, 0.5);
+        let pass_through_node = PassThroughNode::new_with_uid(1);
+        let dac_node = DACNode::new_with_uid(2);
 
         let constant_node_index = processor.add_node(constant_node).unwrap();
         let pass_through_node_index = processor.add_node(pass_through_node).unwrap();

@@ -11,16 +11,22 @@ use crate::{AddConnectionError, Connection, Node, NodeType};
 /// Input 0 - Input signal
 ///
 /// Output 0 - Unaltered Input signal
-#[derive(Debug, Clone, PartialEq, PartialOrd, Hash, Eq, Ord)]
+#[derive(Debug, Default, Clone, PartialEq, PartialOrd, Hash, Eq, Ord)]
 pub struct PassThroughNode {
-    uuid: Uuid,
-    incoming_connection_indexes: Vec<EdgeIndex>,
-    outgoing_connection_indexes: Vec<EdgeIndex>,
+    uid: u32,
 }
 
 impl PassThroughNode {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_uid(uid: u32) -> Self {
+        Self {
+            uid,
+            ..Default::default()
+        }
     }
 }
 
@@ -51,10 +57,13 @@ impl Node for PassThroughNode {
         1
     }
 
-    fn uuid(&self) -> &Uuid {
-        &self.uuid
+    fn uid(&self) -> u32 {
+        self.uid
     }
 
+    fn set_uid(&mut self, uid: u32) {
+        self.uid = uid;
+    }
     fn name(&self) -> String {
         String::from("PassThroughNode")
     }
@@ -68,15 +77,6 @@ impl Node for PassThroughNode {
     }
 }
 
-impl Default for PassThroughNode {
-    fn default() -> Self {
-        Self {
-            uuid: Uuid::new_v4(),
-            incoming_connection_indexes: Vec::new(),
-            outgoing_connection_indexes: Vec::new(),
-        }
-    }
-}
 
 #[cfg(test)]
 mod test_pass_through_node {

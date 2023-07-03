@@ -5,16 +5,23 @@ use uuid::Uuid;
 
 use crate::{AddConnectionError, Connection, Node, NodeType};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct RecordNode {
     data: Vec<f32>,
-    uuid: Uuid,
-    incoming_connection_indexes: Vec<EdgeIndex>,
+    uid: u32,
 }
 
 impl RecordNode {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_uid(uid: u32) -> Self {
+        Self {
+            uid,
+            ..Default::default()
+        }
     }
 
     pub fn data(&self) -> &Vec<f32> {
@@ -48,10 +55,13 @@ impl Node for RecordNode {
         0
     }
 
-    fn uuid(&self) -> &Uuid {
-        &self.uuid
+    fn uid(&self) -> u32 {
+        self.uid
     }
 
+    fn set_uid(&mut self, uid: u32) {
+        self.uid = uid;
+    }
     fn name(&self) -> String {
         String::from("RecordNode")
     }
@@ -65,19 +75,9 @@ impl Node for RecordNode {
     }
 }
 
-impl Default for RecordNode {
-    fn default() -> Self {
-        Self {
-            uuid: Uuid::new_v4(),
-            data: Vec::new(),
-            incoming_connection_indexes: Vec::new(),
-        }
-    }
-}
-
 impl PartialEq for RecordNode {
     fn eq(&self, other: &Self) -> bool {
-        self.uuid == other.uuid
+        self.uid == other.uid
     }
 }
 
@@ -85,13 +85,13 @@ impl Eq for RecordNode {}
 
 impl PartialOrd for RecordNode {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.uuid.partial_cmp(&other.uuid)
+        self.uid.partial_cmp(&other.uid)
     }
 }
 
 impl Ord for RecordNode {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.uuid.cmp(&other.uuid)
+        self.uid.cmp(&other.uid)
     }
 }
 

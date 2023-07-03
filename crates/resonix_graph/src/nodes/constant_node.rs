@@ -12,23 +12,25 @@ use crate::{AddConnectionError, Connection, Node, NodeType};
 /// constant signal value to all output connections.
 ///
 /// Output 0 - Constant signal value
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct ConstantNode {
-    uuid: Uuid,
+    uid: u32,
     signal_value: f32,
-    outgoing_connection_indexes: Vec<EdgeIndex>,
 }
 
 impl ConstantNode {
-    pub fn new() -> Self {
-        Self::new_with_signal_value(0.0)
+    pub fn new(signal_value: f32) -> Self {
+        Self {
+            uid: 0,
+            signal_value,
+        }
     }
 
-    pub fn new_with_signal_value(signal_value: f32) -> Self {
+    #[cfg(test)]
+    pub(crate) fn new_with_uid(uid: u32, signal_value: f32) -> Self {
         Self {
-            uuid: Uuid::new_v4(),
+            uid,
             signal_value,
-            outgoing_connection_indexes: Vec::new(),
         }
     }
 
@@ -67,8 +69,12 @@ impl Node for ConstantNode {
         })
     }
 
-    fn uuid(&self) -> &Uuid {
-        &self.uuid
+    fn uid(&self) -> u32 {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: u32) {
+        self.uid = uid;
     }
 
     fn name(&self) -> String {
@@ -84,19 +90,9 @@ impl Node for ConstantNode {
     }
 }
 
-impl Default for ConstantNode {
-    fn default() -> Self {
-        Self {
-            uuid: Uuid::new_v4(),
-            signal_value: 0.0,
-            outgoing_connection_indexes: Vec::new(),
-        }
-    }
-}
-
 impl PartialEq for ConstantNode {
     fn eq(&self, other: &Self) -> bool {
-        self.uuid == other.uuid
+        self.uid == other.uid
     }
 }
 
@@ -104,19 +100,19 @@ impl Eq for ConstantNode {}
 
 impl PartialOrd for ConstantNode {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.uuid.partial_cmp(&other.uuid)
+        self.uid.partial_cmp(&other.uid)
     }
 }
 
 impl Ord for ConstantNode {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.uuid.cmp(&other.uuid)
+        self.uid.cmp(&other.uid)
     }
 }
 
 impl Hash for ConstantNode {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.uuid.hash(state);
+        self.uid.hash(state);
     }
 }
 
@@ -129,7 +125,7 @@ mod test_constant_node {
 
     #[test]
     fn should_output_constant_signal_value() {
-        let mut constant_node = ConstantNode::new_with_signal_value(1.234);
+        let mut constant_node = ConstantNode::new(1.234);
 
         let output_connection = RefCell::new(Connection::default());
 

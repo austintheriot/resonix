@@ -31,7 +31,7 @@ pub enum NodeHandleMessageError {
 /// This struct can be safely and cheaply cloned
 #[derive(Debug, Clone)]
 pub struct NodeHandle<NodeType: Node> {
-    pub(crate) uuid: Uuid,
+    pub(crate) uid: u32,
     pub(crate) node_index: NodeIndex,
     pub(crate) node_request_tx: Sender<NodeMessageRequest>,
     pub(crate) node_response_rx: Receiver<NodeMessageResponse>,
