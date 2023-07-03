@@ -11,11 +11,11 @@ async fn main() {
     audio_context.initialize_dac_from_defaults().unwrap();
     audio_context.play_stream().unwrap();
 
-    let sine_node = SineNode::new_with_config(audio_context.sample_rate().unwrap(), 440.0);
+    let sine_node = audio_context.new_sine_node(audio_context.sample_rate().unwrap(), 440.0);
     let sine_node_index = audio_context.add_node(sine_node).await.unwrap();
     info!("main.rs sine_node_index = {sine_node_index:?}");
 
-    let dac_node = DACNode::new();
+    let dac_node = audio_context.new_dac_node();
     let dac_node_index = audio_context.add_node(dac_node).await.unwrap();
     info!("main.rs dac_node_index = {dac_node_index:?}");
 
