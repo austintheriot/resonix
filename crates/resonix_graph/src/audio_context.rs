@@ -1,6 +1,7 @@
 use std::{
     hash::{Hash, Hasher},
     marker::PhantomData,
+    ops::Deref,
     sync::Arc,
 };
 
@@ -54,6 +55,7 @@ pub struct AudioContext {
     /// Allows sending messages from audio thread
     /// to `NodeHandle`s
     node_response_tx: Sender<NodeMessageResponse>,
+    node_uid_counter: u32,
     uuid: Uuid,
     request_id: u32,
 }
@@ -173,20 +175,27 @@ impl AudioContext {
 
     pub async fn add_node<N: Node + 'static>(
         &mut self,
-        node: N,
+        mut node: N,
     ) -> Result<NodeHandle<N>, AddNodeError> {
-        let uuid = *node.uuid();
+        if node.uid() == 0 {
+            node.set_uid(self.new_node_uid());
+        }
+
+        // make node immutable for the rest of the function signature
+        let node = node;
+
+        let uid = node.uid();
         if let Some(processor) = &mut self.processor {
             processor
                 .add_node(node)
-                .map(self.node_index_into_node_handle(uuid))
+                .map(self.node_index_into_node_handle(uid))
         } else {
             let new_request_id = self.new_request_id();
             self.processor_request_tx
                 .as_ref()
                 .expect("If `processor` is `None`, then `tx` should be defined")
                 .send(ProcessorMessageRequest::AddNode {
-                    id: new_request_id,
+                    request_id: new_request_id,
                     node: Box::new(node),
                 })
                 .await
@@ -202,7 +211,7 @@ impl AudioContext {
             // messages get out of order, filtering by request id
             // ensures that the response matches the request
             while let Ok(response) = self.processor_response_rx.as_mut().unwrap().recv().await {
-                let ProcessorMessageResponse::AddNode { id, result } = response else {
+                let ProcessorMessageResponse::AddNode { request_id: id, result } = response else {
                     continue;
                 };
 
@@ -210,7 +219,7 @@ impl AudioContext {
                     continue;
                 }
 
-                return result.map(self.node_index_into_node_handle(uuid));
+                return result.map(self.node_index_into_node_handle(uid));
             }
 
             Err(AddNodeError::NoMatchingMessageReceived)
@@ -219,10 +228,10 @@ impl AudioContext {
 
     fn node_index_into_node_handle<N: Node>(
         &mut self,
-        uuid: Uuid,
+        node_uid: u32,
     ) -> impl FnMut(NodeIndex) -> NodeHandle<N> + '_ {
         move |node_index| NodeHandle::<N> {
-            uuid,
+            node_uid,
             node_index,
             node_request_tx: self.node_request_tx.clone(),
             node_response_rx: self.node_response_rx.clone(),
@@ -243,7 +252,7 @@ impl AudioContext {
                 .as_mut()
                 .expect("If `processor` is `None`, then `tx` should be defined")
                 .send(ProcessorMessageRequest::Connect {
-                    id: new_request_id,
+                    request_id: new_request_id,
                     parent_node_index: *parent_node_index.as_ref(),
                     child_node_index: *child_node_index.as_ref(),
                 })
@@ -251,7 +260,7 @@ impl AudioContext {
                 .unwrap();
 
             while let Ok(response) = self.processor_response_rx.as_mut().unwrap().recv().await {
-                let ProcessorMessageResponse::Connect { id, result } = response else {
+                let ProcessorMessageResponse::Connect { request_id: id, result } = response else {
                     continue;
                 };
 
@@ -270,6 +279,12 @@ impl AudioContext {
         self.request_id = self.request_id.wrapping_add(1);
         self.request_id
     }
+
+    pub(crate) fn new_node_uid(&mut self) -> u32 {
+        let uid = self.node_uid_counter;
+        self.node_uid_counter += 1;
+        uid
+    }
 }
 
 fn run_node_message(
@@ -279,13 +294,13 @@ fn run_node_message(
 ) {
     match message {
         NodeMessageRequest::SineSetFrequency {
-            uuid,
+            node_uid,
             node_index,
             new_frequency,
         } => {
-            let result = set_sine_node_frequency(processor, node_index, uuid, new_frequency);
+            let result = set_sine_node_frequency(processor, node_index, node_uid, new_frequency);
             node_response_tx
-                .try_send(NodeMessageResponse::SineSetFrequency { uuid, result })
+                .try_send(NodeMessageResponse::SineSetFrequency { node_uid, result })
                 .unwrap();
         }
     };
@@ -294,16 +309,22 @@ fn run_node_message(
 fn set_sine_node_frequency(
     processor: &mut Processor,
     node_index: NodeIndex,
-    uuid: Uuid,
+    node_uid: u32,
     new_frequency: f32,
 ) -> Result<(), NodeMessageError> {
-    let node = processor
-        .boxed_node_mut_by_node_index(node_index)
-        .ok_or(NodeMessageError::NodeNotFound { uuid, node_index })?;
-    let sine_node = node
-        .as_any_mut()
-        .downcast_mut::<SineNode>()
-        .ok_or(NodeMessageError::WrongNodeType { uuid, node_index })?;
+    let node = processor.boxed_node_mut_by_node_index(node_index).ok_or(
+        NodeMessageError::NodeNotFound {
+            node_uid,
+            node_index,
+        },
+    )?;
+    let sine_node =
+        node.as_any_mut()
+            .downcast_mut::<SineNode>()
+            .ok_or(NodeMessageError::WrongNodeType {
+                node_uid,
+                node_index,
+            })?;
     sine_node.set_frequency(new_frequency);
     Ok(())
 }
@@ -314,18 +335,27 @@ fn run_processor_message<N: Node + 'static>(
     processor_tx: Sender<ProcessorMessageResponse>,
 ) {
     match message {
-        ProcessorMessageRequest::AddNode { id, node } => {
+        ProcessorMessageRequest::AddNode {
+            request_id: id,
+            node,
+        } => {
             let result = processor.add_node(node);
-            let response = ProcessorMessageResponse::AddNode { id, result };
+            let response = ProcessorMessageResponse::AddNode {
+                request_id: id,
+                result,
+            };
             processor_tx.try_send(response).unwrap();
         }
         ProcessorMessageRequest::Connect {
-            id,
+            request_id: id,
             parent_node_index,
             child_node_index,
         } => {
             let result = processor.connect(parent_node_index, child_node_index);
-            let response = ProcessorMessageResponse::Connect { id, result };
+            let response = ProcessorMessageResponse::Connect {
+                request_id: id,
+                result,
+            };
             processor_tx.try_send(response).unwrap();
         }
     }
@@ -368,6 +398,7 @@ impl Default for AudioContext {
             dac: Default::default(),
             processor_request_tx: None,
             processor_response_rx: None,
+            node_uid_counter: 0,
             request_id: 0,
             node_request_tx,
             node_request_rx: Some(node_request_rx),
@@ -377,5 +408,30 @@ impl Default for AudioContext {
     }
 }
 
-#[cfg(test)]
-mod test_audio_context {}
+#[cfg(all(test, feature = "dac", feature = "mock_dac"))]
+mod test_audio_context {
+    use std::sync::{Mutex, Arc};
+    use std::time::Duration;
+
+    use crate::{AudioContext, ConstantNode, DACNode, PassThroughNode, Processor};
+
+    #[tokio::test]
+    async fn running_audio_context_should_fill_dac_with_data() {
+        let mut audio_context = AudioContext::new();
+        let data_written = Arc::new(Mutex::new(Vec::new()));
+        audio_context.initialize_dac_from_defaults(data_written).unwrap();
+
+        let sine_node = audio_context.new_sine_node(audio_context.sample_rate().unwrap(), 440.0);
+        let sine_node_index = audio_context.add_node(sine_node).await.unwrap();
+
+        let dac_node = audio_context.new_dac_node();
+        let dac_node_index = audio_context.add_node(dac_node).await.unwrap();
+
+        let edge_index = audio_context
+            .connect(sine_node_index, dac_node_index)
+            .await
+            .unwrap();
+
+        tokio::time::sleep(Duration::from_millis(1)).await;
+    }
+}

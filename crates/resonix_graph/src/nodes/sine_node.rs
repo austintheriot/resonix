@@ -7,14 +7,40 @@ use uuid::Uuid;
 
 use crate::{
     messages::{NodeMessageRequest, NodeMessageResponse},
-    AddConnectionError, Connection, Node, NodeHandle, NodeHandleMessageError, NodeType,
+    AddConnectionError, Connection, Node, NodeHandle, NodeHandleMessageError,
+    NodeType, AudioContext,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SineNode {
-    uuid: Uuid,
+    uid: u32,
     sine: Sine,
     outgoing_connection_indexes: Vec<EdgeIndex>,
+}
+
+impl AudioContext {
+    pub fn new_sine_node(&mut self, sample_rate: u32, frequency: f32) -> SineNode {
+        SineNode {
+            uid: self.new_node_uid(),
+            sine: Sine::new_with_config(sample_rate, frequency),
+            ..Default::default()
+        }
+    }
+}
+
+impl SineNode {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_uid(uid: u32, sample_rate: u32, frequency: f32) -> Self {
+        Self {
+            uid,
+            sine: Sine::new_with_config(sample_rate, frequency),
+            ..Default::default()
+        }
+    }
 }
 
 impl SineInterface for SineNode {
@@ -45,7 +71,7 @@ impl NodeHandle<SineNode> {
     pub async fn set_frequency(&self, new_frequency: f32) -> Result<&Self, NodeHandleMessageError> {
         self.node_request_tx
             .send(NodeMessageRequest::SineSetFrequency {
-                uuid: self.uuid,
+                node_uid: self.node_uid,
                 node_index: self.node_index,
                 new_frequency,
             })
@@ -53,8 +79,8 @@ impl NodeHandle<SineNode> {
             .unwrap();
 
         while let Ok(response) = self.node_response_rx.recv().await {
-            let NodeMessageResponse::SineSetFrequency { uuid, result } = response;
-            if uuid != self.uuid {
+            let NodeMessageResponse::SineSetFrequency { node_uid: uuid, result } = response;
+            if uuid != self.node_uid {
                 continue;
             }
             info!("sine_node message received!: {uuid:?}, {result:?}");
@@ -91,8 +117,12 @@ impl Node for SineNode {
         1
     }
 
-    fn uuid(&self) -> &Uuid {
-        &self.uuid
+    fn uid(&self) -> u32 {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: u32) {
+        self.uid = uid;
     }
 
     fn name(&self) -> String {
@@ -132,25 +162,9 @@ impl Node for SineNode {
     }
 }
 
-impl SineNode {
-    pub fn new() -> Self {
-        Self::new_with_config(0, 0.0)
-    }
-
-    pub fn new_with_config(sample_rate: impl Into<SampleRate>, frequency: impl Into<f32>) -> Self {
-        // todo - get sample rate from audio context by default
-
-        Self {
-            uuid: Uuid::new_v4(),
-            sine: Sine::new_with_config(sample_rate, frequency),
-            outgoing_connection_indexes: Vec::new(),
-        }
-    }
-}
-
 impl PartialEq for SineNode {
     fn eq(&self, other: &Self) -> bool {
-        self.uuid == other.uuid
+        self.uid == other.uid
     }
 }
 
@@ -158,13 +172,13 @@ impl Eq for SineNode {}
 
 impl PartialOrd for SineNode {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.uuid.partial_cmp(&other.uuid)
+        self.uid.partial_cmp(&other.uid)
     }
 }
 
 impl Ord for SineNode {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.uuid.cmp(&other.uuid)
+        self.uid.cmp(&other.uid)
     }
 }
 
@@ -175,11 +189,11 @@ mod test_sine_node {
 
     #[test]
     fn should_output_sine_wave_data() {
-        let _audio_context = AudioContext::new();
+        let mut audio_context = AudioContext::new();
         // should finish a sine wave cycle within 4 sample
-        let mut sine_node = SineNode::new_with_config(4, 1.0);
+        let mut sine_node = audio_context.new_sine_node(4, 1.0);
 
-        let mut output_connection = Connection::default();
+        let mut output_connection = Connection::from_test_data(0, 0.0, 0, 0);
 
         // before processing, output data is 0.0
         {

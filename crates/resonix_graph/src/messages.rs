@@ -13,11 +13,11 @@ use crate::{AddNodeError, ConnectError, Node};
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum ProcessorMessageRequest<N: Node + 'static> {
     AddNode {
-        id: u32,
+        request_id: u32,
         node: N,
     },
     Connect {
-        id: u32,
+        request_id: u32,
         parent_node_index: NodeIndex,
         child_node_index: NodeIndex,
     },
@@ -26,11 +26,11 @@ pub(crate) enum ProcessorMessageRequest<N: Node + 'static> {
 #[derive(Debug)]
 pub(crate) enum ProcessorMessageResponse {
     AddNode {
-        id: u32,
+        request_id: u32,
         result: Result<NodeIndex, AddNodeError>,
     },
     Connect {
-        id: u32,
+        request_id: u32,
         result: Result<EdgeIndex, ConnectError>,
     },
 }
@@ -39,10 +39,10 @@ pub(crate) enum ProcessorMessageResponse {
 /// and forth between a node on the main thread and the audio thread
 #[derive(thiserror::Error, Debug)]
 pub enum NodeMessageError {
-    #[error("No corresponding node found in the graph for node with uuid {uuid:?} at node index {node_index:?}")]
-    NodeNotFound { uuid: Uuid, node_index: NodeIndex },
+    #[error("No corresponding node found in the graph for node with node_uid {node_uid:?} at node index {node_index:?}")]
+    NodeNotFound { node_uid: u32, node_index: NodeIndex },
     #[error("Node message was sent for the wrong node type")]
-    WrongNodeType { uuid: Uuid, node_index: NodeIndex },
+    WrongNodeType { node_uid: u32, node_index: NodeIndex },
 }
 
 /// These messages are sent by individual `NodeHandle` instances
@@ -50,7 +50,7 @@ pub enum NodeMessageError {
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub(crate) enum NodeMessageRequest {
     SineSetFrequency {
-        uuid: Uuid,
+        node_uid: u32,
         node_index: NodeIndex,
         new_frequency: f32,
     },
@@ -60,7 +60,7 @@ pub(crate) enum NodeMessageRequest {
 #[derive(Debug)]
 pub(crate) enum NodeMessageResponse {
     SineSetFrequency {
-        uuid: Uuid,
+        node_uid: u32,
         result: Result<(), NodeMessageError>,
     },
 }

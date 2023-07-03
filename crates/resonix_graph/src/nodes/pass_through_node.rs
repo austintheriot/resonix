@@ -3,7 +3,7 @@ use std::any::Any;
 use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
 
-use crate::{AddConnectionError, Connection, Node, NodeType};
+use crate::{AddConnectionError, AudioContext, Connection, Node, NodeType};
 
 /// Takes one signal and passed it through, unaltered
 /// to all connected outputs.
@@ -11,16 +11,33 @@ use crate::{AddConnectionError, Connection, Node, NodeType};
 /// Input 0 - Input signal
 ///
 /// Output 0 - Unaltered Input signal
-#[derive(Debug, Clone, PartialEq, PartialOrd, Hash, Eq, Ord)]
+#[derive(Debug, Default, Clone, PartialEq, PartialOrd, Hash, Eq, Ord)]
 pub struct PassThroughNode {
-    uuid: Uuid,
+    uid: u32,
     incoming_connection_indexes: Vec<EdgeIndex>,
     outgoing_connection_indexes: Vec<EdgeIndex>,
+}
+
+impl AudioContext {
+    pub fn new_pass_through_node(&mut self) -> PassThroughNode {
+        PassThroughNode {
+            uid: self.new_node_uid(),
+            ..Default::default()
+        }
+    }
 }
 
 impl PassThroughNode {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_uid(uid: u32) -> Self {
+        Self {
+            uid,
+            ..Default::default()
+        }
     }
 }
 
@@ -51,8 +68,12 @@ impl Node for PassThroughNode {
         1
     }
 
-    fn uuid(&self) -> &Uuid {
-        &self.uuid
+    fn uid(&self) -> u32 {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: u32) {
+        self.uid = uid;
     }
 
     fn name(&self) -> String {
@@ -94,26 +115,17 @@ impl Node for PassThroughNode {
     }
 }
 
-impl Default for PassThroughNode {
-    fn default() -> Self {
-        Self {
-            uuid: Uuid::new_v4(),
-            incoming_connection_indexes: Vec::new(),
-            outgoing_connection_indexes: Vec::new(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod test_pass_through_node {
 
-    use crate::{Connection, Node, PassThroughNode};
+    use crate::{AudioContext, Connection, Node, PassThroughNode};
 
     #[test]
     fn should_pass_audio_data_through_output_connections() {
-        let mut pass_through_node = PassThroughNode::new();
+        let mut audio_context = AudioContext::new();
+        let mut pass_through_node = audio_context.new_pass_through_node();
 
-        let input_connection = Connection::from_test_data(0.1234, 0, 0);
+        let input_connection = Connection::from_test_data(0, 0.1234, 0, 0);
 
         let mut output_connection = Connection::default();
 

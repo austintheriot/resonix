@@ -3,13 +3,19 @@ use std::any::Any;
 use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
 
-use crate::{AddConnectionError, Connection, Node, NodeType};
+use crate::{AddConnectionError, Connection, Node, NodeType, AudioContext};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct RecordNode {
     data: Vec<f32>,
-    uuid: Uuid,
+    uid: u32,
     incoming_connection_indexes: Vec<EdgeIndex>,
+}
+
+impl AudioContext {
+    pub fn new_record_node(&mut self) -> RecordNode {
+        RecordNode { uid: self.new_node_uid(), ..Default::default() }
+    }
 }
 
 impl RecordNode {
@@ -19,6 +25,14 @@ impl RecordNode {
 
     pub fn data(&self) -> &Vec<f32> {
         &self.data
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_uid(uid: u32) -> Self {
+        Self {
+            uid,
+            ..Default::default()
+        }
     }
 }
 
@@ -48,8 +62,12 @@ impl Node for RecordNode {
         0
     }
 
-    fn uuid(&self) -> &Uuid {
-        &self.uuid
+    fn uid(&self) -> u32 {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: u32) {
+        self.uid = uid;
     }
 
     fn name(&self) -> String {
@@ -89,19 +107,9 @@ impl Node for RecordNode {
     }
 }
 
-impl Default for RecordNode {
-    fn default() -> Self {
-        Self {
-            uuid: Uuid::new_v4(),
-            data: Vec::new(),
-            incoming_connection_indexes: Vec::new(),
-        }
-    }
-}
-
 impl PartialEq for RecordNode {
     fn eq(&self, other: &Self) -> bool {
-        self.uuid == other.uuid
+        self.uid == other.uid
     }
 }
 
@@ -109,26 +117,27 @@ impl Eq for RecordNode {}
 
 impl PartialOrd for RecordNode {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.uuid.partial_cmp(&other.uuid)
+        self.uid.partial_cmp(&other.uid)
     }
 }
 
 impl Ord for RecordNode {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.uuid.cmp(&other.uuid)
+        self.uid.cmp(&other.uid)
     }
 }
 
 #[cfg(test)]
 mod test_record_node {
 
-    use crate::{Connection, Node, RecordNode};
+    use crate::{Connection, Node, RecordNode, AudioContext};
 
     #[test]
     fn should_record_incoming_node_data() {
+        let mut audio_context = AudioContext::new();
         let mut record_node = RecordNode::new();
 
-        let input_connection = Connection::from_test_data(0.1234, 0, 0);
+        let input_connection = Connection::from_test_data(0, 0.1234, 0, 0);
 
         {
             let inputs = [&input_connection];

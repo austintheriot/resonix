@@ -1,4 +1,8 @@
-use std::{any::Any, fmt::Debug};
+use std::{
+    any::Any,
+    fmt::Debug,
+    hash::{Hash, Hasher},
+};
 
 use dyn_clone::DynClone;
 use petgraph::prelude::EdgeIndex;
@@ -31,7 +35,9 @@ where
 
     fn num_outputs(&self) -> usize;
 
-    fn uuid(&self) -> &Uuid;
+    fn uid(&self) -> u32;
+
+    fn set_uid(&mut self, uid: u32);
 
     fn name(&self) -> String;
 
@@ -80,8 +86,12 @@ impl Node for BoxedNode {
         (**self).num_outputs()
     }
 
-    fn uuid(&self) -> &Uuid {
-        (**self).uuid()
+    fn uid(&self) -> u32 {
+        (**self).uid()
+    }
+
+    fn set_uid(&mut self, uid: u32) {
+        (**self).set_uid(uid)
     }
 
     fn name(&self) -> String {
@@ -118,5 +128,11 @@ impl Node for BoxedNode {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         (**self).as_any_mut()
+    }
+}
+
+impl Hash for BoxedNode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.uid().hash(state)
     }
 }

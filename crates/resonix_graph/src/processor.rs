@@ -4,6 +4,7 @@ use std::{
     ptr::{addr_of, addr_of_mut},
 };
 
+use nohash_hasher::IntMap;
 use petgraph::{
     data::DataMap,
     stable_graph::{EdgeIndex, NodeIndex},
@@ -46,13 +47,14 @@ pub enum AddNodeError {
 /// audio context handle
 #[derive(Debug, Default, Clone)]
 pub struct Processor {
-    graph: Graph<Uuid, Uuid>,
-    nodes_by_id: HashMap<Uuid, BoxedNode>,
-    connections_by_id: HashMap<Uuid, Connection>,
-    node_uuids: HashSet<Uuid>,
+    graph: Graph<u32, u32>,
+    nodes_by_id: IntMap<u32, BoxedNode>,
+    connections_by_id: IntMap<u32, Connection>,
+    node_uids: HashSet<u32>,
     visit_order: Option<Vec<NodeIndex>>,
     input_node_indexes: Vec<NodeIndex>,
     dac_node_indexes: Vec<NodeIndex>,
+    connection_uid_counter: u32,
     _outgoing_connections: Vec<Connection>,
     _incoming_connections: Vec<Connection>,
 }
@@ -108,12 +110,12 @@ impl Processor {
             self.connections_by_id.extend(
                 self._incoming_connections
                     .drain(..)
-                    .map(|connection| (*connection.uuid(), connection)),
+                    .map(|connection| (connection.uid(), connection)),
             );
             self.connections_by_id.extend(
                 self._outgoing_connections
                     .drain(..)
-                    .map(|connection| (*connection.uuid(), connection)),
+                    .map(|connection| (connection.uid(), connection)),
             );
         }
     }
@@ -145,7 +147,7 @@ impl Processor {
         // keeps track of which connections have been visited from a parent node--
         // this mimics the behavior of nodes in a true `run`, where outgoing connections
         // are initialized by parent nodes
-        let mut connection_visit_set: HashSet<Uuid> = HashSet::new();
+        let mut connection_visit_set: HashSet<u32> = HashSet::new();
 
         // prevents cycling endlessly through graph
         const MAX_GRAPH_VISITS: u32 = 65536;
@@ -257,15 +259,15 @@ impl Processor {
             Self::check_index_out_of_bounds(parent_node, child_node, from_index, to_index)?;
         }
 
-        let connection = Connection::from_indexes(from_index, to_index);
-        let connection_uuid = *connection.uuid();
+        let connection = self.new_connection_from_indexes(from_index, to_index);
+        let connection_uid = connection.uid();
 
-        self.connections_by_id.insert(connection_uuid, connection);
+        self.connections_by_id.insert(connection_uid, connection);
 
         // add connection to graph
         let edge_index = self
             .graph
-            .add_edge(parent_node_index, child_node_index, connection_uuid);
+            .add_edge(parent_node_index, child_node_index, connection_uid);
 
         // add connection indexes to nodes themselves for faster retrieval later
         self.graph
@@ -314,7 +316,7 @@ impl Processor {
     }
 
     pub fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, AddNodeError> {
-        if self.node_uuids.contains(node.uuid()) {
+        if self.node_uids.contains(&node.uid()) {
             return Err(AddNodeError::AlreadyExists { name: node.name() });
         }
 
@@ -322,11 +324,11 @@ impl Processor {
 
         let is_dac = { node.as_any().downcast_ref::<DACNode>().is_some() };
 
-        let node_uuid = *node.uuid();
+        let node_uid = node.uid();
 
-        self.nodes_by_id.insert(node_uuid, Box::new(node));
+        self.nodes_by_id.insert(node_uid, Box::new(node));
 
-        let node_index = self.graph.add_node(node_uuid);
+        let node_index = self.graph.add_node(node_uid);
 
         if is_input {
             self.input_node_indexes.push(node_index);
@@ -389,10 +391,16 @@ impl Processor {
             .edge_weight(edge_index)
             .and_then(|uuid| self.connections_by_id.get(uuid))
     }
+
+    pub(crate) fn new_connection_uid(&mut self) -> u32 {
+        let uid = self.connection_uid_counter;
+        self.connection_uid_counter += 1;
+        uid
+    }
 }
 
 impl Deref for Processor {
-    type Target = Graph<Uuid, Uuid>;
+    type Target = Graph<u32, u32>;
 
     fn deref(&self) -> &Self::Target {
         &self.graph
@@ -412,9 +420,9 @@ mod test_processor {
     #[test]
     fn running_processor_should_fill_connections_with_data() {
         let mut processor = Processor::default();
-        let constant_node = ConstantNode::new_with_signal_value(0.5);
-        let pass_through_node = PassThroughNode::new();
-        let dac_node = DACNode::new();
+        let constant_node = ConstantNode::new_with_uid( 0, 0.5,);
+        let pass_through_node = PassThroughNode::new_with_uid(1);
+        let dac_node = DACNode::new_with_uid(2);
 
         let constant_node_index = processor.add_node(constant_node).unwrap();
         let pass_through_node_index = processor.add_node(pass_through_node).unwrap();

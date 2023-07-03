@@ -3,7 +3,7 @@ use std::any::Any;
 use petgraph::prelude::EdgeIndex;
 use uuid::Uuid;
 
-use crate::{AddConnectionError, Connection, Node, NodeType};
+use crate::{AddConnectionError, Connection, Node, NodeType, AudioContext};
 
 /// Takes two signals and multiplies them together,
 /// outputting the signal to all connected outputs
@@ -12,19 +12,29 @@ use crate::{AddConnectionError, Connection, Node, NodeType};
 /// Input 1 - Signal 2
 ///
 /// Output 0 - Multiplied signal
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct MultiplyNode {
-    uuid: Uuid,
+    uid: u32,
     incoming_connection_indexes: Vec<EdgeIndex>,
     outgoing_connection_indexes: Vec<EdgeIndex>,
 }
 
+impl AudioContext {
+    pub fn new_multiply_node(&mut self) -> MultiplyNode {
+        MultiplyNode { uid: self.new_node_uid(), ..Default::default() }
+    }
+}
+
 impl MultiplyNode {
     pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_uid(uid: u32) -> Self {
         Self {
-            uuid: Uuid::new_v4(),
-            incoming_connection_indexes: Vec::new(),
-            outgoing_connection_indexes: Vec::new(),
+            uid,
+            ..Default::default()
         }
     }
 }
@@ -58,8 +68,12 @@ impl Node for MultiplyNode {
         })
     }
 
-    fn uuid(&self) -> &Uuid {
-        &self.uuid
+    fn uid(&self) -> u32 {
+        self.uid
+    }
+
+    fn set_uid(&mut self, uid: u32) {
+        self.uid = uid;
     }
 
     fn name(&self) -> String {
@@ -101,27 +115,18 @@ impl Node for MultiplyNode {
     }
 }
 
-impl Default for MultiplyNode {
-    fn default() -> Self {
-        Self {
-            uuid: Uuid::new_v4(),
-            incoming_connection_indexes: Vec::new(),
-            outgoing_connection_indexes: Vec::new(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod test_multiply_node {
 
-    use crate::{Connection, MultiplyNode, Node};
+    use crate::{Connection, Node, AudioContext};
 
     #[test]
     fn should_multiply_1st_and_2nd_inputs() {
-        let mut multiply_node = MultiplyNode::new();
+        let mut audio_context = AudioContext::new();
+        let mut multiply_node = audio_context.new_multiply_node();
 
-        let left_input_connection = Connection::from_test_data(0.5, 0, 0);
-        let right_input_connection = Connection::from_test_data(0.2, 0, 1);
+        let left_input_connection = Connection::from_test_data(0, 0.5, 0, 0);
+        let right_input_connection = Connection::from_test_data(1, 0.2, 0, 1);
         let mut output_connection = Connection::default();
 
         // before processing, output data is 0.0
