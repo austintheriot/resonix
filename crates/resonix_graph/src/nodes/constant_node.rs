@@ -1,12 +1,10 @@
 use std::{
     any::Any,
-    hash::{Hash, Hasher}, cell::{Ref, RefMut},
+    cell::{Ref, RefMut},
+    hash::{Hash, Hasher},
 };
 
-use petgraph::prelude::EdgeIndex;
-use uuid::Uuid;
-
-use crate::{AddConnectionError, Connection, Node, NodeType};
+use crate::{Connection, Node, NodeType};
 
 /// Takes no input signals and outputs a single,
 /// constant signal value to all output connections.
@@ -28,10 +26,7 @@ impl ConstantNode {
 
     #[cfg(test)]
     pub(crate) fn new_with_uid(uid: u32, signal_value: f32) -> Self {
-        Self {
-            uid,
-            signal_value,
-        }
+        Self { uid, signal_value }
     }
 
     pub fn signal_value(&self) -> f32 {

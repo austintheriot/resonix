@@ -1,13 +1,15 @@
-use std::{any::Any, cell::{Ref, RefMut}};
+use std::{
+    any::Any,
+    cell::{Ref, RefMut},
+};
 
 use log::info;
 use petgraph::prelude::EdgeIndex;
 use resonix_core::{SampleRate, Sine, SineInterface};
-use uuid::Uuid;
 
 use crate::{
     messages::{NodeMessageRequest, NodeMessageResponse},
-    AddConnectionError, Connection, Node, NodeHandle, NodeHandleMessageError, NodeType,
+    Connection, Node, NodeHandle, NodeHandleMessageError, NodeType,
 };
 
 #[derive(Debug, Clone)]
@@ -53,7 +55,10 @@ impl NodeHandle<SineNode> {
             .unwrap();
 
         while let Ok(response) = self.node_response_rx.recv().await {
-            let NodeMessageResponse::SineSetFrequency { node_uid: uuid, result } = response;
+            let NodeMessageResponse::SineSetFrequency {
+                node_uid: uuid,
+                result,
+            } = response;
             if uuid != self.uid {
                 continue;
             }
@@ -127,7 +132,11 @@ impl SineNode {
     }
 
     #[cfg(test)]
-    pub(crate) fn new_with_uid(uid: u32, sample_rate: impl Into<SampleRate>, frequency: impl Into<f32>) -> Self {
+    pub(crate) fn new_with_uid(
+        uid: u32,
+        sample_rate: impl Into<SampleRate>,
+        frequency: impl Into<f32>,
+    ) -> Self {
         Self {
             uid,
             sine: Sine::new_with_config(sample_rate, frequency),
@@ -169,7 +178,7 @@ mod test_sine_node {
         // should finish a sine wave cycle within 4 sample
         let mut sine_node = SineNode::new_with_config(4, 1.0);
 
-        let mut output_connection = RefCell::new(Connection::default());
+        let output_connection = RefCell::new(Connection::default());
 
         // before processing, output data is 0.0
         {

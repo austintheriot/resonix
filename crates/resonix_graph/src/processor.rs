@@ -1,9 +1,10 @@
 use std::{
     cell::RefCell,
-    collections::{HashMap, HashSet, VecDeque},
+    collections::{HashSet, VecDeque},
     ops::{Deref, DerefMut},
 };
 
+use nohash_hasher::{IntMap, IntSet};
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex},
     visit::Dfs,
@@ -47,15 +48,15 @@ pub enum AddNodeError {
 pub struct Processor {
     graph: Graph<RefCell<BoxedNode>, RefCell<Connection>>,
     /// Makes sure we don't try to add duplicate nodes to the graph
-    node_uids: HashSet<u32>,
+    node_uids: IntSet<u32>,
     /// Created while nodes are being added, so that when it's time `run` the graph,
     /// there is no analysis that needs to happen, it's just simple list of node_indexes,
     /// ordered by what value they need to be visited in
     visit_order: Option<Vec<NodeIndex>>,
     input_node_indexes: Vec<NodeIndex>,
     dac_node_indexes: Vec<NodeIndex>,
-    incoming_connection_indexes: HashMap<u32, Vec<EdgeIndex>>,
-    outgoing_connection_indexes: HashMap<u32, Vec<EdgeIndex>>,
+    incoming_connection_indexes: IntMap<u32, Vec<EdgeIndex>>,
+    outgoing_connection_indexes: IntMap<u32, Vec<EdgeIndex>>,
 }
 
 // data in `Processor` is never shared across threads or sent
@@ -217,31 +218,28 @@ impl Processor {
         to_index: usize,
     ) -> Result<EdgeIndex, ConnectError> {
         // check if connection indexes are out of bounds
-        let (parent_uuid, child_uuid) = {
-            let parent_node =
-                &self
-                    .graph
-                    .node_weight(parent_node_index)
-                    .ok_or(ConnectError::NodeNotFound {
+        let (parent_uuid, child_uuid) =
+            {
+                let parent_node = &self.graph.node_weight(parent_node_index).ok_or(
+                    ConnectError::NodeNotFound {
                         node_index: parent_node_index,
-                    })?;
-            let child_node =
-                &self
-                    .graph
-                    .node_weight(child_node_index)
-                    .ok_or(ConnectError::NodeNotFound {
+                    },
+                )?;
+                let child_node = &self.graph.node_weight(child_node_index).ok_or(
+                    ConnectError::NodeNotFound {
                         node_index: child_node_index,
-                    })?;
+                    },
+                )?;
 
-            Self::check_index_out_of_bounds(
-                &*parent_node.borrow(),
-                &*child_node.borrow(),
-                from_index,
-                to_index,
-            )?;
+                Self::check_index_out_of_bounds(
+                    &parent_node.borrow(),
+                    &child_node.borrow(),
+                    from_index,
+                    to_index,
+                )?;
 
-            (parent_node.borrow().uid(), child_node.borrow().uid())
-        };
+                (parent_node.borrow().uid(), child_node.borrow().uid())
+            };
 
         // add connection to graph
         let edge_index = self.graph.add_edge(
@@ -257,11 +255,15 @@ impl Processor {
     }
 
     fn incoming_connection_indexes(&self, uid: &u32) -> Option<&[EdgeIndex]> {
-        self.incoming_connection_indexes.get(uid).map(|indexes| indexes.as_slice())
+        self.incoming_connection_indexes
+            .get(uid)
+            .map(|indexes| indexes.as_slice())
     }
 
     fn outgoing_connection_indexes(&self, uid: &u32) -> Option<&[EdgeIndex]> {
-        self.outgoing_connection_indexes.get(uid).map(|indexes| indexes.as_slice())
+        self.outgoing_connection_indexes
+            .get(uid)
+            .map(|indexes| indexes.as_slice())
     }
 
     fn add_incoming_connection_index(&mut self, uid: u32, edge_index: EdgeIndex) {

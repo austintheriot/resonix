@@ -292,13 +292,16 @@ fn run_node_message(
 ) {
     match message {
         NodeMessageRequest::SineSetFrequency {
-            node_uid: uuid,
+            node_uid,
             node_index,
             new_frequency,
         } => {
-            let result = set_sine_node_frequency(processor, node_index, uuid, new_frequency);
+            let result = set_sine_node_frequency(processor, node_index, node_uid, new_frequency);
             node_response_tx
-                .try_send(NodeMessageResponse::SineSetFrequency { node_uid: uuid, result })
+                .try_send(NodeMessageResponse::SineSetFrequency {
+                    node_uid,
+                    result,
+                })
                 .unwrap();
         }
     };
@@ -328,7 +331,10 @@ fn run_processor_message<N: Node + 'static>(
     processor_tx: Sender<ProcessorMessageResponse>,
 ) {
     match message {
-        ProcessorMessageRequest::AddNode { request_id: id, node } => {
+        ProcessorMessageRequest::AddNode {
+            request_id: id,
+            node,
+        } => {
             let result = processor.add_node(node);
             let response = ProcessorMessageResponse::AddNode { id, result };
             processor_tx.try_send(response).unwrap();

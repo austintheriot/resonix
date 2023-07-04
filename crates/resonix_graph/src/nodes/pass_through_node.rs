@@ -1,9 +1,9 @@
-use std::{any::Any, cell::{Ref, RefMut}};
+use std::{
+    any::Any,
+    cell::{Ref, RefMut},
+};
 
-use petgraph::prelude::EdgeIndex;
-use uuid::Uuid;
-
-use crate::{AddConnectionError, Connection, Node, NodeType};
+use crate::{Connection, Node, NodeType};
 
 /// Takes one signal and passed it through, unaltered
 /// to all connected outputs.
@@ -77,7 +77,6 @@ impl Node for PassThroughNode {
     }
 }
 
-
 #[cfg(test)]
 mod test_pass_through_node {
 
@@ -91,7 +90,7 @@ mod test_pass_through_node {
 
         let input_connection = RefCell::new(Connection::from_test_data(0.1234, 0, 0));
 
-        let mut output_connection = RefCell::new(Connection::default());
+        let output_connection = RefCell::new(Connection::default());
 
         // before processing, output connection holds 0.0
         {

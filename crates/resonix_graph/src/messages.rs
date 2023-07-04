@@ -1,5 +1,4 @@
 use petgraph::{prelude::NodeIndex, stable_graph::EdgeIndex};
-use uuid::Uuid;
 
 use crate::{AddNodeError, ConnectError, Node};
 

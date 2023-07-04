@@ -1,9 +1,12 @@
-use std::{any::Any, fmt::Debug, cell::{Ref, RefMut}};
+use std::{
+    any::Any,
+    cell::{Ref, RefMut},
+    fmt::Debug,
+};
 
 use dyn_clone::DynClone;
-use petgraph::prelude::EdgeIndex;
+
 use thiserror::Error;
-use uuid::Uuid;
 
 use crate::{Connection, NodeType};
 

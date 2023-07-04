@@ -2172,6 +2172,7 @@ dependencies = [
  "cpal",
  "dyn-clone",
  "log",
+ "nohash-hasher",
  "petgraph",
  "resonix_core",
  "resonix_dac",

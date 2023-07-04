@@ -1,9 +1,9 @@
-use std::{any::Any, cell::{Ref, RefMut}};
+use std::{
+    any::Any,
+    cell::{Ref, RefMut},
+};
 
-use petgraph::prelude::EdgeIndex;
-use uuid::Uuid;
-
-use crate::{AddConnectionError, Connection, Node, NodeType};
+use crate::{Connection, Node, NodeType};
 
 #[derive(Debug, Default, Clone)]
 pub struct RecordNode {

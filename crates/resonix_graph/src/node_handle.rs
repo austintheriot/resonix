@@ -2,7 +2,6 @@ use std::marker::PhantomData;
 
 use async_channel::{Receiver, Sender};
 use petgraph::prelude::NodeIndex;
-use uuid::Uuid;
 
 use crate::{
     messages::{NodeMessageError, NodeMessageRequest, NodeMessageResponse},

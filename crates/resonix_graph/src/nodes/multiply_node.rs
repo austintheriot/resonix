@@ -1,9 +1,9 @@
-use std::{any::Any, cell::{Ref, RefMut}};
+use std::{
+    any::Any,
+    cell::{Ref, RefMut},
+};
 
-use petgraph::prelude::EdgeIndex;
-use uuid::Uuid;
-
-use crate::{AddConnectionError, Connection, Node, NodeType};
+use crate::{Connection, Node, NodeType};
 
 /// Takes two signals and multiplies them together,
 /// outputting the signal to all connected outputs
@@ -93,7 +93,7 @@ mod test_multiply_node {
 
         let left_input_connection = RefCell::new(Connection::from_test_data(0.5, 0, 0));
         let right_input_connection = RefCell::new(Connection::from_test_data(0.2, 0, 1));
-        let mut output_connection = RefCell::new(Connection::default());
+        let output_connection = RefCell::new(Connection::default());
 
         // before processing, output data is 0.0
         {
@@ -102,7 +102,10 @@ mod test_multiply_node {
 
         // run processing for node
         {
-            let inputs = [left_input_connection.borrow(), right_input_connection.borrow()];
+            let inputs = [
+                left_input_connection.borrow(),
+                right_input_connection.borrow(),
+            ];
             let outputs = [output_connection.borrow_mut()];
             multiply_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
