@@ -30,8 +30,9 @@ async fn set_up_graph_then_initialize_audio() {
         .initialize_dac_from_defaults(Arc::clone(&data_written))
         .unwrap();
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    audio_context.run();
 
     let data_written = data_written.lock().unwrap();
-    assert_eq!(data_written[0..100], [0.5; 100])
+    assert_eq!(data_written.len(), 2);
+    assert_eq!(data_written[0..2], [0.5, 0.5])
 }

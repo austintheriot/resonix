@@ -85,6 +85,18 @@ impl AudioContext {
         )
     }
 
+    /// Generates a single frame of audio and writes the audio output 
+    /// into the internal `data_written` buffer.
+    /// 
+    /// This is useful when DAC is mocked for easier testing on hardware that 
+    /// has no available audio output devices.
+    #[cfg(all(feature = "dac", feature = "mock_dac"))]
+    pub fn run(&mut self) {
+        if let Some(ref mut dac) = &mut self.dac {
+            (dac.closure)()
+        }
+    } 
+
     #[cfg(all(feature = "dac"))]
     pub fn initialize_dac_from_config(
         &mut self,

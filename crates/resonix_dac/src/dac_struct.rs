@@ -4,7 +4,7 @@ use cpal::{BuildStreamError, DefaultStreamConfigError, PlayStreamError, Sample};
 use thiserror::Error;
 #[cfg(not(feature = "mock_dac"))]
 use {
-    crate::{DACConfig, DACConfigBuildError, WriteFrameToBuffer},
+    crate::{DACConfig, WriteFrameToBuffer},
     cpal::{
         traits::{DeviceTrait, HostTrait},
         Stream, StreamConfig,
@@ -16,6 +16,7 @@ use {
     std::any::Any,
     std::sync::Mutex,
 };
+use crate::DACConfigBuildError;
 
 #[derive(Error, Debug)]
 pub enum DACBuildError {
@@ -27,7 +28,6 @@ pub enum DACBuildError {
     DefaultStreamConfigError(#[from] DefaultStreamConfigError),
     #[error("Could not play stream. original error: {0:?}")]
     PlayStreamError(#[from] PlayStreamError),
-    #[cfg(not(feature = "mock_dac"))]
     #[error("Could not create DACConfig. original error: {0:?}")]
     DACConfigBuildError(#[from] DACConfigBuildError),
 }
@@ -43,7 +43,7 @@ pub struct DAC {
     // test-specific fields for mocking:
     /// must use `Any` for this type, since `!` has not been stabilized yet
     #[cfg(feature = "mock_dac")]
-    join_handle: Box<dyn Any>,
+    pub closure: Box<dyn FnMut()>,
     #[cfg(feature = "mock_dac")]
     pub data_written: Arc<Mutex<Vec<f32>>>,
 }
@@ -93,7 +93,7 @@ impl DAC {
         };
 
         #[cfg(feature = "mock_dac")]
-        let dac_config = DACConfig;
+        let dac_config = DACConfig::from_defaults()?;
 
         Self::from_dac_config_with_config(
             dac_config,
@@ -163,7 +163,7 @@ impl DAC {
             Ok((
                 Self {
                     config: Arc::clone(&config),
-                    join_handle: handle,
+                    closure: handle,
                     data_written,
                 },
                 config,
@@ -202,19 +202,18 @@ impl DAC {
         config: Arc<DACConfig>,
         data_written: Arc<Mutex<Vec<f32>>>,
         mut write_frame_to_buffer: Callback,
-    ) -> Result<Box<dyn Any>, BuildStreamError>
+    ) -> Result<Box<dyn FnMut()>, BuildStreamError>
     where
         S: Sample,
         Callback: WriteFrameToBuffer<S, ExtractedData> + Send + 'static,
     {
         use std::time::Duration;
 
-        Ok(Box::new(std::thread::spawn(move || loop {
+        Ok(Box::new(move || {
             let num_frames = 1;
-            let num_channels = 2;
 
             // new buffer to write data into
-            let mut buffer = vec![S::from(&0.0); num_frames * num_channels];
+            let mut buffer = vec![S::from(&0.0); num_frames * config.num_channels() as usize];
 
             write_frame_to_buffer.call(buffer.as_mut_slice(), Arc::clone(&config));
 
@@ -224,7 +223,7 @@ impl DAC {
                 .unwrap()
                 .extend(buffer.into_iter().map(|s| s.to_f32()));
             std::thread::sleep(Duration::from_millis(1))
-        })) as Box<dyn Any>)
+        }) as Box<dyn FnMut()>)
     }
 }
 
@@ -270,7 +269,7 @@ mod dac_tests_on_hardware {
     }
 }
 
-#[cfg(all(test, feature = "mock_dac"))]
+#[cfg(all(test, feature = "dac", feature = "mock_dac"))]
 mod dac_tests_mocked {
     use std::{
         sync::{Arc, Mutex},
@@ -313,7 +312,7 @@ mod dac_tests_mocked {
         let mut current_sample = 0.0;
         let data_written = Arc::new(Mutex::new(Vec::new()));
 
-        let player = {
+        let dac = {
             DAC::from_dac_defaults(
                 move |buffer: &'_ mut [f32], config: Arc<DACConfig>| {
                     // write basic sequential data to outgoing buffer
@@ -331,9 +330,13 @@ mod dac_tests_mocked {
         }
         .unwrap();
 
-        tokio::time::sleep(Duration::from_secs(1)).await;
+        // generate 3 frames of audio
+        dac.run();
+        dac.run();
+        dac.run();
 
-        let data_written = player.data_written.lock().unwrap();
-        assert_eq!(data_written[0..6], [0.0, 0.0, 0.5, 0.5, 1.0, 1.0]);
+        let data_written_lock = player.data_written_lock.lock().unwrap();
+        assert_eq!(data_written_lock.len(), 6);
+        assert_eq!(data_written_lock[0..6], [0.0, 0.0, 0.5, 0.5, 1.0, 1.0]);
     }
 }
