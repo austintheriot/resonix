@@ -23,7 +23,6 @@ wasm-logger = "0.2.0"
 cpal = { version = "0.13.5", optional = true}
 
 [dev-dependencies]
-cargo-husky = "1"
 # async runtime only needed while testing
 tokio = { version = "1.28.1", features = ["full"] }
 resonix_test_utils = { path = "../resonix_test_utils"}
@@ -33,4 +32,7 @@ resonix_test_utils = { path = "../resonix_test_utils"}
 dac = ["dep:cpal"]
 
 
-
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false # Disable features which are enabled by default
+features = ["user-hooks"]

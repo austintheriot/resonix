@@ -1,0 +1,1 @@
+cargo hack test --workspace --each-feature
