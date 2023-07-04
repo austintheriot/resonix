@@ -9,7 +9,7 @@ async fn set_up_graph_then_initialize_audio() {
     use resonix::{AudioContext, ConstantNode, DACNode, PassThroughNode};
 
     let mut audio_context = AudioContext::new();
-    let constant_node = ConstantNode::new_with_signal_value(0.5);
+    let constant_node = ConstantNode::new(0.5);
     let constant_node_handle = audio_context.add_node(constant_node).await.unwrap();
     let pass_through_node = PassThroughNode::new();
     let pass_through_node_handle = audio_context.add_node(pass_through_node).await.unwrap();

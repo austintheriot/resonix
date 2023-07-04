@@ -59,8 +59,9 @@ pub struct Processor {
     outgoing_connection_indexes: IntMap<u32, Vec<EdgeIndex>>,
 }
 
-// data in `Processor` is never shared across threads or sent
-// to any other thread besides the audio thread
+// SAFETY: The data inside `Processor` is never shared across threads or sent
+// to any other thread besides the audio thread after initialization, so
+// this should be safe
 unsafe impl Send for Processor {}
 
 impl Processor {
