@@ -58,11 +58,6 @@ pub struct Processor {
     uid_counter: u32,
 }
 
-// SAFETY: The data inside `Processor` is never shared across threads or sent
-// to any other thread besides the audio thread after initialization, so
-// this should be safe
-unsafe impl Send for Processor {}
-
 impl Processor {
     pub fn new() -> Self {
         Default::default()
