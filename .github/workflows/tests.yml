@@ -35,7 +35,7 @@ jobs:
       - name: Test
         run: |
           cargo hack check --workspace --feature-powerset
-          cargo hack test --workspace --feature-powerset --skip dac_tests_on_hardware
+          cargo hack test --workspace --feature-powerset -- --skip dac_tests_on_hardware
 
       - name: Check compilation with and without DAC
         working-directory: crates/resonix
