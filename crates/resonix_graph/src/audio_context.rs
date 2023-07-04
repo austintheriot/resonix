@@ -56,7 +56,6 @@ pub struct AudioContext {
     node_response_tx: Sender<NodeMessageResponse>,
     uuid: Uuid,
     request_id: u32,
-    node_uid_counter: u32,
 }
 
 impl AudioContext {
@@ -174,14 +173,8 @@ impl AudioContext {
 
     pub async fn add_node<N: Node + 'static>(
         &mut self,
-        mut node: N,
+        node: N,
     ) -> Result<NodeHandle<N>, AddNodeError> {
-        if node.uid() == 0 {
-            node.set_uid(self.next_node_uid());
-        }
-
-        // node should be immutable for the rest of the block
-        let node = node;
         let uid = node.uid();
         if let Some(processor) = &mut self.processor {
             processor
@@ -277,12 +270,6 @@ impl AudioContext {
         self.request_id = self.request_id.wrapping_add(1);
         self.request_id
     }
-
-    fn next_node_uid(&mut self) -> u32 {
-        let value = self.node_uid_counter;
-        self.node_uid_counter += 1;
-        value
-    }
 }
 
 fn run_node_message(
@@ -298,10 +285,7 @@ fn run_node_message(
         } => {
             let result = set_sine_node_frequency(processor, node_index, node_uid, new_frequency);
             node_response_tx
-                .try_send(NodeMessageResponse::SineSetFrequency {
-                    node_uid,
-                    result,
-                })
+                .try_send(NodeMessageResponse::SineSetFrequency { node_uid, result })
                 .unwrap();
         }
     };
@@ -393,7 +377,6 @@ impl Default for AudioContext {
             node_request_rx: Some(node_request_rx),
             node_response_tx,
             node_response_rx,
-            node_uid_counter: 0,
         }
     }
 }

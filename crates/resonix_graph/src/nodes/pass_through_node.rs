@@ -88,7 +88,7 @@ mod test_pass_through_node {
     fn should_pass_audio_data_through_output_connections() {
         let mut pass_through_node = PassThroughNode::new();
 
-        let input_connection = RefCell::new(Connection::from_test_data(0.1234, 0, 0));
+        let input_connection = RefCell::new(Connection::from_test_data(0, 0.1234, 0, 0));
 
         let output_connection = RefCell::new(Connection::default());
 

@@ -106,7 +106,7 @@ mod test_record_node {
     fn should_record_incoming_node_data() {
         let mut record_node = RecordNode::new();
 
-        let input_connection = RefCell::new(Connection::from_test_data(0.1234, 0, 0));
+        let input_connection = RefCell::new(Connection::from_test_data(0, 0.1234, 0, 0));
 
         {
             let inputs = [input_connection.borrow()];

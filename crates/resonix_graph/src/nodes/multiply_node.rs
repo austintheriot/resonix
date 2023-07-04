@@ -91,8 +91,8 @@ mod test_multiply_node {
     fn should_multiply_1st_and_2nd_inputs() {
         let mut multiply_node = MultiplyNode::new();
 
-        let left_input_connection = RefCell::new(Connection::from_test_data(0.5, 0, 0));
-        let right_input_connection = RefCell::new(Connection::from_test_data(0.2, 0, 1));
+        let left_input_connection = RefCell::new(Connection::from_test_data(0, 0.5, 0, 0));
+        let right_input_connection = RefCell::new(Connection::from_test_data(1, 0.2, 0, 1));
         let output_connection = RefCell::new(Connection::default());
 
         // before processing, output data is 0.0

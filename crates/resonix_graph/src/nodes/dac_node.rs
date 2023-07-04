@@ -108,7 +108,7 @@ mod test_dac_node {
     fn should_record_one_sample_of_incoming_data() {
         let mut dac_node = DACNode::new();
 
-        let input_connection = RefCell::new(Connection::from_test_data(0.1234, 0, 0));
+        let input_connection = RefCell::new(Connection::from_test_data(0, 0.1234, 0, 0));
 
         assert_eq!(dac_node.data(), 0.0);
 

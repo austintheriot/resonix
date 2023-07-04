@@ -11,8 +11,6 @@ use petgraph::{
     Direction, Graph,
 };
 
-use uuid::Uuid;
-
 use crate::{AddConnectionError, BoxedNode, Connection, DACNode, Node, NodeType};
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -57,6 +55,7 @@ pub struct Processor {
     dac_node_indexes: Vec<NodeIndex>,
     incoming_connection_indexes: IntMap<u32, Vec<EdgeIndex>>,
     outgoing_connection_indexes: IntMap<u32, Vec<EdgeIndex>>,
+    uid_counter: u32,
 }
 
 // SAFETY: The data inside `Processor` is never shared across threads or sent
@@ -126,7 +125,7 @@ impl Processor {
         // keeps track of which connections have been visited from a parent node--
         // this mimics the behavior of nodes in a true `run`, where outgoing connections
         // are initialized by parent nodes
-        let mut connection_visit_set: HashSet<Uuid> = HashSet::new();
+        let mut connection_visit_set: IntSet<u32> = IntSet::default();
 
         // prevents cycling endlessly through graph
         const MAX_GRAPH_VISITS: u32 = 65536;
@@ -173,7 +172,7 @@ impl Processor {
 
             // skip for now if inputs have not been initialized
             if incoming_connections.any(|incoming_connection| {
-                !connection_visit_set.contains(incoming_connection.borrow().uuid())
+                !connection_visit_set.contains(incoming_connection.borrow().uid())
             }) {
                 in_progress_visit_order.push_back(node_index);
                 continue;
@@ -188,7 +187,7 @@ impl Processor {
 
             // mark all outgoing connections from this node has having been visited
             outgoing_connections.for_each(|edge_reference| {
-                connection_visit_set.insert(*edge_reference.weight().borrow().uuid());
+                connection_visit_set.insert(*edge_reference.weight().borrow().uid());
             });
         }
 
@@ -305,7 +304,14 @@ impl Processor {
         self.visit_order.take();
     }
 
-    pub fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeIndex, AddNodeError> {
+    pub fn add_node<N: Node + 'static>(&mut self, mut node: N) -> Result<NodeIndex, AddNodeError> {
+        if node.uid() == 0 {
+            node.set_uid(self.next_uid());
+        }
+
+        // make node immutable for rest of code block
+        let node = node;
+
         if self.node_uids.contains(&node.uid()) {
             return Err(AddNodeError::AlreadyExists { name: node.name() });
         }
@@ -347,6 +353,12 @@ impl Processor {
         }
 
         result
+    }
+
+    fn next_uid(&mut self) -> u32 {
+        let value = self.uid_counter;
+        self.uid_counter += 1;
+        value
     }
 }
 
