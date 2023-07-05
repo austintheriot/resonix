@@ -43,7 +43,7 @@ pub struct DAC {
     // test-specific fields for mocking:
     /// must use `Any` for this type, since `!` has not been stabilized yet
     #[cfg(feature = "mock_dac")]
-    pub closure: Box<dyn FnMut()>,
+    pub join_handle: Box<dyn Any>,
     #[cfg(feature = "mock_dac")]
     pub data_written: Arc<Mutex<Vec<f32>>>,
 }
@@ -154,7 +154,7 @@ impl DAC {
 
         #[cfg(feature = "mock_dac")]
         {
-            let handle = Self::create_mock_stream::<S, Callback, ExtractedData>(
+            let join_handle = Self::create_mock_stream::<S, Callback, ExtractedData>(
                 Arc::clone(&config),
                 Arc::clone(&data_written),
                 write_frame_to_buffer,
@@ -163,7 +163,7 @@ impl DAC {
             Ok((
                 Self {
                     config: Arc::clone(&config),
-                    closure: handle,
+                    join_handle,
                     data_written,
                 },
                 config,
@@ -202,14 +202,14 @@ impl DAC {
         config: Arc<DACConfig>,
         data_written: Arc<Mutex<Vec<f32>>>,
         mut write_frame_to_buffer: Callback,
-    ) -> Result<Box<dyn FnMut()>, BuildStreamError>
+    ) -> Result<Box<dyn Any>, BuildStreamError>
     where
         S: Sample,
         Callback: WriteFrameToBuffer<S, ExtractedData> + Send + 'static,
     {
         use std::time::Duration;
 
-        Ok(Box::new(move || {
+        Ok(Box::new(std::thread::spawn(move || loop {
             let num_frames = 1;
 
             // new buffer to write data into
@@ -222,8 +222,9 @@ impl DAC {
                 .lock()
                 .unwrap()
                 .extend(buffer.into_iter().map(|s| s.to_f32()));
+
             std::thread::sleep(Duration::from_millis(1))
-        }) as Box<dyn FnMut()>)
+        })) as Box<dyn Any>)
     }
 }
 
@@ -269,7 +270,7 @@ mod dac_tests_on_hardware {
     }
 }
 
-#[cfg(all(test, feature = "dac", feature = "mock_dac"))]
+#[cfg(all(test, feature = "mock_dac"))]
 mod dac_tests_mocked {
     use std::{
         sync::{Arc, Mutex},
@@ -330,13 +331,9 @@ mod dac_tests_mocked {
         }
         .unwrap();
 
-        // generate 3 frames of audio
-        dac.run();
-        dac.run();
-        dac.run();
+        tokio::time::sleep(Duration::from_secs(1)).await;
 
-        let data_written_lock = player.data_written_lock.lock().unwrap();
-        assert_eq!(data_written_lock.len(), 6);
+        let data_written_lock = data_written.lock().unwrap();
         assert_eq!(data_written_lock[0..6], [0.0, 0.0, 0.5, 0.5, 1.0, 1.0]);
     }
 }
