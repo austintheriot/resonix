@@ -1,5 +1,6 @@
 use std::{fmt::Debug, sync::Arc};
 
+use crate::DACConfigBuildError;
 use cpal::{BuildStreamError, DefaultStreamConfigError, PlayStreamError, Sample};
 use thiserror::Error;
 #[cfg(not(feature = "mock_dac"))]
@@ -16,7 +17,6 @@ use {
     std::any::Any,
     std::sync::Mutex,
 };
-use crate::DACConfigBuildError;
 
 #[derive(Error, Debug)]
 pub enum DACBuildError {
@@ -41,9 +41,12 @@ pub struct DAC {
     pub stream: Stream,
 
     // test-specific fields for mocking:
-    /// must use `Any` for this type, since `!` has not been stabilized yet
+    // allows calling `.run()` frame-by-frame
     #[cfg(feature = "mock_dac")]
-    pub closure: Box<dyn FnMut()>,
+    pub closure: Option<Box<dyn FnMut() + Send>>,
+    #[cfg(feature = "mock_dac")]
+    // used to create an audio stream from the function
+    pub join_handle: Option<Box<dyn Any>>,
     #[cfg(feature = "mock_dac")]
     pub data_written: Arc<Mutex<Vec<f32>>>,
 }
@@ -154,7 +157,7 @@ impl DAC {
 
         #[cfg(feature = "mock_dac")]
         {
-            let handle = Self::create_mock_stream::<S, Callback, ExtractedData>(
+            let closure = Self::create_frame_process_closure::<S, Callback, ExtractedData>(
                 Arc::clone(&config),
                 Arc::clone(&data_written),
                 write_frame_to_buffer,
@@ -163,7 +166,8 @@ impl DAC {
             Ok((
                 Self {
                     config: Arc::clone(&config),
-                    closure: handle,
+                    closure: Some(closure),
+                    join_handle: None,
                     data_written,
                 },
                 config,
@@ -195,14 +199,17 @@ impl DAC {
             err_fn,
         )
     }
+}
 
+// `mock_dac` implementations
+impl DAC {
     /// Mock calling from audio thread
     #[cfg(feature = "mock_dac")]
-    fn create_mock_stream<S, Callback, ExtractedData>(
+    fn create_frame_process_closure<S, Callback, ExtractedData>(
         config: Arc<DACConfig>,
         data_written: Arc<Mutex<Vec<f32>>>,
         mut write_frame_to_buffer: Callback,
-    ) -> Result<Box<dyn FnMut()>, BuildStreamError>
+    ) -> Result<Box<dyn FnMut() + Send>, BuildStreamError>
     where
         S: Sample,
         Callback: WriteFrameToBuffer<S, ExtractedData> + Send + 'static,
@@ -222,8 +229,19 @@ impl DAC {
                 .lock()
                 .unwrap()
                 .extend(buffer.into_iter().map(|s| s.to_f32()));
-            std::thread::sleep(Duration::from_millis(1))
-        }) as Box<dyn FnMut()>)
+        }) as Box<dyn FnMut() + Send>)
+    }
+
+    #[cfg(feature = "mock_dac")]
+    pub fn convert_closure_to_stream(&mut self) {
+        use std::time::Duration;
+
+        let mut closure = self.closure.take().unwrap();
+        let join_handle = std::thread::spawn(move || loop {
+            (closure)();
+            std::thread::sleep(Duration::from_millis(1));
+        });
+        self.join_handle = Some(Box::new(join_handle) as Box<dyn Any>);
     }
 }
 
@@ -308,7 +326,7 @@ mod dac_tests_mocked {
     }
 
     #[tokio::test]
-    async fn mock_implementation_saves_written_data() {
+    async fn mock_implementation_allows_processing_frame_by_frame() {
         let mut current_sample = 0.0;
         let data_written = Arc::new(Mutex::new(Vec::new()));
 

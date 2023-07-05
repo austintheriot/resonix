@@ -3,12 +3,14 @@
 async fn test_constant_node_pass_though_to_dac() {
     use std::{
         sync::{Arc, Mutex},
-        time::Duration,
+        time::Duration, error::Error, fmt::Debug,
     };
 
     use resonix::{AudioContext, ConstantNode, DACNode, PassThroughNode};
 
     let mut audio_context = AudioContext::new();
+    audio_context.play_stream().unwrap();
+    
     let constant_node = ConstantNode::new(0.5);
     let constant_node_handle = audio_context.add_node(constant_node).await.unwrap();
     let pass_through_node = PassThroughNode::new();
@@ -34,7 +36,7 @@ async fn test_constant_node_pass_though_to_dac() {
 
     let data_written = data_written.lock().unwrap();
     assert_eq!(data_written.len(), 2);
-    assert_eq!(data_written[0..2], [0.5, 0.5])
+    assert_eq!(data_written[0..2], [0.5, 0.5]);
 }
 
 #[cfg(all(feature = "dac", feature = "mock_dac"))]
@@ -45,7 +47,7 @@ async fn test_setting_up_audio_graph_after_starting_audio() {
         time::Duration,
     };
 
-    use resonix::{AudioContext, ConstantNode, DACNode, PassThroughNode};
+    use resonix::{AudioContext, ConstantNode, DACNode, PassThroughNode, SineNode};
 
     let mut audio_context = AudioContext::new();
 
@@ -69,7 +71,6 @@ async fn test_setting_up_audio_graph_after_starting_audio() {
         assert_eq!(data_written_lock.len(), 2);
         assert_eq!(data_written_lock[0..2], [0.0, 0.0]);
     }
-
 
     // THEN create audio graph
     let sine_node = SineNode::new_with_config(audio_context.sample_rate().unwrap(), 440.0);

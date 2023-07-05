@@ -92,9 +92,10 @@ impl AudioContext {
     /// has no available audio output devices.
     #[cfg(all(feature = "dac", feature = "mock_dac"))]
     pub fn run(&mut self) {
-        if let Some(ref mut dac) = &mut self.dac {
-            (dac.closure)()
-        }
+        let dac = &mut self.dac.as_mut().expect("No DAC set up");
+        let closure = &mut dac.closure.as_mut().expect("Closure moved into audio thread on `play_stream`");
+
+        (closure)()
     } 
 
     #[cfg(all(feature = "dac"))]
@@ -165,6 +166,18 @@ impl AudioContext {
 
         Ok(())
     }
+
+    /// Uses internal frame closure to create an audio stream off of the main thread.
+    /// 
+    /// Only used for testing.
+    #[cfg(all(feature = "dac", feature = "mock_dac"))]
+    pub fn play_stream(&mut self) -> Result<(), PlayStreamError> {
+        if let Some(ref mut dac) = &mut self.dac {
+            dac.convert_closure_to_stream();
+        }
+
+        Ok(())
+    } 
 
     #[cfg(all(feature = "dac", not(feature = "mock_dac")))]
     pub fn pause_stream(&mut self) -> Result<(), PauseStreamError> {
