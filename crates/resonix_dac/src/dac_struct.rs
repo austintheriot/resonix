@@ -1,5 +1,6 @@
 use std::{fmt::Debug, sync::Arc};
 
+use crate::DACConfigBuildError;
 use cpal::{BuildStreamError, DefaultStreamConfigError, PlayStreamError, Sample};
 use thiserror::Error;
 #[cfg(not(feature = "mock_dac"))]
@@ -16,7 +17,6 @@ use {
     std::any::Any,
     std::sync::Mutex,
 };
-use crate::DACConfigBuildError;
 
 #[derive(Error, Debug)]
 pub enum DACBuildError {
