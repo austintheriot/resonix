@@ -6,6 +6,7 @@ use std::{
 
 use dyn_clone::DynClone;
 
+use resonix_core::NumChannels;
 use thiserror::Error;
 
 use crate::{Connection, NodeType};
@@ -30,9 +31,13 @@ where
 
     fn node_type(&self) -> NodeType;
 
-    fn num_inputs(&self) -> usize;
+    fn num_input_connections(&self) -> usize;
 
-    fn num_outputs(&self) -> usize;
+    fn num_output_connections(&self) -> usize;
+
+    fn num_incoming_channels(&self) -> NumChannels;
+
+    fn num_outgoing_channels(&self) -> NumChannels;
 
     fn uid(&self) -> u32;
 
@@ -63,12 +68,20 @@ impl Node for BoxedNode {
         (**self).node_type()
     }
 
-    fn num_inputs(&self) -> usize {
-        (**self).num_inputs()
+    fn num_input_connections(&self) -> usize {
+        (**self).num_input_connections()
     }
 
-    fn num_outputs(&self) -> usize {
-        (**self).num_outputs()
+    fn num_output_connections(&self) -> usize {
+        (**self).num_output_connections()
+    }
+
+    fn num_incoming_channels(&self) -> NumChannels {
+        (**self).num_incoming_channels()
+    }
+
+    fn num_outgoing_channels(&self) -> NumChannels {
+        (**self).num_outgoing_channels()
     }
 
     fn uid(&self) -> u32 {

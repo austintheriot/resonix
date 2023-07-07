@@ -1,7 +1,10 @@
 use std::{
     any::Any,
     cell::{Ref, RefMut},
+    vec,
 };
+
+use resonix_core::NumChannels;
 
 use crate::{Connection, Node, NodeType};
 
@@ -14,17 +17,22 @@ use crate::{Connection, Node, NodeType};
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd, Hash, Eq, Ord)]
 pub struct PassThroughNode {
     uid: u32,
+    num_channels: NumChannels,
 }
 
 impl PassThroughNode {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(num_channels: impl Into<NumChannels>) -> Self {
+        Self {
+            num_channels: num_channels.into(),
+            ..Default::default()
+        }
     }
 
     #[cfg(test)]
-    pub(crate) fn new_with_uid(uid: u32) -> Self {
+    pub(crate) fn new_with_uid(uid: u32, num_channels: impl Into<NumChannels>) -> Self {
         Self {
             uid,
+            num_channels: num_channels.into(),
             ..Default::default()
         }
     }
@@ -37,24 +45,40 @@ impl Node for PassThroughNode {
         inputs: &mut dyn Iterator<Item = Ref<Connection>>,
         outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
-        let input_data = inputs.next().map(|c| c.data()).unwrap_or(0.0);
+        let input = inputs
+            .next()
+            .expect("PassThrough node should have one and only one input connection");
+        let input_data= input.data();
 
-        // copy first input to all output connections
-        for mut output in outputs.into_iter() {
-            output.set_data(input_data);
-        }
+        let mut output = outputs.next().expect("PassThrough node should have one and only one output connection");
+        output.update_data(|frame| {
+            frame
+                .iter_mut()
+                .zip(input_data.iter())
+                .for_each(|(output, input)| {
+                    *output = *input;
+                })
+        });
     }
 
     fn node_type(&self) -> NodeType {
         NodeType::Effect
     }
 
-    fn num_inputs(&self) -> usize {
+    fn num_input_connections(&self) -> usize {
         1
     }
 
-    fn num_outputs(&self) -> usize {
+    fn num_output_connections(&self) -> usize {
         1
+    }
+
+    fn num_incoming_channels(&self) -> NumChannels {
+        self.num_channels
+    }
+
+    fn num_outgoing_channels(&self) -> NumChannels {
+        self.num_channels
     }
 
     fn uid(&self) -> u32 {
@@ -86,15 +110,15 @@ mod test_pass_through_node {
 
     #[test]
     fn should_pass_audio_data_through_output_connections() {
-        let mut pass_through_node = PassThroughNode::new();
+        let mut pass_through_node = PassThroughNode::new(1);
 
-        let input_connection = RefCell::new(Connection::from_test_data(0, 0.1234, 0, 0));
+        let input_connection = RefCell::new(Connection::from_test_data(0, 1, vec![0.1234], 0, 0));
 
         let output_connection = RefCell::new(Connection::default());
 
         // before processing, output connection holds 0.0
         {
-            assert_eq!(output_connection.borrow().data(), 0.0);
+            assert_eq!(output_connection.borrow().data(), &vec![0.0]);
         }
 
         {
@@ -105,7 +129,33 @@ mod test_pass_through_node {
 
         // before processing, output connection holds input data
         {
-            assert_eq!(output_connection.borrow().data(), 0.1234);
+            assert_eq!(output_connection.borrow().data(), &vec![0.1234]);
+        }
+    }
+
+    #[test]
+    fn should_work_with_multichannel_data() {
+        let input_connection_data: Vec<f32> = (0..5).map(|i| i as f32).collect();
+        let input_connection = RefCell::new(Connection::from_test_data(0, 5, input_connection_data.clone(), 0, 0));
+
+        let mut pass_through_node = PassThroughNode::new(5);
+
+        let output_connection = RefCell::new(Connection::new(5));
+
+        // before processing, output connection holds 0.0
+        {
+            assert_eq!(output_connection.borrow().data(), &vec![0.0; 5]);
+        }
+
+        {
+            let inputs = [input_connection.borrow()];
+            let outputs = [output_connection.borrow_mut()];
+            pass_through_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
+        }
+
+        // before processing, output connection holds input data
+        {
+            assert_eq!(output_connection.borrow().data(), &input_connection_data);
         }
     }
 }

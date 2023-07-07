@@ -1,28 +1,53 @@
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug, Default, Clone)]
+use resonix_core::NumChannels;
+
+#[derive(Debug, Clone)]
 pub struct Connection {
     /// where the connection is coming from
     from_index: usize,
     /// where the connection is going to
     to_index: usize,
     /// the data that the connection is carrying (if any)
-    data: f32,
+    data: Vec<f32>,
+    num_channels: NumChannels,
     uid: u32,
 }
 
+impl Default for Connection {
+    fn default() -> Self {
+        Self {
+            data: vec![0.0],
+            from_index: 0,
+            to_index: 0,
+            uid: 0,
+            num_channels: NumChannels::from(0),
+        }
+    }
+}
+
 impl Connection {
-    pub fn new() -> Self {
-        Self::from_indexes(0, 0)
+    pub fn new(num_channels: impl Into<NumChannels>) -> Self {
+        Self::from_indexes(num_channels, 0, 0)
     }
 
-    pub fn from_indexes(from_index: usize, to_index: usize) -> Self {
+    pub fn from_indexes(
+        num_channels: impl Into<NumChannels>,
+        from_index: usize,
+        to_index: usize,
+    ) -> Self {
+        let num_channels = num_channels.into();
         Self {
-            data: 0.0,
+            num_channels,
+            data: vec![0.0; *num_channels],
             from_index,
             to_index,
             uid: 0,
         }
+    }
+
+    pub fn num_channels(&self) -> NumChannels {
+        self.num_channels
     }
 
     pub fn from_index(&self) -> usize {
@@ -33,12 +58,21 @@ impl Connection {
         self.to_index
     }
 
-    pub fn data(&self) -> f32 {
-        self.data
+    pub fn data(&self) -> &[f32] {
+        &self.data
     }
 
-    pub fn set_data(&mut self, data: f32) -> &mut Self {
+    /// Replaces inner data with a new vector
+    ///
+    /// Warning: this is likely expensive. Prefer `update_data` to modify values in-place
+    pub fn set_data(&mut self, data: Vec<f32>) -> &mut Self {
         self.data = data;
+        self
+    }
+
+    /// Updates inner data in-place
+    pub fn update_data(&mut self, f: impl Fn(&mut [f32])) -> &mut Self {
+        (f)(&mut self.data);
         self
     }
 
@@ -47,8 +81,16 @@ impl Connection {
     }
 
     #[cfg(test)]
-    pub(crate) fn from_test_data(uid: u32, data: f32, from_index: usize, to_index: usize) -> Self {
+    pub(crate) fn from_test_data(
+        uid: u32,
+        num_channels: impl Into<NumChannels>,
+        data: Vec<f32>,
+        from_index: usize,
+        to_index: usize,
+    ) -> Self {
+        let num_channels = num_channels.into();
         Self {
+            num_channels,
             from_index,
             to_index,
             data,

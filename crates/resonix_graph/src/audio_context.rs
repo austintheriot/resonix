@@ -91,6 +91,8 @@ impl AudioContext {
         dac_config: DACConfig,
         #[cfg(feature = "mock_dac")] data_written: Arc<Mutex<Vec<f32>>>,
     ) -> Result<&mut Self, DacInitializeError> {
+        use resonix_core::NumChannels;
+
         let (audio_context_tx, processor_rx) = async_channel::unbounded();
         let (processor_tx, audio_context_rx) = async_channel::unbounded();
         self.processor_request_tx.replace(audio_context_tx);
@@ -107,7 +109,7 @@ impl AudioContext {
         let dac = DAC::from_dac_config(
             dac_config,
             move |buffer: &mut [f32], config: Arc<DACConfig>| {
-                let num_channels = config.num_channels() as usize;
+                let num_audio_channels_out = NumChannels::from(config.num_channels());
 
                 // run any messages for the processor, sent from the main thread, that are ready to be processed
                 while let Ok(message) = processor_rx.try_recv() {
@@ -123,11 +125,11 @@ impl AudioContext {
                 }
 
                 // run audio graph and copy audio graph output information into actual audio-out buffer
-                for frame in buffer.chunks_mut(num_channels) {
+                for frame in buffer.chunks_mut(*num_audio_channels_out) {
                     processor.run();
-                    let dac_nodes_sum = processor.dac_nodes_sum();
-                    for channel in frame.iter_mut() {
-                        *channel = cpal::Sample::from::<f32>(&dac_nodes_sum);
+                    let dac_nodes_sum = processor.dac_nodes_sum(num_audio_channels_out);
+                    for (channel, sum) in frame.iter_mut().zip(&dac_nodes_sum) {
+                        *channel = cpal::Sample::from::<f32>(sum);
                     }
                 }
             },
@@ -226,7 +228,7 @@ impl AudioContext {
             node_index,
             node_request_tx: self.node_request_tx.clone(),
             node_response_rx: self.node_response_rx.clone(),
-            node_type: PhantomData::default(),
+            node_type: PhantomData,
         }
     }
 

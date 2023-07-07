@@ -4,29 +4,33 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+use resonix_core::NumChannels;
+
 use crate::{Connection, Node, NodeType};
 
 /// Takes no input signals and outputs a single,
 /// constant signal value to all output connections.
 ///
 /// Output 0 - Constant signal value
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct ConstantNode {
     uid: u32,
+    num_outgoing_channels: NumChannels,
     signal_value: f32,
 }
 
 impl ConstantNode {
-    pub fn new(signal_value: f32) -> Self {
+    pub fn new(num_outgoing_channels: impl Into<NumChannels>, signal_value: f32) -> Self {
         Self {
             uid: 0,
+            num_outgoing_channels: num_outgoing_channels.into(),
             signal_value,
         }
     }
 
     #[cfg(test)]
-    pub(crate) fn new_with_uid(uid: u32, signal_value: f32) -> Self {
-        Self { uid, signal_value }
+    pub(crate) fn new_with_uid(uid: u32, num_outgoing_channels: impl Into<NumChannels>, signal_value: f32) -> Self {
+        Self { uid, num_outgoing_channels: num_outgoing_channels.into(), signal_value }
     }
 
     pub fn signal_value(&self) -> f32 {
@@ -44,12 +48,20 @@ impl Node for ConstantNode {
         NodeType::Input
     }
 
-    fn num_inputs(&self) -> usize {
+    fn num_input_connections(&self) -> usize {
         0
     }
 
-    fn num_outputs(&self) -> usize {
+    fn num_output_connections(&self) -> usize {
         1
+    }
+
+    fn num_incoming_channels(&self) -> NumChannels {
+        NumChannels::from(0)
+    }
+
+    fn num_outgoing_channels(&self) -> NumChannels {
+        self.num_outgoing_channels
     }
 
     #[inline]
@@ -60,7 +72,7 @@ impl Node for ConstantNode {
     ) {
         // copy to all output connections
         outputs.into_iter().for_each(|mut output| {
-            output.set_data(self.signal_value);
+            output.update_data(|values| values.fill(self.signal_value));
         })
     }
 
@@ -120,13 +132,13 @@ mod test_constant_node {
 
     #[test]
     fn should_output_constant_signal_value() {
-        let mut constant_node = ConstantNode::new(1.234);
+        let mut constant_node = ConstantNode::new(1, 1.234);
 
         let output_connection = RefCell::new(Connection::default());
 
         // before processing, output data is 0.0
         {
-            assert_eq!(output_connection.borrow().data(), 0.0);
+            assert_eq!(output_connection.borrow().data(), &vec![0.0]);
         }
 
         // run processing for node
@@ -138,7 +150,31 @@ mod test_constant_node {
 
         // after processing, output data is 1.234
         {
-            assert_eq!(output_connection.borrow().data(), 1.234);
+            assert_eq!(output_connection.borrow().data(), &vec![1.234]);
+        }
+    }
+
+    #[test]
+    fn should_work_with_multichannel_data() {
+        let mut constant_node = ConstantNode::new(5, 0.5);
+
+        let output_connection = RefCell::new(Connection::new(5));
+
+        // before processing, output data is 0.0
+        {
+            assert_eq!(output_connection.borrow().data(), &vec![0.0; 5]);
+        }
+
+        // run processing for node
+        {
+            let inputs = [];
+            let outputs = [output_connection.borrow_mut()];
+            constant_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
+        }
+
+        // after processing, output data is 1.234
+        {
+            assert_eq!(output_connection.borrow().data(), &vec![0.5; 5]);
         }
     }
 }

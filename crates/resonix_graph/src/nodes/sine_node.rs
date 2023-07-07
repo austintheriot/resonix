@@ -5,7 +5,7 @@ use std::{
 
 use log::info;
 use petgraph::prelude::EdgeIndex;
-use resonix_core::{SampleRate, Sine, SineInterface};
+use resonix_core::{SampleRate, Sine, SineInterface, NumChannels};
 
 use crate::{
     messages::{NodeMessageRequest, NodeMessageResponse},
@@ -16,6 +16,7 @@ use crate::{
 pub struct SineNode {
     uid: u32,
     sine: Sine,
+    num_outgoing_channels: NumChannels,
     outgoing_connection_indexes: Vec<EdgeIndex>,
 }
 
@@ -62,7 +63,6 @@ impl NodeHandle<SineNode> {
             if uuid != self.uid {
                 continue;
             }
-            info!("sine_node message received!: {uuid:?}, {result:?}");
             return result.map_err(|e| e.into()).map(|_| self);
         }
 
@@ -80,7 +80,7 @@ impl Node for SineNode {
         let next_sample = self.next_sample();
 
         outputs.into_iter().for_each(|mut output| {
-            output.set_data(next_sample);
+            output.update_data(|buffer| buffer.fill(next_sample));
         });
     }
 
@@ -88,12 +88,20 @@ impl Node for SineNode {
         NodeType::Input
     }
 
-    fn num_inputs(&self) -> usize {
+    fn num_input_connections(&self) -> usize {
         0
     }
 
-    fn num_outputs(&self) -> usize {
+    fn num_output_connections(&self) -> usize {
         1
+    }
+
+    fn num_incoming_channels(&self) -> NumChannels {
+        NumChannels::from(0)
+    }
+
+    fn num_outgoing_channels(&self) -> NumChannels {
+        self.num_outgoing_channels
     }
 
     fn uid(&self) -> u32 {
@@ -118,14 +126,15 @@ impl Node for SineNode {
 
 impl SineNode {
     pub fn new() -> Self {
-        Self::new_with_config(0, 0.0)
+        Self::new_with_config(1, 0, 0.0)
     }
 
-    pub fn new_with_config(sample_rate: impl Into<SampleRate>, frequency: impl Into<f32>) -> Self {
+    pub fn new_with_config(num_outgoing_channels: impl Into<NumChannels>, sample_rate: impl Into<SampleRate>, frequency: impl Into<f32>) -> Self {
         // todo - get sample rate from audio context by default
 
         Self {
             uid: 0,
+            num_outgoing_channels: num_outgoing_channels.into(),
             sine: Sine::new_with_config(sample_rate, frequency),
             outgoing_connection_indexes: Vec::new(),
         }
@@ -134,11 +143,13 @@ impl SineNode {
     #[cfg(test)]
     pub(crate) fn new_with_uid(
         uid: u32,
+        num_outgoing_channels: impl Into<NumChannels>, 
         sample_rate: impl Into<SampleRate>,
         frequency: impl Into<f32>,
     ) -> Self {
         Self {
             uid,
+            num_outgoing_channels: num_outgoing_channels.into(),
             sine: Sine::new_with_config(sample_rate, frequency),
             outgoing_connection_indexes: Vec::new(),
         }
@@ -174,15 +185,14 @@ mod test_sine_node {
 
     #[test]
     fn should_output_sine_wave_data() {
-        let _audio_context = AudioContext::new();
         // should finish a sine wave cycle within 4 sample
-        let mut sine_node = SineNode::new_with_config(4, 1.0);
+        let mut sine_node = SineNode::new_with_config(1, 4, 1.0);
 
         let output_connection = RefCell::new(Connection::default());
 
         // before processing, output data is 0.0
         {
-            assert_eq!(output_connection.borrow().data(), 0.0);
+            assert_eq!(output_connection.borrow().data(), &vec![0.0]);
         }
 
         // run processing for node
@@ -194,7 +204,7 @@ mod test_sine_node {
 
         // after processing once, output data is 0.0
         {
-            assert_eq!(output_connection.borrow().data(), 0.0);
+            assert_eq!(output_connection.borrow().data(), &vec![0.0]);
         }
 
         // run processing for node
@@ -206,7 +216,30 @@ mod test_sine_node {
 
         // after processing twice, output data is 1.0
         {
-            assert_eq!(output_connection.borrow().data(), 1.0);
+            assert_eq!(output_connection.borrow().data(), &vec![1.0]);
+        }
+    }
+
+#[test]
+    fn should_work_with_multichannel_data() {
+        let mut sine_node = SineNode::new_with_config(5, 4, 1.0);
+        let output_connection = RefCell::new(Connection::from_test_data(0, 5, vec![0.0; 5], 0, 0));
+
+        // before processing, output data is 0.0
+        {
+            assert_eq!(output_connection.borrow().data(), &vec![0.0; 5]);
+        }
+
+        // run processing for node
+        for _ in 0..2 {
+            let inputs = [];
+            let outputs = [output_connection.borrow_mut()];
+            sine_node.process(&mut inputs.into_iter(), &mut outputs.into_iter());
+        }
+
+        // after processing twice, output data for all channels should be 1.0
+        {
+            assert_eq!(output_connection.borrow().data(), &vec![1.0; 5]);
         }
     }
 }

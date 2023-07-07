@@ -3,29 +3,40 @@ use std::{
     cell::{Ref, RefMut},
 };
 
+use resonix_core::NumChannels;
+
 use crate::{Connection, Node, NodeType};
 
 #[derive(Debug, Default, Clone)]
 pub struct DACNode {
-    data: f32,
+    data: Vec<f32>,
+    num_incoming_channels: NumChannels,
     uid: u32,
 }
 
 impl DACNode {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    #[cfg(test)]
-    pub(crate) fn new_with_uid(uid: u32) -> Self {
+    pub fn new(num_incoming_channels: impl Into<NumChannels>) -> Self {
+        let num_incoming_channels: NumChannels = num_incoming_channels.into();
         Self {
-            uid,
+            num_incoming_channels,
+            data: vec![0.0; num_incoming_channels.into()],
             ..Default::default()
         }
     }
 
-    pub fn data(&self) -> f32 {
-        self.data
+    #[cfg(test)]
+    pub(crate) fn new_with_uid(uid: u32, num_incoming_channels: impl Into<NumChannels>) -> Self {
+        let num_incoming_channels: NumChannels = num_incoming_channels.into();
+        Self {
+            uid,
+            num_incoming_channels,
+            data: vec![0.0; num_incoming_channels.into()],
+            ..Default::default()
+        }
+    }
+
+    pub fn data(&self) -> &Vec<f32> {
+        &self.data
     }
 }
 
@@ -36,25 +47,43 @@ impl Node for DACNode {
         inputs: &mut dyn Iterator<Item = Ref<Connection>>,
         _outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
-        let Some(first_input) = inputs.next() else {
-            return
-        };
+        let first_input = inputs
+            .next()
+            .expect("DACNode should one and only one input connection");
 
-        let sample = first_input.data();
+        let input_frame = first_input.data();
 
-        self.data = sample;
+        #[cfg(debug_assertions)]
+        {
+            let input_num_channels = input_frame.len();
+            let self_num_channels: usize = self.num_incoming_channels.into();
+            assert_eq!(input_num_channels, self_num_channels, "Number of channels in the input connection to a RecordNode does not match number of channels that RecordNode was expecting. Expected {self_num_channels} but found {input_num_channels}");
+        }
+
+        self.data
+            .iter_mut()
+            .zip(input_frame.iter())
+            .for_each(|(output, input)| *output = *input);
     }
 
     fn node_type(&self) -> NodeType {
         NodeType::Output
     }
 
-    fn num_inputs(&self) -> usize {
+    fn num_input_connections(&self) -> usize {
         1
     }
 
-    fn num_outputs(&self) -> usize {
+    fn num_output_connections(&self) -> usize {
         0
+    }
+
+    fn num_incoming_channels(&self) -> NumChannels {
+        self.num_incoming_channels
+    }
+
+    fn num_outgoing_channels(&self) -> NumChannels {
+        NumChannels::from(0)
     }
 
     fn uid(&self) -> u32 {
@@ -106,11 +135,11 @@ mod test_dac_node {
 
     #[test]
     fn should_record_one_sample_of_incoming_data() {
-        let mut dac_node = DACNode::new();
+        let mut dac_node = DACNode::new(1);
 
-        let input_connection = RefCell::new(Connection::from_test_data(0, 0.1234, 0, 0));
+        let input_connection = RefCell::new(Connection::from_test_data(0, 1, vec![0.1234], 0, 0));
 
-        assert_eq!(dac_node.data(), 0.0);
+        assert_eq!(dac_node.data(), &vec![0.0]);
 
         {
             let inputs = [input_connection.borrow()];
@@ -118,6 +147,24 @@ mod test_dac_node {
             dac_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
         }
 
-        assert_eq!(dac_node.data(), 0.1234);
+        assert_eq!(dac_node.data(), &vec![0.1234]);
+    }
+
+    #[test]
+    fn should_work_with_multichannel_data() {
+        let mut dac_node = DACNode::new(5);
+
+        let input_data: Vec<f32> = (0..5).map(|i| i as f32).collect();
+        let input_connection = RefCell::new(Connection::from_test_data(0, 5, input_data.clone(), 0, 0));
+
+        assert_eq!(dac_node.data(), &vec![0.0; 5]);
+
+        {
+            let inputs = [input_connection.borrow()];
+            let outputs = [];
+            dac_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
+        }
+
+        assert_eq!(dac_node.data(), &input_data);
     }
 }

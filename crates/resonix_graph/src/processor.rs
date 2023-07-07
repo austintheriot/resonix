@@ -4,6 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use log::info;
 use nohash_hasher::{IntMap, IntSet};
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex},
@@ -12,6 +13,7 @@ use petgraph::{
 };
 
 use crate::{AddConnectionError, BoxedNode, Connection, DACNode, Node, NodeType};
+use resonix_core::NumChannels;
 
 #[derive(thiserror::Error, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ConnectError {
@@ -23,6 +25,13 @@ pub enum ConnectError {
         expected_to_index: usize,
         from_index: usize,
         to_index: usize,
+        parent_node_name: String,
+        child_node_name: String,
+    },
+    #[error("Node connection from parent node {parent_node_name:?} to child node {child_node_name:?} failed. Parent node has {parent_node_num_outgoing_channels:?} outgoing channels while child node has {child_node_num_incoming_channels:?} incoming channels")]
+    IncompatibleNumChannels {
+        parent_node_num_outgoing_channels: NumChannels,
+        child_node_num_incoming_channels: NumChannels,
         parent_node_name: String,
         child_node_name: String,
     },
@@ -191,18 +200,27 @@ impl Processor {
 
     /// Used in audio thread to extract audio information from all the DACs
     #[cfg(feature = "dac")]
-    pub(crate) fn dac_nodes_sum(&self) -> f32 {
-        self.dac_node_indexes
-            .iter()
-            .map(|i: &NodeIndex| {
-                self.graph[*i]
-                    .borrow()
-                    .as_any()
-                    .downcast_ref::<DACNode>()
-                    .unwrap()
-                    .data()
-            })
-            .sum()
+    pub(crate) fn dac_nodes_sum(&self, num_channels: NumChannels) -> Vec<f32> {
+        let mut multi_channel_sum = vec![0.0; *num_channels];
+        self.dac_node_indexes.iter().for_each(|i: &NodeIndex| {
+            let dac_node_ref = &self.graph[*i].borrow();
+            let dac_data = dac_node_ref
+                .as_any()
+                .downcast_ref::<DACNode>()
+                .unwrap()
+                .data();
+
+            // TODO - currently, this ignoring any size mismatches between num channels for the DAC
+            // and the number of actual audio channels going out. Update this to upmix / downmix as necessary
+            multi_channel_sum
+                .iter_mut()
+                .zip(dac_data.iter())
+                .for_each(|(output, channel)| {
+                    *output += channel;
+                });
+        });
+
+        multi_channel_sum
     }
 
     fn connect_with_indexes(
@@ -213,7 +231,7 @@ impl Processor {
         to_index: usize,
     ) -> Result<EdgeIndex, ConnectError> {
         // check if connection indexes are out of bounds
-        let (parent_uuid, child_uuid) =
+        let (parent_uuid, child_uuid, num_channels) =
             {
                 let parent_node = &self.graph.node_weight(parent_node_index).ok_or(
                     ConnectError::NodeNotFound {
@@ -226,21 +244,26 @@ impl Processor {
                     },
                 )?;
 
-                Self::check_index_out_of_bounds(
+                Self::check_connection_index_out_of_bounds(
                     &parent_node.borrow(),
                     &child_node.borrow(),
                     from_index,
                     to_index,
                 )?;
 
-                (parent_node.borrow().uid(), child_node.borrow().uid())
+                Self::check_num_channels_compatibility(
+                    &parent_node.borrow(),
+                    &child_node.borrow(),
+                )?;
+
+                (parent_node.borrow().uid(), child_node.borrow().uid(), parent_node.borrow().num_outgoing_channels())
             };
 
         // add connection to graph
         let edge_index = self.graph.add_edge(
             parent_node_index,
             child_node_index,
-            RefCell::new(Connection::from_indexes(from_index, to_index)),
+            RefCell::new(Connection::from_indexes(num_channels, from_index, to_index)),
         );
 
         self.add_outgoing_connection_index(parent_uuid, edge_index);
@@ -275,20 +298,48 @@ impl Processor {
             .or_insert_with(|| vec![edge_index]);
     }
 
-    fn check_index_out_of_bounds(
+    fn check_connection_index_out_of_bounds(
         parent_node: &BoxedNode,
         child_node: &BoxedNode,
         from_index: usize,
         to_index: usize,
     ) -> Result<(), ConnectError> {
-        if from_index >= parent_node.num_outputs() || to_index >= child_node.num_inputs() {
+        if from_index >= parent_node.num_output_connections()
+            || to_index >= child_node.num_input_connections()
+        {
             return Err(ConnectError::IncorrectIndex {
-                expected_from_index: parent_node.num_inputs() - 1,
-                expected_to_index: child_node.num_inputs() - 1,
+                expected_from_index: parent_node.num_input_connections() - 1,
+                expected_to_index: child_node.num_input_connections() - 1,
                 from_index,
                 to_index,
                 parent_node_name: parent_node.name(),
                 child_node_name: child_node.name(),
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Regardless of the node type, the outgoing number of channels of a parent
+    /// should always match the incoming number of channels for the child node
+    /// 
+    /// Note: given a single node, the number its incoming and outgoing connections
+    /// do not necessarily need to match. For example, a Downmix node could take multichannel
+    /// input and mix it down to single-channel output.
+    fn check_num_channels_compatibility(
+        parent_node: &BoxedNode,
+        child_node: &BoxedNode,
+    ) -> Result<(), ConnectError> {
+        let parent_node_num_outgoing_channels = parent_node.num_outgoing_channels();
+        let child_node_num_incoming_channels = child_node.num_incoming_channels();
+        if parent_node_num_outgoing_channels != child_node_num_incoming_channels {
+            let parent_node_name = parent_node.name();
+            let child_node_name = child_node.name();
+            return Err(ConnectError::IncompatibleNumChannels {
+                parent_node_num_outgoing_channels,
+                child_node_num_incoming_channels,
+                parent_node_name,
+                child_node_name,
             });
         }
 
@@ -378,9 +429,9 @@ mod test_processor {
     #[test]
     fn running_processor_should_fill_connections_with_data() {
         let mut processor = Processor::default();
-        let constant_node = ConstantNode::new_with_uid(0, 0.5);
-        let pass_through_node = PassThroughNode::new_with_uid(1);
-        let dac_node = DACNode::new_with_uid(2);
+        let constant_node = ConstantNode::new_with_uid(0, 1, 0.5);
+        let pass_through_node = PassThroughNode::new_with_uid(1, 1);
+        let dac_node = DACNode::new_with_uid(2, 1);
 
         let constant_node_index = processor.add_node(constant_node).unwrap();
         let pass_through_node_index = processor.add_node(pass_through_node).unwrap();
@@ -403,8 +454,8 @@ mod test_processor {
                 .graph
                 .edge_weight(pass_through_to_dac_edge_index)
                 .unwrap();
-            assert_eq!(constant_to_pass_through_edge.borrow().data(), 0.0);
-            assert_eq!(pass_through_to_dac_edge.borrow().data(), 0.0);
+            assert_eq!(constant_to_pass_through_edge.borrow().data(), &vec![0.0]);
+            assert_eq!(pass_through_to_dac_edge.borrow().data(), &vec![0.0]);
         }
 
         processor.run();
@@ -419,8 +470,8 @@ mod test_processor {
                 .graph
                 .edge_weight(pass_through_to_dac_edge_index)
                 .unwrap();
-            assert_eq!(constant_to_pass_through_edge.borrow().data(), 0.5);
-            assert_eq!(pass_through_to_dac_edge.borrow().data(), 0.5);
+            assert_eq!(constant_to_pass_through_edge.borrow().data(), &vec![0.5]);
+            assert_eq!(pass_through_to_dac_edge.borrow().data(), &vec![0.5]);
         }
     }
 }
