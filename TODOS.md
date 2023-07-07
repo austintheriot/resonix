@@ -9,6 +9,8 @@
   - Sending node updates via channels (set_frequency)
   - Updating audio_context before initializing DAC vs after initializing DAC
 
+- refactor message passing with audio context into a utility function
+
 - Upmix / downmix DAC audio data instead of ignoring channel and audio output mismatches when moving data from within DAC nodes to actual audio output buffer
 
 - Use snapshot testing for complex audio
@@ -28,8 +30,6 @@
   - Could keep track of which nodes require a specific sample_rate and then auto-update all of them when a sample_rate has been decided (?)
 
 - make sure there are no race conditions when adding multiple nodes simultaneously
-
-- Use state machine on the AudioContext to manage state relating to whether there is a DAC, if it has been initialized, etc. (make it so that users don't have to worry about it at all if `dac` feature is never initialized)
 
   - Make all calls to the audio graph synchronous if DAC has not been initialized yet
 

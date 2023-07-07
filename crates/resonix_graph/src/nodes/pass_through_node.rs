@@ -45,20 +45,23 @@ impl Node for PassThroughNode {
         inputs: &mut dyn Iterator<Item = Ref<Connection>>,
         outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
     ) {
-        let input = inputs
-            .next()
-            .expect("PassThrough node should have one and only one input connection");
-        let input_data= input.data();
+        // it's possible for a pass through node to be created that hasn't been
+        // connected to an outgoing connection yet, so this shouldn't cause an error
+        if let Some(mut output) = outputs.next() {
+            let input = inputs
+                .next()
+                .expect("PassThrough node should have one and only one input connection");
+            let input_data = input.data();
 
-        let mut output = outputs.next().expect("PassThrough node should have one and only one output connection");
-        output.update_data(|frame| {
-            frame
-                .iter_mut()
-                .zip(input_data.iter())
-                .for_each(|(output, input)| {
-                    *output = *input;
-                })
-        });
+            output.update_data(|frame| {
+                frame
+                    .iter_mut()
+                    .zip(input_data.iter())
+                    .for_each(|(output, input)| {
+                        *output = *input;
+                    })
+            });
+        }
     }
 
     fn node_type(&self) -> NodeType {
@@ -136,7 +139,13 @@ mod test_pass_through_node {
     #[test]
     fn should_work_with_multichannel_data() {
         let input_connection_data: Vec<f32> = (0..5).map(|i| i as f32).collect();
-        let input_connection = RefCell::new(Connection::from_test_data(0, 5, input_connection_data.clone(), 0, 0));
+        let input_connection = RefCell::new(Connection::from_test_data(
+            0,
+            5,
+            input_connection_data.clone(),
+            0,
+            0,
+        ));
 
         let mut pass_through_node = PassThroughNode::new(5);
 

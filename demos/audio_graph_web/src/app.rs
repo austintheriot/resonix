@@ -24,7 +24,7 @@ pub fn App(cx: Scope) -> impl IntoView {
             on:click=move |_| {
               set_audio_context.update(|audio_context| {
                 if let Some(audio_context) = audio_context {
-                    audio_context.uninitialize_dac();
+                    audio_context.take_dac();
                 }
               });
             }

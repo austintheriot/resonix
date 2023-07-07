@@ -1,10 +1,9 @@
 use log::info;
 
-use resonix::{AudioContext, DACNode, SineNode};
+use resonix::{AudioContext, DACNode, SineNode, AudioInit};
 
-pub async fn set_up_audio_context() -> AudioContext {
-    let mut audio_context = AudioContext::new();
-    audio_context.initialize_dac_from_defaults().unwrap();
+pub async fn set_up_audio_context() -> AudioContext<AudioInit> {
+    let mut audio_context = AudioContext::new().into_audio_init().unwrap();
     audio_context.play_stream().unwrap();
 
     let sine_node = SineNode::new_with_config(2, audio_context.sample_rate().unwrap(), 440.0);

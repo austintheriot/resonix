@@ -7,8 +7,7 @@ use resonix::{AudioContext, DACNode, SineNode};
 async fn main() {
     pretty_env_logger::init();
 
-    let mut audio_context = AudioContext::new();
-    audio_context.initialize_dac_from_defaults().unwrap();
+    let mut audio_context = AudioContext::new().into_audio_init().unwrap();
     audio_context.play_stream().unwrap();
 
     let sine_node = SineNode::new_with_config(1, audio_context.sample_rate().unwrap(), 440.0);

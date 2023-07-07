@@ -8,12 +8,11 @@ async fn main() {
 
     let mut audio_context = AudioContext::new();
     let sine_node = SineNode::new_with_config(2, 44100, 440.0);
-    let sine_node_handle = audio_context.add_node(sine_node).await.unwrap();
+    let sine_node_handle = audio_context.add_node(sine_node).unwrap();
     let pass_through_node = PassThroughNode::new(2);
-    let pass_through_node_handle = audio_context.add_node(pass_through_node).await.unwrap();
+    let pass_through_node_handle = audio_context.add_node(pass_through_node).unwrap();
     audio_context
         .connect(&sine_node_handle, &pass_through_node_handle)
-        .await
         .unwrap();
 
     let mut prev_node_index = pass_through_node_handle;
@@ -21,22 +20,20 @@ async fn main() {
     // string many pass-through nodes together to stress test audio
     for _ in 0..1000 {
         let pass_through_node = PassThroughNode::new(2);
-        let pass_through_node_handle = audio_context.add_node(pass_through_node).await.unwrap();
+        let pass_through_node_handle = audio_context.add_node(pass_through_node).unwrap();
         audio_context
             .connect(prev_node_index, &pass_through_node_handle)
-            .await
             .unwrap();
         prev_node_index = pass_through_node_handle;
     }
 
     let dac_node = DACNode::new(2);
-    let dac_node_index = audio_context.add_node(dac_node).await.unwrap();
+    let dac_node_index = audio_context.add_node(dac_node).unwrap();
     audio_context
         .connect(prev_node_index, dac_node_index)
-        .await
         .unwrap();
 
-    audio_context.initialize_dac_from_defaults().unwrap();
+    let mut audio_context = audio_context.into_audio_init().unwrap();
     audio_context.play_stream().unwrap();
 
     let sample_rate = audio_context.sample_rate().unwrap();
