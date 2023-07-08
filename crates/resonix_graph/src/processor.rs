@@ -4,13 +4,15 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use log::info;
 use nohash_hasher::{IntMap, IntSet};
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex},
     visit::Dfs,
     Direction, Graph,
 };
+
+#[cfg(feature = "dac")]
+use {resonix_dac::DACConfig, std::sync::Arc};
 
 use crate::{AddConnectionError, BoxedNode, Connection, DACNode, Node, NodeType};
 use resonix_core::NumChannels;
@@ -60,8 +62,16 @@ pub struct Processor {
     /// there is no analysis that needs to happen, it's just simple list of node_indexes,
     /// ordered by what value they need to be visited in
     visit_order: Option<Vec<NodeIndex>>,
+    /// All the input nodes in the audio graph--these must be visited first
+    /// for maximum processing efficiency
     input_node_indexes: Vec<NodeIndex>,
+    /// All the DAC nodes in the audio graph--these should be easily
+    /// retrieved for copying audio graph information into the
+    /// audio thread output.
     dac_node_indexes: Vec<NodeIndex>,
+    /// These are all the nodes that should get updated with audio information
+    /// (such as `sample_rate`, `num_channels`, etc.) whenever the DAC is initialized
+    audio_update_node_indexes: Vec<NodeIndex>,
     incoming_connection_indexes: IntMap<u32, Vec<EdgeIndex>>,
     outgoing_connection_indexes: IntMap<u32, Vec<EdgeIndex>>,
     uid_counter: u32,
@@ -231,33 +241,37 @@ impl Processor {
         to_index: usize,
     ) -> Result<EdgeIndex, ConnectError> {
         // check if connection indexes are out of bounds
-        let (parent_uuid, child_uuid, num_channels) =
-            {
-                let parent_node = &self.graph.node_weight(parent_node_index).ok_or(
-                    ConnectError::NodeNotFound {
+        let (parent_uuid, child_uuid, num_channels) = {
+            let parent_node =
+                &self
+                    .graph
+                    .node_weight(parent_node_index)
+                    .ok_or(ConnectError::NodeNotFound {
                         node_index: parent_node_index,
-                    },
-                )?;
-                let child_node = &self.graph.node_weight(child_node_index).ok_or(
-                    ConnectError::NodeNotFound {
+                    })?;
+            let child_node =
+                &self
+                    .graph
+                    .node_weight(child_node_index)
+                    .ok_or(ConnectError::NodeNotFound {
                         node_index: child_node_index,
-                    },
-                )?;
+                    })?;
 
-                Self::check_connection_index_out_of_bounds(
-                    &parent_node.borrow(),
-                    &child_node.borrow(),
-                    from_index,
-                    to_index,
-                )?;
+            Self::check_connection_index_out_of_bounds(
+                &parent_node.borrow(),
+                &child_node.borrow(),
+                from_index,
+                to_index,
+            )?;
 
-                Self::check_num_channels_compatibility(
-                    &parent_node.borrow(),
-                    &child_node.borrow(),
-                )?;
+            Self::check_num_channels_compatibility(&parent_node.borrow(), &child_node.borrow())?;
 
-                (parent_node.borrow().uid(), child_node.borrow().uid(), parent_node.borrow().num_outgoing_channels())
-            };
+            (
+                parent_node.borrow().uid(),
+                child_node.borrow().uid(),
+                parent_node.borrow().num_outgoing_channels(),
+            )
+        };
 
         // add connection to graph
         let edge_index = self.graph.add_edge(
@@ -322,7 +336,7 @@ impl Processor {
 
     /// Regardless of the node type, the outgoing number of channels of a parent
     /// should always match the incoming number of channels for the child node
-    /// 
+    ///
     /// Note: given a single node, the number its incoming and outgoing connections
     /// do not necessarily need to match. For example, a Downmix node could take multichannel
     /// input and mix it down to single-channel output.
@@ -366,6 +380,9 @@ impl Processor {
 
         let is_dac = { node.as_any().downcast_ref::<DACNode>().is_some() };
 
+        #[cfg(feature = "dac")]
+        let requires_audio_updates = node.requires_audio_updates();
+
         let node_index = self.graph.add_node(RefCell::new(Box::new(node)));
 
         if is_input {
@@ -376,9 +393,27 @@ impl Processor {
             self.dac_node_indexes.push(node_index);
         }
 
+        #[cfg(feature = "dac")]
+        if requires_audio_updates {
+            self.audio_update_node_indexes.push(node_index);
+        }
+
         self.reset_visit_order_cache();
 
         Ok(node_index)
+    }
+
+    /// Updates internal data of nodes to match any audio data
+    /// from the environment (sample rate, num output channels, etc.)
+    #[cfg(feature = "dac")]
+    pub fn update_audio_nodes(&mut self, dac_config: Arc<DACConfig>) {
+        self.audio_update_node_indexes
+            .iter()
+            .filter_map(|i| self.graph.node_weight(*i))
+            .for_each(|node| {
+                node.borrow_mut()
+                    .update_from_dac_config(Arc::clone(&dac_config));
+            });
     }
 
     pub fn connect(

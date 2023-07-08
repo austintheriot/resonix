@@ -2,7 +2,7 @@ use resonix::{AudioContext, DACBuildError, DACNode, PassThroughNode, SineNode, A
 
 pub async fn set_up_audio_graph() -> Result<AudioContext<AudioInit>, DACBuildError> {
     let mut audio_context = AudioContext::new();
-    let sine_node = SineNode::new_with_config(1, 44100, 440.0);
+    let sine_node = SineNode::new(1, 440.0);
     let sine_node_handle = audio_context.add_node(sine_node).unwrap();
 
 

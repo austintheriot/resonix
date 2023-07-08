@@ -11,6 +11,8 @@
 
 - refactor message passing with audio context into a utility function
 
+- Add parallelism with Rayon
+
 - Upmix / downmix DAC audio data instead of ignoring channel and audio output mismatches when moving data from within DAC nodes to actual audio output buffer
 
 - Use snapshot testing for complex audio
@@ -24,10 +26,6 @@
 - implement more ergonomic API for creating nodes, adding them to the audio_context, etc.
 
 - allow removing audio nodes
-
-- make it so that nodes NEVER have to specify sample_rate on an audio node--this should be provided by default from the audio_context
-
-  - Could keep track of which nodes require a specific sample_rate and then auto-update all of them when a sample_rate has been decided (?)
 
 - make sure there are no race conditions when adding multiple nodes simultaneously
 

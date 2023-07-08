@@ -6,6 +6,9 @@ use std::{
 
 use resonix_core::NumChannels;
 
+#[cfg(feature = "dac")]
+use {std::sync::Arc, resonix_dac::DACConfig};
+
 use crate::{Connection, Node, NodeType};
 
 /// Takes no input signals and outputs a single,
@@ -95,6 +98,14 @@ impl Node for ConstantNode {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
+
+    #[cfg(feature = "dac")]
+    fn requires_audio_updates(&self) -> bool {
+        false
+    }
+
+    #[cfg(feature = "dac")]
+    fn update_from_dac_config(&mut self, _dac_config: Arc<DACConfig>) {}
 }
 
 impl PartialEq for ConstantNode {

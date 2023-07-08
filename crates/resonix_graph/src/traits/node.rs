@@ -1,12 +1,14 @@
 use std::{
     any::Any,
     cell::{Ref, RefMut},
-    fmt::Debug,
+    fmt::Debug, sync::Arc,
 };
 
 use dyn_clone::DynClone;
 
 use resonix_core::NumChannels;
+#[cfg(feature = "dac")]
+use resonix_dac::DACConfig;
 use thiserror::Error;
 
 use crate::{Connection, NodeType};
@@ -48,6 +50,12 @@ where
     fn as_any(&self) -> &dyn Any;
 
     fn as_any_mut(&mut self) -> &mut dyn Any;
+
+    #[cfg(feature = "dac")]
+    fn requires_audio_updates(&self) -> bool;
+
+    #[cfg(feature = "dac")]
+    fn update_from_dac_config(&mut self, dac_config: Arc<DACConfig>);
 }
 
 dyn_clone::clone_trait_object!(Node);
@@ -102,5 +110,15 @@ impl Node for BoxedNode {
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         (**self).as_any_mut()
+    }
+
+    #[cfg(feature = "dac")]
+    fn requires_audio_updates(&self) -> bool {
+        (**self).requires_audio_updates()
+    }
+
+    #[cfg(feature = "dac")]
+    fn update_from_dac_config(&mut self, dac_config: Arc<DACConfig>) {
+        (**self).update_from_dac_config(dac_config)
     }
 }

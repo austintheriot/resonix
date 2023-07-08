@@ -5,6 +5,9 @@ use std::{
 
 use resonix_core::NumChannels;
 
+#[cfg(feature = "dac")]
+use {resonix_dac::DACConfig, std::sync::Arc};
+
 use crate::{Connection, Node, NodeType};
 
 /// Takes two signals and multiplies them together,
@@ -99,6 +102,14 @@ impl Node for MultiplyNode {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
+
+    #[cfg(feature = "dac")]
+    fn requires_audio_updates(&self) -> bool {
+        false
+    }
+
+    #[cfg(feature = "dac")]
+    fn update_from_dac_config(&mut self, dac_config: Arc<DACConfig>) {}
 }
 
 #[cfg(test)]

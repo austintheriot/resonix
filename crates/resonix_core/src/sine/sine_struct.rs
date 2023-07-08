@@ -2,6 +2,8 @@ use std::f32::consts::PI;
 
 use crate::{SampleRate, SineInterface};
 
+const ZERO_SAMPLE_RATE: SampleRate = SampleRate::new_const(0);
+
 /// Produces a sine wave at the given frequency and sample rate
 ///
 /// e.g. at a sample_rate of `100` and a frequency of `1.0`,
@@ -23,6 +25,10 @@ const TWO_PI: f32 = 2.0 * PI;
 
 impl SineInterface for Sine {
     fn next_sample(&mut self) -> f32 {
+        if self.sample_rate == ZERO_SAMPLE_RATE {
+            return 0.0;
+        }
+
         let sample = self.phase.sin();
 
         self.phase += self.angular_frequency;
@@ -93,6 +99,10 @@ impl Sine {
     }
 
     fn calculate_angular_frequency(frequency: f32, sample_rate: f32) -> f32 {
+        if sample_rate == 0.0 {
+            return 0.0;
+        }
+
         TWO_PI * frequency / sample_rate
     }
 }
@@ -144,5 +154,20 @@ mod test_sine {
         // after iterating all the way through wave length,
         // the value should be 0.0
         assert_difference_is_within_tolerance(sine.next_sample(), 0.0, ASSERTION_TOLERANCE);
+    }
+
+    #[test]
+    fn it_should_work_when_sample_rate_is_0() {
+        const SAMPLE_RATE: u32 = 0;
+        let mut sine = Sine::new();
+        sine.set_frequency(1.0).set_sample_rate(SAMPLE_RATE);
+
+        for _ in 0..5 {
+            sine.next_sample();
+        }
+
+        assert_eq!(sine.next_sample(), 0.0);
+        assert_eq!(sine.phase, 0.0);
+        assert_eq!(sine.angular_frequency, 0.0)
     }
 }

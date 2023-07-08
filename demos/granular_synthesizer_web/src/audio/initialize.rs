@@ -57,7 +57,7 @@ pub async fn initialize_audio(app_state_handle: UseReducerHandle<AppState>) -> D
     let recording_status_handle = app_state_handle.recording_status_handle.clone();
     let mut audio_recorder_handle = app_state_handle.audio_recorder_handle.clone();
 
-    let dac_config = DACConfig::new(host, device, sample_format, stream_config);
+    let dac_config = Arc::new(DACConfig::new(host, device, sample_format, stream_config));
 
     // this is the config of the output audio
     let output_sample_rate = dac_config.sample_rate();

@@ -7,7 +7,7 @@ async fn main() {
     pretty_env_logger::init();
 
     let mut audio_context = AudioContext::new();
-    let sine_node = SineNode::new_with_config(2, 44100, 440.0);
+    let sine_node = SineNode::new(2, 440.0);
     let sine_node_handle = audio_context.add_node(sine_node).unwrap();
     let pass_through_node = PassThroughNode::new(2);
     let pass_through_node_handle = audio_context.add_node(pass_through_node).unwrap();
@@ -38,8 +38,6 @@ async fn main() {
 
     let sample_rate = audio_context.sample_rate().unwrap();
     sine_node_handle.set_frequency(440.0).await.unwrap();
-
-    println!("{:?}", sample_rate);
 
     tokio::time::sleep(Duration::MAX).await;
 }

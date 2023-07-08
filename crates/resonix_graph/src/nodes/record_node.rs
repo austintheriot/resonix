@@ -5,6 +5,9 @@ use std::{
 
 use resonix_core::NumChannels;
 
+#[cfg(feature = "dac")]
+use {resonix_dac::DACConfig, std::sync::Arc};
+
 use crate::{Connection, Node, NodeType};
 
 /// Stores data as interleaved buffer of samples
@@ -97,6 +100,14 @@ impl Node for RecordNode {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
+
+    #[cfg(feature = "dac")]
+    fn requires_audio_updates(&self) -> bool {
+        false
+    }
+
+    #[cfg(feature = "dac")]
+    fn update_from_dac_config(&mut self, dac_config: Arc<DACConfig>) {}
 }
 
 impl PartialEq for RecordNode {
@@ -144,9 +155,14 @@ mod test_record_node {
 
     #[test]
     fn should_work_with_multichannel_data() {
-        
         let input_connection_data: Vec<f32> = (0..5).map(|i| i as f32).collect();
-        let input_connection = RefCell::new(Connection::from_test_data(0, 5, input_connection_data.clone(), 0, 0));
+        let input_connection = RefCell::new(Connection::from_test_data(
+            0,
+            5,
+            input_connection_data.clone(),
+            0,
+            0,
+        ));
         let mut record_node = RecordNode::new(5);
 
         {

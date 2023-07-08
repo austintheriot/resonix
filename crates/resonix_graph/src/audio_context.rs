@@ -37,22 +37,22 @@ pub enum DacInitializeError {
 
 /// Zero-sized marker `AudioContext` that indicates that
 /// the audio thread HAS been initialized.
-/// 
-/// When AudioContext is `AudioInit`, then the user 
+///
+/// When AudioContext is `AudioInit`, then the user
 /// can access methods related to DAC-specific audio data,
 /// such as sample rate, number of channels, etc.
 ///
-/// This also means the audio graph itself has been moved into 
-/// the audio thread, and any further changes will have to be 
+/// This also means the audio graph itself has been moved into
+/// the audio thread, and any further changes will have to be
 /// done asynchronously.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AudioInit;
 
 /// Zero-sized marker `AudioContext` that indicates that
 /// the audio thread has NOT yet been initialized.
-/// 
-/// When AudioContext is `AudioUninit`, then the user 
-/// does NOT have access methods related to DAC-specific audio 
+///
+/// When AudioContext is `AudioUninit`, then the user
+/// does NOT have access methods related to DAC-specific audio
 /// data, such as sample rate, number of channels, etc.
 ///
 /// When this is the case, that means the audio graph itself
@@ -107,6 +107,7 @@ impl<A> AudioContext<A> {
     }
 }
 
+#[cfg(feature = "dac")]
 fn run_node_message(
     message: NodeMessageRequest,
     processor: &mut Processor,
@@ -126,6 +127,7 @@ fn run_node_message(
     };
 }
 
+#[cfg(feature = "dac")]
 fn set_sine_node_frequency(
     processor: &mut Processor,
     node_index: NodeIndex,
@@ -144,16 +146,24 @@ fn set_sine_node_frequency(
     Ok(())
 }
 
+#[cfg(feature = "dac")]
 fn run_processor_message<N: Node + 'static>(
     message: ProcessorMessageRequest<N>,
     processor: &mut Processor,
     processor_tx: Sender<ProcessorMessageResponse>,
+    dac_config: Arc<DACConfig>,
 ) {
     match message {
         ProcessorMessageRequest::AddNode {
             request_id: id,
-            node,
+            mut node,
         } => {
+            let should_update = node.requires_audio_updates();
+            if should_update {
+                node.update_from_dac_config(dac_config);
+            }
+
+            let node = node;
             let result = processor.add_node(node);
             let response = ProcessorMessageResponse::AddNode { id, result };
             processor_tx.try_send(response).unwrap();
@@ -316,6 +326,8 @@ impl AudioContext<AudioUninit> {
             Ok(dac_config) => dac_config,
         };
 
+        let dac_config = Arc::new(dac_config);
+
         self.into_audio_init_from_config(
             dac_config,
             #[cfg(feature = "mock_dac")]
@@ -327,7 +339,7 @@ impl AudioContext<AudioUninit> {
     #[cfg(all(feature = "dac"))]
     pub fn into_audio_init_from_config(
         mut self,
-        dac_config: DACConfig,
+        dac_config: Arc<DACConfig>,
         #[cfg(feature = "mock_dac")] data_written: Arc<Mutex<Vec<f32>>>,
     ) -> Result<AudioContext<AudioInit>, (Self, DacInitializeError)> {
         use resonix_core::NumChannels;
@@ -348,16 +360,32 @@ impl AudioContext<AudioUninit> {
             .take()
             .expect("DAC was initialized but node_request_rx was `None`");
         let node_response_tx = self.node_response_tx.clone();
-        let dac = DAC::from_dac_config(
-            dac_config,
+        let mut initial_audio_update_has_been_run = false;
+        let dac_result = DAC::from_dac_config(
+            Arc::clone(&dac_config),
             move |buffer: &mut [f32], config: Arc<DACConfig>| {
                 let num_audio_channels_out = NumChannels::from(config.num_channels());
+
+                // the first time the audio loop is run, all nodes that require
+                // dac-specific audio data must be updated.
+                // all subsequent updates to nodes that are added to the
+                // audio graph occur at a fine-grained level when the node
+                // is added to the graph
+                if !initial_audio_update_has_been_run {
+                    initial_audio_update_has_been_run = true;
+                    processor.update_audio_nodes(Arc::clone(&dac_config));
+                }
 
                 // run any messages for the processor, sent from the main thread, that are ready to be processed
                 while let Ok(message) = processor_rx.try_recv() {
                     info!("processor message received in DAC loop: {message:?}");
                     let processor_tx = processor_tx.clone();
-                    run_processor_message(message, &mut processor, processor_tx);
+                    run_processor_message(
+                        message,
+                        &mut processor,
+                        processor_tx,
+                        Arc::clone(&dac_config),
+                    );
                 }
 
                 // run any messages for individual nodes, sent from the main thread, that are ready to be processed
@@ -379,9 +407,9 @@ impl AudioContext<AudioUninit> {
             data_written,
         );
 
-        let dac = match dac {
+        let dac = match dac_result {
             Err(e) => return Err((self, DacInitializeError::from(e))),
-            Ok(dac) => dac,
+            Ok(values) => values,
         };
 
         Ok(AudioContext::<AudioInit> {

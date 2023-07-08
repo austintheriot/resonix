@@ -9,6 +9,10 @@ impl SampleRate {
         SampleRate(sample_rate.into())
     }
 
+    pub const fn new_const(sample_rate: u32) -> Self {
+        SampleRate(sample_rate)
+    }
+
     pub const fn get(&self) -> u32 {
         self.0
     }

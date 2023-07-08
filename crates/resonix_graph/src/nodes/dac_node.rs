@@ -7,6 +7,9 @@ use resonix_core::NumChannels;
 
 use crate::{Connection, Node, NodeType};
 
+#[cfg(feature = "dac")]
+use {resonix_dac::DACConfig, std::sync::Arc};
+
 #[derive(Debug, Default, Clone)]
 pub struct DACNode {
     data: Vec<f32>,
@@ -104,6 +107,14 @@ impl Node for DACNode {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
+
+    #[cfg(feature = "dac")]
+    fn requires_audio_updates(&self) -> bool {
+        false
+    }
+
+    #[cfg(feature = "dac")]
+    fn update_from_dac_config(&mut self, _dac_config: Arc<DACConfig>) {}
 }
 
 impl PartialEq for DACNode {
@@ -155,7 +166,8 @@ mod test_dac_node {
         let mut dac_node = DACNode::new(5);
 
         let input_data: Vec<f32> = (0..5).map(|i| i as f32).collect();
-        let input_connection = RefCell::new(Connection::from_test_data(0, 5, input_data.clone(), 0, 0));
+        let input_connection =
+            RefCell::new(Connection::from_test_data(0, 5, input_data.clone(), 0, 0));
 
         assert_eq!(dac_node.data(), &vec![0.0; 5]);
 

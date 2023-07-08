@@ -95,6 +95,8 @@ impl DAC {
         #[cfg(feature = "mock_dac")]
         let dac_config = DACConfig::from_defaults()?;
 
+        let dac_config = Arc::new(dac_config);
+
         Self::from_dac_config_with_config(
             dac_config,
             write_frame_to_buffer,
@@ -104,7 +106,7 @@ impl DAC {
     }
 
     pub fn from_dac_config<S, Callback, ExtractedData>(
-        dac_config: DACConfig,
+        dac_config: Arc<DACConfig>,
         write_frame_to_buffer: Callback,
 
         // allows providing a buffer to write DAC data into while testing
@@ -125,7 +127,7 @@ impl DAC {
 
     /// returns both the DAC & the DACConfig
     pub fn from_dac_config_with_config<S, Callback, ExtractedData>(
-        dac_config: DACConfig,
+        dac_config: Arc<DACConfig>,
         write_frame_to_buffer: Callback,
 
         // allows providing a buffer to write DAC data into while testing
@@ -135,38 +137,37 @@ impl DAC {
         S: Sample,
         Callback: WriteFrameToBuffer<S, ExtractedData> + Send + 'static,
     {
-        let config = Arc::new(dac_config);
         #[cfg(not(feature = "mock_dac"))]
         {
             let stream = Self::create_stream::<S, Callback, ExtractedData>(
-                Arc::clone(&config),
+                Arc::clone(&dac_config),
                 write_frame_to_buffer,
             )?;
 
             Ok((
                 Self {
-                    config: Arc::clone(&config),
+                    config: Arc::clone(&dac_config),
                     stream,
                 },
-                config,
+                dac_config,
             ))
         }
 
         #[cfg(feature = "mock_dac")]
         {
             let join_handle = Self::create_mock_stream::<S, Callback, ExtractedData>(
-                Arc::clone(&config),
+                Arc::clone(&dac_config),
                 Arc::clone(&data_written),
                 write_frame_to_buffer,
             )?;
 
             Ok((
                 Self {
-                    config: Arc::clone(&config),
+                    config: Arc::clone(&dac_config),
                     join_handle,
                     data_written,
                 },
-                config,
+                dac_config,
             ))
         }
     }

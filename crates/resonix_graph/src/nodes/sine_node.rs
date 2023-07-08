@@ -5,7 +5,10 @@ use std::{
 
 use log::info;
 use petgraph::prelude::EdgeIndex;
-use resonix_core::{SampleRate, Sine, SineInterface, NumChannels};
+use resonix_core::{NumChannels, SampleRate, Sine, SineInterface};
+
+#[cfg(feature = "dac")]
+use {resonix_dac::DACConfig, std::sync::Arc};
 
 use crate::{
     messages::{NodeMessageRequest, NodeMessageResponse},
@@ -18,6 +21,41 @@ pub struct SineNode {
     sine: Sine,
     num_outgoing_channels: NumChannels,
     outgoing_connection_indexes: Vec<EdgeIndex>,
+}
+
+impl SineNode {
+    pub fn new(num_outgoing_channels: impl Into<NumChannels>, frequency: impl Into<f32>) -> Self {
+        // sample_rate is automatically configured in the audio thread when "dac" feature is enabled
+        Self::new_with_config(num_outgoing_channels, 0, frequency)
+    }
+
+    pub fn new_with_config(
+        num_outgoing_channels: impl Into<NumChannels>,
+        sample_rate: impl Into<SampleRate>,
+        frequency: impl Into<f32>,
+    ) -> Self {
+        Self {
+            uid: 0,
+            num_outgoing_channels: num_outgoing_channels.into(),
+            sine: Sine::new_with_config(sample_rate, frequency),
+            outgoing_connection_indexes: Vec::new(),
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn new_with_uid(
+        uid: u32,
+        num_outgoing_channels: impl Into<NumChannels>,
+        sample_rate: impl Into<SampleRate>,
+        frequency: impl Into<f32>,
+    ) -> Self {
+        Self {
+            uid,
+            num_outgoing_channels: num_outgoing_channels.into(),
+            sine: Sine::new_with_config(sample_rate, frequency),
+            outgoing_connection_indexes: Vec::new(),
+        }
+    }
 }
 
 impl SineInterface for SineNode {
@@ -122,37 +160,15 @@ impl Node for SineNode {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
-}
 
-impl SineNode {
-    pub fn new() -> Self {
-        Self::new_with_config(1, 0, 0.0)
+    #[cfg(feature = "dac")]
+    fn requires_audio_updates(&self) -> bool {
+        true
     }
 
-    pub fn new_with_config(num_outgoing_channels: impl Into<NumChannels>, sample_rate: impl Into<SampleRate>, frequency: impl Into<f32>) -> Self {
-        // todo - get sample rate from audio context by default
-
-        Self {
-            uid: 0,
-            num_outgoing_channels: num_outgoing_channels.into(),
-            sine: Sine::new_with_config(sample_rate, frequency),
-            outgoing_connection_indexes: Vec::new(),
-        }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn new_with_uid(
-        uid: u32,
-        num_outgoing_channels: impl Into<NumChannels>, 
-        sample_rate: impl Into<SampleRate>,
-        frequency: impl Into<f32>,
-    ) -> Self {
-        Self {
-            uid,
-            num_outgoing_channels: num_outgoing_channels.into(),
-            sine: Sine::new_with_config(sample_rate, frequency),
-            outgoing_connection_indexes: Vec::new(),
-        }
+    #[cfg(feature = "dac")]
+    fn update_from_dac_config(&mut self, dac_config: Arc<DACConfig>) {
+        self.sine.set_sample_rate(dac_config.sample_rate());
     }
 }
 
@@ -220,7 +236,7 @@ mod test_sine_node {
         }
     }
 
-#[test]
+    #[test]
     fn should_work_with_multichannel_data() {
         let mut sine_node = SineNode::new_with_config(5, 4, 1.0);
         let output_connection = RefCell::new(Connection::from_test_data(0, 5, vec![0.0; 5], 0, 0));
