@@ -8,8 +8,7 @@ use async_channel::{Receiver, Sender};
 #[cfg(feature = "dac")]
 use cpal::{traits::StreamTrait, PauseStreamError, PlayStreamError};
 use log::{error, info};
-use petgraph::{stable_graph::EdgeIndex, stable_graph::NodeIndex};
-use resonix_core::SineInterface;
+use petgraph::stable_graph::EdgeIndex;
 #[cfg(feature = "dac")]
 use resonix_dac::{DACBuildError, DACConfig, DACConfigBuildError, DAC};
 use thiserror::Error;
@@ -20,8 +19,8 @@ use std::sync::Mutex;
 
 use crate::{
     messages::{MessageError, NodeMessageRequest, UpdateNodeError},
-    AddNodeError, BoxedNode, ConnectError, Node, NodeHandle, Processor, ProcessorMessageRequest,
-    ProcessorMessageResponse, SineNode, NodeUid,
+    AddNodeError, BoxedNode, ConnectError, Node, NodeHandle, NodeUid, Processor,
+    ProcessorMessageRequest, ProcessorMessageResponse,
 };
 
 #[cfg(feature = "dac")]
@@ -69,7 +68,6 @@ pub struct AudioContext<A = AudioUninit> {
     processor_request_tx: Option<Sender<ProcessorMessageRequest<BoxedNode>>>,
     /// receives messages from Processor once it has been moved into the audio thread
     processor_response_rx: Option<Receiver<ProcessorMessageResponse>>,
-    node_request_tx: Sender<NodeMessageRequest>,
     uuid: Uuid,
     request_id: u32,
     audio_state: PhantomData<A>,
@@ -82,16 +80,6 @@ impl<A> AudioContext<A> {
 
     pub fn processor_mut(&mut self) -> Option<&mut Processor> {
         self.processor.as_mut()
-    }
-
-    fn node_index_into_node_handle<N: Node>(
-        &mut self,
-        uid: NodeUid,
-    ) -> impl FnMut((NodeUid, NodeIndex)) -> NodeHandle<N> + '_ {
-        move |(uid, node_index)| NodeHandle::<N> {
-            uid,
-            node_type: PhantomData,
-        }
     }
 }
 
@@ -112,12 +100,12 @@ impl AudioContext<AudioUninit> {
     }
 
     pub fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeHandle<N>, AddNodeError> {
-        let uid = node.uid();
+        let _uid = node.uid();
         self.processor
             .as_mut()
             .unwrap()
             .add_node(node)
-            .map(self.node_index_into_node_handle(uid))
+            .map(node_uid_into_node_handle)
     }
 
     /// Uses default audio configuration to create an audio thread
@@ -221,7 +209,6 @@ impl AudioContext<AudioUninit> {
             processor: self.processor,
             processor_request_tx: self.processor_request_tx,
             processor_response_rx: self.processor_response_rx,
-            node_request_tx: self.node_request_tx,
             uuid: self.uuid,
             request_id: self.request_id,
             audio_state: PhantomData,
@@ -229,7 +216,14 @@ impl AudioContext<AudioUninit> {
     }
 }
 
-/// When an asynchronous message is received for the processor 
+fn node_uid_into_node_handle<N: Node>(uid: NodeUid) -> NodeHandle<N> {
+    NodeHandle::<N> {
+        uid,
+        node_type: PhantomData,
+    }
+}
+
+/// When an asynchronous message is received for the processor
 /// in the audio thread, this function runs that message
 /// on behalf of that processor synchronously and sends back a response
 /// to the main thread
@@ -331,7 +325,7 @@ impl AudioContext<AudioInit> {
                 return Err(MessageError::WrongResponseReceived)
             };
 
-                result.map_err(|e| MessageError::from(e))
+                result.map_err(MessageError::from)
             },
         )
         .await
@@ -354,7 +348,7 @@ impl AudioContext<AudioInit> {
                 return Err(MessageError::WrongResponseReceived)
             };
 
-                result.map_err(|e| MessageError::from(e))
+                result.map_err(MessageError::from)
             },
         )
         .await
@@ -365,18 +359,21 @@ impl AudioContext<AudioInit> {
         &mut self,
         node: N,
     ) -> Result<NodeHandle<N>, MessageError> {
-        self.send_message_to_processor(|request_id| ProcessorMessageRequest::AddNode {
-            request_id,
-            node: Box::new(node),
-        }, |node_message_response| {
-            let ProcessorMessageResponse::AddNode { result, request_id } = node_message_response else {
+        self.send_message_to_processor(
+            |request_id| ProcessorMessageRequest::AddNode {
+                request_id,
+                node: Box::new(node),
+            },
+            |node_message_response| {
+                let ProcessorMessageResponse::AddNode { result, .. } = node_message_response else {
                 return Err(MessageError::WrongResponseReceived)
             };
 
-            return result.map_err(|e| MessageError::from(e)).map(|result| (result, request_id));
-        })
+                result.map_err(MessageError::from)
+            },
+        )
         .await
-        .map(|(result, request_id)| self.node_index_into_node_handle(request_id)(result))
+        .map(node_uid_into_node_handle)
     }
 
     async fn send_message_to_processor<R>(
@@ -443,7 +440,6 @@ impl<A> Hash for AudioContext<A> {
 
 impl<A> Default for AudioContext<A> {
     fn default() -> Self {
-        let (node_request_tx, node_request_rx) = async_channel::unbounded();
         Self {
             processor: Some(Processor::default()),
             uuid: Uuid::new_v4(),
@@ -452,7 +448,6 @@ impl<A> Default for AudioContext<A> {
             processor_request_tx: None,
             processor_response_rx: None,
             request_id: 0,
-            node_request_tx,
             audio_state: PhantomData,
         }
     }

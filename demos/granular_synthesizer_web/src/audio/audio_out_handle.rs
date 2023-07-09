@@ -1,4 +1,4 @@
-use resonix::{DAC, NodeUid};
+use resonix::{NodeUid, DAC};
 use std::ops::Deref;
 use std::{
     fmt::Debug,

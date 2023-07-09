@@ -27,7 +27,10 @@ impl RecordNode {
     }
 
     #[cfg(test)]
-    pub(crate) fn new_with_uid(uid: NodeUid, num_incoming_channels: impl Into<NumChannels>) -> Self {
+    pub(crate) fn new_with_uid(
+        uid: NodeUid,
+        num_incoming_channels: impl Into<NumChannels>,
+    ) -> Self {
         Self {
             uid,
             num_incoming_channels: num_incoming_channels.into(),
@@ -107,7 +110,7 @@ impl Node for RecordNode {
     }
 
     #[cfg(feature = "dac")]
-    fn update_from_dac_config(&mut self, dac_config: Arc<DACConfig>) {}
+    fn update_from_dac_config(&mut self, _dac_config: Arc<DACConfig>) {}
 }
 
 impl PartialEq for RecordNode {

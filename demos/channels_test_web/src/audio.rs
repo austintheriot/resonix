@@ -1,6 +1,6 @@
 use log::info;
 
-use resonix::{AudioContext, DACNode, SineNode, AudioInit};
+use resonix::{AudioContext, AudioInit, DACNode, SineNode};
 
 pub async fn set_up_audio_context() -> AudioContext<AudioInit> {
     let mut audio_context = AudioContext::new().into_audio_init().unwrap();

@@ -1,7 +1,6 @@
 use std::{
     any::Any,
     cell::{Ref, RefMut},
-    vec,
 };
 
 use resonix_core::NumChannels;
@@ -112,7 +111,7 @@ impl Node for PassThroughNode {
     }
 
     #[cfg(feature = "dac")]
-    fn update_from_dac_config(&mut self, dac_config: Arc<DACConfig>) {}
+    fn update_from_dac_config(&mut self, _dac_config: Arc<DACConfig>) {}
 }
 
 #[cfg(test)]

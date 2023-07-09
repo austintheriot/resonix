@@ -7,7 +7,7 @@ use std::{
 use resonix_core::NumChannels;
 
 #[cfg(feature = "dac")]
-use {std::sync::Arc, resonix_dac::DACConfig};
+use {resonix_dac::DACConfig, std::sync::Arc};
 
 use crate::{Connection, Node, NodeType, NodeUid};
 
@@ -32,8 +32,16 @@ impl ConstantNode {
     }
 
     #[cfg(test)]
-    pub(crate) fn new_with_uid(uid: NodeUid, num_outgoing_channels: impl Into<NumChannels>, signal_value: f32) -> Self {
-        Self { uid, num_outgoing_channels: num_outgoing_channels.into(), signal_value }
+    pub(crate) fn new_with_uid(
+        uid: NodeUid,
+        num_outgoing_channels: impl Into<NumChannels>,
+        signal_value: f32,
+    ) -> Self {
+        Self {
+            uid,
+            num_outgoing_channels: num_outgoing_channels.into(),
+            signal_value,
+        }
     }
 
     pub fn signal_value(&self) -> f32 {

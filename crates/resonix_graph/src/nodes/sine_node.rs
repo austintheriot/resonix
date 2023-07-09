@@ -3,7 +3,6 @@ use std::{
     cell::{Ref, RefMut},
 };
 
-use log::info;
 use petgraph::prelude::EdgeIndex;
 use resonix_core::{NumChannels, SampleRate, Sine, SineInterface};
 
@@ -11,8 +10,8 @@ use resonix_core::{NumChannels, SampleRate, Sine, SineInterface};
 use {resonix_dac::DACConfig, std::sync::Arc};
 
 use crate::{
-    messages::{NodeMessageRequest, MessageError, UpdateNodeError},
-    AudioContext, AudioUninit, Connection, Node, NodeHandle, NodeHandleMessageError, NodeType, AudioInit, NodeUid,
+    messages::{MessageError, NodeMessageRequest, UpdateNodeError},
+    AudioContext, AudioInit, AudioUninit, Connection, Node, NodeHandle, NodeType, NodeUid,
 };
 
 #[derive(Debug, Clone)]
@@ -101,10 +100,12 @@ impl NodeHandle<SineNode> {
         audio_context: &mut AudioContext<AudioInit>,
         new_frequency: f32,
     ) -> Result<&Self, MessageError> {
-        audio_context.handle_node_message_request(NodeMessageRequest::SineSetFrequency {
-            node_uid: self.uid,
-            new_frequency,
-        }).await?;
+        audio_context
+            .handle_node_message_request(NodeMessageRequest::SineSetFrequency {
+                node_uid: self.uid,
+                new_frequency,
+            })
+            .await?;
 
         Ok(self)
     }
@@ -199,7 +200,7 @@ mod test_sine_node {
 
     use std::cell::RefCell;
 
-    use crate::{AudioContext, Connection, Node, SineNode};
+    use crate::{Connection, Node, SineNode};
 
     #[test]
     fn should_output_sine_wave_data() {

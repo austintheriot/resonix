@@ -1,5 +1,4 @@
 use std::{
-    any::Any,
     cell::RefCell,
     collections::{HashSet, VecDeque},
     ops::{Deref, DerefMut},
@@ -17,7 +16,7 @@ use {resonix_dac::DACConfig, std::sync::Arc};
 
 use crate::{
     messages::{AddNodeError, ConnectError, NodeMessageRequest, UpdateNodeError},
-    AddConnectionError, BoxedNode, Connection, DACNode, Node, NodeType, NodeUid, SineNode,
+    BoxedNode, Connection, DACNode, Node, NodeType, NodeUid, SineNode,
 };
 use resonix_core::{NumChannels, SineInterface};
 
@@ -350,10 +349,7 @@ impl Processor {
         self.visit_order.take();
     }
 
-    pub fn add_node<N: Node + 'static>(
-        &mut self,
-        mut node: N,
-    ) -> Result<(u32, NodeIndex), AddNodeError> {
+    pub fn add_node<N: Node + 'static>(&mut self, mut node: N) -> Result<NodeUid, AddNodeError> {
         if node.uid() == 0 {
             node.set_uid(self.next_uid());
         }
@@ -393,7 +389,7 @@ impl Processor {
 
         self.reset_visit_order_cache();
 
-        Ok((uid, node_index))
+        Ok(uid)
     }
 
     /// Updates internal data of nodes to match any audio data
@@ -483,7 +479,6 @@ impl DerefMut for Processor {
 
 #[cfg(test)]
 mod test_processor {
-    use std::{any::Any, cell::RefCell};
 
     use crate::{ConstantNode, DACNode, PassThroughNode, Processor, SineNode};
 
@@ -493,7 +488,7 @@ mod test_processor {
 
         let sine_node = SineNode::new(1, 440.0);
 
-        let (uid, _) = processor.add_node(sine_node).unwrap();
+        let uid = processor.add_node(sine_node).unwrap();
 
         assert!(processor.boxed_node_by_uid(&uid).is_some());
     }
@@ -504,7 +499,7 @@ mod test_processor {
 
         let sine_node = SineNode::new(1, 440.0);
 
-        let (uid, _) = processor.add_node(sine_node).unwrap();
+        let uid = processor.add_node(sine_node).unwrap();
         let boxed_node = processor.boxed_node_by_uid(&uid).unwrap();
         let boxed_node_ref = boxed_node.borrow();
         let sine_node = boxed_node_ref.as_any().downcast_ref::<SineNode>();
@@ -519,9 +514,9 @@ mod test_processor {
         let pass_through_node = PassThroughNode::new_with_uid(1, 1);
         let dac_node = DACNode::new_with_uid(2, 1);
 
-        let (constant_node_uid, _) = processor.add_node(constant_node).unwrap();
-        let (pass_through_node_uid, _) = processor.add_node(pass_through_node).unwrap();
-        let (dac_node_uid, _) = processor.add_node(dac_node).unwrap();
+        let constant_node_uid = processor.add_node(constant_node).unwrap();
+        let pass_through_node_uid = processor.add_node(pass_through_node).unwrap();
+        let dac_node_uid = processor.add_node(dac_node).unwrap();
 
         let constant_to_pass_through_edge_index = processor
             .connect(constant_node_uid, pass_through_node_uid)

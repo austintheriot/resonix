@@ -28,7 +28,10 @@ impl DACNode {
     }
 
     #[cfg(test)]
-    pub(crate) fn new_with_uid(uid: NodeUid, num_incoming_channels: impl Into<NumChannels>) -> Self {
+    pub(crate) fn new_with_uid(
+        uid: NodeUid,
+        num_incoming_channels: impl Into<NumChannels>,
+    ) -> Self {
         let num_incoming_channels: NumChannels = num_incoming_channels.into();
         Self {
             uid,

@@ -1,7 +1,7 @@
 use petgraph::{prelude::NodeIndex, stable_graph::EdgeIndex};
 use resonix_core::NumChannels;
 
-use crate::{ Node, AddConnectionError, NodeUid};
+use crate::{AddConnectionError, Node, NodeUid};
 
 #[derive(thiserror::Error, Debug)]
 pub enum MessageError {
@@ -14,7 +14,7 @@ pub enum MessageError {
     #[error("Error occured while adding node: {0}")]
     AddNodeError(#[from] AddNodeError),
     #[error("Error occured while updating node: {0}")]
-    UpdateNodeError(#[from] UpdateNodeError)
+    UpdateNodeError(#[from] UpdateNodeError),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -81,7 +81,7 @@ pub(crate) enum ProcessorMessageRequest<N: Node + 'static> {
 pub(crate) enum ProcessorMessageResponse {
     AddNode {
         request_id: u32,
-        result: Result<(NodeUid, NodeIndex), AddNodeError>,
+        result: Result<NodeUid, AddNodeError>,
     },
     Connect {
         request_id: u32,
@@ -93,7 +93,7 @@ pub(crate) enum ProcessorMessageResponse {
     },
 }
 
-impl  ProcessorMessageResponse {
+impl ProcessorMessageResponse {
     pub fn request_id(&self) -> u32 {
         match self {
             ProcessorMessageResponse::AddNode { request_id, .. } => *request_id,

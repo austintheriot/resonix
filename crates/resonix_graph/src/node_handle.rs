@@ -1,8 +1,5 @@
 use std::marker::PhantomData;
 
-use async_channel::{Receiver, Sender};
-use petgraph::prelude::NodeIndex;
-
 use crate::{messages::MessageError, Node, NodeUid};
 
 #[derive(thiserror::Error, Debug)]
