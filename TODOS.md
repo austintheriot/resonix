@@ -32,11 +32,6 @@
 
 - create Buffer player node
 
-- Explicitly disable cyclical graphs - return an error when adding / connecting nodes if a cyclical path is found
-  - Could be as simple as using `astar` to try to find a path to the current node on entry. If none is returned , there is no cycle
-
-OR
-
 - Enable cyclical graphs:
   - One path forward for supporting cyclical graphs
     - During the phase where the visit_order is being constructed, mark any nodes that were moved to the end of the array. If those nodes are visited again, we can assume that they require cyclical references, and just add them as-is to the processing order. With this logic, on the first run, all incoming connections to cyclical nodes will have data of 0.0 on the first pass but will get data on subsequent passes as their child nodes process data.

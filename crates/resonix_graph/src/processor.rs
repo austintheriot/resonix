@@ -251,6 +251,20 @@ impl Processor {
 
             Self::check_num_channels_compatibility(&parent_node.borrow(), &child_node.borrow())?;
 
+            if parent_node_uid == child_node_uid {
+                return Err(ConnectError::GraphCycleFound {
+                    parent_node_name: parent_node.borrow().name(),
+                    child_node_name: child_node.borrow().name(),
+                });
+            }
+
+            self.check_for_cyclical_connection(
+                child_node_index,
+                parent_node_index,
+                &*parent_node.borrow(),
+                &*child_node.borrow(),
+            )?;
+
             (
                 parent_node.borrow().uid(),
                 child_node.borrow().uid(),
@@ -311,6 +325,36 @@ impl Processor {
                 expected_to_index: child_node.num_input_connections() - 1,
                 from_index,
                 to_index,
+                parent_node_name: parent_node.name(),
+                child_node_name: child_node.name(),
+            });
+        }
+
+        Ok(())
+    }
+
+    fn check_for_cyclical_connection(
+        &self,
+        child_node_index: &NodeIndex,
+        parent_node_index: &NodeIndex,
+        parent_node: &BoxedNode,
+        child_node: &BoxedNode,
+    ) -> Result<(), ConnectError> {
+        let cycle_found = 'block: {
+            let starting_node_index = child_node_index;
+            let ending_node_index = parent_node_index;
+            let mut dfs = Dfs::new(&self.graph, *starting_node_index);
+            while let Some(current_node_index) = dfs.next(&self.graph) {
+                if &current_node_index == ending_node_index {
+                    break 'block true;
+                }
+            }
+
+            false
+        };
+
+        if cycle_found {
+            return Err(ConnectError::GraphCycleFound {
                 parent_node_name: parent_node.name(),
                 child_node_name: child_node.name(),
             });
@@ -480,7 +524,68 @@ impl DerefMut for Processor {
 #[cfg(test)]
 mod test_processor {
 
-    use crate::{ConstantNode, DACNode, PassThroughNode, Processor, SineNode};
+    use crate::{
+        messages::ConnectError, ConstantNode, DACNode, PassThroughNode, Processor, SineNode,
+    };
+
+    #[test]
+    fn rejects_connection_to_self() {
+        let mut processor = Processor::default();
+
+        let pass_through_node = PassThroughNode::new(1);
+
+        let uid = processor.add_node(pass_through_node).unwrap();
+
+        let result = processor.connect(uid, uid);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rejects_single_edge_cyclical_connection() {
+        let mut processor = Processor::default();
+
+        let pass_through_node_a: PassThroughNode = PassThroughNode::new(1);
+        let pass_through_node_b: PassThroughNode = PassThroughNode::new(1);
+
+        let pass_through_node_a_uid = processor.add_node(pass_through_node_a).unwrap();
+        let pass_through_node_b_uid = processor.add_node(pass_through_node_b).unwrap();
+
+        processor
+            .connect(pass_through_node_a_uid, pass_through_node_b_uid)
+            .unwrap();
+        let result = processor.connect(pass_through_node_b_uid, pass_through_node_a_uid);
+
+        assert!(matches!(result, Err(ConnectError::GraphCycleFound { .. })));
+    }
+
+    #[test]
+    fn rejects_multi_edge_cyclical_connection() {
+        let mut processor = Processor::default();
+
+        let pass_through_node_a: PassThroughNode = PassThroughNode::new(1);
+        let pass_through_node_b: PassThroughNode = PassThroughNode::new(1);
+        let pass_through_node_c: PassThroughNode = PassThroughNode::new(1);
+        let pass_through_node_d: PassThroughNode = PassThroughNode::new(1);
+
+        let pass_through_node_a_uid = processor.add_node(pass_through_node_a).unwrap();
+        let pass_through_node_b_uid = processor.add_node(pass_through_node_b).unwrap();
+        let pass_through_node_c_uid = processor.add_node(pass_through_node_c).unwrap();
+        let pass_through_node_d_uid = processor.add_node(pass_through_node_d).unwrap();
+
+        processor
+            .connect(pass_through_node_a_uid, pass_through_node_b_uid)
+            .unwrap();
+        processor
+            .connect(pass_through_node_b_uid, pass_through_node_c_uid)
+            .unwrap();
+        processor
+            .connect(pass_through_node_c_uid, pass_through_node_d_uid)
+            .unwrap();
+        let result = processor.connect(pass_through_node_d_uid, pass_through_node_a_uid);
+
+        assert!(matches!(result, Err(ConnectError::GraphCycleFound { .. })));
+    }
 
     #[test]
     fn allows_retrieving_boxed_node_by_uid() {
