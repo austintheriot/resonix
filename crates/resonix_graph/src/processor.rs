@@ -261,8 +261,8 @@ impl Processor {
             self.check_for_cyclical_connection(
                 child_node_index,
                 parent_node_index,
-                &*parent_node.borrow(),
-                &*child_node.borrow(),
+                &parent_node.borrow(),
+                &child_node.borrow(),
             )?;
 
             (

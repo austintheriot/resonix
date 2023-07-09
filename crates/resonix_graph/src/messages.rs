@@ -47,7 +47,7 @@ pub enum ConnectError {
     GraphCycleFound {
         parent_node_name: String,
         child_node_name: String,
-    }
+    },
 }
 
 #[derive(thiserror::Error, Debug, PartialEq)]
