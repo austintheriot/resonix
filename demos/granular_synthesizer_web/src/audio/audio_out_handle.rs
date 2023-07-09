@@ -1,4 +1,4 @@
-use resonix::DAC;
+use resonix::{DAC, NodeUid};
 use std::ops::Deref;
 use std::{
     fmt::Debug,
@@ -7,7 +7,7 @@ use std::{
 
 pub struct AudioOutHandle {
     data: Arc<Mutex<Option<DAC>>>,
-    uid: u32,
+    uid: NodeUid,
 }
 
 impl From<DAC> for AudioOutHandle {

@@ -8,14 +8,14 @@ use resonix_core::NumChannels;
 #[cfg(feature = "dac")]
 use {resonix_dac::DACConfig, std::sync::Arc};
 
-use crate::{Connection, Node, NodeType};
+use crate::{Connection, Node, NodeType, NodeUid};
 
 /// Stores data as interleaved buffer of samples
 #[derive(Debug, Default, Clone)]
 pub struct RecordNode {
     data: Vec<f32>,
     num_incoming_channels: NumChannels,
-    uid: u32,
+    uid: NodeUid,
 }
 
 impl RecordNode {
@@ -27,7 +27,7 @@ impl RecordNode {
     }
 
     #[cfg(test)]
-    pub(crate) fn new_with_uid(uid: u32, num_incoming_channels: impl Into<NumChannels>) -> Self {
+    pub(crate) fn new_with_uid(uid: NodeUid, num_incoming_channels: impl Into<NumChannels>) -> Self {
         Self {
             uid,
             num_incoming_channels: num_incoming_channels.into(),
@@ -82,11 +82,11 @@ impl Node for RecordNode {
         NumChannels::from(0)
     }
 
-    fn uid(&self) -> u32 {
+    fn uid(&self) -> NodeUid {
         self.uid
     }
 
-    fn set_uid(&mut self, uid: u32) {
+    fn set_uid(&mut self, uid: NodeUid) {
         self.uid = uid;
     }
     fn name(&self) -> String {

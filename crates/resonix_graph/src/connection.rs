@@ -2,6 +2,8 @@ use std::hash::{Hash, Hasher};
 
 use resonix_core::NumChannels;
 
+pub type ConnectionUid = u32;
+
 #[derive(Debug, Clone)]
 pub struct Connection {
     /// where the connection is coming from
@@ -11,7 +13,7 @@ pub struct Connection {
     /// the data that the connection is carrying (if any)
     data: Vec<f32>,
     num_channels: NumChannels,
-    uid: u32,
+    uid: ConnectionUid,
 }
 
 impl Default for Connection {
@@ -76,13 +78,13 @@ impl Connection {
         self
     }
 
-    pub fn uid(&self) -> &u32 {
+    pub fn uid(&self) -> &ConnectionUid {
         &self.uid
     }
 
     #[cfg(test)]
     pub(crate) fn from_test_data(
-        uid: u32,
+        uid: ConnectionUid,
         num_channels: impl Into<NumChannels>,
         data: Vec<f32>,
         from_index: usize,

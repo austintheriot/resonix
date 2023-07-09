@@ -1,6 +1,6 @@
 use std::{
     any::Any,
-    cell::{Ref, RefMut},
+    cell::{Ref, RefMut, RefCell},
     fmt::Debug, sync::Arc,
 };
 
@@ -41,9 +41,9 @@ where
 
     fn num_outgoing_channels(&self) -> NumChannels;
 
-    fn uid(&self) -> u32;
+    fn uid(&self) -> NodeUid;
 
-    fn set_uid(&mut self, uid: u32);
+    fn set_uid(&mut self, uid: NodeUid);
 
     fn name(&self) -> String;
 
@@ -61,6 +61,8 @@ where
 dyn_clone::clone_trait_object!(Node);
 
 pub type BoxedNode = Box<dyn Node>;
+
+pub type NodeUid = u32;
 
 impl Node for BoxedNode {
     #[inline]
@@ -92,11 +94,11 @@ impl Node for BoxedNode {
         (**self).num_outgoing_channels()
     }
 
-    fn uid(&self) -> u32 {
+    fn uid(&self) -> NodeUid {
         (**self).uid()
     }
 
-    fn set_uid(&mut self, uid: u32) {
+    fn set_uid(&mut self, uid: NodeUid) {
         (**self).set_uid(uid)
     }
 

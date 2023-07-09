@@ -1,4 +1,5 @@
 use std::{
+    any::Any,
     cell::RefCell,
     collections::{HashSet, VecDeque},
     ops::{Deref, DerefMut},
@@ -14,48 +15,21 @@ use petgraph::{
 #[cfg(feature = "dac")]
 use {resonix_dac::DACConfig, std::sync::Arc};
 
-use crate::{AddConnectionError, BoxedNode, Connection, DACNode, Node, NodeType};
-use resonix_core::NumChannels;
-
-#[derive(thiserror::Error, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum ConnectError {
-    #[error("Node could not be found in the audio graph for index {node_index:?}. Are you sure you added it?")]
-    NodeNotFound { node_index: NodeIndex },
-    #[error("Node connection from {parent_node_name:?} to {child_node_name:?} failed. Expected `from_index` to be a max of {expected_from_index:?} and `to_index`  to be a max of {expected_to_index:?}. Received `from_index`  of {from_index:?} and `to_index` of {to_index:?}")]
-    IncorrectIndex {
-        expected_from_index: usize,
-        expected_to_index: usize,
-        from_index: usize,
-        to_index: usize,
-        parent_node_name: String,
-        child_node_name: String,
-    },
-    #[error("Node connection from parent node {parent_node_name:?} to child node {child_node_name:?} failed. Parent node has {parent_node_num_outgoing_channels:?} outgoing channels while child node has {child_node_num_incoming_channels:?} incoming channels")]
-    IncompatibleNumChannels {
-        parent_node_num_outgoing_channels: NumChannels,
-        child_node_num_incoming_channels: NumChannels,
-        parent_node_name: String,
-        child_node_name: String,
-    },
-    #[error("Node connection failed. Original error: {0:?}")]
-    AddConnectionError(#[from] AddConnectionError),
-    #[error("A message was sent to the `Processor` in the audio thread to connect 2 nodes, but no corresponding response was received")]
-    NoMatchingMessageReceived,
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum AddNodeError {
-    #[error("Cannot add {name:?} to the audio graph, since it has already been added.")]
-    AlreadyExists { name: String },
-    #[error("A message was sent to the `Processor` in the audio thread to add a node, but no corresponding response was received")]
-    NoMatchingMessageReceived,
-}
+use crate::{
+    messages::{AddNodeError, ConnectError, NodeMessageRequest, UpdateNodeError},
+    AddConnectionError, BoxedNode, Connection, DACNode, Node, NodeType, NodeUid, SineNode,
+};
+use resonix_core::{NumChannels, SineInterface};
 
 /// Cloning the audio context is an outward clone of the
 /// audio context handle
 #[derive(Debug, Default, Clone)]
 pub struct Processor {
     graph: Graph<RefCell<BoxedNode>, RefCell<Connection>>,
+    /// Maps node uids to their `NodeIndex` in the graph.
+    /// This value must be updated if/when removing nodes
+    /// from the graph is supported
+    node_uid_to_node_index_map: IntMap<u32, NodeIndex>,
     /// Makes sure we don't try to add duplicate nodes to the graph
     node_uids: IntSet<u32>,
     /// Created while nodes are being added, so that when it's time `run` the graph,
@@ -235,26 +209,38 @@ impl Processor {
 
     fn connect_with_indexes(
         &mut self,
-        parent_node_index: NodeIndex,
-        child_node_index: NodeIndex,
+        parent_node_uid: NodeUid,
+        child_node_uid: NodeUid,
         from_index: usize,
         to_index: usize,
     ) -> Result<EdgeIndex, ConnectError> {
+        let parent_node_index = self
+            .node_uid_to_node_index_map
+            .get(&parent_node_uid)
+            .ok_or(ConnectError::NodeUidNotFound {
+                node_uid: parent_node_uid,
+            })?;
+        let child_node_index = self.node_uid_to_node_index_map.get(&child_node_uid).ok_or(
+            ConnectError::NodeUidNotFound {
+                node_uid: child_node_uid,
+            },
+        )?;
+
         // check if connection indexes are out of bounds
         let (parent_uuid, child_uuid, num_channels) = {
             let parent_node =
                 &self
                     .graph
-                    .node_weight(parent_node_index)
+                    .node_weight(*parent_node_index)
                     .ok_or(ConnectError::NodeNotFound {
-                        node_index: parent_node_index,
+                        node_index: *parent_node_index,
                     })?;
             let child_node =
                 &self
                     .graph
-                    .node_weight(child_node_index)
+                    .node_weight(*child_node_index)
                     .ok_or(ConnectError::NodeNotFound {
-                        node_index: child_node_index,
+                        node_index: *child_node_index,
                     })?;
 
             Self::check_connection_index_out_of_bounds(
@@ -275,8 +261,8 @@ impl Processor {
 
         // add connection to graph
         let edge_index = self.graph.add_edge(
-            parent_node_index,
-            child_node_index,
+            *parent_node_index,
+            *child_node_index,
             RefCell::new(Connection::from_indexes(num_channels, from_index, to_index)),
         );
 
@@ -298,14 +284,14 @@ impl Processor {
             .map(|indexes| indexes.as_slice())
     }
 
-    fn add_incoming_connection_index(&mut self, uid: u32, edge_index: EdgeIndex) {
+    fn add_incoming_connection_index(&mut self, uid: NodeUid, edge_index: EdgeIndex) {
         self.incoming_connection_indexes
             .entry(uid)
             .and_modify(|edge_indexes| edge_indexes.push(edge_index))
             .or_insert_with(|| vec![edge_index]);
     }
 
-    fn add_outgoing_connection_index(&mut self, uid: u32, edge_index: EdgeIndex) {
+    fn add_outgoing_connection_index(&mut self, uid: NodeUid, edge_index: EdgeIndex) {
         self.outgoing_connection_indexes
             .entry(uid)
             .and_modify(|edge_indexes| edge_indexes.push(edge_index))
@@ -364,15 +350,20 @@ impl Processor {
         self.visit_order.take();
     }
 
-    pub fn add_node<N: Node + 'static>(&mut self, mut node: N) -> Result<NodeIndex, AddNodeError> {
+    pub fn add_node<N: Node + 'static>(
+        &mut self,
+        mut node: N,
+    ) -> Result<(u32, NodeIndex), AddNodeError> {
         if node.uid() == 0 {
             node.set_uid(self.next_uid());
         }
 
+        let uid = node.uid();
+
         // make node immutable for rest of code block
         let node = node;
 
-        if self.node_uids.contains(&node.uid()) {
+        if self.node_uids.contains(&uid) {
             return Err(AddNodeError::AlreadyExists { name: node.name() });
         }
 
@@ -384,6 +375,8 @@ impl Processor {
         let requires_audio_updates = node.requires_audio_updates();
 
         let node_index = self.graph.add_node(RefCell::new(Box::new(node)));
+
+        self.node_uid_to_node_index_map.insert(uid, node_index);
 
         if is_input {
             self.input_node_indexes.push(node_index);
@@ -400,7 +393,7 @@ impl Processor {
 
         self.reset_visit_order_cache();
 
-        Ok(node_index)
+        Ok((uid, node_index))
     }
 
     /// Updates internal data of nodes to match any audio data
@@ -418,12 +411,12 @@ impl Processor {
 
     pub fn connect(
         &mut self,
-        parent_node_index: NodeIndex,
-        child_node_index: NodeIndex,
+        parent_node_uid: NodeUid,
+        child_node_uid: NodeUid,
     ) -> Result<EdgeIndex, ConnectError> {
         let result = self.connect_with_indexes(
-            parent_node_index,
-            child_node_index,
+            parent_node_uid,
+            child_node_uid,
             Default::default(),
             Default::default(),
         );
@@ -440,6 +433,37 @@ impl Processor {
         let value = self.uid_counter;
         self.uid_counter += 1;
         value
+    }
+
+    fn boxed_node_by_uid(&self, uid: &u32) -> Option<&RefCell<BoxedNode>> {
+        self.node_uid_to_node_index_map
+            .get(uid)
+            .and_then(|node_index| self.graph.node_weight(*node_index))
+    }
+
+    pub(crate) fn handle_node_message_request(
+        &mut self,
+        node_message_request: NodeMessageRequest,
+    ) -> Result<(), UpdateNodeError> {
+        match node_message_request {
+            NodeMessageRequest::SineSetFrequency {
+                node_uid,
+                new_frequency,
+                ..
+            } => {
+                let boxed_node = self
+                    .boxed_node_by_uid(&node_uid)
+                    .ok_or(UpdateNodeError::NodeNotFound { uid: node_uid })?;
+                let mut boxed_node_ref = boxed_node.borrow_mut();
+                let sine_node = boxed_node_ref
+                    .as_any_mut()
+                    .downcast_mut::<SineNode>()
+                    .ok_or(UpdateNodeError::WrongNodeType { uid: node_uid })?;
+                sine_node.set_frequency(new_frequency);
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -459,7 +483,34 @@ impl DerefMut for Processor {
 
 #[cfg(test)]
 mod test_processor {
-    use crate::{ConstantNode, DACNode, PassThroughNode, Processor};
+    use std::{any::Any, cell::RefCell};
+
+    use crate::{ConstantNode, DACNode, PassThroughNode, Processor, SineNode};
+
+    #[test]
+    fn allows_retrieving_boxed_node_by_uid() {
+        let mut processor = Processor::default();
+
+        let sine_node = SineNode::new(1, 440.0);
+
+        let (uid, _) = processor.add_node(sine_node).unwrap();
+
+        assert!(processor.boxed_node_by_uid(&uid).is_some());
+    }
+
+    #[test]
+    fn allows_retrieving_node_by_uid() {
+        let mut processor = Processor::default();
+
+        let sine_node = SineNode::new(1, 440.0);
+
+        let (uid, _) = processor.add_node(sine_node).unwrap();
+        let boxed_node = processor.boxed_node_by_uid(&uid).unwrap();
+        let boxed_node_ref = boxed_node.borrow();
+        let sine_node = boxed_node_ref.as_any().downcast_ref::<SineNode>();
+
+        assert!(sine_node.is_some());
+    }
 
     #[test]
     fn running_processor_should_fill_connections_with_data() {
@@ -468,15 +519,15 @@ mod test_processor {
         let pass_through_node = PassThroughNode::new_with_uid(1, 1);
         let dac_node = DACNode::new_with_uid(2, 1);
 
-        let constant_node_index = processor.add_node(constant_node).unwrap();
-        let pass_through_node_index = processor.add_node(pass_through_node).unwrap();
-        let dac_node_index = processor.add_node(dac_node).unwrap();
+        let (constant_node_uid, _) = processor.add_node(constant_node).unwrap();
+        let (pass_through_node_uid, _) = processor.add_node(pass_through_node).unwrap();
+        let (dac_node_uid, _) = processor.add_node(dac_node).unwrap();
 
         let constant_to_pass_through_edge_index = processor
-            .connect(constant_node_index, pass_through_node_index)
+            .connect(constant_node_uid, pass_through_node_uid)
             .unwrap();
         let pass_through_to_dac_edge_index = processor
-            .connect(pass_through_node_index, dac_node_index)
+            .connect(pass_through_node_uid, dac_node_uid)
             .unwrap();
 
         // no data yet in connections

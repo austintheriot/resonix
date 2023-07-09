@@ -9,7 +9,7 @@ use resonix_core::NumChannels;
 #[cfg(feature = "dac")]
 use {resonix_dac::DACConfig, std::sync::Arc};
 
-use crate::{Connection, Node, NodeType};
+use crate::{Connection, Node, NodeType, NodeUid};
 
 /// Takes one signal and passed it through, unaltered
 /// to all connected outputs.
@@ -19,7 +19,7 @@ use crate::{Connection, Node, NodeType};
 /// Output 0 - Unaltered Input signal
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd, Hash, Eq, Ord)]
 pub struct PassThroughNode {
-    uid: u32,
+    uid: NodeUid,
     num_channels: NumChannels,
 }
 
@@ -32,7 +32,7 @@ impl PassThroughNode {
     }
 
     #[cfg(test)]
-    pub(crate) fn new_with_uid(uid: u32, num_channels: impl Into<NumChannels>) -> Self {
+    pub(crate) fn new_with_uid(uid: NodeUid, num_channels: impl Into<NumChannels>) -> Self {
         Self {
             uid,
             num_channels: num_channels.into(),
@@ -87,11 +87,11 @@ impl Node for PassThroughNode {
         self.num_channels
     }
 
-    fn uid(&self) -> u32 {
+    fn uid(&self) -> NodeUid {
         self.uid
     }
 
-    fn set_uid(&mut self, uid: u32) {
+    fn set_uid(&mut self, uid: NodeUid) {
         self.uid = uid;
     }
     fn name(&self) -> String {

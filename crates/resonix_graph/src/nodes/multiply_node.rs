@@ -8,7 +8,7 @@ use resonix_core::NumChannels;
 #[cfg(feature = "dac")]
 use {resonix_dac::DACConfig, std::sync::Arc};
 
-use crate::{Connection, Node, NodeType};
+use crate::{Connection, Node, NodeType, NodeUid};
 
 /// Takes two signals and multiplies them together,
 /// outputting the signal to all connected outputs
@@ -19,7 +19,7 @@ use crate::{Connection, Node, NodeType};
 /// Output 0 - Multiplied signal
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct MultiplyNode {
-    uid: u32,
+    uid: NodeUid,
     num_channels: NumChannels,
 }
 
@@ -32,7 +32,7 @@ impl MultiplyNode {
     }
 
     #[cfg(test)]
-    pub(crate) fn new_with_uid(uid: u32) -> Self {
+    pub(crate) fn new_with_uid(uid: NodeUid) -> Self {
         Self {
             uid,
             ..Default::default()
@@ -84,11 +84,11 @@ impl Node for MultiplyNode {
         });
     }
 
-    fn uid(&self) -> u32 {
+    fn uid(&self) -> NodeUid {
         self.uid
     }
 
-    fn set_uid(&mut self, uid: u32) {
+    fn set_uid(&mut self, uid: NodeUid) {
         self.uid = uid;
     }
     fn name(&self) -> String {

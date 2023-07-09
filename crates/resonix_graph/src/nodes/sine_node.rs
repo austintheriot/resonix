@@ -11,13 +11,13 @@ use resonix_core::{NumChannels, SampleRate, Sine, SineInterface};
 use {resonix_dac::DACConfig, std::sync::Arc};
 
 use crate::{
-    messages::{NodeMessageRequest, NodeMessageResponse},
-    Connection, Node, NodeHandle, NodeHandleMessageError, NodeType,
+    messages::{NodeMessageRequest, MessageError, UpdateNodeError},
+    AudioContext, AudioUninit, Connection, Node, NodeHandle, NodeHandleMessageError, NodeType, AudioInit, NodeUid,
 };
 
 #[derive(Debug, Clone)]
 pub struct SineNode {
-    uid: u32,
+    uid: NodeUid,
     sine: Sine,
     num_outgoing_channels: NumChannels,
     outgoing_connection_indexes: Vec<EdgeIndex>,
@@ -44,7 +44,7 @@ impl SineNode {
 
     #[cfg(test)]
     pub(crate) fn new_with_uid(
-        uid: u32,
+        uid: NodeUid,
         num_outgoing_channels: impl Into<NumChannels>,
         sample_rate: impl Into<SampleRate>,
         frequency: impl Into<f32>,
@@ -83,28 +83,30 @@ impl SineInterface for SineNode {
 }
 
 impl NodeHandle<SineNode> {
-    pub async fn set_frequency(&self, new_frequency: f32) -> Result<&Self, NodeHandleMessageError> {
-        self.node_request_tx
-            .send(NodeMessageRequest::SineSetFrequency {
-                node_uid: self.uid,
-                node_index: self.node_index,
-                new_frequency,
-            })
-            .await
-            .unwrap();
+    pub fn set_frequency_sync(
+        &self,
+        audio_context: &mut AudioContext<AudioUninit>,
+        new_frequency: f32,
+    ) -> Result<&Self, UpdateNodeError> {
+        audio_context.handle_node_message_request(NodeMessageRequest::SineSetFrequency {
+            node_uid: self.uid,
+            new_frequency,
+        })?;
 
-        while let Ok(response) = self.node_response_rx.recv().await {
-            let NodeMessageResponse::SineSetFrequency {
-                node_uid: uuid,
-                result,
-            } = response;
-            if uuid != self.uid {
-                continue;
-            }
-            return result.map_err(|e| e.into()).map(|_| self);
-        }
+        Ok(self)
+    }
 
-        Err(NodeHandleMessageError::NoMatchingMessageReceived)
+    pub async fn set_frequency_async(
+        &self,
+        audio_context: &mut AudioContext<AudioInit>,
+        new_frequency: f32,
+    ) -> Result<&Self, MessageError> {
+        audio_context.handle_node_message_request(NodeMessageRequest::SineSetFrequency {
+            node_uid: self.uid,
+            new_frequency,
+        }).await?;
+
+        Ok(self)
     }
 }
 
@@ -142,11 +144,11 @@ impl Node for SineNode {
         self.num_outgoing_channels
     }
 
-    fn uid(&self) -> u32 {
+    fn uid(&self) -> NodeUid {
         self.uid
     }
 
-    fn set_uid(&mut self, uid: u32) {
+    fn set_uid(&mut self, uid: NodeUid) {
         self.uid = uid;
     }
     fn name(&self) -> String {

@@ -36,8 +36,7 @@ async fn main() {
     let mut audio_context = audio_context.into_audio_init().unwrap();
     audio_context.play_stream().unwrap();
 
-    let sample_rate = audio_context.sample_rate().unwrap();
-    sine_node_handle.set_frequency(440.0).await.unwrap();
+    sine_node_handle.set_frequency_async(&mut audio_context, 440.0).await.unwrap();
 
     tokio::time::sleep(Duration::MAX).await;
 }

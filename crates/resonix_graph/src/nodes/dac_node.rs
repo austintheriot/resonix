@@ -5,7 +5,7 @@ use std::{
 
 use resonix_core::NumChannels;
 
-use crate::{Connection, Node, NodeType};
+use crate::{Connection, Node, NodeType, NodeUid};
 
 #[cfg(feature = "dac")]
 use {resonix_dac::DACConfig, std::sync::Arc};
@@ -14,7 +14,7 @@ use {resonix_dac::DACConfig, std::sync::Arc};
 pub struct DACNode {
     data: Vec<f32>,
     num_incoming_channels: NumChannels,
-    uid: u32,
+    uid: NodeUid,
 }
 
 impl DACNode {
@@ -28,7 +28,7 @@ impl DACNode {
     }
 
     #[cfg(test)]
-    pub(crate) fn new_with_uid(uid: u32, num_incoming_channels: impl Into<NumChannels>) -> Self {
+    pub(crate) fn new_with_uid(uid: NodeUid, num_incoming_channels: impl Into<NumChannels>) -> Self {
         let num_incoming_channels: NumChannels = num_incoming_channels.into();
         Self {
             uid,
@@ -93,7 +93,7 @@ impl Node for DACNode {
         self.uid
     }
 
-    fn set_uid(&mut self, uid: u32) {
+    fn set_uid(&mut self, uid: NodeUid) {
         self.uid = uid;
     }
     fn name(&self) -> String {

@@ -9,7 +9,7 @@ use resonix_core::NumChannels;
 #[cfg(feature = "dac")]
 use {std::sync::Arc, resonix_dac::DACConfig};
 
-use crate::{Connection, Node, NodeType};
+use crate::{Connection, Node, NodeType, NodeUid};
 
 /// Takes no input signals and outputs a single,
 /// constant signal value to all output connections.
@@ -17,7 +17,7 @@ use crate::{Connection, Node, NodeType};
 /// Output 0 - Constant signal value
 #[derive(Debug, Clone)]
 pub struct ConstantNode {
-    uid: u32,
+    uid: NodeUid,
     num_outgoing_channels: NumChannels,
     signal_value: f32,
 }
@@ -32,7 +32,7 @@ impl ConstantNode {
     }
 
     #[cfg(test)]
-    pub(crate) fn new_with_uid(uid: u32, num_outgoing_channels: impl Into<NumChannels>, signal_value: f32) -> Self {
+    pub(crate) fn new_with_uid(uid: NodeUid, num_outgoing_channels: impl Into<NumChannels>, signal_value: f32) -> Self {
         Self { uid, num_outgoing_channels: num_outgoing_channels.into(), signal_value }
     }
 
@@ -83,7 +83,7 @@ impl Node for ConstantNode {
         self.uid
     }
 
-    fn set_uid(&mut self, uid: u32) {
+    fn set_uid(&mut self, uid: NodeUid) {
         self.uid = uid;
     }
 
