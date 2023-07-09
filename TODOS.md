@@ -14,28 +14,28 @@
 - Add parallelism with Rayon
 
 - Upmix / downmix DAC audio data instead of ignoring channel and audio output mismatches when moving data from within DAC nodes to actual audio output buffer
+  - Use logical channels and map from logical to hardware channels. See [Max docs](https://docs.cycling74.com/max8/tutorials/04_mspaudioio) for how they do it
 
 - Use snapshot testing for complex audio
 
 - Should DAC be initialized by default always when `"dac"` feature is enabled?
 
-- The return value of a node getting attached to the audio context is a node_index and message sender for sending messages to the audio context for after the process has moved into the audio thread
-
-- BUG: currently, if a NodeHandle tries to update a Node property, the async function will hang indefinitely, because there is no DAC running to run the update. Consider when the `audio_context` should run updates to its nodes IF THERE IS NO DAC - since currently the only time those updates are made are when the DAC is running.
-
 - implement more ergonomic API for creating nodes, adding them to the audio_context, etc.
+  - See HashMap's `Entry` for ideas here
+  - Each action could return an owned value that carries a reference back to the `&mut AudioContext`, so that infinite chaining methods would be possible
 
 - allow removing audio nodes
 
-- make sure there are no race conditions when adding multiple nodes simultaneously
-
-  - Make all calls to the audio graph synchronous if DAC has not been initialized yet
-
-- allow multichannel audio connections
+- make sure there are no race conditions when adding multiple nodes asynchronously at the same time
 
 - allow microphone input (ADCNode?, AudioInputNode? MicNode?)
 
 - create Buffer player node
+
+- Explicitly disable cyclical graphs - return an error when adding / connecting nodes if a cyclical path is found
+  - Could be as simple as using `astar` to try to find a path to the current node on entry. If none is returned , there is no cycle
+
+OR
 
 - Enable cyclical graphs:
   - One path forward for supporting cyclical graphs
