@@ -120,7 +120,7 @@ async fn updates_node_in_audio_thread() {
     // value of 0.5 being output
     {
         let data_written = data_written.lock().unwrap();
-        assert_eq!(data_written.len() - 100, [0.5; 100])
+        assert_eq!(data_written[data_written.len() - 100..], [0.5; 100])
     }
 
     constant_node_handle.set_signal_value_async(&mut audio_context, 1.0).await.unwrap();
