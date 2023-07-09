@@ -25,25 +25,20 @@ pub struct SineNode {
 impl SineNode {
     pub fn new(num_outgoing_channels: impl Into<NumChannels>, frequency: impl Into<f32>) -> Self {
         // sample_rate is automatically configured in the audio thread when "dac" feature is enabled
-        Self::new_with_config(num_outgoing_channels, 0, frequency)
+        Self::new_with_uid(0, num_outgoing_channels, frequency)
     }
 
-    pub fn new_with_config(
-        num_outgoing_channels: impl Into<NumChannels>,
-        sample_rate: impl Into<SampleRate>,
-        frequency: impl Into<f32>,
-    ) -> Self {
-        Self {
-            uid: 0,
-            num_outgoing_channels: num_outgoing_channels.into(),
-            sine: Sine::new_with_config(sample_rate, frequency),
-            outgoing_connection_indexes: Vec::new(),
-        }
-    }
-
-    #[cfg(test)]
+   
     pub(crate) fn new_with_uid(
         uid: NodeUid,
+        num_outgoing_channels: impl Into<NumChannels>,
+        frequency: impl Into<f32>,
+    ) -> Self {
+      Self::new_with_full_config(uid, num_outgoing_channels, 0, frequency)
+    }
+
+    pub(crate) fn new_with_full_config(
+        uid: u32,
         num_outgoing_channels: impl Into<NumChannels>,
         sample_rate: impl Into<SampleRate>,
         frequency: impl Into<f32>,
@@ -205,7 +200,7 @@ mod test_sine_node {
     #[test]
     fn should_output_sine_wave_data() {
         // should finish a sine wave cycle within 4 sample
-        let mut sine_node = SineNode::new_with_config(1, 4, 1.0);
+        let mut sine_node = SineNode::new_with_full_config(0, 1, 4, 1.0);
 
         let output_connection = RefCell::new(Connection::default());
 
@@ -241,8 +236,8 @@ mod test_sine_node {
 
     #[test]
     fn should_work_with_multichannel_data() {
-        let mut sine_node = SineNode::new_with_config(5, 4, 1.0);
-        let output_connection = RefCell::new(Connection::from_test_data(0, 5, vec![0.0; 5], 0, 0));
+        let mut sine_node = SineNode::new_with_full_config(0, 5, 4, 1.0);
+        let output_connection = RefCell::new(Connection::from_test_data(1, 5, vec![0.0; 5], 0, 0));
 
         // before processing, output data is 0.0
         {

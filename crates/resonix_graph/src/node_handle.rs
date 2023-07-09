@@ -22,11 +22,19 @@ pub enum NodeHandleMessageError {
 /// they were received.
 ///
 /// This struct can be safely and cheaply cloned
-#[derive(Debug, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NodeHandle<NodeType: Node> {
     pub(crate) uid: NodeUid,
     pub(crate) node_type: PhantomData<NodeType>,
 }
+
+impl<N: Node> Clone for NodeHandle<N> {
+    fn clone(&self) -> Self {
+        Self { uid: self.uid, node_type: PhantomData }
+    }
+}
+
+impl<N: Node> Copy for NodeHandle<N> {}
 
 impl<N: Node> AsRef<NodeUid> for NodeHandle<N> {
     fn as_ref(&self) -> &NodeUid {

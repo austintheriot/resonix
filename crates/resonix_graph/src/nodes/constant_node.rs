@@ -24,14 +24,9 @@ pub struct ConstantNode {
 
 impl ConstantNode {
     pub fn new(num_outgoing_channels: impl Into<NumChannels>, signal_value: f32) -> Self {
-        Self {
-            uid: 0,
-            num_outgoing_channels: num_outgoing_channels.into(),
-            signal_value,
-        }
+       Self::new_with_uid(0, num_outgoing_channels, signal_value)
     }
 
-    #[cfg(test)]
     pub(crate) fn new_with_uid(
         uid: NodeUid,
         num_outgoing_channels: impl Into<NumChannels>,

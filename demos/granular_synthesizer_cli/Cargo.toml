@@ -7,11 +7,5 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1.28.1", features = ["full"] }
-rand = "0.8.5"
 rodio = "0.15.0"
-cpal = "0.13.5"
-anyhow = "1.0.57"
-clap = "3.1.18"
-# Wrapper around the C library
-minimp3 = "0.5.1"
 resonix = { path = "../../crates/resonix", features = ["dac"]}

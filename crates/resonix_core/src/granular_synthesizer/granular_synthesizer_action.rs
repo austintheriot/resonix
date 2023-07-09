@@ -75,8 +75,8 @@ pub trait GranularSynthesizerAction {
     /// number of channels does not match the length of the vector.
     fn next_frame_into_buffer<'a>(
         &mut self,
-        frame_data_buffer: &'a mut Vec<f32>,
-    ) -> &'a mut Vec<f32>;
+        frame_data_buffer: &'a mut [f32],
+    ) -> &'a mut [f32];
 
     /// Returns a full audio frame (1 array element = 1 audio channel value),
     /// where each channel gets its own, independent value

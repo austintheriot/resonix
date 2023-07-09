@@ -19,15 +19,9 @@ pub struct DACNode {
 
 impl DACNode {
     pub fn new(num_incoming_channels: impl Into<NumChannels>) -> Self {
-        let num_incoming_channels: NumChannels = num_incoming_channels.into();
-        Self {
-            num_incoming_channels,
-            data: vec![0.0; num_incoming_channels.into()],
-            ..Default::default()
-        }
+      Self::new_with_uid(0, num_incoming_channels)
     }
 
-    #[cfg(test)]
     pub(crate) fn new_with_uid(
         uid: NodeUid,
         num_incoming_channels: impl Into<NumChannels>,

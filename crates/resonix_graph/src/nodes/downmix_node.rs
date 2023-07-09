@@ -27,18 +27,20 @@ impl DownmixNode {
         num_outgoing_channels: impl Into<NumChannels>,
         downmixer: Downmixer,
     ) -> Self {
+        Self::new_with_uid(0, num_incoming_channels, num_outgoing_channels, downmixer)
+    }
+
+    pub(crate) fn new_with_uid(
+        uid: NodeUid,
+        num_incoming_channels: impl Into<NumChannels>,
+        num_outgoing_channels: impl Into<NumChannels>,
+        downmixer: Downmixer,
+    ) -> Self {
         Self {
+            uid,
             num_incoming_channels: num_incoming_channels.into(),
             num_outgoing_channels: num_outgoing_channels.into(),
             downmixer,
-            ..Default::default()
-        }
-    }
-
-    #[cfg(test)]
-    pub(crate) fn new_with_uid(uid: NodeUid) -> Self {
-        Self {
-            uid,
             ..Default::default()
         }
     }

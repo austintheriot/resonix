@@ -4,6 +4,8 @@
 
 - Add parallelism with Rayon
 
+- Use an actual newtype for NodeUid & ConnectionUid (same one for both? ContextUid)
+
 - enable 3rd party `Node`s to send update messages to audio thread
 
 - speed up computation by enabling multichannel data to be stored in an array instead of a vec?

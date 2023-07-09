@@ -175,8 +175,8 @@ impl GranularSynthesizerAction for GranularSynthesizer {
 
     fn next_frame_into_buffer<'a>(
         &mut self,
-        frame_data_buffer: &'a mut Vec<f32>,
-    ) -> &'a mut Vec<f32> {
+        frame_data_buffer: &'a mut [f32],
+    ) -> &'a mut [f32] {
         self.run_next_frame_pipeline(frame_data_buffer, false)
     }
 
@@ -209,9 +209,9 @@ impl GranularSynthesizer {
     /// an existing reference to a buffer to write data
     fn run_next_frame_pipeline<'a>(
         &mut self,
-        frame_data_buffer: &'a mut Vec<f32>,
+        frame_data_buffer: &'a mut [f32],
         is_new_buffer: bool,
-    ) -> &'a mut Vec<f32> {
+    ) -> &'a mut [f32] {
         self.synchronize_num_grains_with_channels();
         self.initialize_an_uninitialized_grain();
         self.refresh_finished_grains();
@@ -431,16 +431,12 @@ impl GranularSynthesizer {
     /// (where each channel gets a single audio output value).
     fn write_frame_data_into_buffer<'a>(
         &mut self,
-        frame_data_buffer: &'a mut Vec<f32>,
+        frame_data_buffer: &'a mut [f32],
         is_new_buffer: bool,
-    ) -> &'a mut Vec<f32> {
-        let num_channels_for_frame = self.num_channels().into_inner();
+    ) -> &'a mut [f32] {
         let selection_start_in_samples = self.selection_start_in_samples();
         let selection_end_in_samples = self.selection_end_in_samples();
         let mut finished_grain_uid = None;
-
-        // frame size should match num_channels out
-        frame_data_buffer.resize(num_channels_for_frame, 0.0);
 
         // if writing to a previously used buffer, make sure that buffer
         // has been cleaned up first, so that previous output does
