@@ -9,7 +9,7 @@ use resonix_core::NumChannels;
 #[cfg(feature = "dac")]
 use {resonix_dac::DACConfig, std::sync::Arc};
 
-use crate::{Connection, Node, NodeType, NodeUid};
+use crate::{Connection, Node, NodeType, NodeUid, NodeHandle, AudioContext, AudioUninit, messages::{UpdateNodeError, NodeMessageRequest, MessageError}, AudioInit};
 
 /// Takes no input signals and outputs a single,
 /// constant signal value to all output connections.
@@ -53,6 +53,37 @@ impl ConstantNode {
         self
     }
 }
+
+impl NodeHandle<ConstantNode> {
+    pub fn set_signal_value_sync(
+        &self,
+        audio_context: &mut AudioContext<AudioUninit>,
+        new_signal_value: f32,
+    ) -> Result<&Self, UpdateNodeError> {
+        audio_context.handle_node_message_request(NodeMessageRequest::ConstantSetSignalValue {
+            node_uid: self.uid,
+            new_signal_value,
+        })?;
+
+        Ok(self)
+    }
+
+    pub async fn set_signal_value_async(
+        &self,
+        audio_context: &mut AudioContext<AudioInit>,
+        new_signal_value: f32,
+    ) -> Result<&Self, MessageError> {
+        audio_context
+            .handle_node_message_request(NodeMessageRequest::ConstantSetSignalValue {
+                node_uid: self.uid,
+                new_signal_value,
+            })
+            .await?;
+
+        Ok(self)
+    }
+}
+
 
 impl Node for ConstantNode {
     fn node_type(&self) -> crate::NodeType {

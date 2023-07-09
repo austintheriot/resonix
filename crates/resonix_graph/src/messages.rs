@@ -123,4 +123,5 @@ pub enum UpdateNodeError {
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub(crate) enum NodeMessageRequest {
     SineSetFrequency { node_uid: u32, new_frequency: f32 },
+    ConstantSetSignalValue { node_uid: u32, new_signal_value: f32 },
 }

@@ -16,7 +16,7 @@ use {resonix_dac::DACConfig, std::sync::Arc};
 
 use crate::{
     messages::{AddNodeError, ConnectError, NodeMessageRequest, UpdateNodeError},
-    BoxedNode, Connection, DACNode, Node, NodeType, NodeUid, SineNode,
+    BoxedNode, Connection, DACNode, Node, NodeType, NodeUid, SineNode, ConstantNode,
 };
 use resonix_core::{NumChannels, SineInterface};
 
@@ -501,6 +501,17 @@ impl Processor {
                     .ok_or(UpdateNodeError::WrongNodeType { uid: node_uid })?;
                 sine_node.set_frequency(new_frequency);
             }
+            NodeMessageRequest::ConstantSetSignalValue { node_uid, new_signal_value } => {
+                let boxed_node = self
+                    .boxed_node_by_uid(&node_uid)
+                    .ok_or(UpdateNodeError::NodeNotFound { uid: node_uid })?;
+                let mut boxed_node_ref = boxed_node.borrow_mut();
+                let constant_node = boxed_node_ref
+                    .as_any_mut()
+                    .downcast_mut::<ConstantNode>()
+                    .ok_or(UpdateNodeError::WrongNodeType { uid: node_uid })?;
+                constant_node.set_signal_value(new_signal_value);
+            },
         }
 
         Ok(())
