@@ -70,33 +70,8 @@ pub struct GranularSynthesizer {
 
 impl GranularSynthesizerAction for GranularSynthesizer {
     fn new() -> Self {
-        let default_buffer = Arc::new(Vec::new());
-        let mut uninitialized_grains = IntMap::default();
-
-        for grain in (0..Self::DEFAULT_NUM_CHANNELS).map(|i| Self::new_grain(i as u32)) {
-            uninitialized_grains.insert(grain.uid, grain);
-        }
-
-        let fresh_grains = IntMap::default();
-        let finished_grains = IntMap::default();
-
-        Self {
-            sample_rate: Self::DEFAULT_SAMPLE_RATE,
-            buffer: default_buffer,
-            rng: SmallRng::from_entropy(),
-            grain_len: Self::DEFAULT_GRAIN_LEN,
-            selection_start: Percentage::from(0.0),
-            selection_end: Percentage::from(1.0),
-            num_channels: NumChannels::new(Self::DEFAULT_NUM_CHANNELS),
-            frame_count: 0,
-            uninitialized_grains,
-            fresh_grains,
-            finished_grains,
-            envelope: Envelope::new_sine(),
-            grain_initialization_delay: Self::DEFAULT_GRAIN_INITIALIZATION_DELAY,
-            selection_end_in_samples: LazyCached::new_uncached(),
-            selection_start_in_samples: LazyCached::new_uncached(),
-        }
+        let seed: <SmallRng as SeedableRng>::Seed = Default::default();
+        GranularSynthesizer::from_seed(seed)
     }
 
     fn selection_start(&self) -> Percentage {
@@ -204,6 +179,37 @@ impl GranularSynthesizerAction for GranularSynthesizer {
 
 // internal logic to support public GranularSynthesizer interface
 impl GranularSynthesizer {
+    /// Allows seeding random number generator manually for consistent snapshot testing
+    pub fn from_seed(seed: <SmallRng as SeedableRng>::Seed) -> Self {
+        let default_buffer = Arc::new(Vec::new());
+        let mut uninitialized_grains = IntMap::default();
+
+        for grain in (0..Self::DEFAULT_NUM_CHANNELS).map(|i| Self::new_grain(i as u32)) {
+            uninitialized_grains.insert(grain.uid, grain);
+        }
+
+        let fresh_grains = IntMap::default();
+        let finished_grains = IntMap::default();
+
+        Self {
+            sample_rate: Self::DEFAULT_SAMPLE_RATE,
+            buffer: default_buffer,
+            rng: SmallRng::from_seed(seed),
+            grain_len: Self::DEFAULT_GRAIN_LEN,
+            selection_start: Percentage::from(0.0),
+            selection_end: Percentage::from(1.0),
+            num_channels: NumChannels::new(Self::DEFAULT_NUM_CHANNELS),
+            frame_count: 0,
+            uninitialized_grains,
+            fresh_grains,
+            finished_grains,
+            envelope: Envelope::new_sine(),
+            grain_initialization_delay: Self::DEFAULT_GRAIN_INITIALIZATION_DELAY,
+            selection_end_in_samples: LazyCached::new_uncached(),
+            selection_start_in_samples: LazyCached::new_uncached(),
+        }
+    }
+
     /// This is the pipeline for generating a frame of audio--it can be shared
     /// between the pipeline that allocates a new Vec and the one that uses
     /// an existing reference to a buffer to write data

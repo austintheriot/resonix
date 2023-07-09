@@ -147,29 +147,32 @@ mod test_constant_node {
 
     #[test]
     fn should_produce_granular_sounds_from_buffer() {
-        let mut granular_synthesizer = GranularSynthesizer::new();
+        let mut granular_synthesizer = GranularSynthesizer::from_seed([0; 32]);
         let buffer_data: Vec<f32> = (0..44100).map(|i| i as f32 / 44100.0).collect();
         let buffer = Arc::new(buffer_data);
         granular_synthesizer.set_buffer(buffer).set_num_channels(1);
-        let mut _granular_synthesizer_node = GranularSynthesizerNode::new(granular_synthesizer);
-        let _output_connection = RefCell::new(Connection::from_test_data(1, 1, vec![0.0], 0, 0));
+        let mut granular_synthesizer_node = GranularSynthesizerNode::new(granular_synthesizer);
+        let output_connection = RefCell::new(Connection::from_test_data(1, 1, vec![0.0], 0, 0));
 
-        // TODO: Need to make the "randomness" injectable for reliable snapshot testing
-        // // before processing, output data is 0.0
-        // {
-        //     assert_eq!(output_connection.borrow().data(), &vec![0.0]);
-        // }
+        // before processing, output data is 0.0
+        {
+            assert_eq!(output_connection.borrow().data(), &vec![0.0]);
+        }
 
-        // // run processing for node
-        // {
-        //     let inputs = [];
-        //     let outputs = [output_connection.borrow_mut()];
-        //     granular_synthesizer_node.process(&mut inputs.into_iter(), &mut outputs.into_iter())
-        // }
+        let mut output_buffer = Vec::new();
 
-        // // after processing, output data is 1.234
-        // {
-        //     assert_eq!(output_connection.borrow().data(), &vec![0.0]);
-        // }
+        // collect single-channel output into a buffer for snapshot testing
+        for _ in 0..1000 {
+            let inputs = [];
+            let outputs = [output_connection.borrow_mut()];
+            granular_synthesizer_node.process(&mut inputs.into_iter(), &mut outputs.into_iter());
+            let output_connection = output_connection.borrow();
+            let mut output_data = output_connection.data().to_owned();
+            output_buffer.append(&mut output_data);
+        }
+
+        {
+            insta::assert_debug_snapshot!(output_buffer);
+        }
     }
 }
