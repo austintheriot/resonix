@@ -31,4 +31,12 @@ dac = ["dep:cpal", "dep:resonix_dac"]
 mock_dac = ["resonix_dac?/mock_dac"]
 
 [dev-dependencies]
+# see https://insta.rs/docs/quickstart/
+insta = { version = "1.30.0", features = ["yaml"] }
 tokio = { version = "1.28.2", features = ["full"]}
+
+[profile.dev.package.insta]
+opt-level = 3
+
+[profile.dev.package.similar]
+opt-level = 3

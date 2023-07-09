@@ -17,8 +17,8 @@ pub fn downmix_simple(channels_in: &[f32], num_channels_out: u32) -> Vec<f32> {
 pub fn downmix_simple_to_buffer<'a>(
     channels_in: &[f32],
     num_channels_out: u32,
-    write_buffer: &'a mut Vec<f32>,
-) -> &'a mut Vec<f32> {
+    write_buffer: &'a mut [f32],
+) -> &'a mut [f32] {
     let channel_weight = 1.0 / num_channels_out as f32;
 
     let mut single_channel_output = 0.0;

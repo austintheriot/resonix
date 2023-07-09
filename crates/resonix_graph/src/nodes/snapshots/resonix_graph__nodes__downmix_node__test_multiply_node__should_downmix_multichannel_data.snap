@@ -1,0 +1,8 @@
+---
+source: crates/resonix_graph/src/nodes/downmix_node.rs
+expression: output_connection.borrow().data()
+---
+[
+    0.52253723,
+    0.9254128,
+]

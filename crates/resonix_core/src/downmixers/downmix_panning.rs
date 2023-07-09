@@ -17,8 +17,8 @@ pub fn downmix_panning(channels_in: &[f32], num_channels_out: u32) -> Vec<f32> {
 pub fn downmix_panning_to_buffer<'a>(
     channels_in: &[f32],
     num_channels_out: u32,
-    write_buffer: &'a mut Vec<f32>,
-) -> &'a mut Vec<f32> {
+    write_buffer: &'a mut [f32],
+) -> &'a mut [f32] {
     if channels_in.is_empty() {
         return write_buffer;
     }
@@ -28,8 +28,7 @@ pub fn downmix_panning_to_buffer<'a>(
     }
 
     if channels_in.len() == num_channels_out as usize {
-        write_buffer.clear();
-        write_buffer.extend(channels_in.iter());
+        write_buffer.copy_from_slice(channels_in);
         return write_buffer;
     }
 

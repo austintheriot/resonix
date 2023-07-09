@@ -64,6 +64,10 @@ impl Connection {
         &self.data
     }
 
+    pub fn data_mut(&mut self) -> &mut [f32] {
+        &mut self.data
+    }
+
     /// Replaces inner data with a new vector
     ///
     /// Warning: this is likely expensive. Prefer `update_data` to modify values in-place
