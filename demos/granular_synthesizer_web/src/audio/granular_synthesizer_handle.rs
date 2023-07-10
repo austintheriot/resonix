@@ -78,10 +78,7 @@ impl GranularSynthesizerAction for GranularSynthesizerHandle {
         self
     }
 
-    fn next_frame_into_buffer<'a>(
-        &mut self,
-        frame_data_buffer: &'a mut [f32],
-    ) -> &'a mut [f32] {
+    fn next_frame_into_buffer<'a>(&mut self, frame_data_buffer: &'a mut [f32]) -> &'a mut [f32] {
         self.granular_synthesizer
             .lock()
             .unwrap()

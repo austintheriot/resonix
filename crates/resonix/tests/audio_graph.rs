@@ -100,7 +100,7 @@ async fn updates_node_in_audio_thread() {
 
     let mut audio_context = AudioContext::new();
 
-    // set up audio graph 
+    // set up audio graph
     let constant_node = ConstantNode::new(2, 0.5);
     let constant_node_handle = audio_context.add_node(constant_node).unwrap();
     let dac_node = DACNode::new(2);
@@ -123,7 +123,10 @@ async fn updates_node_in_audio_thread() {
         assert_eq!(data_written[data_written.len() - 100..], [0.5; 100])
     }
 
-    constant_node_handle.set_signal_value_async(&mut audio_context, 1.0).await.unwrap();
+    constant_node_handle
+        .set_signal_value_async(&mut audio_context, 1.0)
+        .await
+        .unwrap();
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 

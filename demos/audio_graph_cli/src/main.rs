@@ -12,7 +12,7 @@ async fn main() {
     let pass_through_node = PassThroughNode::new(2);
     let pass_through_node_handle = audio_context.add_node(pass_through_node).unwrap();
     audio_context
-        .connect(&sine_node_handle, &pass_through_node_handle)
+        .connect(sine_node_handle, pass_through_node_handle)
         .unwrap();
 
     let mut prev_node_index = pass_through_node_handle;
@@ -22,7 +22,7 @@ async fn main() {
         let pass_through_node = PassThroughNode::new(2);
         let pass_through_node_handle = audio_context.add_node(pass_through_node).unwrap();
         audio_context
-            .connect(prev_node_index, &pass_through_node_handle)
+            .connect(prev_node_index, pass_through_node_handle)
             .unwrap();
         prev_node_index = pass_through_node_handle;
     }
@@ -35,7 +35,6 @@ async fn main() {
 
     let mut audio_context = audio_context.into_audio_init().unwrap();
     audio_context.play_stream().unwrap();
-
 
     tokio::time::sleep(Duration::MAX).await;
 }

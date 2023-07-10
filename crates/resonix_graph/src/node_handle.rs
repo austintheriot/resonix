@@ -30,7 +30,10 @@ pub struct NodeHandle<NodeType: Node> {
 
 impl<N: Node> Clone for NodeHandle<N> {
     fn clone(&self) -> Self {
-        Self { uid: self.uid, node_type: PhantomData }
+        Self {
+            uid: self.uid,
+            node_type: PhantomData,
+        }
     }
 }
 

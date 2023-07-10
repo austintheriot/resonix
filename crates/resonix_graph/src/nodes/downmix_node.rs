@@ -60,7 +60,7 @@ impl Node for DownmixNode {
         let output_data_mut = output.data_mut();
 
         self.downmixer.as_downmixer_to_buffer()(
-            &input_data,
+            input_data,
             output_data_mut.len() as u32,
             output_data_mut,
         );

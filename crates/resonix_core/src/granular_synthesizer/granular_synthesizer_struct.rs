@@ -148,10 +148,7 @@ impl GranularSynthesizerAction for GranularSynthesizer {
         self.num_channels
     }
 
-    fn next_frame_into_buffer<'a>(
-        &mut self,
-        frame_data_buffer: &'a mut [f32],
-    ) -> &'a mut [f32] {
+    fn next_frame_into_buffer<'a>(&mut self, frame_data_buffer: &'a mut [f32]) -> &'a mut [f32] {
         self.run_next_frame_pipeline(frame_data_buffer, false)
     }
 

@@ -9,10 +9,7 @@ use resonix_core::{GranularSynthesizer, GranularSynthesizerAction, NumChannels};
 #[cfg(feature = "dac")]
 use {resonix_dac::DACConfig, std::sync::Arc};
 
-use crate::{
-    messages::{MessageError, NodeMessageRequest, UpdateNodeError},
-    AudioContext, AudioInit, AudioUninit, Connection, Node, NodeHandle, NodeType, NodeUid,
-};
+use crate::{Connection, Node, NodeType, NodeUid};
 
 /// Takes no input signals and outputs a single,
 /// constant signal value to all output connections.
@@ -27,7 +24,7 @@ pub struct GranularSynthesizerNode {
 
 impl GranularSynthesizerNode {
     pub fn new(granular_synthesizer: impl Into<GranularSynthesizer>) -> Self {
-       Self::new_with_uid(0, granular_synthesizer)
+        Self::new_with_uid(0, granular_synthesizer)
     }
 
     pub(crate) fn new_with_uid(
@@ -35,7 +32,7 @@ impl GranularSynthesizerNode {
         granular_synthesizer: impl Into<GranularSynthesizer>,
     ) -> Self {
         let granular_synthesizer = granular_synthesizer.into();
-        // number of outgoing channels is copied here, since the granular 
+        // number of outgoing channels is copied here, since the granular
         // synthesizer is externally read-only it has been converted into a node
         let num_outgoing_channels = granular_synthesizer.num_channels();
         Self {
@@ -106,7 +103,8 @@ impl Node for GranularSynthesizerNode {
 
     #[cfg(feature = "dac")]
     fn update_from_dac_config(&mut self, dac_config: Arc<DACConfig>) {
-        self.granular_synthesizer.set_sample_rate(dac_config.sample_rate());
+        self.granular_synthesizer
+            .set_sample_rate(dac_config.sample_rate());
     }
 }
 

@@ -28,13 +28,12 @@ impl SineNode {
         Self::new_with_uid(0, num_outgoing_channels, frequency)
     }
 
-   
     pub(crate) fn new_with_uid(
         uid: NodeUid,
         num_outgoing_channels: impl Into<NumChannels>,
         frequency: impl Into<f32>,
     ) -> Self {
-      Self::new_with_full_config(uid, num_outgoing_channels, 0, frequency)
+        Self::new_with_full_config(uid, num_outgoing_channels, 0, frequency)
     }
 
     pub(crate) fn new_with_full_config(

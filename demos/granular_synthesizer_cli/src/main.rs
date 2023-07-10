@@ -1,13 +1,9 @@
 use resonix::{
-    granular_synthesizer::GranularSynthesizer,
-    granular_synthesizer::GranularSynthesizerAction, AudioContext, DACNode, DownmixNode, Downmixer,
-    GranularSynthesizerNode,
+    granular_synthesizer::GranularSynthesizer, granular_synthesizer::GranularSynthesizerAction,
+    AudioContext, DACNode, DownmixNode, Downmixer, GranularSynthesizerNode,
 };
 use rodio::{Decoder, Source};
-use std::{
-    sync::{Arc},
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 /// Converts default mp3 file to raw audio sample data
 fn load_default_buffer() -> Arc<Vec<f32>> {

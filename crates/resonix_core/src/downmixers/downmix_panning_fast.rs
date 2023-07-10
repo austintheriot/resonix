@@ -2,7 +2,7 @@
 ///
 /// Faster, but less aurally correct implementation (does not call .sqrt()
 /// on each run of the nested for loop)
-/// 
+///
 /// Creates a new buffer and writes into it. To avoid unnecessary allocations, use `downmix_panning_fast_to_buffer`
 pub fn downmix_panning_fast(channels_in: &[f32], num_channels_out: u32) -> Vec<f32> {
     let mut output_buffer = vec![0.0; num_channels_out as usize];
@@ -14,7 +14,7 @@ pub fn downmix_panning_fast(channels_in: &[f32], num_channels_out: u32) -> Vec<f
 ///
 /// Faster, but less aurally correct implementation (does not call .sqrt()
 /// on each run of the nested for loop)
-/// 
+///
 /// Writes into an existing buffer to avoid unnecessary allocations
 pub fn downmix_panning_fast_to_buffer<'a>(
     channels_in: &[f32],

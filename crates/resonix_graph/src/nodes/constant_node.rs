@@ -9,7 +9,10 @@ use resonix_core::NumChannels;
 #[cfg(feature = "dac")]
 use {resonix_dac::DACConfig, std::sync::Arc};
 
-use crate::{Connection, Node, NodeType, NodeUid, NodeHandle, AudioContext, AudioUninit, messages::{UpdateNodeError, NodeMessageRequest, MessageError}, AudioInit};
+use crate::{
+    messages::{MessageError, NodeMessageRequest, UpdateNodeError},
+    AudioContext, AudioInit, AudioUninit, Connection, Node, NodeHandle, NodeType, NodeUid,
+};
 
 /// Takes no input signals and outputs a single,
 /// constant signal value to all output connections.
@@ -24,7 +27,7 @@ pub struct ConstantNode {
 
 impl ConstantNode {
     pub fn new(num_outgoing_channels: impl Into<NumChannels>, signal_value: f32) -> Self {
-       Self::new_with_uid(0, num_outgoing_channels, signal_value)
+        Self::new_with_uid(0, num_outgoing_channels, signal_value)
     }
 
     pub(crate) fn new_with_uid(
@@ -78,7 +81,6 @@ impl NodeHandle<ConstantNode> {
         Ok(self)
     }
 }
-
 
 impl Node for ConstantNode {
     fn node_type(&self) -> crate::NodeType {

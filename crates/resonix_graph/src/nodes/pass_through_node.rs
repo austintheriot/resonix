@@ -24,7 +24,7 @@ pub struct PassThroughNode {
 
 impl PassThroughNode {
     pub fn new(num_channels: impl Into<NumChannels>) -> Self {
-       Self::new_with_uid(0, num_channels)
+        Self::new_with_uid(0, num_channels)
     }
 
     pub(crate) fn new_with_uid(uid: NodeUid, num_channels: impl Into<NumChannels>) -> Self {

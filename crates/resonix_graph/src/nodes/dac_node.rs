@@ -19,7 +19,7 @@ pub struct DACNode {
 
 impl DACNode {
     pub fn new(num_incoming_channels: impl Into<NumChannels>) -> Self {
-      Self::new_with_uid(0, num_incoming_channels)
+        Self::new_with_uid(0, num_incoming_channels)
     }
 
     pub(crate) fn new_with_uid(
