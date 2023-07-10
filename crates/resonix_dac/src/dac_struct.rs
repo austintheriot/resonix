@@ -210,11 +210,20 @@ impl DAC {
     {
         use std::time::Duration;
 
+        // allows only generating a set number of frames while testing
+        let mut current_frame = 0;
+
         Ok(Box::new(std::thread::spawn(move || loop {
-            let num_frames = 1;
+
+            if current_frame >= config.num_frames() {
+                return
+            }
+            current_frame += 1;
+            
+            let num_frames_to_generate_per_loop = 1;
 
             // new buffer to write data into
-            let mut buffer = vec![S::from(&0.0); num_frames * config.num_channels() as usize];
+            let mut buffer = vec![S::from(&0.0); num_frames_to_generate_per_loop * config.num_channels() as usize];
 
             write_frame_to_buffer.call(buffer.as_mut_slice(), Arc::clone(&config));
 
