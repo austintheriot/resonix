@@ -7,9 +7,6 @@ use resonix_core::NumChannels;
 
 use crate::{Connection, Node, NodeType, NodeUid};
 
-#[cfg(feature = "dac")]
-use {resonix_dac::DACConfig, std::sync::Arc, crate::UpdateNodeMessage};
-
 #[derive(Debug, Default, Clone)]
 pub struct DACNode {
     data: Vec<f32>,

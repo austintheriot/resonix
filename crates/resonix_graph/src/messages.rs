@@ -137,6 +137,6 @@ impl UpdateNodeMessage {
         self.data
             .downcast::<D>()
             .map(|p| *p)
-            .map_err(|_| UpdateNodeError::InvalidData{ uid: self.node_uid })
+            .map_err(|_| UpdateNodeError::InvalidData { uid: self.node_uid })
     }
 }

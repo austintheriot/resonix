@@ -5,9 +5,6 @@ use std::{
 
 use resonix_core::NumChannels;
 
-#[cfg(feature = "dac")]
-use {resonix_dac::DACConfig, std::sync::Arc, crate::UpdateNodeMessage};
-
 use crate::{Connection, Node, NodeType, NodeUid};
 
 /// Takes two signals and multiplies them together,
@@ -102,12 +99,6 @@ impl Node for MultiplyNode {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
-
-    
-
-
-
-    
 }
 
 #[cfg(test)]
@@ -120,19 +111,26 @@ mod test_multiply_node {
     #[cfg(feature = "dac")]
     #[test]
     fn rejects_node_message_request() {
-        use crate::{ConstantNodeMessage, messages::{UpdateNodeMessage, UpdateNodeError}};
+        use crate::{
+            messages::{UpdateNodeError, UpdateNodeMessage},
+            ConstantNodeMessage,
+        };
 
         let update_node_message = UpdateNodeMessage {
             node_uid: 0,
-            data: Box::new(ConstantNodeMessage::SetSignalValue { new_signal_value: 1.0 })
+            data: Box::new(ConstantNodeMessage::SetSignalValue {
+                new_signal_value: 1.0,
+            }),
         };
 
         let mut multiply_node = MultiplyNode::new(1);
 
-
         let result = multiply_node.handle_update_node_message(update_node_message);
 
-        assert!(matches!(result, Err(UpdateNodeError::NotConfigured { uid: 0 })))
+        assert!(matches!(
+            result,
+            Err(UpdateNodeError::NotConfigured { uid: 0 })
+        ))
     }
 
     #[test]

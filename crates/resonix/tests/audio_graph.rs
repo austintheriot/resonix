@@ -1,8 +1,3 @@
-use std::any::Any;
-
-use resonix_core::NumChannels;
-use resonix_graph::{ConstantNodeMessage, NodeType, NodeUid};
-
 #[cfg(all(feature = "dac", feature = "mock_dac"))]
 #[tokio::test]
 async fn set_up_graph_then_initialize_audio() {
@@ -97,11 +92,13 @@ async fn initialize_audio_then_set_up_graph() {
 #[tokio::test]
 async fn updates_node_in_audio_thread() {
     use std::{
+        any::Any,
         sync::{Arc, Mutex},
         time::Duration,
     };
 
     use resonix::{AudioContext, ConstantNode, DACNode, PassThroughNode};
+    use resonix_graph::ConstantNodeMessage;
 
     let mut audio_context = AudioContext::new();
 
@@ -151,13 +148,15 @@ async fn updates_node_in_audio_thread() {
 #[tokio::test]
 async fn allows_implementing_custom_node() {
     use std::{
+        any::Any,
         sync::{Arc, Mutex},
         time::Duration,
     };
 
     use resonix::{AudioContext, ConstantNode, DACNode, PassThroughNode};
+    use resonix_core::NumChannels;
     use resonix_dac::DACConfig;
-    use resonix_graph::Node;
+    use resonix_graph::{Node, NodeType};
 
     let mut audio_context = AudioContext::new();
 
@@ -204,11 +203,11 @@ async fn allows_implementing_custom_node() {
             self.num_outgoing_channels
         }
 
-        fn uid(&self) -> NodeUid {
+        fn uid(&self) -> u32 {
             self.uid
         }
 
-        fn set_uid(&mut self, uid: NodeUid) {
+        fn set_uid(&mut self, uid: u32) {
             self.uid = uid;
         }
 
@@ -268,13 +267,17 @@ async fn allows_implementing_custom_node() {
 #[tokio::test]
 async fn allows_implementing_custom_node_messages() {
     use std::{
+        any::Any,
         sync::{Arc, Mutex},
         time::Duration,
     };
 
-    use resonix::{AudioContext, ConstantNode, DACNode, PassThroughNode};
+    use resonix::{AudioContext, ConstantNode, DACNode, NumChannels, PassThroughNode};
     use resonix_dac::DACConfig;
-    use resonix_graph::{Node, messages::{UpdateNodeMessage, UpdateNodeError}};
+    use resonix_graph::{
+        messages::{UpdateNodeError, UpdateNodeMessage},
+        ConstantNodeMessage, Node, NodeType,
+    };
 
     let mut audio_context = AudioContext::new();
 
@@ -327,11 +330,11 @@ async fn allows_implementing_custom_node_messages() {
             self.num_outgoing_channels
         }
 
-        fn uid(&self) -> NodeUid {
+        fn uid(&self) -> u32 {
             self.uid
         }
 
-        fn set_uid(&mut self, uid: NodeUid) {
+        fn set_uid(&mut self, uid: u32) {
             self.uid = uid;
         }
 
@@ -401,8 +404,13 @@ async fn allows_implementing_custom_node_messages() {
         )
     }
 
-    on_off_node_handle.update_async(&mut audio_context, OnOffNodeMessage::SetAlwaysOn { always_on: true }).await.unwrap();
-
+    on_off_node_handle
+        .update_async(
+            &mut audio_context,
+            OnOffNodeMessage::SetAlwaysOn { always_on: true },
+        )
+        .await
+        .unwrap();
 
     tokio::time::sleep(Duration::from_secs(1)).await;
 
@@ -411,7 +419,7 @@ async fn allows_implementing_custom_node_messages() {
         let data_written = data_written.lock().unwrap();
         assert_eq!(
             &data_written[data_written.len() - 10..],
-            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, ]
+            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,]
         )
     }
 }

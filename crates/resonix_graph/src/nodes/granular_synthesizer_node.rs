@@ -7,7 +7,7 @@ use std::{
 use resonix_core::{GranularSynthesizer, GranularSynthesizerAction, NumChannels};
 
 #[cfg(feature = "dac")]
-use {resonix_dac::DACConfig, std::sync::Arc, crate::UpdateNodeMessage};
+use {resonix_dac::DACConfig, std::sync::Arc};
 
 use crate::{Connection, Node, NodeType, NodeUid};
 

@@ -5,9 +5,6 @@ use std::{
 
 use resonix_core::{Downmixer, NumChannels};
 
-#[cfg(feature = "dac")]
-use {resonix_dac::DACConfig, std::sync::Arc, crate::UpdateNodeMessage};
-
 use crate::{Connection, Node, NodeType, NodeUid};
 
 /// Takes a multichannel signal with number of channels `m`
@@ -104,12 +101,6 @@ impl Node for DownmixNode {
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
-
-    
-
-
-
-    
 }
 
 #[cfg(test)]

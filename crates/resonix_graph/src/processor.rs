@@ -15,10 +15,10 @@ use petgraph::{
 use {resonix_dac::DACConfig, std::sync::Arc};
 
 use crate::{
-    messages::{AddNodeError, ConnectError, UpdateNodeMessage, UpdateNodeError},
-    node, BoxedNode, Connection, ConstantNode, DACNode, Node, NodeType, NodeUid, SineNode,
+    messages::{AddNodeError, ConnectError, UpdateNodeError, UpdateNodeMessage},
+    BoxedNode, Connection, DACNode, Node, NodeType, NodeUid,
 };
-use resonix_core::{NumChannels, SineInterface};
+use resonix_core::NumChannels;
 
 /// Cloning the audio context is an outward clone of the
 /// audio context handle
@@ -493,7 +493,7 @@ impl Processor {
         boxed_node
             .borrow_mut()
             .handle_update_node_message(update_node_message)?;
-        
+
         Ok(())
     }
 }

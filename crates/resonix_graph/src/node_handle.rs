@@ -33,11 +33,11 @@ pub struct NodeHandle<NodeType: Node> {
 
 impl<N: Node> NodeHandle<N> {
     /// Synchronously updates a Node with the given message.
-    /// 
-    /// Note: it is up to the caller to make sure that 
+    ///
+    /// Note: it is up to the caller to make sure that
     /// the message conforms to the a type that the receiving
     /// Node is configured to receive.
-    /// 
+    ///
     /// If a message a data of unexpected type is received,
     /// the processor will return an error back to the caller.
     #[cfg(feature = "dac")]
@@ -54,13 +54,13 @@ impl<N: Node> NodeHandle<N> {
 
     /// Asynchronously sends a message to the audio thread,
     /// where the node is updated. Async function returns
-    /// once the result of the update is returned from the 
+    /// once the result of the update is returned from the
     /// audio thread.
-    /// 
-    /// Note: it is up to the caller to make sure that 
+    ///
+    /// Note: it is up to the caller to make sure that
     /// the message conforms to the a type that the receiving
     /// Node is configured to receive.
-    /// 
+    ///
     /// If a message a data of unexpected type is received,
     /// the audio thread will return an error back to the caller.
     #[cfg(feature = "dac")]

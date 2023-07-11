@@ -18,7 +18,7 @@ use uuid::Uuid;
 use std::sync::Mutex;
 
 use crate::{
-    messages::{MessageError, UpdateNodeMessage, UpdateNodeError},
+    messages::{MessageError, UpdateNodeError, UpdateNodeMessage},
     AddNodeError, BoxedNode, ConnectError, Node, NodeHandle, NodeUid, Processor,
     ProcessorMessageRequest, ProcessorMessageResponse,
 };

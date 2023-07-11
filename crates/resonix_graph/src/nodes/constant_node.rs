@@ -6,12 +6,9 @@ use std::{
 
 use resonix_core::NumChannels;
 
-#[cfg(feature = "dac")]
-use {resonix_dac::DACConfig, std::sync::Arc};
-
 use crate::{
-    messages::{MessageError, UpdateNodeError, UpdateNodeMessage},
-    AudioContext, AudioInit, AudioUninit, Connection, Node, NodeHandle, NodeType, NodeUid,
+    messages::{UpdateNodeError, UpdateNodeMessage},
+    Connection, Node, NodeType, NodeUid,
 };
 
 /// Takes no input signals and outputs a single,
@@ -123,7 +120,7 @@ impl Node for ConstantNode {
 }
 
 pub enum ConstantNodeMessage {
-    SetSignalValue { new_signal_value: f32 }
+    SetSignalValue { new_signal_value: f32 },
 }
 
 impl PartialEq for ConstantNode {
@@ -162,18 +159,22 @@ mod test_constant_node {
     #[cfg(feature = "dac")]
     #[test]
     fn accepts_node_message_request() {
-        use crate::{ConstantNodeMessage, messages::UpdateNodeMessage};
+        use crate::{messages::UpdateNodeMessage, ConstantNodeMessage};
 
         let update_node_message = UpdateNodeMessage {
             node_uid: 0,
-            data: Box::new(ConstantNodeMessage::SetSignalValue { new_signal_value: 1.0 })
+            data: Box::new(ConstantNodeMessage::SetSignalValue {
+                new_signal_value: 1.0,
+            }),
         };
 
         let mut constant_node = ConstantNode::new(1, 0.0);
 
         assert_eq!(constant_node.signal_value(), 0.0);
 
-        constant_node.handle_update_node_message(update_node_message).unwrap();
+        constant_node
+            .handle_update_node_message(update_node_message)
+            .unwrap();
 
         assert_eq!(constant_node.signal_value(), 1.0);
     }
@@ -181,18 +182,26 @@ mod test_constant_node {
     #[cfg(feature = "dac")]
     #[test]
     fn rejects_invalid_node_message_request() {
-        use crate::{messages::{UpdateNodeMessage, UpdateNodeError}, SineNodeMessage};
+        use crate::{
+            messages::{UpdateNodeError, UpdateNodeMessage},
+            SineNodeMessage,
+        };
 
         let update_node_message = UpdateNodeMessage {
             node_uid: 0,
-            data: Box::new(SineNodeMessage::SetFrequency { new_frequency: 440.0 })
+            data: Box::new(SineNodeMessage::SetFrequency {
+                new_frequency: 440.0,
+            }),
         };
 
         let mut constant_node = ConstantNode::new(1, 0.0);
 
         let result = constant_node.handle_update_node_message(update_node_message);
 
-        assert!(matches!(result, Err(UpdateNodeError::InvalidData { uid: 0 })))
+        assert!(matches!(
+            result,
+            Err(UpdateNodeError::InvalidData { uid: 0 })
+        ))
     }
 
     #[test]

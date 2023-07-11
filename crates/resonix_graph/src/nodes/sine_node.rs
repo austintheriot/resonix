@@ -10,8 +10,8 @@ use resonix_core::{NumChannels, SampleRate, Sine, SineInterface};
 use {resonix_dac::DACConfig, std::sync::Arc};
 
 use crate::{
-    messages::{MessageError, UpdateNodeMessage, UpdateNodeError},
-    AudioContext, AudioInit, AudioUninit, Connection, Node, NodeHandle, NodeType, NodeUid,
+    messages::{UpdateNodeError, UpdateNodeMessage},
+    Connection, Node, NodeType, NodeUid,
 };
 
 #[derive(Debug, Clone)]
@@ -186,21 +186,25 @@ mod test_sine_node {
 
     use resonix_core::SineInterface;
 
-    use crate::{messages::UpdateNodeMessage, Connection, Node, SineNodeMessage, SineNode};
+    use crate::{messages::UpdateNodeMessage, Connection, Node, SineNode, SineNodeMessage};
 
     #[cfg(feature = "dac")]
     #[test]
     fn accepts_node_message_request() {
         let update_node_message = UpdateNodeMessage {
             node_uid: 0,
-            data: Box::new(SineNodeMessage::SetFrequency { new_frequency: 440.0 })
+            data: Box::new(SineNodeMessage::SetFrequency {
+                new_frequency: 440.0,
+            }),
         };
 
         let mut sine_node = SineNode::new_with_full_config(0, 1, 4, 0.0);
 
         assert_eq!(sine_node.frequency(), 0.0);
 
-        sine_node.handle_update_node_message(update_node_message).unwrap();
+        sine_node
+            .handle_update_node_message(update_node_message)
+            .unwrap();
 
         assert_eq!(sine_node.frequency(), 440.0);
     }

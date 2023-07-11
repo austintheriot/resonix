@@ -12,7 +12,11 @@ impl DACConfig {
         Ok(Self::default())
     }
 
-    pub fn from_data(num_channels: u16, sample_rate: u32, num_frames: u32,) -> Result<Self, DACConfigBuildError> {
+    pub fn from_data(
+        num_channels: u16,
+        sample_rate: u32,
+        num_frames: u32,
+    ) -> Result<Self, DACConfigBuildError> {
         Ok(Self {
             num_channels,
             sample_rate,

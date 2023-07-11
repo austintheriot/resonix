@@ -8,9 +8,9 @@ use std::{
 use dyn_clone::DynClone;
 
 use resonix_core::NumChannels;
-#[cfg(feature = "dac")]
-use {resonix_dac::DACConfig, crate::UpdateNodeMessage};
 use thiserror::Error;
+#[cfg(feature = "dac")]
+use {crate::UpdateNodeMessage, resonix_dac::DACConfig};
 
 use crate::{Connection, NodeType, UpdateNodeError};
 
@@ -59,12 +59,17 @@ where
 
     #[cfg(feature = "dac")]
     fn update_from_dac_config(&mut self, _dac_config: Arc<DACConfig>) {}
-    
+
     #[cfg(feature = "dac")]
-    fn handle_update_node_message(&mut self, update_node_message: UpdateNodeMessage) -> Result<(), UpdateNodeError> {
+    fn handle_update_node_message(
+        &mut self,
+        update_node_message: UpdateNodeMessage,
+    ) -> Result<(), UpdateNodeError> {
         // by default, if a Node is not configured to receive `UpdateNodeMessage`
-        // then an error will be returned 
-        Err(UpdateNodeError::NotConfigured { uid: update_node_message.node_uid })
+        // then an error will be returned
+        Err(UpdateNodeError::NotConfigured {
+            uid: update_node_message.node_uid,
+        })
     }
 }
 
@@ -135,7 +140,10 @@ impl Node for BoxedNode {
     }
 
     #[cfg(feature = "dac")]
-    fn handle_update_node_message(&mut self, update_node_message: UpdateNodeMessage) -> Result<(), UpdateNodeError> {
+    fn handle_update_node_message(
+        &mut self,
+        update_node_message: UpdateNodeMessage,
+    ) -> Result<(), UpdateNodeError> {
         (**self).handle_update_node_message(update_node_message)
     }
 }
