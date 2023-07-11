@@ -2,7 +2,7 @@ use std::{
     any::Any,
     cell::{Ref, RefMut},
     fmt::Debug,
-    sync::Arc,
+    sync::Arc, ops::{Deref, DerefMut},
 };
 
 use dyn_clone::DynClone;
@@ -28,8 +28,8 @@ where
 {
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
-        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
+        inputs: &mut dyn Iterator<Item = &Connection>,
+        outputs: &mut dyn Iterator<Item = &mut Connection>,
     );
 
     fn node_type(&self) -> NodeType;
@@ -75,7 +75,29 @@ where
 
 dyn_clone::clone_trait_object!(Node);
 
-pub type BoxedNode = Box<dyn Node>;
+#[derive(Debug, Clone)]
+pub struct BoxedNode(pub Box<dyn Node>);
+
+impl BoxedNode {
+    pub fn new<N: Node + 'static>(node: N) -> Self {
+        Self(Box::new(node))
+    }
+}
+
+impl Deref for BoxedNode {
+    type Target = Box<dyn Node>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for BoxedNode {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+unsafe impl Sync for BoxedNode {}
 
 pub type NodeUid = u32;
 
@@ -83,8 +105,8 @@ impl Node for BoxedNode {
     #[inline]
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
-        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
+        inputs: &mut dyn Iterator<Item = &Connection>,
+        outputs: &mut dyn Iterator<Item = &mut Connection>,
     ) {
         (**self).process(inputs, outputs)
     }

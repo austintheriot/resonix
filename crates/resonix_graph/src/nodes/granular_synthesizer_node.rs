@@ -67,8 +67,8 @@ impl Node for GranularSynthesizerNode {
     #[inline]
     fn process(
         &mut self,
-        _inputs: &mut dyn Iterator<Item = Ref<Connection>>,
-        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
+        _inputs: &mut dyn Iterator<Item = &Connection>,
+        outputs: &mut dyn Iterator<Item = &mut Connection>,
     ) {
         let mut output = outputs.next().unwrap();
         let output_data = output.data_mut();

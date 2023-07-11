@@ -1,3 +1,5 @@
+#![feature(sync_unsafe_cell)]
+
 pub mod audio_context;
 pub mod connection;
 pub mod messages;

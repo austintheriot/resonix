@@ -33,8 +33,8 @@ impl Node for MulticoreNode {
     #[inline]
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
-        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
+        inputs: &mut dyn Iterator<Item = &Connection>,
+        outputs: &mut dyn Iterator<Item = &mut Connection>,
     ) {
         let mut output = outputs.next().unwrap();
         output

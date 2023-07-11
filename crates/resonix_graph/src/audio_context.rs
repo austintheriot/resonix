@@ -378,7 +378,7 @@ impl AudioContext<AudioInit> {
         self.send_message_to_processor(
             |request_id| ProcessorMessageRequest::AddNode {
                 request_id,
-                node: Box::new(node),
+                node: BoxedNode::new(node),
             },
             |node_message_response| {
                 let ProcessorMessageResponse::AddNode { result, .. } = node_message_response else {

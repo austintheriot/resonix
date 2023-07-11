@@ -1,5 +1,5 @@
 use std::{
-    cell::RefCell,
+    cell::{RefCell, SyncUnsafeCell},
     collections::{HashSet, VecDeque},
     ops::{Deref, DerefMut},
 };
@@ -10,6 +10,7 @@ use petgraph::{
     visit::Dfs,
     Direction, Graph,
 };
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 #[cfg(feature = "dac")]
 use {resonix_dac::DACConfig, std::sync::Arc};
@@ -22,9 +23,9 @@ use resonix_core::NumChannels;
 
 /// Cloning the audio context is an outward clone of the
 /// audio context handle
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct Processor {
-    graph: Graph<RefCell<BoxedNode>, RefCell<Connection>>,
+    graph: Graph<SyncUnsafeCell<BoxedNode>, SyncUnsafeCell<Connection>>,
     /// Maps node uids to their `NodeIndex` in the graph.
     /// This value must be updated if/when removing nodes
     /// from the graph is supported
@@ -34,7 +35,7 @@ pub struct Processor {
     /// Created while nodes are being added, so that when it's time `run` the graph,
     /// there is no analysis that needs to happen, it's just simple list of node_indexes,
     /// ordered by what value they need to be visited in
-    visit_order: Option<Vec<NodeIndex>>,
+    visit_order: Option<Vec<Vec<NodeIndex>>>,
     /// All the input nodes in the audio graph--these must be visited first
     /// for maximum processing efficiency
     input_node_indexes: Vec<NodeIndex>,
@@ -62,26 +63,57 @@ impl Processor {
             self.initialize_visit_order();
         }
 
-        for node_index in self.visit_order.as_ref().unwrap() {
-            let node = &self.graph[*node_index];
-            let node_uid = node.borrow().uid();
-            let incoming_edge_indexes = self.incoming_connection_indexes(&node_uid).unwrap_or(&[]);
-            let outgoing_edge_indexes = self.outgoing_connection_indexes(&node_uid).unwrap_or(&[]);
+        // #[cfg(target_arch = "wasm32")]
+        // for node_group in self.visit_order.as_ref().unwrap() {
+        //     for node_index in node_group {
+        //         let node = &self.graph[*node_index];
+        //         let node_uid = node.borrow().uid();
+        //         let incoming_edge_indexes =
+        //             self.incoming_connection_indexes(&node_uid).unwrap_or(&[]);
+        //         let outgoing_edge_indexes =
+        //             self.outgoing_connection_indexes(&node_uid).unwrap_or(&[]);
 
-            let mut incoming_connections = {
-                incoming_edge_indexes
-                    .iter()
-                    .map(|i| self.graph.edge_weight(*i).unwrap().borrow())
-            };
+        //         let mut incoming_connections = {
+        //             incoming_edge_indexes
+        //                 .iter()
+        //                 .map(|i| self.graph.edge_weight(*i).unwrap().borrow())
+        //         };
 
-            let mut outgoing_connections = {
-                outgoing_edge_indexes
-                    .iter()
-                    .map(|i| self.graph.edge_weight(*i).unwrap().borrow_mut())
-            };
+        //         let mut outgoing_connections = {
+        //             outgoing_edge_indexes
+        //                 .iter()
+        //                 .map(|i| self.graph.edge_weight(*i).unwrap().borrow_mut())
+        //         };
 
-            node.borrow_mut()
-                .process(&mut incoming_connections, &mut outgoing_connections)
+        //         node.borrow_mut()
+        //             .process(&mut incoming_connections, &mut outgoing_connections)
+        //     }
+        // }
+
+        // #[cfg(not(target_arch = "wasm32"))]
+        for node_group in self.visit_order.as_ref().unwrap() {
+            node_group.par_iter().for_each(|node_index| {
+                let node = unsafe { &mut *self.graph[*node_index].get() as &mut BoxedNode };
+                let node_uid = node.uid();
+                let incoming_edge_indexes =
+                    self.incoming_connection_indexes(&node_uid).unwrap_or(&[]);
+                let outgoing_edge_indexes =
+                    self.outgoing_connection_indexes(&node_uid).unwrap_or(&[]);
+
+                let mut incoming_connections = {
+                    incoming_edge_indexes.iter().map(|i| unsafe {
+                        &*self.graph.edge_weight(*i).unwrap().get() as &Connection
+                    })
+                };
+
+                let mut outgoing_connections = {
+                    outgoing_edge_indexes.iter().map(|i| unsafe {
+                        &mut *self.graph.edge_weight(*i).unwrap().get() as &mut Connection
+                    })
+                };
+
+                node.process(&mut incoming_connections, &mut outgoing_connections)
+            })
         }
     }
 
@@ -140,9 +172,32 @@ impl Processor {
             }
         }
 
+        let mut visit_order_group = Vec::new();
+
         // find a valid path through graph, such that all inputs
         // are initialized for each node before that node's `process` function is run
         while let Some(node_index) = in_progress_visit_order.pop_front() {
+            let look_ahead_index = in_progress_visit_order.get(0);
+
+            let end_of_group = if let Some(look_ahead_index) = look_ahead_index {
+                let mut incoming_connections = self
+                    .graph
+                    .edges_directed(*look_ahead_index, Direction::Incoming)
+                    .map(|edge_reference| edge_reference.weight());
+
+                // skip for now if inputs have not been initialized
+                if incoming_connections.any(|incoming_connection| {
+                    !connection_visit_set
+                        .contains(unsafe { &*incoming_connection.get() as &Connection }.uid())
+                }) {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                true
+            };
+
             graph_visits += 1;
 
             // todo: make this a configurable number and a recoverable error
@@ -160,7 +215,8 @@ impl Processor {
 
             // skip for now if inputs have not been initialized
             if incoming_connections.any(|incoming_connection| {
-                !connection_visit_set.contains(incoming_connection.borrow().uid())
+                !connection_visit_set
+                    .contains(unsafe { &*incoming_connection.get() as &Connection }.uid())
             }) {
                 in_progress_visit_order.push_back(node_index);
                 continue;
@@ -169,15 +225,21 @@ impl Processor {
             // if made it this far, we know that this node is valid to visit
             // at this point in the graph traversal, since the all the node's
             // inputs were visited prior to calling this node's `process` function
-            final_visit_order.push(node_index);
+            visit_order_group.push(node_index);
+            if end_of_group {
+                final_visit_order.push(visit_order_group.drain(..).collect());
+            }
 
             let outgoing_connections = self.graph.edges_directed(node_index, Direction::Outgoing);
 
             // mark all outgoing connections from this node has having been visited
             outgoing_connections.for_each(|edge_reference| {
-                connection_visit_set.insert(*edge_reference.weight().borrow().uid());
+                connection_visit_set
+                    .insert(*unsafe { &*edge_reference.weight().get() as &Connection }.uid());
             });
         }
+
+        println!("{:?}", final_visit_order);
 
         self.visit_order = Some(final_visit_order);
     }
@@ -187,8 +249,7 @@ impl Processor {
     pub(crate) fn dac_nodes_sum(&self, num_channels: NumChannels) -> Vec<f32> {
         let mut multi_channel_sum = vec![0.0; *num_channels];
         self.dac_node_indexes.iter().for_each(|i: &NodeIndex| {
-            let dac_node_ref = &self.graph[*i].borrow();
-            let dac_data = dac_node_ref
+            let dac_data = unsafe { &*self.graph[*i].get() as &BoxedNode }
                 .as_any()
                 .downcast_ref::<DACNode>()
                 .unwrap()
@@ -227,51 +288,50 @@ impl Processor {
         )?;
 
         // check if connection indexes are out of bounds
-        let (parent_uuid, child_uuid, num_channels) = {
-            let parent_node =
-                &self
-                    .graph
-                    .node_weight(parent_node_index)
-                    .ok_or(ConnectError::NodeNotFound {
+        let (parent_uuid, child_uuid, num_channels) =
+            {
+                let parent_node = &self.graph.node_weight(parent_node_index).ok_or(
+                    ConnectError::NodeNotFound {
                         node_index: parent_node_index,
-                    })?;
-            let child_node =
-                &self
-                    .graph
-                    .node_weight(child_node_index)
-                    .ok_or(ConnectError::NodeNotFound {
+                    },
+                )?;
+                let child_node = &self.graph.node_weight(child_node_index).ok_or(
+                    ConnectError::NodeNotFound {
                         node_index: child_node_index,
-                    })?;
+                    },
+                )?;
 
-            Self::check_connection_index_out_of_bounds(
-                &parent_node.borrow(),
-                &child_node.borrow(),
-                from_index,
-                to_index,
-            )?;
+                let parent_node = unsafe { &*parent_node.get() as &BoxedNode };
+                let child_node = unsafe { &*child_node.get() as &BoxedNode };
+                Self::check_connection_index_out_of_bounds(
+                    parent_node,
+                    child_node,
+                    from_index,
+                    to_index,
+                )?;
 
-            Self::check_num_channels_compatibility(&parent_node.borrow(), &child_node.borrow())?;
+                Self::check_num_channels_compatibility(&parent_node, &child_node)?;
 
-            if parent_node_uid == child_node_uid {
-                return Err(ConnectError::GraphCycleFound {
-                    parent_node_name: parent_node.borrow().name(),
-                    child_node_name: child_node.borrow().name(),
-                });
-            }
+                if parent_node_uid == child_node_uid {
+                    return Err(ConnectError::GraphCycleFound {
+                        parent_node_name: parent_node.name(),
+                        child_node_name: child_node.name(),
+                    });
+                }
 
-            self.check_for_cyclical_connection(
-                child_node_index,
-                parent_node_index,
-                &parent_node.borrow(),
-                &child_node.borrow(),
-            )?;
+                self.check_for_cyclical_connection(
+                    child_node_index,
+                    parent_node_index,
+                    &parent_node,
+                    &child_node,
+                )?;
 
-            (
-                parent_node.borrow().uid(),
-                child_node.borrow().uid(),
-                parent_node.borrow().num_outgoing_channels(),
-            )
-        };
+                (
+                    parent_node.uid(),
+                    child_node.uid(),
+                    parent_node.num_outgoing_channels(),
+                )
+            };
 
         let next_uid = self.next_uid();
 
@@ -279,7 +339,7 @@ impl Processor {
         let edge_index = self.graph.add_edge(
             parent_node_index,
             child_node_index,
-            RefCell::new(Connection::from_uid_and_indexes(
+            SyncUnsafeCell::new(Connection::from_uid_and_indexes(
                 next_uid,
                 num_channels,
                 from_index,
@@ -426,7 +486,9 @@ impl Processor {
         #[cfg(feature = "dac")]
         let requires_audio_updates = node.requires_audio_updates();
 
-        let node_index = self.graph.add_node(RefCell::new(Box::new(node)));
+        let node_index = self
+            .graph
+            .add_node(SyncUnsafeCell::new(BoxedNode::new(node)));
 
         self.node_uid_to_node_index_map.insert(uid, node_index);
 
@@ -456,7 +518,7 @@ impl Processor {
             .iter()
             .filter_map(|i| self.graph.node_weight(*i))
             .for_each(|node| {
-                node.borrow_mut()
+                unsafe { &mut *node.get() as &mut BoxedNode }
                     .update_from_dac_config(Arc::clone(&dac_config));
             });
     }
@@ -494,7 +556,7 @@ impl Processor {
         value
     }
 
-    fn boxed_node_by_uid(&self, uid: &u32) -> Option<&RefCell<BoxedNode>> {
+    fn boxed_node_by_uid(&self, uid: &u32) -> Option<&SyncUnsafeCell<BoxedNode>> {
         self.node_uid_to_node_index_map
             .get(uid)
             .and_then(|node_index| self.graph.node_weight(*node_index))
@@ -508,17 +570,17 @@ impl Processor {
         let UpdateNodeMessage { node_uid, .. } = update_node_message;
         let boxed_node = self
             .boxed_node_by_uid(&node_uid)
-            .ok_or(UpdateNodeError::NodeNotFound { uid: node_uid })?;
-        boxed_node
-            .borrow_mut()
-            .handle_update_node_message(update_node_message)?;
+            .ok_or(UpdateNodeError::NodeNotFound { uid: node_uid })?
+            .get();
+        let boxed_node = unsafe { &mut *boxed_node as &mut BoxedNode };
+        boxed_node.handle_update_node_message(update_node_message)?;
 
         Ok(())
     }
 }
 
 impl Deref for Processor {
-    type Target = Graph<RefCell<BoxedNode>, RefCell<Connection>>;
+    type Target = Graph<SyncUnsafeCell<BoxedNode>, SyncUnsafeCell<Connection>>;
 
     fn deref(&self) -> &Self::Target {
         &self.graph

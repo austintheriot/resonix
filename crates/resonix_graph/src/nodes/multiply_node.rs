@@ -61,8 +61,8 @@ impl Node for MultiplyNode {
     #[inline]
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
-        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
+        inputs: &mut dyn Iterator<Item = &Connection>,
+        outputs: &mut dyn Iterator<Item = &mut Connection>,
     ) {
         let first_input = inputs.next().unwrap();
         let second_input = inputs.next().unwrap();

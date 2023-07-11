@@ -79,8 +79,8 @@ impl Node for SineNode {
     #[inline]
     fn process(
         &mut self,
-        _inputs: &mut dyn Iterator<Item = Ref<Connection>>,
-        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
+        _inputs: &mut dyn Iterator<Item = &Connection>,
+        outputs: &mut dyn Iterator<Item = &mut Connection>,
     ) {
         let next_sample = self.next_sample();
 

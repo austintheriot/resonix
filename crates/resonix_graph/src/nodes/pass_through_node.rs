@@ -37,8 +37,8 @@ impl Node for PassThroughNode {
     #[inline]
     fn process(
         &mut self,
-        inputs: &mut dyn Iterator<Item = Ref<Connection>>,
-        outputs: &mut dyn Iterator<Item = RefMut<Connection>>,
+        inputs: &mut dyn Iterator<Item = &Connection>,
+        outputs: &mut dyn Iterator<Item = &mut Connection>,
     ) {
         // it's possible for a pass through node to be created that hasn't been
         // connected to an outgoing connection yet, so this shouldn't cause an error

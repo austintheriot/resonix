@@ -24,6 +24,7 @@ cpal = { version = "0.13.5", features = ["wasm-bindgen"], optional = true }
 # NATIVE-ONLY dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 cpal = { version = "0.13.5", optional = true }
+rayon = "1.7.0"
 
 [features]
 # only need cpal when using audio-out (DAC) features
