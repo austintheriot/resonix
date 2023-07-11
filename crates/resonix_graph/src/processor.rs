@@ -213,13 +213,13 @@ impl Processor {
         from_index: usize,
         to_index: usize,
     ) -> Result<EdgeIndex, ConnectError> {
-        let parent_node_index = self
+        let parent_node_index = *self
             .node_uid_to_node_index_map
             .get(&parent_node_uid)
             .ok_or(ConnectError::NodeUidNotFound {
                 node_uid: parent_node_uid,
             })?;
-        let child_node_index = self.node_uid_to_node_index_map.get(&child_node_uid).ok_or(
+        let child_node_index = *self.node_uid_to_node_index_map.get(&child_node_uid).ok_or(
             ConnectError::NodeUidNotFound {
                 node_uid: child_node_uid,
             },
@@ -230,16 +230,16 @@ impl Processor {
             let parent_node =
                 &self
                     .graph
-                    .node_weight(*parent_node_index)
+                    .node_weight(parent_node_index)
                     .ok_or(ConnectError::NodeNotFound {
-                        node_index: *parent_node_index,
+                        node_index: parent_node_index,
                     })?;
             let child_node =
                 &self
                     .graph
-                    .node_weight(*child_node_index)
+                    .node_weight(child_node_index)
                     .ok_or(ConnectError::NodeNotFound {
-                        node_index: *child_node_index,
+                        node_index: child_node_index,
                     })?;
 
             Self::check_connection_index_out_of_bounds(
@@ -272,11 +272,18 @@ impl Processor {
             )
         };
 
+        let next_uid = self.next_uid();
+
         // add connection to graph
         let edge_index = self.graph.add_edge(
-            *parent_node_index,
-            *child_node_index,
-            RefCell::new(Connection::from_indexes(num_channels, from_index, to_index)),
+            parent_node_index,
+            child_node_index,
+            RefCell::new(Connection::from_uid_and_indexes(
+                next_uid,
+                num_channels,
+                from_index,
+                to_index,
+            )),
         );
 
         self.add_outgoing_connection_index(parent_uuid, edge_index);
@@ -335,17 +342,17 @@ impl Processor {
 
     fn check_for_cyclical_connection(
         &self,
-        child_node_index: &NodeIndex,
-        parent_node_index: &NodeIndex,
+        child_node_index: NodeIndex,
+        parent_node_index: NodeIndex,
         parent_node: &BoxedNode,
         child_node: &BoxedNode,
     ) -> Result<(), ConnectError> {
         let cycle_found = 'block: {
             let starting_node_index = child_node_index;
             let ending_node_index = parent_node_index;
-            let mut dfs = Dfs::new(&self.graph, *starting_node_index);
+            let mut dfs = Dfs::new(&self.graph, starting_node_index);
             while let Some(current_node_index) = dfs.next(&self.graph) {
-                if &current_node_index == ending_node_index {
+                if current_node_index == ending_node_index {
                     break 'block true;
                 }
             }
@@ -471,6 +478,13 @@ impl Processor {
         result
     }
 
+    /// Incrementing `uid` counter for objects added to the `AudioContext`
+    /// (this is significantly faster and cheaper than using `Uuid`s)
+    ///
+    /// possible todo - could decrease this uint size even more, 
+    /// as it's unlikely for any audio graph to have any more than 2000ish
+    /// nodes--or, at least, it's not possible to generate audio in real time
+    /// with more than that.
     fn next_uid(&mut self) -> u32 {
         let value = self.uid_counter;
         self.uid_counter += 1;

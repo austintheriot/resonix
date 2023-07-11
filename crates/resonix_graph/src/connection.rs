@@ -38,13 +38,22 @@ impl Connection {
         from_index: usize,
         to_index: usize,
     ) -> Self {
+        Self::from_uid_and_indexes(0, num_channels, from_index, to_index)
+    }
+
+    pub fn from_uid_and_indexes(
+        uid: u32,
+        num_channels: impl Into<NumChannels>,
+        from_index: usize,
+        to_index: usize,
+    ) -> Self {
         let num_channels = num_channels.into();
         Self {
             num_channels,
             data: vec![0.0; *num_channels],
             from_index,
             to_index,
-            uid: 0,
+            uid,
         }
     }
 
