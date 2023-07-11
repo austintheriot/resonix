@@ -55,7 +55,7 @@ impl Processor {
         Default::default()
     }
 
-    /// Executes the audio graph
+    /// Traverses the audio graph, processing each node
     #[inline]
     pub(crate) fn run(&mut self) {
         if self.visit_order.is_none() {
@@ -94,6 +94,7 @@ impl Processor {
     /// to start processing audio in real time.
     ///
     /// Subsequent calls to this function are ignored.
+    #[inline]
     pub fn initialize_visit_order(&mut self) {
         if self.visit_order.is_some() {
             return;
@@ -292,12 +293,14 @@ impl Processor {
         Ok(edge_index)
     }
 
+    #[inline]
     fn incoming_connection_indexes(&self, uid: &u32) -> Option<&[EdgeIndex]> {
         self.incoming_connection_indexes
             .get(uid)
             .map(|indexes| indexes.as_slice())
     }
 
+    #[inline]
     fn outgoing_connection_indexes(&self, uid: &u32) -> Option<&[EdgeIndex]> {
         self.outgoing_connection_indexes
             .get(uid)
@@ -481,7 +484,7 @@ impl Processor {
     /// Incrementing `uid` counter for objects added to the `AudioContext`
     /// (this is significantly faster and cheaper than using `Uuid`s)
     ///
-    /// possible todo - could decrease this uint size even more, 
+    /// possible todo - could decrease this uint size even more,
     /// as it's unlikely for any audio graph to have any more than 2000ish
     /// nodes--or, at least, it's not possible to generate audio in real time
     /// with more than that.
