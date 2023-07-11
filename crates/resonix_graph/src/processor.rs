@@ -394,9 +394,11 @@ impl Processor {
     }
 
     pub fn add_node<N: Node + 'static>(&mut self, mut node: N) -> Result<NodeUid, AddNodeError> {
-        if node.uid() == 0 {
-            node.set_uid(self.next_uid());
+        if node.uid() != 0 {
+            return Err(AddNodeError::NodeAlreadyAssociatedToContext { name: node.name() });
         }
+
+        node.set_uid(self.next_uid());
 
         let uid = node.uid();
 
@@ -606,9 +608,9 @@ mod test_processor {
     #[test]
     fn running_processor_should_fill_connections_with_data() {
         let mut processor = Processor::default();
-        let constant_node = ConstantNode::new_with_uid(0, 1, 0.5);
-        let pass_through_node = PassThroughNode::new_with_uid(1, 1);
-        let dac_node = DACNode::new_with_uid(2, 1);
+        let constant_node = ConstantNode::new(1, 0.5);
+        let pass_through_node = PassThroughNode::new(1);
+        let dac_node = DACNode::new(1);
 
         let constant_node_uid = processor.add_node(constant_node).unwrap();
         let pass_through_node_uid = processor.add_node(pass_through_node).unwrap();

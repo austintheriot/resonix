@@ -58,6 +58,8 @@ pub enum AddNodeError {
     AlreadyExists { name: String },
     #[error("A message was sent to the `Processor` in the audio thread to add a node, but no corresponding response was received")]
     NoMatchingMessageReceived,
+    #[error("Cannot add {name:?} to the audio graph, since the node is already associated with a different audio context.")]
+    NodeAlreadyAssociatedToContext { name: String },
 }
 
 /// When no DAC has been initialized yet, the audio graph can be run on the main thread,
