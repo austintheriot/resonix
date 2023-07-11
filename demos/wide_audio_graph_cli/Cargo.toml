@@ -1,0 +1,14 @@
+[package]
+name = "wide_audio_graph_cli"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+resonix = { path = "../../crates/resonix", features = ["dac"]}
+tokio = { version = "1.28.1", features = ["full"] }
+
+# Show logs by running with env flag RUST_LOG=trace
+pretty_env_logger = "0.5.0"
+log = "0.4"

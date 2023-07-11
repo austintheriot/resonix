@@ -207,7 +207,7 @@ impl Processor {
         multi_channel_sum
     }
 
-    fn connect_with_indexes(
+    pub fn connect_with_indexes(
         &mut self,
         parent_node_uid: NodeUid,
         child_node_uid: NodeUid,

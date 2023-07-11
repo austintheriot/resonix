@@ -99,6 +99,21 @@ impl AudioContext<AudioUninit> {
             .connect(*parent_node_uid.as_ref(), *child_node_uid.as_ref())
     }
 
+    pub fn connect_with_indexes(
+        &mut self,
+        parent_node_uid: impl AsRef<NodeUid>,
+        child_node_uid: impl AsRef<NodeUid>,
+        from_index: usize,
+        to_index: usize,
+    ) -> Result<EdgeIndex, ConnectError> {
+        self.processor.as_mut().unwrap().connect_with_indexes(
+            *parent_node_uid.as_ref(),
+            *child_node_uid.as_ref(),
+            from_index,
+            to_index,
+        )
+    }
+
     pub fn add_node<N: Node + 'static>(&mut self, node: N) -> Result<NodeHandle<N>, AddNodeError> {
         let _uid = node.uid();
         self.processor

@@ -142,6 +142,12 @@ impl From<u16> for NumChannels {
     }
 }
 
+impl From<u32> for NumChannels {
+    fn from(num_channels: u32) -> Self {
+        Self::new(num_channels as usize)
+    }
+}
+
 impl From<i32> for NumChannels {
     fn from(num_channels: i32) -> Self {
         Self::new(num_channels as usize)
