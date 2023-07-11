@@ -6,7 +6,7 @@ use std::{
 use resonix_core::NumChannels;
 
 #[cfg(feature = "dac")]
-use {resonix_dac::DACConfig, std::sync::Arc};
+use {resonix_dac::DACConfig, std::sync::Arc, crate::UpdateNodeMessage};
 
 use crate::{Connection, Node, NodeType, NodeUid};
 
@@ -103,13 +103,11 @@ impl Node for MultiplyNode {
         self
     }
 
-    #[cfg(feature = "dac")]
-    fn requires_audio_updates(&self) -> bool {
-        false
-    }
+    
 
-    #[cfg(feature = "dac")]
-    fn update_from_dac_config(&mut self, _dac_config: Arc<DACConfig>) {}
+
+
+    
 }
 
 #[cfg(test)]
@@ -118,6 +116,24 @@ mod test_multiply_node {
     use std::cell::RefCell;
 
     use crate::{Connection, MultiplyNode, Node};
+
+    #[cfg(feature = "dac")]
+    #[test]
+    fn rejects_node_message_request() {
+        use crate::{ConstantNodeMessage, messages::{UpdateNodeMessage, UpdateNodeError}};
+
+        let update_node_message = UpdateNodeMessage {
+            node_uid: 0,
+            data: Box::new(ConstantNodeMessage::SetSignalValue { new_signal_value: 1.0 })
+        };
+
+        let mut multiply_node = MultiplyNode::new(1);
+
+
+        let result = multiply_node.handle_update_node_message(update_node_message);
+
+        assert!(matches!(result, Err(UpdateNodeError::NotConfigured { uid: 0 })))
+    }
 
     #[test]
     fn should_multiply_1st_and_2nd_inputs() {

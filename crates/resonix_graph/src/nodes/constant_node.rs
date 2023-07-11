@@ -10,7 +10,7 @@ use resonix_core::NumChannels;
 use {resonix_dac::DACConfig, std::sync::Arc};
 
 use crate::{
-    messages::{MessageError, NodeMessageRequest, UpdateNodeError},
+    messages::{MessageError, UpdateNodeError, UpdateNodeMessage},
     AudioContext, AudioInit, AudioUninit, Connection, Node, NodeHandle, NodeType, NodeUid,
 };
 
@@ -49,36 +49,6 @@ impl ConstantNode {
     pub fn set_signal_value(&mut self, signal_value: f32) -> &mut Self {
         self.signal_value = signal_value;
         self
-    }
-}
-
-impl NodeHandle<ConstantNode> {
-    pub fn set_signal_value_sync(
-        &self,
-        audio_context: &mut AudioContext<AudioUninit>,
-        new_signal_value: f32,
-    ) -> Result<&Self, UpdateNodeError> {
-        audio_context.handle_node_message_request(NodeMessageRequest::ConstantSetSignalValue {
-            node_uid: self.uid,
-            new_signal_value,
-        })?;
-
-        Ok(self)
-    }
-
-    pub async fn set_signal_value_async(
-        &self,
-        audio_context: &mut AudioContext<AudioInit>,
-        new_signal_value: f32,
-    ) -> Result<&Self, MessageError> {
-        audio_context
-            .handle_node_message_request(NodeMessageRequest::ConstantSetSignalValue {
-                node_uid: self.uid,
-                new_signal_value,
-            })
-            .await?;
-
-        Ok(self)
     }
 }
 
@@ -136,12 +106,24 @@ impl Node for ConstantNode {
     }
 
     #[cfg(feature = "dac")]
-    fn requires_audio_updates(&self) -> bool {
-        false
-    }
+    fn handle_update_node_message(
+        &mut self,
+        update_node_message: UpdateNodeMessage,
+    ) -> Result<(), UpdateNodeError> {
+        let sine_property = update_node_message.try_into::<ConstantNodeMessage>()?;
 
-    #[cfg(feature = "dac")]
-    fn update_from_dac_config(&mut self, _dac_config: Arc<DACConfig>) {}
+        match sine_property {
+            ConstantNodeMessage::SetSignalValue { new_signal_value } => {
+                self.set_signal_value(new_signal_value);
+            }
+        }
+
+        Ok(())
+    }
+}
+
+pub enum ConstantNodeMessage {
+    SetSignalValue { new_signal_value: f32 }
 }
 
 impl PartialEq for ConstantNode {
@@ -176,6 +158,42 @@ mod test_constant_node {
     use std::cell::RefCell;
 
     use crate::{Connection, ConstantNode, Node};
+
+    #[cfg(feature = "dac")]
+    #[test]
+    fn accepts_node_message_request() {
+        use crate::{ConstantNodeMessage, messages::UpdateNodeMessage};
+
+        let update_node_message = UpdateNodeMessage {
+            node_uid: 0,
+            data: Box::new(ConstantNodeMessage::SetSignalValue { new_signal_value: 1.0 })
+        };
+
+        let mut constant_node = ConstantNode::new(1, 0.0);
+
+        assert_eq!(constant_node.signal_value(), 0.0);
+
+        constant_node.handle_update_node_message(update_node_message).unwrap();
+
+        assert_eq!(constant_node.signal_value(), 1.0);
+    }
+
+    #[cfg(feature = "dac")]
+    #[test]
+    fn rejects_invalid_node_message_request() {
+        use crate::{messages::{UpdateNodeMessage, UpdateNodeError}, SineNodeMessage};
+
+        let update_node_message = UpdateNodeMessage {
+            node_uid: 0,
+            data: Box::new(SineNodeMessage::SetFrequency { new_frequency: 440.0 })
+        };
+
+        let mut constant_node = ConstantNode::new(1, 0.0);
+
+        let result = constant_node.handle_update_node_message(update_node_message);
+
+        assert!(matches!(result, Err(UpdateNodeError::InvalidData { uid: 0 })))
+    }
 
     #[test]
     fn should_output_constant_signal_value() {

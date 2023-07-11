@@ -1,6 +1,9 @@
 use std::marker::PhantomData;
 
-use crate::{messages::MessageError, Node, NodeUid};
+use crate::{
+    messages::{MessageError, UpdateNodeError, UpdateNodeMessage},
+    AudioContext, AudioInit, AudioUninit, Node, NodeUid,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum NodeHandleMessageError {
@@ -26,6 +29,53 @@ pub enum NodeHandleMessageError {
 pub struct NodeHandle<NodeType: Node> {
     pub(crate) uid: NodeUid,
     pub(crate) node_type: PhantomData<NodeType>,
+}
+
+impl<N: Node> NodeHandle<N> {
+    /// Synchronously updates a Node with the given message.
+    /// 
+    /// Note: it is up to the caller to make sure that 
+    /// the message conforms to the a type that the receiving
+    /// Node is configured to receive.
+    /// 
+    /// If a message a data of unexpected type is received,
+    /// the processor will return an error back to the caller.
+    #[cfg(feature = "dac")]
+    pub fn update_sync<D: Send + 'static>(
+        &self,
+        audio_context: &mut AudioContext<AudioUninit>,
+        message_data: D,
+    ) -> Result<(), UpdateNodeError> {
+        audio_context.handle_update_node_message(UpdateNodeMessage {
+            node_uid: self.uid,
+            data: Box::new(message_data),
+        })
+    }
+
+    /// Asynchronously sends a message to the audio thread,
+    /// where the node is updated. Async function returns
+    /// once the result of the update is returned from the 
+    /// audio thread.
+    /// 
+    /// Note: it is up to the caller to make sure that 
+    /// the message conforms to the a type that the receiving
+    /// Node is configured to receive.
+    /// 
+    /// If a message a data of unexpected type is received,
+    /// the audio thread will return an error back to the caller.
+    #[cfg(feature = "dac")]
+    pub async fn update_async<D: Send + 'static>(
+        &self,
+        audio_context: &mut AudioContext<AudioInit>,
+        message_data: D,
+    ) -> Result<(), MessageError> {
+        audio_context
+            .handle_update_node_message(UpdateNodeMessage {
+                node_uid: self.uid,
+                data: Box::new(message_data),
+            })
+            .await
+    }
 }
 
 impl<N: Node> Clone for NodeHandle<N> {

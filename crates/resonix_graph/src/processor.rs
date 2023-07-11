@@ -15,8 +15,8 @@ use petgraph::{
 use {resonix_dac::DACConfig, std::sync::Arc};
 
 use crate::{
-    messages::{AddNodeError, ConnectError, NodeMessageRequest, UpdateNodeError},
-    BoxedNode, Connection, ConstantNode, DACNode, Node, NodeType, NodeUid, SineNode,
+    messages::{AddNodeError, ConnectError, UpdateNodeMessage, UpdateNodeError},
+    node, BoxedNode, Connection, ConstantNode, DACNode, Node, NodeType, NodeUid, SineNode,
 };
 use resonix_core::{NumChannels, SineInterface};
 
@@ -481,42 +481,19 @@ impl Processor {
             .and_then(|node_index| self.graph.node_weight(*node_index))
     }
 
-    pub(crate) fn handle_node_message_request(
+    #[cfg(feature = "dac")]
+    pub(crate) fn handle_update_node_message(
         &mut self,
-        node_message_request: NodeMessageRequest,
+        update_node_message: UpdateNodeMessage,
     ) -> Result<(), UpdateNodeError> {
-        match node_message_request {
-            NodeMessageRequest::SineSetFrequency {
-                node_uid,
-                new_frequency,
-                ..
-            } => {
-                let boxed_node = self
-                    .boxed_node_by_uid(&node_uid)
-                    .ok_or(UpdateNodeError::NodeNotFound { uid: node_uid })?;
-                let mut boxed_node_ref = boxed_node.borrow_mut();
-                let sine_node = boxed_node_ref
-                    .as_any_mut()
-                    .downcast_mut::<SineNode>()
-                    .ok_or(UpdateNodeError::WrongNodeType { uid: node_uid })?;
-                sine_node.set_frequency(new_frequency);
-            }
-            NodeMessageRequest::ConstantSetSignalValue {
-                node_uid,
-                new_signal_value,
-            } => {
-                let boxed_node = self
-                    .boxed_node_by_uid(&node_uid)
-                    .ok_or(UpdateNodeError::NodeNotFound { uid: node_uid })?;
-                let mut boxed_node_ref = boxed_node.borrow_mut();
-                let constant_node = boxed_node_ref
-                    .as_any_mut()
-                    .downcast_mut::<ConstantNode>()
-                    .ok_or(UpdateNodeError::WrongNodeType { uid: node_uid })?;
-                constant_node.set_signal_value(new_signal_value);
-            }
-        }
-
+        let UpdateNodeMessage { node_uid, .. } = update_node_message;
+        let boxed_node = self
+            .boxed_node_by_uid(&node_uid)
+            .ok_or(UpdateNodeError::NodeNotFound { uid: node_uid })?;
+        boxed_node
+            .borrow_mut()
+            .handle_update_node_message(update_node_message)?;
+        
         Ok(())
     }
 }

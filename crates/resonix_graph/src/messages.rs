@@ -1,3 +1,5 @@
+use std::any::Any;
+
 use petgraph::{prelude::NodeIndex, stable_graph::EdgeIndex};
 use resonix_core::NumChannels;
 
@@ -65,7 +67,7 @@ pub enum AddNodeError {
 /// Once the Processor (audio graph) has been sent to the audio thread,
 /// all edits to the audio graph have to be done
 /// via message between the audio thread and main thread.
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub(crate) enum ProcessorMessageRequest<N: Node + 'static> {
     AddNode {
         request_id: u32,
@@ -78,7 +80,7 @@ pub(crate) enum ProcessorMessageRequest<N: Node + 'static> {
     },
     UpdateNode {
         request_id: u32,
-        request: NodeMessageRequest,
+        update_node_message: UpdateNodeMessage,
     },
 }
 
@@ -116,18 +118,25 @@ pub enum UpdateNodeError {
     NodeNotFound { uid: NodeUid },
     #[error("Node message was sent for the wrong node type")]
     WrongNodeType { uid: NodeUid },
+    #[error("Node message contained invalid data for node")]
+    InvalidData { uid: NodeUid },
+    #[error("Node is not configured to be updated via messages")]
+    NotConfigured { uid: NodeUid },
 }
 
-/// These messages are sent by individual `NodeHandle` instances
-/// to effect some change in the audio graph.
-#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-pub(crate) enum NodeMessageRequest {
-    SineSetFrequency {
-        node_uid: u32,
-        new_frequency: f32,
-    },
-    ConstantSetSignalValue {
-        node_uid: u32,
-        new_signal_value: f32,
-    },
+/// Message that can be downcast by the receiving `Node` to effect some change
+/// in the node itself
+#[derive(Debug)]
+pub struct UpdateNodeMessage {
+    pub node_uid: u32,
+    pub data: Box<dyn Any + Send>,
+}
+
+impl UpdateNodeMessage {
+    pub fn try_into<D: 'static>(self) -> Result<D, UpdateNodeError> {
+        self.data
+            .downcast::<D>()
+            .map(|p| *p)
+            .map_err(|_| UpdateNodeError::InvalidData{ uid: self.node_uid })
+    }
 }

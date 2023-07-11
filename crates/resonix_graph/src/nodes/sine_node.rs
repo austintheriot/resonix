@@ -10,7 +10,7 @@ use resonix_core::{NumChannels, SampleRate, Sine, SineInterface};
 use {resonix_dac::DACConfig, std::sync::Arc};
 
 use crate::{
-    messages::{MessageError, NodeMessageRequest, UpdateNodeError},
+    messages::{MessageError, UpdateNodeMessage, UpdateNodeError},
     AudioContext, AudioInit, AudioUninit, Connection, Node, NodeHandle, NodeType, NodeUid,
 };
 
@@ -72,36 +72,6 @@ impl SineInterface for SineNode {
 
     fn frequency(&self) -> f32 {
         self.sine.frequency()
-    }
-}
-
-impl NodeHandle<SineNode> {
-    pub fn set_frequency_sync(
-        &self,
-        audio_context: &mut AudioContext<AudioUninit>,
-        new_frequency: f32,
-    ) -> Result<&Self, UpdateNodeError> {
-        audio_context.handle_node_message_request(NodeMessageRequest::SineSetFrequency {
-            node_uid: self.uid,
-            new_frequency,
-        })?;
-
-        Ok(self)
-    }
-
-    pub async fn set_frequency_async(
-        &self,
-        audio_context: &mut AudioContext<AudioInit>,
-        new_frequency: f32,
-    ) -> Result<&Self, MessageError> {
-        audio_context
-            .handle_node_message_request(NodeMessageRequest::SineSetFrequency {
-                node_uid: self.uid,
-                new_frequency,
-            })
-            .await?;
-
-        Ok(self)
     }
 }
 
@@ -167,6 +137,26 @@ impl Node for SineNode {
     fn update_from_dac_config(&mut self, dac_config: Arc<DACConfig>) {
         self.sine.set_sample_rate(dac_config.sample_rate());
     }
+
+    #[cfg(feature = "dac")]
+    fn handle_update_node_message(
+        &mut self,
+        update_node_message: UpdateNodeMessage,
+    ) -> Result<(), UpdateNodeError> {
+        let sine_property = update_node_message.try_into::<SineNodeMessage>()?;
+
+        match sine_property {
+            SineNodeMessage::SetFrequency { new_frequency } => {
+                self.set_frequency(new_frequency);
+            }
+        }
+
+        Ok(())
+    }
+}
+
+pub enum SineNodeMessage {
+    SetFrequency { new_frequency: f32 },
 }
 
 impl PartialEq for SineNode {
@@ -194,7 +184,26 @@ mod test_sine_node {
 
     use std::cell::RefCell;
 
-    use crate::{Connection, Node, SineNode};
+    use resonix_core::SineInterface;
+
+    use crate::{messages::UpdateNodeMessage, Connection, Node, SineNodeMessage, SineNode};
+
+    #[cfg(feature = "dac")]
+    #[test]
+    fn accepts_node_message_request() {
+        let update_node_message = UpdateNodeMessage {
+            node_uid: 0,
+            data: Box::new(SineNodeMessage::SetFrequency { new_frequency: 440.0 })
+        };
+
+        let mut sine_node = SineNode::new_with_full_config(0, 1, 4, 0.0);
+
+        assert_eq!(sine_node.frequency(), 0.0);
+
+        sine_node.handle_update_node_message(update_node_message).unwrap();
+
+        assert_eq!(sine_node.frequency(), 440.0);
+    }
 
     #[test]
     fn should_output_sine_wave_data() {

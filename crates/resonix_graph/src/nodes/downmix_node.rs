@@ -6,7 +6,7 @@ use std::{
 use resonix_core::{Downmixer, NumChannels};
 
 #[cfg(feature = "dac")]
-use {resonix_dac::DACConfig, std::sync::Arc};
+use {resonix_dac::DACConfig, std::sync::Arc, crate::UpdateNodeMessage};
 
 use crate::{Connection, Node, NodeType, NodeUid};
 
@@ -105,13 +105,11 @@ impl Node for DownmixNode {
         self
     }
 
-    #[cfg(feature = "dac")]
-    fn requires_audio_updates(&self) -> bool {
-        false
-    }
+    
 
-    #[cfg(feature = "dac")]
-    fn update_from_dac_config(&mut self, _dac_config: Arc<DACConfig>) {}
+
+
+    
 }
 
 #[cfg(test)]

@@ -1,7 +1,7 @@
 use std::any::Any;
 
 use resonix_core::NumChannels;
-use resonix_graph::{NodeType, NodeUid};
+use resonix_graph::{ConstantNodeMessage, NodeType, NodeUid};
 
 #[cfg(all(feature = "dac", feature = "mock_dac"))]
 #[tokio::test]
@@ -129,7 +129,12 @@ async fn updates_node_in_audio_thread() {
     }
 
     constant_node_handle
-        .set_signal_value_async(&mut audio_context, 1.0)
+        .update_async(
+            &mut audio_context,
+            ConstantNodeMessage::SetSignalValue {
+                new_signal_value: 1.0,
+            },
+        )
         .await
         .unwrap();
 
@@ -169,11 +174,7 @@ async fn allows_implementing_custom_node() {
             inputs: &mut dyn Iterator<Item = std::cell::Ref<resonix_graph::Connection>>,
             outputs: &mut dyn Iterator<Item = std::cell::RefMut<resonix_graph::Connection>>,
         ) {
-            let value = if self.on {
-                1.0
-            } else {
-                0.0
-            };
+            let value = if self.on { 1.0 } else { 0.0 };
 
             while let Some(mut output) = outputs.next() {
                 let output_data = output.data_mut();
@@ -222,12 +223,6 @@ async fn allows_implementing_custom_node() {
         fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
             self as &mut dyn Any
         }
-
-        fn requires_audio_updates(&self) -> bool {
-            false
-        }
-
-        fn update_from_dac_config(&mut self, dac_config: Arc<resonix_dac::DACConfig>) {}
     }
 
     // set up audio graph
@@ -251,7 +246,7 @@ async fn allows_implementing_custom_node() {
             Arc::new(DACConfig {
                 num_channels: 1,
                 sample_rate: 44100,
-                num_frames: 10
+                num_frames: 10,
             }),
             Arc::clone(&data_written),
         )
@@ -265,6 +260,158 @@ async fn allows_implementing_custom_node() {
         assert_eq!(
             data_written.as_slice(),
             &[1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0,]
+        )
+    }
+}
+
+#[cfg(all(feature = "dac", feature = "mock_dac"))]
+#[tokio::test]
+async fn allows_implementing_custom_node_messages() {
+    use std::{
+        sync::{Arc, Mutex},
+        time::Duration,
+    };
+
+    use resonix::{AudioContext, ConstantNode, DACNode, PassThroughNode};
+    use resonix_dac::DACConfig;
+    use resonix_graph::{Node, messages::{UpdateNodeMessage, UpdateNodeError}};
+
+    let mut audio_context = AudioContext::new();
+
+    #[derive(Debug, Clone)]
+    struct OnOffNode {
+        uid: u32,
+        on: bool,
+        // arbitrary updatable value
+        always_on: bool,
+        num_outgoing_channels: NumChannels,
+    }
+
+    enum OnOffNodeMessage {
+        SetAlwaysOn { always_on: bool },
+    }
+
+    impl Node for OnOffNode {
+        fn process(
+            &mut self,
+            inputs: &mut dyn Iterator<Item = std::cell::Ref<resonix_graph::Connection>>,
+            outputs: &mut dyn Iterator<Item = std::cell::RefMut<resonix_graph::Connection>>,
+        ) {
+            let value = if self.on { 1.0 } else { 0.0 };
+
+            while let Some(mut output) = outputs.next() {
+                let output_data = output.data_mut();
+                output_data.fill(value)
+            }
+
+            self.on = if self.always_on { true } else { !self.on };
+        }
+
+        fn node_type(&self) -> NodeType {
+            NodeType::Input
+        }
+
+        fn num_input_connections(&self) -> usize {
+            0
+        }
+
+        fn num_output_connections(&self) -> usize {
+            1
+        }
+
+        fn num_incoming_channels(&self) -> resonix_core::NumChannels {
+            NumChannels::from(0)
+        }
+
+        fn num_outgoing_channels(&self) -> resonix_core::NumChannels {
+            self.num_outgoing_channels
+        }
+
+        fn uid(&self) -> NodeUid {
+            self.uid
+        }
+
+        fn set_uid(&mut self, uid: NodeUid) {
+            self.uid = uid;
+        }
+
+        fn name(&self) -> String {
+            String::from("OnOffNode")
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self as &dyn Any
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self as &mut dyn Any
+        }
+
+        fn handle_update_node_message(
+            &mut self,
+            update_node_message: UpdateNodeMessage,
+        ) -> Result<(), UpdateNodeError> {
+            let on_off_node_message = update_node_message.try_into::<OnOffNodeMessage>()?;
+            match on_off_node_message {
+                OnOffNodeMessage::SetAlwaysOn { always_on } => {
+                    self.always_on = always_on;
+                }
+            }
+
+            Ok(())
+        }
+    }
+
+    // set up audio graph
+    let on_off_node = OnOffNode {
+        num_outgoing_channels: NumChannels::from(1),
+        on: true,
+        always_on: false,
+        uid: 0,
+    };
+    let on_off_node_handle = audio_context.add_node(on_off_node).unwrap();
+
+    let dac_node = DACNode::new(1);
+    let dac_node_handle = audio_context.add_node(dac_node).unwrap();
+    audio_context
+        .connect(&on_off_node_handle, &dac_node_handle)
+        .unwrap();
+
+    // create audio thread
+    let data_written = Arc::new(Mutex::new(Vec::new()));
+    let mut audio_context = audio_context
+        .into_audio_init_from_config(
+            Arc::new(DACConfig {
+                num_channels: 1,
+                sample_rate: 44100,
+                num_frames: u32::MAX,
+            }),
+            Arc::clone(&data_written),
+        )
+        .unwrap();
+
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    // data is written to audio out
+    {
+        let data_written = data_written.lock().unwrap();
+        assert_eq!(
+            &data_written[0..10],
+            &[1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0,]
+        )
+    }
+
+    on_off_node_handle.update_async(&mut audio_context, OnOffNodeMessage::SetAlwaysOn { always_on: true }).await.unwrap();
+
+
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    // data is written to audio out
+    {
+        let data_written = data_written.lock().unwrap();
+        assert_eq!(
+            &data_written[data_written.len() - 10..],
+            [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, ]
         )
     }
 }

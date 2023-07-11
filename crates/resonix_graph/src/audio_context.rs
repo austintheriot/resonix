@@ -18,7 +18,7 @@ use uuid::Uuid;
 use std::sync::Mutex;
 
 use crate::{
-    messages::{MessageError, NodeMessageRequest, UpdateNodeError},
+    messages::{MessageError, UpdateNodeMessage, UpdateNodeError},
     AddNodeError, BoxedNode, ConnectError, Node, NodeHandle, NodeUid, Processor,
     ProcessorMessageRequest, ProcessorMessageResponse,
 };
@@ -128,16 +128,17 @@ impl AudioContext<AudioUninit> {
         )
     }
 
-    pub(crate) fn handle_node_message_request(
+    #[cfg(feature = "dac")]
+    pub(crate) fn handle_update_node_message(
         &mut self,
-        node_message_request: NodeMessageRequest,
+        update_node_message: UpdateNodeMessage,
     ) -> Result<(), UpdateNodeError> {
         let processor = self.processor.as_mut().unwrap();
-        processor.handle_node_message_request(node_message_request)
+        processor.handle_update_node_message(update_node_message)
     }
 
     ///  Users user-specified audio configuration to create audio thread
-    #[cfg(all(feature = "dac"))]
+    #[cfg(feature = "dac")]
     pub fn into_audio_init_from_config(
         mut self,
         dac_config: Arc<DACConfig>,
@@ -264,9 +265,9 @@ fn run_processor_message<N: Node + 'static>(
         }
         ProcessorMessageRequest::UpdateNode {
             request_id,
-            request,
+            update_node_message: request,
         } => {
-            let result = processor.handle_node_message_request(request);
+            let result = processor.handle_update_node_message(request);
             ProcessorMessageResponse::UpdateNode { request_id, result }
         }
     };
@@ -311,14 +312,14 @@ impl AudioContext<AudioInit> {
     }
 
     /// Asynchronously updates node from the audio graph in the audio thread
-    pub(crate) async fn handle_node_message_request(
+    pub(crate) async fn handle_update_node_message(
         &mut self,
-        node_message_request: NodeMessageRequest,
+        update_node_message: UpdateNodeMessage,
     ) -> Result<(), MessageError> {
         self.send_message_to_processor(
             |request_id| ProcessorMessageRequest::UpdateNode {
                 request_id,
-                request: node_message_request,
+                update_node_message,
             },
             |node_message_response| {
                 let ProcessorMessageResponse::UpdateNode { result, .. } = node_message_response else {
