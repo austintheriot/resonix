@@ -2,11 +2,16 @@
 
 ## Audio Graph
 
-- Add parallelism with Rayon
+- allow microphone input (ADCNode?, AudioInputNode? MicNode?)
+  - Consider how multiple audio inputs should interact with the rest of the AudioContext organization
+    - One option here is that the Processor itself would be wrapped in an `Arc<Mutex<T>>` (locked for the entire synchronous loop of an audio out rendering loop), but *internally*, no Nodes or Connections would be locked behind a Mutex. This would allow input and output loops to access the processor, but without slowing down the main render loop too much
+
+
+- Make typing on NodeHandle messages stronger
+- 
+- Add parallelism with Rayon (or just plain threads?)
 
 - Use an actual newtype for NodeUid & ConnectionUid (same one for both? ContextUid)
-
-- enable 3rd party `Node`s to send update messages to audio thread
 
 - speed up computation by enabling multichannel data to be stored in an array instead of a vec?
 
@@ -26,9 +31,10 @@
 
 - allow removing audio nodes
 
-- make sure there are no race conditions when adding multiple nodes asynchronously at the same time
+- Optimization idea:
+  - Once a visit_order is created, actually arrange the nodes in memory that way (using a Vec) for maximizing cache hits
 
-- allow microphone input (ADCNode?, AudioInputNode? MicNode?)
+- make sure there are no race conditions when adding multiple nodes asynchronously at the same time
 
 - create Buffer player node
 
