@@ -12,6 +12,9 @@
 
 - Upmix / downmix DAC audio data instead of ignoring channel and audio output mismatches when moving data from within DAC nodes to actual audio output buffer
   - Use logical channels and map from logical to hardware channels. See [Max docs](https://docs.cycling74.com/max8/tutorials/04_mspaudioio) for how they do it
+  - Allow pre-configuring audio sources and outputs (via CLI?)
+
+- Allow serializing/deserializing AudioContext from memory for most efficient audio initialization
 
 - Use snapshot testing for complex audio
 
