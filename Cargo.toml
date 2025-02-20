@@ -1,5 +1,13 @@
 [workspace]
 
-members = [ "crates/resonix-native","crates/resonix-primitives", "crates/resonix-traits", "crates/resonix-web"]
+members = [
+	"crates/resonix-native",
+	"crates/resonix-primitives",
+	"crates/resonix-types",
+	"crates/resonix-web",
+]
 
 resolver = "2"
+
+[workspace.dependencies]
+thiserror = "2.0.11"
