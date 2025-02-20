@@ -3,7 +3,6 @@
 [![Tests Image]][resonix tests]
 
 [Tests Image]: https://img.shields.io/github/actions/workflow/status/austintheriot/resonix/tests.yml?branch=master
-
 [resonix tests]: https://github.com/austintheriot/resonix/actions/workflows/tests.yml
 
 **This library is currently in early development**. Feel free to use it, but do so with the knowledge that APIs are likely to change without consideration for backwards compatibility.
@@ -32,6 +31,12 @@ or
 sudo apt-get install libjack-jackd2-dev libjack-jackd2-0
 ```
 
+For running tests locally you'll need `cargo hack`: https://github.com/taiki-e/cargo-hack?tab=readme-ov-file#installation
+
+```sh
+cargo +stable install cargo-hack --locked
+```
+
 ## License
 
 Licensed under either of [Apache License, Version
@@ -40,3 +45,4 @@ Licensed under either of [Apache License, Version
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in resonix by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
+
