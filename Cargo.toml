@@ -1,5 +1,5 @@
 [workspace]
 
-members = ["crates/resonix-primitives", "crates/resonix-traits"]
+members = [ "crates/resonix-native","crates/resonix-primitives", "crates/resonix-traits", "crates/resonix-web"]
 
 resolver = "2"
