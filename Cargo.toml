@@ -1,18 +1,3 @@
 [workspace]
 
-members = [
-    "crates/resonix",
-    "crates/resonix_test_utils",
-    "crates/resonix_core",
-    "crates/resonix_dac",
-    "crates/resonix_graph",
-    "demos/audio_graph_web",
-    "demos/audio_graph_cli",
-    "demos/wide_audio_graph_cli",
-    "demos/channels_test_cli",
-    "demos/channels_test_web",
-    "demos/granular_synthesizer_web",
-    "demos/granular_synthesizer_cli",
-    "demos/concatenative_synthesizer_web",
-    "demos/sine_web",
-]
+members = ["crates/resonix-primitives", "crates/resonix-traits"]
