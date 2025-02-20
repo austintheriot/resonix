@@ -1,7 +1,9 @@
 use crate::Amplitude;
 
-pub trait Sample {
-    fn from_amplitude(amplitude: impl Amplitude) -> impl Sample;
+pub trait Sample<A: Amplitude> {
+    fn from_amplitude(amplitude: A) -> Self;
 
-    fn value(&self) -> impl Amplitude;
+    fn value(&self) -> &A;
+
+    fn into_value(self) -> A;
 }

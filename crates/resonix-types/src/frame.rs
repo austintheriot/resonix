@@ -1,7 +1,7 @@
-use crate::Sample;
+use crate::{Amplitude, Sample};
 
-pub trait Frame {
-    fn samples(&self) -> &[impl Sample];
+pub trait Frame<A: Amplitude, S: Sample<A>> {
+    fn samples(&self) -> &[S];
 
-    fn into_samples(self) -> impl Iterator<Item = impl Sample>;
+    fn into_samples(self) -> Vec<S>;
 }

@@ -1,4 +1,4 @@
-use crate::AudioContextUid;
+use crate::{AudioContextInterfaceData, AudioContextUid};
 
 pub struct AudioContext {
     current_uid: usize,
@@ -32,7 +32,7 @@ impl resonix_types::AudioContext for AudioContext {
         impl Iterator<Item = impl resonix_types::AudioContextInterfaceData>,
         resonix_types::AudioContextComputeError,
     > {
-        todo!()
+        Ok(std::iter::empty::<AudioContextInterfaceData>())
     }
 
     fn compute_next_frame_with_data(

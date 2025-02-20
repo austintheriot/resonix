@@ -1,7 +1,7 @@
 use crate::{AudioContextUid, MessageData};
 
 pub trait NodeMessageData {
-    fn node_uid(&self) -> impl AudioContextUid;
+    fn node_uid(&self) -> &impl AudioContextUid;
 
     fn message_data(&self) -> &MessageData;
 
