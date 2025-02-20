@@ -289,7 +289,7 @@ impl GranularSynthesizer {
 
         // uninitialized grain should be moved into the fresh_grains list--
         // the new, refreshed grain should use the same uid as the uninitialized one
-        let Some(Grain {  uid, .. }) = grains.get(half_way) else {
+        let Some(Grain { uid, .. }) = grains.get(half_way) else {
             return self;
         };
 
@@ -464,7 +464,7 @@ impl GranularSynthesizer {
 
         frame_data_buffer
             .iter_mut()
-            .zip(grains_as_channels.into_iter())
+            .zip(grains_as_channels)
             .for_each(|(channel, grain)| {
                 let Some(grain) = grain else {
                     *channel = 0.0;

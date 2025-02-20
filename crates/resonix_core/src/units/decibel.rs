@@ -15,15 +15,22 @@ pub struct Decibel {
 
 impl Decibel {
     pub fn get(&self) -> f32 {
-        Self::calculate(self.reference_amplitude, self.amplitude)
+        Self::calculate_with_reference(self.reference_amplitude, self.amplitude)
     }
 
-    pub fn calculate(reference_amplitude: f32, amplitude: f32) -> f32 {
+    pub fn calculate_with_reference(reference_amplitude: f32, amplitude: f32) -> f32 {
         amplitude.div(reference_amplitude).log10().mul(20.0)
     }
 
-    pub fn calculate_with_default_reference(amplitude: f32) -> f32 {
-        Self::calculate(DECIBEL_DEFAULT_REFERENCE_AMPLITUDE, amplitude)
+    pub fn calculate(amplitude: f32) -> f32 {
+        Self::calculate_with_reference(DECIBEL_DEFAULT_REFERENCE_AMPLITUDE, amplitude)
+    }
+
+    pub fn from_reference_and_amplitude(reference_amplitude: f32, amplitude: f32) -> Self {
+        Decibel {
+            reference_amplitude,
+            amplitude,
+        }
     }
 }
 
@@ -42,13 +49,29 @@ mod test_decibel {
 
     #[test]
     pub fn it_should_return_neg_inf_for_amplitude_0() {
-        let result = Decibel::calculate_with_default_reference(0.0);
+        let result = Decibel::calculate(0.0);
         assert_eq!(result, f32::NEG_INFINITY);
     }
 
     #[test]
     pub fn it_should_return_100_for_amplitude_1() {
-        let result = Decibel::calculate_with_default_reference(1.0);
+        let result = Decibel::calculate(1.0);
         assert_eq!(result, 100.0);
+    }
+
+    #[test]
+    pub fn it_should_allow_constructing_from_reference_and_amplitude() {
+        let reference_amplitude = 1.0;
+        let amplitude = 2.0;
+
+        let result = Decibel::from_reference_and_amplitude(reference_amplitude, amplitude);
+
+        assert_eq!(
+            result,
+            Decibel {
+                amplitude,
+                reference_amplitude
+            }
+        );
     }
 }

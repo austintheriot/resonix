@@ -337,9 +337,10 @@ impl AudioContext<AudioInit> {
                 update_node_message,
             },
             |node_message_response| {
-                let ProcessorMessageResponse::UpdateNode { result, .. } = node_message_response else {
-                return Err(MessageError::WrongResponseReceived)
-            };
+                let ProcessorMessageResponse::UpdateNode { result, .. } = node_message_response
+                else {
+                    return Err(MessageError::WrongResponseReceived);
+                };
 
                 result.map_err(MessageError::from)
             },
@@ -361,8 +362,8 @@ impl AudioContext<AudioInit> {
             },
             |node_message_response| {
                 let ProcessorMessageResponse::Connect { result, .. } = node_message_response else {
-                return Err(MessageError::WrongResponseReceived)
-            };
+                    return Err(MessageError::WrongResponseReceived);
+                };
 
                 result.map_err(MessageError::from)
             },
@@ -382,8 +383,8 @@ impl AudioContext<AudioInit> {
             },
             |node_message_response| {
                 let ProcessorMessageResponse::AddNode { result, .. } = node_message_response else {
-                return Err(MessageError::WrongResponseReceived)
-            };
+                    return Err(MessageError::WrongResponseReceived);
+                };
 
                 result.map_err(MessageError::from)
             },

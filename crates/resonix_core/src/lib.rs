@@ -7,7 +7,7 @@ pub mod units;
 pub mod utils;
 
 pub use amplitude::*;
-pub use decibel::*;
+
 pub use downmixers::*;
 pub use envelopes::*;
 pub use granular_synthesizer::*;
