@@ -1,3 +1,5 @@
 [workspace]
 
 members = ["crates/resonix-primitives", "crates/resonix-traits"]
+
+resolver = "2"
