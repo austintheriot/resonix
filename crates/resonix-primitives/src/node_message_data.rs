@@ -1,7 +1,13 @@
 pub struct NodeMessageData {}
 
-impl resonix_types::NodeMessageData for NodeMessageData {
-    fn node_uid(&self) -> impl resonix_types::AudioContextUid {
+impl<
+        A: resonix_types::Amplitude,
+        S: resonix_types::Sample<A>,
+        F: resonix_types::Frame<A, S>,
+        U: resonix_types::AudioContextUid,
+    > resonix_types::NodeMessageData<A, S, F, U> for NodeMessageData
+{
+    fn node_uid(&self) -> &U {
         todo!()
     }
 

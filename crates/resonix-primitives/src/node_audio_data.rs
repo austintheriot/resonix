@@ -1,23 +1,25 @@
-use resonix_types::Frame;
+use std::marker::PhantomData;
 
-use crate::AudioContextUid;
+use crate::{AudioContextUid, Frame, Sample};
 
 pub struct NodeAudioData<
     A: resonix_types::Amplitude,
-    S: resonix_types::Sample = Sample<Amplitude>,
-    F: resonix_types::Frame = Frame,
+    S: resonix_types::Sample<A> = Sample<A>,
+    F: resonix_types::Frame<A, S> = Frame<A, S>,
     U: resonix_types::AudioContextUid = AudioContextUid,
 > {
     uid: U,
     audio_data: F,
+    amplitude_type: PhantomData<A>,
+    sample_type: PhantomData<S>,
 }
 
 impl<
         A: resonix_types::Amplitude,
-        S: resonix_types::Sample,
-        F: resonix_types::Framee,
+        S: resonix_types::Sample<A>,
+        F: resonix_types::Frame<A, S>,
         U: resonix_types::AudioContextUid,
-    > resonix_types::NodeAudioData for NodeAudioData<A, S, F, U>
+    > resonix_types::NodeAudioData<A, S, F, U> for NodeAudioData<A, S, F, U>
 {
     fn node_uid(&self) -> &U {
         &self.uid

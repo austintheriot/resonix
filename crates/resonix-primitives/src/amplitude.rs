@@ -1,7 +1,7 @@
 pub struct Amplitude(f64);
 
 impl resonix_types::Amplitude for Amplitude {
-    fn from_f64(amplitude: f64) -> impl resonix_types::Amplitude {
+    fn from_f64(amplitude: f64) -> Self {
         Self(amplitude)
     }
 

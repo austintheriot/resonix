@@ -5,7 +5,9 @@ use crate::AudioContextUid;
 /// is coming FROM and where the connection is going TO.
 ///
 /// This serves as a unique per-audio-context address.
-pub trait AudioPortAddress {
+pub trait AudioPortAddress<
+
+> {
     fn audio_node_uid(&self) -> impl AudioContextUid;
 
     fn audio_port_uid(&self) -> impl AudioContextUid;

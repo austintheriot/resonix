@@ -7,9 +7,7 @@ impl AudioContextUid {
 }
 
 impl resonix_types::AudioContextUid for AudioContextUid {
-    fn from_audio_context(
-        audio_context: &mut impl resonix_types::AudioContext,
-    ) -> impl resonix_types::AudioContextUid {
-        audio_context.get_new_uid()
+    fn from_usize(u: usize) -> Self {
+        Self(u)
     }
 }
