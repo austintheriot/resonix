@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
+	"crates/resonix-core", "crates/resonix-graph", "crates/resonix-gui",
 	"crates/resonix-native",
 	"crates/resonix-primitives",
 	"crates/resonix-types",
