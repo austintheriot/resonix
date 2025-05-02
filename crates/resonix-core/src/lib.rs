@@ -1,14 +1,8 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+#![no_std]
+pub mod audio_core;
+pub mod audio_frame_inputs;
+pub mod audio_frame_result;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use audio_core::*;
+pub use audio_frame_inputs::*;
+pub use audio_frame_result::*;
