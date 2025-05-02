@@ -1,0 +1,32 @@
+[config]
+skip_core_tasks = true
+
+[env]
+GECKODRIVER = "geckodriver"
+
+[tasks.watch]
+command = "cargo"
+args = ["watch", "-x", "check", "-s", "cargo make test"]
+
+
+[tasks.test-wasm]
+command = "cargo"
+args = [
+	"test",
+	# enables running tests in headless browser via wasm-bindgen-test-runner
+	"--config",
+	"target.wasm32-unknown-unknown.runner = 'wasm-bindgen-test-runner'",
+	"--target=wasm32-unknown-unknown",
+]
+
+[tasks.test-native]
+command = "cargo"
+args = ["test"]
+
+[tasks.test]
+run_task = { name = ["test-wasm", "test-native"], parallel = true }
+
+
+[tasks.doc]
+command = "cargo"
+args = ["doc", "--open", "--target=wasm32-unknown-unknown"]
