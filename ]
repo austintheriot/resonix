@@ -1,4 +1,7 @@
-use std::{collections::VecDeque, thread::sleep, time::Duration};
+use std::{
+    thread::{self, JoinHandle, sleep},
+    time::Duration,
+};
 
 use cpal::{
     Stream,
@@ -6,39 +9,25 @@ use cpal::{
 };
 
 fn main() {
-    println!("starting");
     let host = cpal::default_host();
     let device = host
         .default_output_device()
         .expect("failed to find a default output device");
     let config = device.default_output_config().unwrap();
-    let sample_rate = config.sample_rate().0 as i32;
 
-    println!("getting audio stream");
-    let (audio_stream, mut send_next_value) = match config.sample_format() {
+    let two_threads = match config.sample_format() {
         cpal::SampleFormat::F32 => run::<f32>(&device, &config.into()),
         cpal::SampleFormat::I16 => run::<i16>(&device, &config.into()),
         cpal::SampleFormat::U16 => run::<u16>(&device, &config.into()),
         _ => panic!("unsupported sample format"),
     };
-    println!("got audio stream - waiting to start");
 
-    sleep(Duration::from_secs(2));
+    sleep(Duration::from_secs(5));
 
-    println!("generating audio ahead of time");
-    for _ in 0..=5 {
-        for _ in 0..=sample_rate {
-            send_next_value();
-        }
-    }
-
-    println!("sleeping");
-    sleep(Duration::from_secs(10));
-    println!("exiting");
-    drop(audio_stream)
+    drop(two_threads)
 }
 
-fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> (Stream, Box<dyn FnMut() -> ()>)
+fn run<T>(device: &cpal::Device, config: &cpal::StreamConfig) -> (Stream, JoinHandle<()>)
 where
     T: cpal::Sample + cpal::SizedSample + cpal::FromSample<f32>,
 {
@@ -50,24 +39,23 @@ where
     // Produce a sinusoid of maximum amplitude.
     let mut sample_clock = 0f32;
 
-    let send_next_value = move || {
+    let mut send_next_value = move || {
         sample_clock = (sample_clock + 1.0) % sample_rate;
         let next_value = (sample_clock * 440.0 * 2.0 * 3.141592 / sample_rate).sin();
         s.try_send(next_value).unwrap();
     };
 
-    let mut buffer = VecDeque::new();
-    let mut next_value = move || {
-        // buffer any income values
-        while let Ok(received_value) = r.try_recv() {
-            buffer.push_back(received_value);
+    let handler = thread::spawn(move || {
+        for i in 0..(sample_rate as i32) {
+            send_next_value()
         }
+        sleep(Duration::from_secs(1));
+    });
 
-        // get the next sample to actually play
-        if let Some(next_value) = buffer.pop_front() {
+    let mut next_value = move || {
+        if let Ok(next_value) = r.try_recv() {
             return next_value;
         }
-
         return 0.0;
     };
 
@@ -83,7 +71,7 @@ where
         .unwrap();
     stream.play().unwrap();
 
-    (stream, Box::new(send_next_value))
+    (stream, handler)
 }
 
 fn write_data<T>(output: &mut [T], channels: usize, next_sample: &mut dyn FnMut() -> f32)
