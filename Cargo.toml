@@ -5,7 +5,7 @@ members = [
 	"crates/resonix-graph",
 	"crates/resonix-gui",
 	"crates/resonix-native",
-	"crates/resonix-primitives", "crates/resonix-tests",
+	"crates/resonix-primitives",
 	"crates/resonix-types",
 	"crates/resonix-web",
 ]
