@@ -3,11 +3,11 @@ name = "resonix-core"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
-wasm-bindgen = { workspace = true }
-
 [lib]
 crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = { workspace = true }
 
 [dev-dependencies]
 wasm-bindgen-test = { workspace = true }

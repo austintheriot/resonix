@@ -110,6 +110,12 @@ dependencies = [
 [[package]]
 name = "resonix-web"
 version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "wasm-bindgen",
+ "wasm-bindgen-test",
+ "web-sys",
+]
 
 [[package]]
 name = "rustversion"
