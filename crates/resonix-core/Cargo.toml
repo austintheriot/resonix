@@ -11,3 +11,4 @@ wasm-bindgen = { workspace = true }
 
 [dev-dependencies]
 wasm-bindgen-test = { workspace = true }
+cargo-husky = { version = "1", features = ["user-hooks"] }
