@@ -55,6 +55,50 @@ jobs:
       - name: Run all features
         run: cargo test --all --all-features --verbose
 
+  windows-test:
+    strategy:
+      matrix:
+        version: [x86_64, i686]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ASIO SDK
+        env:
+          LINK: https://www.steinberg.net/asiosdk
+        run: |
+          curl -L -o asio.zip $env:LINK
+          7z x -oasio asio.zip
+          move asio\*\* asio\
+      - name: Install ASIO4ALL
+        run: choco install asio4all
+      - name: Install llvm and clang
+        run: choco install llvm
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.version }}-pc-windows-msvc
+      - name: Run without features
+        run: cargo test --all --no-default-features --verbose
+      - name: Run all features
+        run: |
+          $Env:CPAL_ASIO_DIR = "$Env:GITHUB_WORKSPACE\asio"
+          cargo test --all --all-features --verbose
+
+  macos-test:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install llvm and clang
+        run: brew install llvm
+      - name: Install stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: Build beep example
+        run: cargo build --example beep
+      - name: Run without features
+        run: cargo test --all --no-default-features --verbose
+      - name: Run all features
+        run: cargo test --all --all-features --verbose
+
   chrome-test:
     runs-on: ubuntu-latest
     steps:
