@@ -80,6 +80,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "resonix"
+version = "0.1.0"
+
+[[package]]
 name = "resonix-core"
 version = "0.1.0"
 dependencies = [
