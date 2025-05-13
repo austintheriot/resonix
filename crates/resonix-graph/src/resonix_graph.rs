@@ -1,6 +1,4 @@
 use alloc::boxed::Box;
-use alloc::vec::Vec;
-use core::any::Any;
 
 use crate::{ResonixAudioNode, ResonixParamNode};
 
@@ -11,7 +9,7 @@ pub enum Connectable {
 }
 
 pub trait ResonixGraph {
-    fn add(self: &mut Self, connectable: Connectable);
+    fn add(&mut self, connectable: Connectable);
 }
 
 #[cfg(test)]
