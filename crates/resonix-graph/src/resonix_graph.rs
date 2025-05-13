@@ -1,12 +1,4 @@
-use alloc::boxed::Box;
-
-use crate::{ResonixAudioNode, ResonixParamNode};
-
-pub enum Connectable {
-    AudioNode(Box<dyn ResonixAudioNode>),
-    ParamNode(Box<dyn ResonixParamNode>),
-    Graph(Box<dyn ResonixGraph>),
-}
+use crate::Connectable;
 
 pub trait ResonixGraph {
     fn add(&mut self, connectable: Connectable);
