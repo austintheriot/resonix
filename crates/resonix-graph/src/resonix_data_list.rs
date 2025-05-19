@@ -5,9 +5,13 @@ use alloc::vec::Vec;
 use crate::ResonixData;
 
 #[derive(Debug, Clone)]
-pub struct ResonixDataList(Vec<ResonixData>);
+pub struct ResonixDataList(pub(crate) Vec<ResonixData>);
 
 impl ResonixDataList {
+    pub fn new(resonix_data: Vec<ResonixData>) -> Self {
+        ResonixDataList(resonix_data)
+    }
+
     pub fn into_inner(self) -> Vec<ResonixData> {
         self.0
     }

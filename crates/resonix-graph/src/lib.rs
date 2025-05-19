@@ -1,4 +1,5 @@
 #![no_std]
+#[macro_use]
 extern crate alloc;
 
 mod resonix_audio_node;
