@@ -5,15 +5,18 @@ mod tests {
     use resonix_graph::{ResonixAudioNode, ResonixData, ResonixDataResult};
 
     #[test]
-    fn implementation_ideas() {
-        let mut constant_node = ConstantNode;
+    fn graph_can_accept_nodes() {}
+
+    #[test]
+    fn nodes_can_receive_and_generate_values() {
+        let mut constant_node = ConstantNode::new(0);
         let connection_data = constant_node.next();
         assert_eq!(
             *connection_data.first().unwrap().first().unwrap(),
             ResonixData::F32(1.0)
         );
 
-        let mut multiply_node = MultiplyNode::new(2.0);
+        let mut multiply_node = MultiplyNode::new(1, 2.0);
         multiply_node.assign_inputs(ResonixDataResult::from_value(3));
         let connection_data = multiply_node.next();
         assert_eq!(
