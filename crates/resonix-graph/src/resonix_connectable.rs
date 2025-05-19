@@ -1,9 +1,8 @@
 use alloc::boxed::Box;
 
-use crate::{ResonixAudioNode, ResonixGraph, ResonixParamNode};
+use crate::{ResonixAudioNode, ResonixParamNode};
 
 pub enum Connectable {
     AudioNode(Box<dyn ResonixAudioNode>),
     ParamNode(Box<dyn ResonixParamNode>),
-    Graph(Box<dyn ResonixGraph>),
 }
