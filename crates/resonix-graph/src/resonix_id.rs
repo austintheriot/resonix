@@ -1,1 +1,1 @@
-pub struct ResonixId(usize);
+pub struct ResonixId;
