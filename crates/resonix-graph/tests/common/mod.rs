@@ -35,15 +35,14 @@ mod graph {
             let connectable = connectable.into();
             let input_port_addresses = connectable.input_port_addresses();
             let output_port_addresses = connectable.output_port_addresses();
-            // TODO: append together first
-            input_port_addresses.into_iter().for_each(|port_address| {
-                let index = self.petgraph.add_node(port_address);
-                self.port_address_to_index_map.insert(port_address, index);
-            });
-            output_port_addresses.into_iter().for_each(|port_address| {
-                let index = self.petgraph.add_node(port_address);
-                self.port_address_to_index_map.insert(port_address, index);
-            });
+
+            input_port_addresses
+                .into_iter()
+                .chain(output_port_addresses.into_iter())
+                .for_each(|port_address| {
+                    let index = self.petgraph.add_node(port_address);
+                    self.port_address_to_index_map.insert(port_address, index);
+                });
 
             node_handle
         }
