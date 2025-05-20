@@ -1,9 +1,8 @@
-use crate::{Connectable, ResonixId, ResonixNodeHandle, ResonixPortHandle};
+use crate::{Connectable, ResonixNodeHandle, ResonixPortAddress};
 
 pub trait ResonixGraph {
     fn add<C: Into<Connectable>>(&mut self, connectable: C) -> ResonixNodeHandle;
 
-    fn connect(port_a: ResonixPortHandle, port_b: ResonixPortHandle) -> Result<(), ()>;
-
-    fn new_id(&mut self) -> ResonixId;
+    fn connect(&mut self, port_a: ResonixPortAddress, port_b: ResonixPortAddress)
+    -> Result<(), ()>;
 }

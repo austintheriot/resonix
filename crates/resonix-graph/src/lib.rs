@@ -12,7 +12,7 @@ mod resonix_id;
 mod resonix_id_generator;
 mod resonix_node_handle;
 mod resonix_param_node;
-mod resonix_port_handle;
+mod resonix_port_address;
 
 pub use resonix_audio_node::*;
 pub use resonix_connectable::*;
@@ -24,4 +24,4 @@ pub use resonix_id::*;
 pub use resonix_id_generator::*;
 pub use resonix_node_handle::*;
 pub use resonix_param_node::*;
-pub use resonix_port_handle::*;
+pub use resonix_port_address::*;

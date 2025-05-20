@@ -57,22 +57,15 @@ mod graph {
 mod constant_node {
     use resonix_graph::{
         ResonixAudioNode, ResonixData, ResonixDataList, ResonixDataResult, ResonixId,
-        ResonixPortAddress,
     };
 
     pub struct ConstantNode {
-        node_id: ResonixId,
+        id: ResonixId,
     }
 
     impl ConstantNode {
-        pub const OUTPUT_PORT_ID: ResonixId = ResonixId::new(1u32);
-
         pub fn new<I: Into<ResonixId>>(id: I) -> Self {
-            Self { node_id: id.into() }
-        }
-
-        pub fn output_port_address(&self) -> ResonixPortAddress {
-            ResonixPortAddress::new(self.node_id, Self::OUTPUT_PORT_ID)
+            Self { id: id.into() }
         }
     }
 
@@ -88,10 +81,6 @@ mod constant_node {
             // it takes no inputs
             unimplemented!()
         }
-
-        fn port_addresses(&self) -> Vec<resonix_graph::ResonixPortAddress> {
-            vec![self.output_port_address()]
-        }
     }
 }
 
@@ -102,7 +91,7 @@ mod multiply_node {
     };
 
     pub struct MultiplyNode {
-        node_id: ResonixId,
+        id: ResonixId,
         multiply_value: ResonixData,
         inputs: ResonixDataResult,
     }
@@ -113,18 +102,18 @@ mod multiply_node {
 
         pub fn new<I: Into<ResonixId>, D: Into<ResonixData>>(id: I, multiply_value: D) -> Self {
             Self {
-                node_id: id.into(),
+                id: id.into(),
                 multiply_value: multiply_value.into(),
                 inputs: ResonixDataResult::default(),
             }
         }
 
-        pub fn multiply_port_address(&self) -> ResonixPortAddress {
-            ResonixPortAddress::new(self.node_id, Self::MULTIPLY_PORT_ID)
+        pub fn multiply_port(&self) -> ResonixPortAddress {
+            ResonixPortAddress::new(self.id, MultiplyNode::MULTIPLY_PORT_ID)
         }
 
-        pub fn output_port_address(&self) -> ResonixPortAddress {
-            ResonixPortAddress::new(self.node_id, Self::OUTPUT_PORT_ID)
+        pub fn output_port(&self) -> ResonixPortAddress {
+            ResonixPortAddress::new(self.id, MultiplyNode::OUTPUT_PORT_ID)
         }
     }
 
@@ -166,10 +155,6 @@ mod multiply_node {
 
         fn assign_inputs(&mut self, inputs: ResonixDataResult) {
             self.inputs = inputs;
-        }
-
-        fn port_addresses(&self) -> Vec<ResonixPortAddress> {
-            vec![self.multiply_port_address(), self.output_port_address()]
         }
     }
 }

@@ -1,9 +1,11 @@
-use crate::{ResonixDataResult, ResonixId};
+use alloc::vec::Vec;
+
+use crate::{ResonixDataResult, ResonixPortAddress};
 
 pub trait ResonixAudioNode {
     fn next(&mut self) -> ResonixDataResult;
 
-    fn node_id(&self) -> ResonixId;
-
     fn assign_inputs(&mut self, inputs: ResonixDataResult);
+
+    fn port_addresses(&self) -> Vec<ResonixPortAddress>;
 }
