@@ -7,5 +7,7 @@ pub trait ResonixAudioNode {
 
     fn assign_inputs(&mut self, inputs: ResonixDataResult);
 
-    fn port_addresses(&self) -> Vec<ResonixPortAddress>;
+    fn input_port_addresses(&self) -> Vec<ResonixPortAddress>;
+
+    fn output_port_addresses(&self) -> Vec<ResonixPortAddress>;
 }

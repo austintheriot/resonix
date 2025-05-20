@@ -1,8 +1,8 @@
 #[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ResonixId(u32);
+pub struct ResonixId(usize);
 
 impl ResonixId {
-    pub const fn new(id: u32) -> Self {
+    pub const fn new(id: usize) -> Self {
         Self(id)
     }
 }
@@ -11,12 +11,12 @@ impl ResonixId {
 
 impl From<i32> for ResonixId {
     fn from(value: i32) -> Self {
-        ResonixId(value as u32)
+        ResonixId(value as usize)
     }
 }
 
-impl From<u32> for ResonixId {
-    fn from(value: u32) -> Self {
+impl From<usize> for ResonixId {
+    fn from(value: usize) -> Self {
         ResonixId(value)
     }
 }
