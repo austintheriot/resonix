@@ -69,7 +69,7 @@ mod graph {
 
             input_port_addresses
                 .into_iter()
-                .chain(output_port_addresses.into_iter())
+                .chain(output_port_addresses)
                 .for_each(|port_address| {
                     let index = self.petgraph.add_node(port_address);
                     self.port_address_to_index_map.insert(port_address, index);
@@ -101,11 +101,10 @@ mod graph {
 
     #[cfg(test)]
     mod graph_tests {
-        use resonix_graph::{Audio, Param, ResonixGraph, ResonixNodeHandle};
+        use resonix_graph::{Audio, ResonixGraph};
 
         use crate::common::{
             graph::Graph,
-            multiply_node,
             nodes::{ConstantNode, MultiplyNode},
         };
 

@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 use crate::{ResonixDataResult, ResonixPortAddress};
 
 pub trait ResonixAudioNode: Any {
+    // TODO: can be removed if downcasting in Graph is not necessary
     fn as_any(&self) -> &dyn Any;
 
     fn next(&mut self) -> ResonixDataResult;

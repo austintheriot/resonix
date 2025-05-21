@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 use crate::ResonixPortAddress;
 
 pub trait ResonixParamNode: Any {
+    // TODO: can be removed if downcasting in Graph is not necessary
     fn as_any(&self) -> &dyn Any;
 
     fn input_port_addresses(&self) -> Vec<ResonixPortAddress>;
