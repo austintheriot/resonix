@@ -1,6 +1,6 @@
 use crate::{ResonixId, ResonixPortAddressDirection};
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ResonixPortAddress {
     node_id: ResonixId,
     port_id: ResonixId,

@@ -46,7 +46,7 @@ impl ResonixAudioNode for ConstantNode {
         vec![self.output_port_address()]
     }
 
-    fn as_any(&self) -> &dyn core::any::Any {
-        self
+    fn node_id(&self) -> ResonixId {
+        self.node_id
     }
 }

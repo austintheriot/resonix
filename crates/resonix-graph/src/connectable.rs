@@ -8,6 +8,13 @@ pub enum Connectable {
 }
 
 impl Connectable {
+    pub fn node_id(&self) -> ResonixId {
+        match self {
+            Connectable::AudioNode(resonix_audio_node) => resonix_audio_node.node_id(),
+            Connectable::ParamNode(resonix_param_node) => resonix_param_node.node_id(),
+        }
+    }
+
     pub fn input_port_addresses(&self) -> Vec<ResonixPortAddress> {
         match self {
             Connectable::AudioNode(resonix_audio_node) => resonix_audio_node.input_port_addresses(),

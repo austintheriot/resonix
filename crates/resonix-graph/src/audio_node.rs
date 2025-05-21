@@ -1,12 +1,9 @@
-use core::any::Any;
-
 use alloc::vec::Vec;
 
-use crate::{ResonixDataResult, ResonixPortAddress};
+use crate::{ResonixDataResult, ResonixId, ResonixPortAddress};
 
-pub trait ResonixAudioNode: Any {
-    // TODO: can be removed if downcasting in Graph is not necessary
-    fn as_any(&self) -> &dyn Any;
+pub trait ResonixAudioNode {
+    fn node_id(&self) -> ResonixId;
 
     fn next(&mut self) -> ResonixDataResult;
 

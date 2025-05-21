@@ -1,5 +1,3 @@
-use core::any::Any;
-
 use alloc::{borrow::ToOwned, vec::Vec};
 
 use crate::{
@@ -94,7 +92,7 @@ impl ResonixAudioNode for MultiplyNode {
         vec![self.output_port_address()]
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn node_id(&self) -> ResonixId {
+        self.node_id
     }
 }

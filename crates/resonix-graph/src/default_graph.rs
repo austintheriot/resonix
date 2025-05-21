@@ -4,7 +4,7 @@ use crate::{
 };
 
 use alloc::vec::Vec;
-use hashbrown::{HashMap, HashSet};
+use hashbrown::HashMap;
 use petgraph::graph as pgraph;
 
 pub struct Graph {
@@ -30,20 +30,6 @@ impl Graph {
             graph: petgraph::Graph::<ResonixId, ResonixConnection>::new(),
             starter_nodes: Vec::new(),
             index_to_node_id_map: HashMap::new(),
-        }
-    }
-
-    fn get<N: 'static, I: AsRef<ResonixId>>(&self, node_id: I) -> Option<&N> {
-        // TODO: interesting, but probably not useful
-        // can be deleted later if not needed.
-        //
-        // Demonstrates that it's possible to access Nodes of arbitrary type
-        // from the outside and get temporary references to them
-        let node_id = node_id.as_ref();
-        let maybe_connectable = self.connectables.get(**node_id);
-        match maybe_connectable.and_then(|inner| inner.as_ref()) {
-            Some(Connectable::AudioNode(boxed)) => boxed.as_any().downcast_ref::<N>(),
-            _ => None,
         }
     }
 
@@ -76,7 +62,7 @@ impl Graph {
     }
 
     pub fn node_run_order(&self) -> Option<&[ResonixId]> {
-        self.visit_order.as_ref().map(|v| &**v)
+        self.visit_order.as_deref()
     }
 }
 
@@ -90,9 +76,9 @@ impl GenerateId for Graph {
 
 impl ResonixGraph for Graph {
     fn add<C: Into<Connectable>>(&mut self, connectable: C) -> ResonixNodeHandle {
-        let node_id = self.generate_id();
-        let node_handle = ResonixNodeHandle::new(node_id);
         let connectable = connectable.into();
+        let node_id = connectable.node_id();
+        let node_handle = ResonixNodeHandle::new(node_id);
 
         // bookkeeping
         let index = self.graph.add_node(node_id);
@@ -146,68 +132,82 @@ impl ResonixGraph for Graph {
 
 #[cfg(test)]
 mod graph_tests {
-    use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
+    mod initialization {
+        use crate::Graph;
 
-    #[test]
-    fn it_should_allow_constructing_without_panicking() {
-        Graph::new();
+        #[test]
+        fn it_should_allow_constructing_without_panicking() {
+            Graph::new();
+        }
     }
 
-    #[test]
-    fn run_order_for_unconnected_nodes_should_be_their_insertion_order() {
-        let mut graph = Graph::new();
+    mod node_visit_order {
+        mod unconnected_graphs {
+            use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
+            #[test]
+            fn run_order_for_unconnected_nodes_should_be_their_insertion_order() {
+                let mut graph = Graph::new();
 
-        let constant_node_1 = ConstantNode::new(&mut graph);
-        let multiply_node_1 = MultiplyNode::new(&mut graph, 2.0);
-        let constant_node_2 = ConstantNode::new(&mut graph);
-        let multiply_node_2 = MultiplyNode::new(&mut graph, 4.0);
+                let constant_node_1 = ConstantNode::new(&mut graph);
+                let multiply_node_1 = MultiplyNode::new(&mut graph, 2.0);
+                let constant_node_2 = ConstantNode::new(&mut graph);
+                let multiply_node_2 = MultiplyNode::new(&mut graph, 4.0);
 
-        let constant_node_handle_1 = graph.add(Audio(constant_node_1));
-        let multiply_node_handle_1 = graph.add(Audio(multiply_node_1));
-        let constant_node_handle_2 = graph.add(Audio(constant_node_2));
-        let multiply_node_handle_2 = graph.add(Audio(multiply_node_2));
+                let constant_node_handle_1 = graph.add(Audio(constant_node_1));
+                let multiply_node_handle_1 = graph.add(Audio(multiply_node_1));
+                let constant_node_handle_2 = graph.add(Audio(constant_node_2));
+                let multiply_node_handle_2 = graph.add(Audio(multiply_node_2));
 
-        let node_run_order = graph.node_run_order();
+                let node_run_order = graph.node_run_order();
 
-        assert_eq!(
-            node_run_order.unwrap(),
-            &[
-                *constant_node_handle_1.as_ref(),
-                *multiply_node_handle_1.as_ref(),
-                *constant_node_handle_2.as_ref(),
-                *multiply_node_handle_2.as_ref()
-            ]
-        )
-    }
+                assert_eq!(
+                    node_run_order.unwrap(),
+                    &[
+                        *constant_node_handle_1.as_ref(),
+                        *multiply_node_handle_1.as_ref(),
+                        *constant_node_handle_2.as_ref(),
+                        *multiply_node_handle_2.as_ref()
+                    ]
+                )
+            }
+        }
 
-    #[test]
-    fn it_should_generate_correct_run_order() {
-        let mut graph = Graph::new();
+        mod acyclic_graphs {
+            use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
+            #[test]
+            fn constant_node_to_multiply_node() {
+                let mut graph = Graph::new();
 
-        let constant_node = ConstantNode::new(&mut graph);
-        let multiply_node = MultiplyNode::new(&mut graph, 2.0);
+                let constant_node = ConstantNode::new(&mut graph);
+                let multiply_node = MultiplyNode::new(&mut graph, 2.0);
 
-        let constant_node_output_port_address = constant_node.output_port_address();
-        let multiply_input_port_address = multiply_node.multiply_port_address();
+                let constant_node_output_port_address = constant_node.output_port_address();
+                let multiply_input_port_address = multiply_node.multiply_port_address();
 
-        let constant_node_handle = graph.add(Audio(constant_node));
-        let multiply_node_handle = graph.add(Audio(multiply_node));
+                let constant_node_handle = graph.add(Audio(constant_node));
+                let multiply_node_handle = graph.add(Audio(multiply_node));
 
-        graph
-            .connect(
-                constant_node_output_port_address,
-                multiply_input_port_address,
-            )
-            .unwrap();
+                graph
+                    .connect(
+                        constant_node_output_port_address,
+                        multiply_input_port_address,
+                    )
+                    .unwrap();
 
-        let node_run_order = graph.node_run_order();
+                let node_run_order = graph.node_run_order();
 
-        assert_eq!(
-            node_run_order.unwrap(),
-            &[
-                *constant_node_handle.as_ref(),
-                *multiply_node_handle.as_ref()
-            ]
-        )
+                assert_eq!(
+                    node_run_order.unwrap(),
+                    &[
+                        *constant_node_handle.as_ref(),
+                        *multiply_node_handle.as_ref()
+                    ]
+                )
+            }
+        }
+
+        mod cyclic_graph {
+            // TODO: implement cyclic graph tests
+        }
     }
 }
