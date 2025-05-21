@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ResonixId(usize);
 
 impl ResonixId {

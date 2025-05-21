@@ -46,8 +46,10 @@ mod graph {
             }
         }
 
-        fn calculate_node_run_order(&mut self) {
-            todo!()
+        fn calculate_node_run_order(&mut self) {}
+
+        pub fn node_run_order(&self) -> Option<&[ResonixId]> {
+            self.node_run_order.as_ref().map(|v| &**v)
         }
     }
 
@@ -83,6 +85,8 @@ mod graph {
                     .resize_with(connectable_index + 1, Default::default);
             }
             self.connectables[*node_id] = Some(connectable);
+
+            self.calculate_node_run_order();
 
             node_handle
         }
@@ -134,6 +138,15 @@ mod graph {
                 .unwrap();
 
             // TODO: test run order here
+            let node_run_order = graph.node_run_order();
+
+            assert_eq!(
+                node_run_order.unwrap(),
+                &[
+                    *constant_node_handle.as_ref(),
+                    *multiply_node_handle.as_ref()
+                ]
+            )
         }
     }
 }
