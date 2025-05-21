@@ -1,3 +1,5 @@
+use core::ops::Deref;
+
 #[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ResonixId(usize);
 
@@ -8,6 +10,14 @@ impl ResonixId {
 }
 
 // other convenience implementations possible here
+
+impl Deref for ResonixId {
+    type Target = usize;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl From<i32> for ResonixId {
     fn from(value: i32) -> Self {

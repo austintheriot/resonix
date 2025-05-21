@@ -1,6 +1,6 @@
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::{ResonixAudioNode, ResonixParamNode, ResonixPortAddress, resonix_audio_node};
+use crate::{Audio, Param, ResonixAudioNode, ResonixParamNode, ResonixPortAddress};
 
 pub enum Connectable {
     AudioNode(Box<dyn ResonixAudioNode>),
@@ -27,14 +27,14 @@ impl Connectable {
     }
 }
 
-impl From<Box<dyn ResonixAudioNode>> for Connectable {
-    fn from(value: Box<dyn ResonixAudioNode>) -> Self {
-        Connectable::AudioNode(value)
+impl<T: ResonixAudioNode + 'static> From<Audio<T>> for Connectable {
+    fn from(value: Audio<T>) -> Self {
+        Connectable::AudioNode(Box::new(value.0))
     }
 }
 
-impl From<Box<dyn ResonixParamNode>> for Connectable {
-    fn from(value: Box<dyn ResonixParamNode>) -> Self {
-        Connectable::ParamNode(value)
+impl<T: ResonixParamNode + 'static> From<Param<T>> for Connectable {
+    fn from(value: Param<T>) -> Self {
+        Connectable::ParamNode(Box::new(value.0))
     }
 }

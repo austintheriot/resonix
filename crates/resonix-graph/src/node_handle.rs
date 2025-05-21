@@ -7,3 +7,9 @@ impl ResonixNodeHandle {
         Self(node_id)
     }
 }
+
+impl AsRef<ResonixId> for ResonixNodeHandle {
+    fn as_ref(&self) -> &ResonixId {
+        &self.0
+    }
+}
