@@ -1,12 +1,13 @@
 use alloc::vec::Vec;
 
 use crate::{
-    GenerateId, ResonixAudioNode, ResonixData, ResonixDataList, ResonixDataResult, ResonixId,
-    ResonixPortAddress, ResonixPortAddressDirection,
+    GenerateId, ResonixAudioNode, ResonixData, ResonixDataList, ResonixId, ResonixPortAddress,
+    ResonixPortAddressDirection,
 };
 
 pub struct ConstantNode {
     node_id: ResonixId,
+    constant_value: ResonixData,
 }
 
 impl ConstantNode {
@@ -14,7 +15,10 @@ impl ConstantNode {
 
     pub fn new<G: GenerateId>(id_generator: &mut G) -> Self {
         let node_id = id_generator.generate_id();
-        Self { node_id }
+        Self {
+            node_id,
+            constant_value: ResonixData::None,
+        }
     }
 
     pub fn output_port_address(&self) -> ResonixPortAddress {
@@ -27,15 +31,13 @@ impl ConstantNode {
 }
 
 impl ResonixAudioNode for ConstantNode {
-    fn next(&mut self) -> ResonixDataResult {
-        let connection_data: Vec<ResonixDataList> =
-            vec![ResonixDataList::from([ResonixData::F32(1.0)])];
-
-        connection_data.into()
+    fn next(&mut self) -> ResonixDataList {
+        ResonixDataList::from([self.constant_value.clone()])
     }
 
-    fn assign_inputs(&mut self, _inputs: ResonixDataResult) {
-        // it takes no inputs
+    fn assign_inputs(&mut self, _inputs: ResonixDataList) {
+        // assign any inputs to the constant value it holds
+        todo!()
     }
 
     fn input_port_addresses(&self) -> Vec<ResonixPortAddress> {
