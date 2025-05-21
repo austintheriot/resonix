@@ -1,15 +1,14 @@
 use crate::ResonixId;
 
+#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ResonixNodeHandle(ResonixId);
 
 impl ResonixNodeHandle {
     pub fn new(node_id: ResonixId) -> Self {
         Self(node_id)
     }
-}
 
-impl AsRef<ResonixId> for ResonixNodeHandle {
-    fn as_ref(&self) -> &ResonixId {
-        &self.0
+    pub fn node_id(&self) -> ResonixId {
+        self.0
     }
 }

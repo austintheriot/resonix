@@ -61,7 +61,7 @@ impl Graph {
         visit_order
     }
 
-    pub fn node_run_order(&self) -> Option<&[ResonixId]> {
+    pub fn visit_order(&self) -> Option<&[ResonixId]> {
         self.visit_order.as_deref()
     }
 }
@@ -142,8 +142,27 @@ mod graph_tests {
     }
 
     mod node_visit_order {
+        use std::vec::Vec;
+
+        use crate::{ResonixId, ResonixNodeHandle};
+
+        fn assert_visit_order_matches_handles(
+            visit_order: &Option<&[ResonixId]>,
+            node_handles: &[ResonixNodeHandle],
+        ) {
+            let node_handles_as_node_ids: Vec<ResonixId> = node_handles
+                .iter()
+                .map(|node_handle| node_handle.node_id())
+                .collect();
+            assert_eq!(visit_order.unwrap(), node_handles_as_node_ids.as_slice())
+        }
+
         mod unconnected_graphs {
-            use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
+            use crate::{
+                Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph,
+                default_graph::graph_tests::node_visit_order::assert_visit_order_matches_handles,
+            };
+
             #[test]
             fn run_order_for_unconnected_nodes_should_be_their_insertion_order() {
                 let mut graph = Graph::new();
@@ -158,22 +177,24 @@ mod graph_tests {
                 let constant_node_handle_2 = graph.add(Audio(constant_node_2));
                 let multiply_node_handle_2 = graph.add(Audio(multiply_node_2));
 
-                let node_run_order = graph.node_run_order();
+                let visit_order = graph.visit_order();
 
-                assert_eq!(
-                    node_run_order.unwrap(),
+                assert_visit_order_matches_handles(
+                    &visit_order,
                     &[
-                        *constant_node_handle_1.as_ref(),
-                        *multiply_node_handle_1.as_ref(),
-                        *constant_node_handle_2.as_ref(),
-                        *multiply_node_handle_2.as_ref()
-                    ]
-                )
+                        constant_node_handle_1,
+                        multiply_node_handle_1,
+                        constant_node_handle_2,
+                        multiply_node_handle_2,
+                    ],
+                );
             }
         }
 
         mod acyclic_graphs {
             use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
+
+            use super::assert_visit_order_matches_handles;
             #[test]
             fn constant_node_to_multiply_node() {
                 let mut graph = Graph::new();
@@ -194,15 +215,12 @@ mod graph_tests {
                     )
                     .unwrap();
 
-                let node_run_order = graph.node_run_order();
+                let node_run_order = graph.visit_order();
 
-                assert_eq!(
-                    node_run_order.unwrap(),
-                    &[
-                        *constant_node_handle.as_ref(),
-                        *multiply_node_handle.as_ref()
-                    ]
-                )
+                assert_visit_order_matches_handles(
+                    &node_run_order,
+                    &[constant_node_handle, multiply_node_handle],
+                );
             }
         }
 
