@@ -1,5 +1,5 @@
 use crate::{
-    Connectable, GenerateId, ResonixConnection, ResonixDataList, ResonixGraph, ResonixId,
+    Connectable, GenerateId, GraphError, ResonixConnection, ResonixGraph, ResonixId,
     ResonixNodeHandle, ResonixPortAddress,
 };
 
@@ -11,25 +11,27 @@ pub struct Graph {
     current_node_id: usize,
     connectables: Vec<Option<Connectable>>,
     visit_order: Option<Vec<ResonixId>>,
-    port_data_map: HashMap<ResonixPortAddress, ResonixDataList>,
     node_id_to_index_map: HashMap<ResonixId, pgraph::NodeIndex<pgraph::DefaultIx>>,
     index_to_node_id_map: HashMap<pgraph::NodeIndex<pgraph::DefaultIx>, ResonixId>,
     graph: petgraph::Graph<ResonixId, ResonixConnection>,
     // we want to preserve insertion order
     starter_nodes: Vec<ResonixId>,
+    // will be necessary when processing data
+    //port_data_map: HashMap<ResonixPortAddress, ResonixDataList>,
 }
 
 impl Graph {
+    #[cfg(test)]
     fn new() -> Self {
         Graph {
             current_node_id: 0,
             connectables: Vec::new(),
             visit_order: None,
-            port_data_map: HashMap::new(),
             node_id_to_index_map: HashMap::new(),
             graph: petgraph::Graph::<ResonixId, ResonixConnection>::new(),
             starter_nodes: Vec::new(),
             index_to_node_id_map: HashMap::new(),
+            //port_data_map: HashMap::new(),
         }
     }
 
@@ -99,7 +101,7 @@ impl ResonixGraph for Graph {
         &mut self,
         start_port_address: ResonixPortAddress,
         end_port_address: ResonixPortAddress,
-    ) -> Result<(), ()> {
+    ) -> Result<(), GraphError> {
         // TODO: check that the connection is valid before making it
 
         let start_node_id = start_port_address.node_id();
