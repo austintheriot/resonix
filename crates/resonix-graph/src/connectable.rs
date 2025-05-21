@@ -1,6 +1,6 @@
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::{Audio, Param, ResonixAudioNode, ResonixParamNode, ResonixPortAddress};
+use crate::{Audio, Param, ResonixAudioNode, ResonixId, ResonixParamNode, ResonixPortAddress};
 
 pub enum Connectable {
     AudioNode(Box<dyn ResonixAudioNode>),

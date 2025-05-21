@@ -1,9 +1,7 @@
-mod common;
-
 mod tests {
-
-    use crate::common::nodes::{ConstantNode, MultiplyNode};
-    use resonix_graph::{GenerateId, ResonixAudioNode, ResonixData, ResonixDataResult};
+    use resonix_graph::{
+        ConstantNode, GenerateId, MultiplyNode, ResonixAudioNode, ResonixData, ResonixDataResult,
+    };
 
     #[test]
     fn graph_can_accept_nodes() {}

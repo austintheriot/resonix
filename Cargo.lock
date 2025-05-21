@@ -153,6 +153,7 @@ dependencies = [
 name = "resonix-graph"
 version = "0.1.0"
 dependencies = [
+ "hashbrown",
  "petgraph",
 ]
 
