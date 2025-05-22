@@ -208,9 +208,12 @@ mod graph_tests {
 
             use super::assert_visit_order_matches_handles;
 
-            // Constant
-            //    |
-            // Multiply
+            // Constant None
+            //    |      |
+            //    L      R
+            //    Multiply
+            //       |
+            //     Output
             #[test]
             fn constant_node_to_multiply_node() {
                 let mut graph = Graph::new();
@@ -218,16 +221,13 @@ mod graph_tests {
                 let constant_node = ConstantNode::new(&mut graph);
                 let multiply_node = MultiplyNode::new(&mut graph);
 
-                let constant_node_output_port_address = constant_node.output_port_address();
-                let multiply_input_port_address = multiply_node.left_operator_input_address();
-
-                let constant_node_handle = graph.add(Audio(constant_node)).unwrap();
-                let multiply_node_handle = graph.add(Audio(multiply_node)).unwrap();
+                let constant_node = graph.add(Audio(constant_node)).unwrap();
+                let multiply_node = graph.add(Audio(multiply_node)).unwrap();
 
                 graph
                     .connect(
-                        constant_node_output_port_address,
-                        multiply_input_port_address,
+                        constant_node.output_port_address(),
+                        multiply_node.left_operator_input_address(),
                     )
                     .unwrap();
 
@@ -235,10 +235,7 @@ mod graph_tests {
 
                 assert_visit_order_matches_handles(
                     &node_run_order,
-                    &[
-                        Box::new(constant_node_handle),
-                        Box::new(multiply_node_handle),
-                    ],
+                    &[Box::new(constant_node), Box::new(multiply_node)],
                 );
             }
 
@@ -262,17 +259,32 @@ mod graph_tests {
                 let constant_node_value_5 = ConstantNode::new_with_value(&mut graph, 5);
                 let multiply_node_2 = MultiplyNode::new(&mut graph);
 
-                let constant_node_value_2_handle = graph.add(Audio(constant_node_value_2)).unwrap();
-                let constant_node_value_3_handle = graph.add(Audio(constant_node_value_3)).unwrap();
-                let multiply_node_1_handle = graph.add(Audio(multiply_node_1)).unwrap();
-                let constant_node_value_5_handle = graph.add(Audio(constant_node_value_5)).unwrap();
-                let multiply_node_2_handle = graph.add(Audio(multiply_node_2)).unwrap();
+                let constant_node_value_2 = graph.add(Audio(constant_node_value_2)).unwrap();
+                let constant_node_value_3 = graph.add(Audio(constant_node_value_3)).unwrap();
+                let multiply_node_1 = graph.add(Audio(multiply_node_1)).unwrap();
+                let constant_node_value_5 = graph.add(Audio(constant_node_value_5)).unwrap();
+                let multiply_node_2 = graph.add(Audio(multiply_node_2)).unwrap();
 
                 // TODO connect them
                 graph
                     .connect(
-                        constant_node_value_2_handle.output_port_address(),
-                        multiply_node_1_handle.left_operator_input_address(),
+                        constant_node_value_2.output_port_address(),
+                        multiply_node_1.left_operator_input_address(),
+                    )
+                    .unwrap()
+                    .connect(
+                        constant_node_value_3.output_port_address(),
+                        multiply_node_1.right_operator_input_address(),
+                    )
+                    .unwrap()
+                    .connect(
+                        multiply_node_1.output_port_address(),
+                        multiply_node_2.left_operator_input_address(),
+                    )
+                    .unwrap()
+                    .connect(
+                        constant_node_value_5.output_port_address(),
+                        multiply_node_2.right_operator_input_address(),
                     )
                     .unwrap();
 
@@ -281,11 +293,11 @@ mod graph_tests {
                 assert_visit_order_matches_handles(
                     &node_run_order,
                     &[
-                        Box::new(constant_node_value_2_handle),
-                        Box::new(constant_node_value_3_handle),
-                        Box::new(constant_node_value_5_handle),
-                        Box::new(multiply_node_1_handle),
-                        Box::new(multiply_node_2_handle),
+                        Box::new(constant_node_value_2),
+                        Box::new(constant_node_value_3),
+                        Box::new(constant_node_value_5),
+                        Box::new(multiply_node_1),
+                        Box::new(multiply_node_2),
                     ],
                 );
             }
