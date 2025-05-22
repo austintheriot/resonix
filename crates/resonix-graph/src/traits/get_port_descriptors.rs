@@ -5,6 +5,6 @@ use super::DescribePorts;
 ///
 /// This makes connecting Node ports after they have already been
 /// added to the Graph (the primary user flow) much simpler/ergonomic.
-pub trait GetPorts<P: DescribePorts> {
-    fn get_ports(&self) -> P;
+pub trait GetPortDescriptors<P: DescribePorts> {
+    fn get_port_descriptors(&self) -> P;
 }
