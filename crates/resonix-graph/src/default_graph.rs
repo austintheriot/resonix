@@ -227,7 +227,7 @@ mod graph_tests {
                 graph
                     .connect(
                         constant_node.output_port_address(),
-                        multiply_node.left_operator_input_address(),
+                        multiply_node.left_operand_input_address(),
                     )
                     .unwrap();
 
@@ -269,22 +269,22 @@ mod graph_tests {
                 graph
                     .connect(
                         constant_node_value_2.output_port_address(),
-                        multiply_node_1.left_operator_input_address(),
+                        multiply_node_1.left_operand_input_address(),
                     )
                     .unwrap()
                     .connect(
                         constant_node_value_3.output_port_address(),
-                        multiply_node_1.right_operator_input_address(),
+                        multiply_node_1.right_operand_input_address(),
                     )
                     .unwrap()
                     .connect(
                         multiply_node_1.output_port_address(),
-                        multiply_node_2.left_operator_input_address(),
+                        multiply_node_2.left_operand_input_address(),
                     )
                     .unwrap()
                     .connect(
                         constant_node_value_5.output_port_address(),
-                        multiply_node_2.right_operator_input_address(),
+                        multiply_node_2.right_operand_input_address(),
                     )
                     .unwrap();
 

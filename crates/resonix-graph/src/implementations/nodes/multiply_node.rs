@@ -9,8 +9,8 @@ use crate::{
 
 pub struct MultiplyNode {
     node_id: ResonixId,
-    left_operator_value: ResonixData,
-    right_operator_value: ResonixData,
+    left_operand_value: ResonixData,
+    right_operand_value: ResonixData,
     port_descriptors: MultiplyNodePortDescriptors,
 }
 
@@ -21,18 +21,18 @@ impl MultiplyNode {
 
     pub fn new_with_values<G: GenerateId, L: Into<ResonixData>, R: Into<ResonixData>>(
         id_generator: &mut G,
-        left_operator: L,
-        right_operator: R,
+        left_operand: L,
+        right_operand: R,
     ) -> Self {
         let node_id = id_generator.generate_id();
-        let left_operator_value = left_operator.into();
-        let right_operator_value = right_operator.into();
+        let left_operand_value = left_operand.into();
+        let right_operand_value = right_operand.into();
         let port_descriptors = MultiplyNodePortDescriptors::new(node_id);
 
         Self {
             node_id,
-            right_operator_value,
-            left_operator_value,
+            right_operand_value,
+            left_operand_value,
             port_descriptors,
         }
     }
@@ -52,8 +52,8 @@ impl GetNodeId for MultiplyNode {
 
 impl ResonixAudioNode for MultiplyNode {
     fn next(&mut self) -> ResonixDataList {
-        let resonid_data = match self.left_operator_value {
-            ResonixData::F32(original_value_f32) => match self.right_operator_value {
+        let resonid_data = match self.left_operand_value {
+            ResonixData::F32(original_value_f32) => match self.right_operand_value {
                 ResonixData::F32(multiplier_f32) => {
                     ResonixData::F32(original_value_f32 * multiplier_f32)
                 }
@@ -63,7 +63,7 @@ impl ResonixAudioNode for MultiplyNode {
                 ResonixData::None => ResonixData::Error,
                 ResonixData::Error => ResonixData::Error,
             },
-            ResonixData::I32(original_value_i32) => match self.right_operator_value {
+            ResonixData::I32(original_value_i32) => match self.right_operand_value {
                 ResonixData::F32(multiplier_f32) => {
                     ResonixData::I32(original_value_i32 * multiplier_f32 as i32)
                 }
@@ -86,13 +86,13 @@ impl ResonixAudioNode for MultiplyNode {
             .into_iter()
             .enumerate()
             .for_each(|(i, data)| {
-                let left_operator_index = *self.left_operator_input_address().port_id();
-                let right_operator_index = *self.right_operator_input_address().port_id();
+                let left_operand_index = *self.left_operand_input_address().port_id();
+                let right_operand_index = *self.right_operand_input_address().port_id();
 
-                if i == left_operator_index {
-                    self.left_operator_value = data
-                } else if i == right_operator_index {
-                    self.right_operator_value = data
+                if i == left_operand_index {
+                    self.left_operand_value = data
+                } else if i == right_operand_index {
+                    self.right_operand_value = data
                 }
             });
     }
@@ -112,26 +112,26 @@ pub struct MultiplyNodePortDescriptors {
 }
 
 impl MultiplyNodePortDescriptors {
-    pub const LEFT_OPERATOR_INPUT_PORT_ID: ResonixId = ResonixId::new(0usize);
-    pub const RIGHT_OPERATOR_INPUT_PORT_ID: ResonixId = ResonixId::new(0usize);
+    pub const LEFT_OPERAND_INPUT_PORT_ID: ResonixId = ResonixId::new(0usize);
+    pub const RIGHT_OPERAND_INPUT_PORT_ID: ResonixId = ResonixId::new(0usize);
     pub const OUTPUT_PORT_ID: ResonixId = ResonixId::new(1usize);
 
     pub fn new(node_id: ResonixId) -> Self {
         Self { node_id }
     }
 
-    pub fn left_operator_input_address(&self) -> ResonixPortAddress {
+    pub fn left_operand_input_address(&self) -> ResonixPortAddress {
         ResonixPortAddress::new(
             self.node_id,
-            Self::LEFT_OPERATOR_INPUT_PORT_ID,
+            Self::LEFT_OPERAND_INPUT_PORT_ID,
             ResonixPortAddressDirection::Input,
         )
     }
 
-    pub fn right_operator_input_address(&self) -> ResonixPortAddress {
+    pub fn right_operand_input_address(&self) -> ResonixPortAddress {
         ResonixPortAddress::new(
             self.node_id,
-            Self::RIGHT_OPERATOR_INPUT_PORT_ID,
+            Self::RIGHT_OPERAND_INPUT_PORT_ID,
             ResonixPortAddressDirection::Input,
         )
     }
@@ -147,7 +147,7 @@ impl MultiplyNodePortDescriptors {
 
 impl DescribePorts for MultiplyNodePortDescriptors {
     fn input_port_addresses(&self) -> Vec<ResonixPortAddress> {
-        vec![self.left_operator_input_address()]
+        vec![self.left_operand_input_address()]
     }
 
     fn output_port_addresses(&self) -> Vec<ResonixPortAddress> {
