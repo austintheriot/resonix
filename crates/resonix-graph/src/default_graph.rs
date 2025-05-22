@@ -230,40 +230,45 @@ mod graph_tests {
                 );
             }
 
-            // Constant  2.0
-            //    |     /
-            //    I    M
-            // Multiply   Constant
-            //    |     /
-            //    I    M
+            // 2        3
+            // |       /
+            // L      R
+            // Multiply  5
+            // |        /
+            // I      R
             // Multiply
             //    |
-            //  Output
+            // Output
             #[test]
             fn multiple_connections() {
                 let mut graph = Graph::new();
 
-                let constant_node = ConstantNode::new(&mut graph);
-                let multiply_node = MultiplyNode::new(&mut graph);
+                let constant_node_value_2 = ConstantNode::new_with_value(&mut graph, 2);
+                let constant_node_value_3 = ConstantNode::new_with_value(&mut graph, 3);
+                let multiply_node_1 = MultiplyNode::new(&mut graph);
 
-                let constant_node_output_port_address = constant_node.output_port_address();
-                let multiply_input_port_address = multiply_node.left_operator_input_address();
+                let constant_node_value_5 = ConstantNode::new_with_value(&mut graph, 5);
+                let multiply_node_2 = MultiplyNode::new(&mut graph);
 
-                let constant_node_handle = graph.add(Audio(constant_node));
-                let multiply_node_handle = graph.add(Audio(multiply_node));
+                let constant_node_value_2_handle = graph.add(Audio(constant_node_value_2));
+                let constant_node_value_3_handle = graph.add(Audio(constant_node_value_3));
+                let multiply_node_1_handle = graph.add(Audio(multiply_node_1));
+                let constant_node_value_5_handle = graph.add(Audio(constant_node_value_5));
+                let multiply_node_2_handle = graph.add(Audio(multiply_node_2));
 
-                graph
-                    .connect(
-                        constant_node_output_port_address,
-                        multiply_input_port_address,
-                    )
-                    .unwrap();
+                // TODO connect them
 
                 let node_run_order = graph.visit_order();
 
                 assert_visit_order_matches_handles(
                     &node_run_order,
-                    &[constant_node_handle, multiply_node_handle],
+                    &[
+                        constant_node_value_2_handle,
+                        constant_node_value_3_handle,
+                        constant_node_value_5_handle,
+                        multiply_node_1_handle,
+                        multiply_node_2_handle,
+                    ],
                 );
             }
         }

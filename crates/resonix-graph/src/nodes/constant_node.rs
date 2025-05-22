@@ -21,6 +21,18 @@ impl ConstantNode {
         }
     }
 
+    pub fn new_with_value<G: GenerateId, D: Into<ResonixData>>(
+        id_generator: &mut G,
+        constant_value: D,
+    ) -> Self {
+        let node_id = id_generator.generate_id();
+        let constant_value = constant_value.into();
+        Self {
+            node_id,
+            constant_value,
+        }
+    }
+
     pub fn output_port_address(&self) -> ResonixPortAddress {
         ResonixPortAddress::new(
             self.node_id,
