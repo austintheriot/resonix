@@ -1,5 +1,3 @@
-use core::ops::Deref;
-
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
@@ -41,22 +39,20 @@ impl DescribePorts for Connectable {
     }
 }
 
-impl<PortDescriptors, A> From<Audio<PortDescriptors, A>> for Connectable
+impl<A> From<Audio<A>> for Connectable
 where
-    PortDescriptors: Clone,
-    A: ResonixAudioNode + Deref<Target = PortDescriptors> + 'static,
+    A: ResonixAudioNode + 'static,
 {
-    fn from(value: Audio<PortDescriptors, A>) -> Self {
+    fn from(value: Audio<A>) -> Self {
         Connectable::AudioNode(Box::new(value.into_inner()))
     }
 }
 
-impl<PortDescriptors, A> From<Param<PortDescriptors, A>> for Connectable
+impl<P> From<Param<P>> for Connectable
 where
-    PortDescriptors: Clone,
-    A: ResonixParamNode + Deref<Target = PortDescriptors> + 'static,
+    P: ResonixParamNode + 'static,
 {
-    fn from(value: Param<PortDescriptors, A>) -> Self {
+    fn from(value: Param<P>) -> Self {
         Connectable::ParamNode(Box::new(value.into_inner()))
     }
 }

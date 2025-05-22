@@ -5,37 +5,28 @@ use crate::{DescribePorts, GetNodeId};
 pub trait ResonixParamNode: DescribePorts + GetNodeId {}
 
 // newtype wrapper due to Rust limitation: https://github.com/rust-lang/rust/issues/20400
-pub struct Param<PortDescriptors, A>(pub A)
+// signals to the compiler that the underlying type should be treated as if it ONLY implements
+// `ResonixParamNode` and NOT also `ResonixAudioNode`
+pub struct Param<P>(pub P)
 where
-    PortDescriptors: Clone,
-    A: ResonixParamNode + Deref<Target = PortDescriptors> + 'static;
+    P: ResonixParamNode + 'static;
 
-impl<PortDescriptors, A> Param<PortDescriptors, A>
+impl<A> Param<A>
 where
-    PortDescriptors: Clone,
-    A: ResonixParamNode + Deref<Target = PortDescriptors> + 'static,
+    A: ResonixParamNode + 'static,
 {
     pub fn into_inner(self) -> A {
         self.0
     }
 }
 
-impl<PortDescriptors, A> From<A> for Param<PortDescriptors, A>
+/// allows `Param` to bypass knowing about specific traits
+/// the `ResonixParamNode` might implement for the `Graph`
+impl<P> Deref for Param<P>
 where
-    PortDescriptors: Clone,
-    A: ResonixParamNode + Deref<Target = PortDescriptors> + 'static,
+    P: ResonixParamNode + 'static,
 {
-    fn from(audio_node: A) -> Self {
-        Param(audio_node)
-    }
-}
-
-impl<PortDescriptors, A> Deref for Param<PortDescriptors, A>
-where
-    PortDescriptors: Clone,
-    A: ResonixParamNode + Deref<Target = PortDescriptors> + 'static,
-{
-    type Target = PortDescriptors;
+    type Target = P;
 
     fn deref(&self) -> &Self::Target {
         &self.0

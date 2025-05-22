@@ -9,37 +9,28 @@ pub trait ResonixAudioNode: DescribePorts + GetNodeId {
 }
 
 // newtype wrapper due to Rust limitation: https://github.com/rust-lang/rust/issues/20400
-pub struct Audio<PortDescriptors, A>(pub A)
+// signals to the compiler that the underlying type should be treated as if it ONLY implements
+// `ResonixAudioNode` and NOT also `ResonixParamNode`
+pub struct Audio<A>(pub A)
 where
-    PortDescriptors: Clone,
-    A: ResonixAudioNode + Deref<Target = PortDescriptors> + 'static;
+    A: ResonixAudioNode + 'static;
 
-impl<PortDescriptors, A> Audio<PortDescriptors, A>
+impl<A> Audio<A>
 where
-    PortDescriptors: Clone,
-    A: ResonixAudioNode + Deref<Target = PortDescriptors> + 'static,
+    A: ResonixAudioNode + 'static,
 {
     pub fn into_inner(self) -> A {
         self.0
     }
 }
 
-impl<PortDescriptors, A> From<A> for Audio<PortDescriptors, A>
+/// allows `Audio` to bypass knowing about specific traits
+/// the `ResonixAudioNode` might implement for the `Graph`
+impl<A> Deref for Audio<A>
 where
-    PortDescriptors: Clone,
-    A: ResonixAudioNode + Deref<Target = PortDescriptors> + 'static,
+    A: ResonixAudioNode + 'static,
 {
-    fn from(audio_node: A) -> Self {
-        Audio(audio_node)
-    }
-}
-
-impl<PortDescriptors, A> Deref for Audio<PortDescriptors, A>
-where
-    PortDescriptors: Clone,
-    A: ResonixAudioNode + Deref<Target = PortDescriptors> + 'static,
-{
-    type Target = PortDescriptors;
+    type Target = A;
 
     fn deref(&self) -> &Self::Target {
         &self.0
