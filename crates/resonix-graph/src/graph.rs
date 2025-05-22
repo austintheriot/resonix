@@ -5,7 +5,7 @@ use crate::{Connectable, HasPortDescriptors, ResonixNodeHandle, ResonixPortAddre
 pub struct GraphError;
 
 pub trait ResonixGraph {
-    fn add<PortDescriptors, C: Into<Connectable> + HasPortDescriptors<PortDescriptors>>(
+    fn add<PortDescriptors: Clone, C: Into<Connectable> + AsRef<PortDescriptors>>(
         &mut self,
         connectable: C,
     ) -> ResonixNodeHandle<PortDescriptors>;

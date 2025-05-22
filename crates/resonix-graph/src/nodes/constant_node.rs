@@ -10,11 +10,14 @@ pub struct ConstantNode {
     constant_value: ResonixData,
 }
 
+#[derive(Clone)]
 pub struct ConstantNodePortDescriptors {
     node_id: ResonixId,
 }
 
-impl HasPortDescriptors<ConstantNodePortDescriptors> for ConstantNode {
+impl HasPortDescriptors for ConstantNode {
+    type PortDescriptors = ConstantNodePortDescriptors;
+
     fn port_descriptors(&self) -> ConstantNodePortDescriptors {
         ConstantNodePortDescriptors {
             node_id: self.node_id,

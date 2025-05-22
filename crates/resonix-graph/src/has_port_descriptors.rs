@@ -1,3 +1,5 @@
-pub trait HasPortDescriptors<PortDescriptors> {
-    fn port_descriptors(&self) -> PortDescriptors;
+pub trait HasPortDescriptors {
+    type PortDescriptors;
+
+    fn port_descriptors(&self) -> Self::PortDescriptors;
 }

@@ -11,11 +11,14 @@ pub struct MultiplyNode {
     right_operator_value: ResonixData,
 }
 
+#[derive(Clone)]
 pub struct MultiplyNodePortDescriptors {
     node_id: ResonixId,
 }
 
-impl HasPortDescriptors<MultiplyNodePortDescriptors> for MultiplyNode {
+impl HasPortDescriptors for MultiplyNode {
+    type PortDescriptors = MultiplyNodePortDescriptors;
+
     fn port_descriptors(&self) -> MultiplyNodePortDescriptors {
         MultiplyNodePortDescriptors {
             node_id: self.node_id,
