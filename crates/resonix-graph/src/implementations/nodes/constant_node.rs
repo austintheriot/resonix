@@ -3,12 +3,12 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
-    DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, ResonixAudioNode, ResonixData,
-    ResonixDataList, ResonixId, ResonixPortAddress, ResonixPortAddressDirection,
+    DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, NodeId, PortId, ResonixAudioNode,
+    ResonixData, ResonixDataList, ResonixId, ResonixPortAddress, ResonixPortAddressDirection,
 };
 
 pub struct ConstantNode {
-    node_id: ResonixId,
+    node_id: NodeId,
     constant_value: ResonixData,
     port_descriptors: ConstantNodePortDescriptors,
 }
@@ -22,7 +22,7 @@ impl ConstantNode {
         id_generator: &mut G,
         constant_value: D,
     ) -> Self {
-        let node_id = id_generator.generate_id();
+        let node_id = NodeId::from(id_generator.generate_id());
         let constant_value = constant_value.into();
         let port_descriptors = ConstantNodePortDescriptors::new(node_id);
         Self {
@@ -41,7 +41,7 @@ impl GetPortDescriptors<ConstantNodePortDescriptors> for ConstantNode {
 
 impl GetNodeId for ConstantNode {
     fn node_id(&self) -> ResonixId {
-        self.node_id
+        *self.node_id
     }
 }
 
@@ -66,11 +66,11 @@ impl Deref for ConstantNode {
 
 #[derive(Copy, Clone)]
 pub struct ConstantNodePortDescriptors {
-    node_id: ResonixId,
+    node_id: NodeId,
 }
 
 impl ConstantNodePortDescriptors {
-    pub fn new(node_id: ResonixId) -> Self {
+    pub fn new(node_id: NodeId) -> Self {
         Self { node_id }
     }
 }
@@ -86,7 +86,7 @@ impl DescribePorts for ConstantNodePortDescriptors {
 }
 
 impl ConstantNodePortDescriptors {
-    pub const OUTPUT_PORT_ID: ResonixId = ResonixId::new(0usize);
+    pub const OUTPUT_PORT_ID: PortId = PortId::new(0usize);
 
     pub fn output_port_address(&self) -> ResonixPortAddress {
         ResonixPortAddress::new(

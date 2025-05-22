@@ -1,17 +1,23 @@
 mod connection;
+mod connection_id;
 mod data;
 mod data_list;
 mod id;
 mod node;
 mod node_handle;
+mod node_id;
 mod port_address;
 mod port_address_direction;
+mod port_id;
 
 pub use connection::*;
+pub use connection_id::*;
 pub use data::*;
 pub use data_list::*;
 pub use id::*;
 pub use node::*;
 pub use node_handle::*;
+pub use node_id::*;
 pub use port_address::*;
 pub use port_address_direction::*;
+pub use port_id::*;

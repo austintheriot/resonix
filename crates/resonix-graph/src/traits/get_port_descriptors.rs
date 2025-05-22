@@ -1,4 +1,4 @@
-use super::DescribePorts;
+use crate::DescribePorts;
 
 /// Allows nodes to move ownership of a type implementing `DescribePorts`
 /// over to the Graph.

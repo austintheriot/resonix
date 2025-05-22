@@ -3,12 +3,12 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
-    DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, ResonixAudioNode, ResonixData,
-    ResonixDataList, ResonixId, ResonixPortAddress, ResonixPortAddressDirection,
+    DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, NodeId, PortId, ResonixAudioNode,
+    ResonixData, ResonixDataList, ResonixId, ResonixPortAddress, ResonixPortAddressDirection,
 };
 
 pub struct MultiplyNode {
-    node_id: ResonixId,
+    node_id: NodeId,
     left_operand_value: ResonixData,
     right_operand_value: ResonixData,
     port_descriptors: MultiplyNodePortDescriptors,
@@ -24,7 +24,7 @@ impl MultiplyNode {
         left_operand: L,
         right_operand: R,
     ) -> Self {
-        let node_id = id_generator.generate_id();
+        let node_id = NodeId::from(id_generator.generate_id());
         let left_operand_value = left_operand.into();
         let right_operand_value = right_operand.into();
         let port_descriptors = MultiplyNodePortDescriptors::new(node_id);
@@ -46,7 +46,7 @@ impl GetPortDescriptors<MultiplyNodePortDescriptors> for MultiplyNode {
 
 impl GetNodeId for MultiplyNode {
     fn node_id(&self) -> ResonixId {
-        self.node_id
+        *self.node_id
     }
 }
 
@@ -86,8 +86,8 @@ impl ResonixAudioNode for MultiplyNode {
             .into_iter()
             .enumerate()
             .for_each(|(i, data)| {
-                let left_operand_index = *self.left_operand_input_address().port_id();
-                let right_operand_index = *self.right_operand_input_address().port_id();
+                let left_operand_index: usize = **self.left_operand_input_address().port_id();
+                let right_operand_index: usize = **self.right_operand_input_address().port_id();
 
                 if i == left_operand_index {
                     self.left_operand_value = data
@@ -108,15 +108,15 @@ impl Deref for MultiplyNode {
 
 #[derive(Copy, Clone)]
 pub struct MultiplyNodePortDescriptors {
-    node_id: ResonixId,
+    node_id: NodeId,
 }
 
 impl MultiplyNodePortDescriptors {
-    pub const LEFT_OPERAND_INPUT_PORT_ID: ResonixId = ResonixId::new(0usize);
-    pub const RIGHT_OPERAND_INPUT_PORT_ID: ResonixId = ResonixId::new(0usize);
-    pub const OUTPUT_PORT_ID: ResonixId = ResonixId::new(1usize);
+    pub const LEFT_OPERAND_INPUT_PORT_ID: PortId = PortId::new(0usize);
+    pub const RIGHT_OPERAND_INPUT_PORT_ID: PortId = PortId::new(0usize);
+    pub const OUTPUT_PORT_ID: PortId = PortId::new(1usize);
 
-    pub fn new(node_id: ResonixId) -> Self {
+    pub fn new(node_id: NodeId) -> Self {
         Self { node_id }
     }
 

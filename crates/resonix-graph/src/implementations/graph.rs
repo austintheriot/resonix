@@ -107,8 +107,8 @@ impl ResonixGraph for Graph {
         let start_node_id = start_port_address.node_id();
         let end_node_id = end_port_address.node_id();
 
-        let start_index = self.node_id_to_index_map.get(&start_node_id).unwrap();
-        let end_index = self.node_id_to_index_map.get(&end_node_id).unwrap();
+        let start_index = self.node_id_to_index_map.get(&*start_node_id).unwrap();
+        let end_index = self.node_id_to_index_map.get(&*end_node_id).unwrap();
 
         self.graph.add_edge(
             *start_index,
@@ -120,7 +120,7 @@ impl ResonixGraph for Graph {
         let end_node_ved_index = self
             .starter_nodes
             .iter()
-            .find(|node_id| **node_id == end_node_id);
+            .find(|node_id| **node_id == *end_node_id);
         if let Some(index) = end_node_ved_index {
             self.starter_nodes.remove(**index);
         }

@@ -1,17 +1,19 @@
-use crate::{ResonixId, ResonixPortAddressDirection};
+use crate::ResonixPortAddressDirection;
+
+use super::{NodeId, PortId};
 
 /// Indicates the exact connection address that a node is connected at
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ResonixPortAddress {
-    node_id: ResonixId,
-    port_id: ResonixId,
+    node_id: NodeId,
+    port_id: PortId,
     port_address_direction: ResonixPortAddressDirection,
 }
 
 impl ResonixPortAddress {
     pub const fn new(
-        node_id: ResonixId,
-        port_id: ResonixId,
+        node_id: NodeId,
+        port_id: PortId,
         direction: ResonixPortAddressDirection,
     ) -> Self {
         Self {
@@ -21,11 +23,11 @@ impl ResonixPortAddress {
         }
     }
 
-    pub const fn node_id(&self) -> ResonixId {
+    pub const fn node_id(&self) -> NodeId {
         self.node_id
     }
 
-    pub const fn port_id(&self) -> ResonixId {
+    pub const fn port_id(&self) -> PortId {
         self.port_id
     }
 

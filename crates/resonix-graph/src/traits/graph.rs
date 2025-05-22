@@ -2,7 +2,7 @@ use core::ops::Deref;
 
 use crate::{Node, ResonixNodeHandle, ResonixPortAddress};
 
-use super::{DescribePorts, GetPortDescriptors};
+use crate::{DescribePorts, GetPortDescriptors};
 
 // TODO:fill out with specific types
 #[derive(Debug)]
