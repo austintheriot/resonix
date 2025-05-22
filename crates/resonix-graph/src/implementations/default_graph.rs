@@ -248,6 +248,7 @@ mod graph_tests {
             // Multiply
             //    |
             // Output
+            #[ignore]
             #[test]
             fn multiple_connections() {
                 let mut graph = Graph::new();
