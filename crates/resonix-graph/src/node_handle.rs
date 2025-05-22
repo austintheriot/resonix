@@ -1,3 +1,5 @@
+use core::ops::Deref;
+
 use crate::ResonixId;
 
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -16,5 +18,13 @@ impl<PortDescriptors> ResonixNodeHandle<PortDescriptors> {
 
     pub fn node_id(&self) -> ResonixId {
         self.node_id
+    }
+}
+
+impl<PortDescriptors> Deref for ResonixNodeHandle<PortDescriptors> {
+    type Target = PortDescriptors;
+
+    fn deref(&self) -> &Self::Target {
+        &self.port_descriptors
     }
 }
