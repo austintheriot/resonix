@@ -1,11 +1,14 @@
-use crate::{Connectable, ResonixNodeHandle, ResonixPortAddress};
+use crate::{Connectable, HasPortDescriptors, ResonixNodeHandle, ResonixPortAddress};
 
 // TODO:fill out with specific types
 #[derive(Debug)]
 pub struct GraphError;
 
 pub trait ResonixGraph {
-    fn add<C: Into<Connectable>>(&mut self, connectable: C) -> ResonixNodeHandle;
+    fn add<PortDescriptors, C: Into<Connectable> + HasPortDescriptors<PortDescriptors>>(
+        &mut self,
+        connectable: C,
+    ) -> ResonixNodeHandle<PortDescriptors>;
 
     fn connect(
         &mut self,

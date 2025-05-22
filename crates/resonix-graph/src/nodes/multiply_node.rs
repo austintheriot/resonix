@@ -1,14 +1,26 @@
 use alloc::vec::Vec;
 
 use crate::{
-    GenerateId, ResonixAudioNode, ResonixData, ResonixDataList, ResonixId, ResonixPortAddress,
-    ResonixPortAddressDirection,
+    GenerateId, HasPortDescriptors, ResonixAudioNode, ResonixData, ResonixDataList, ResonixId,
+    ResonixPortAddress, ResonixPortAddressDirection,
 };
 
 pub struct MultiplyNode {
     node_id: ResonixId,
     left_operator_value: ResonixData,
     right_operator_value: ResonixData,
+}
+
+pub struct MultiplyNodePortDescriptors {
+    node_id: ResonixId,
+}
+
+impl HasPortDescriptors<MultiplyNodePortDescriptors> for MultiplyNode {
+    fn port_descriptors(&self) -> MultiplyNodePortDescriptors {
+        MultiplyNodePortDescriptors {
+            node_id: self.node_id,
+        }
+    }
 }
 
 impl MultiplyNode {

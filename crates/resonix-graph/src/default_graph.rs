@@ -1,6 +1,6 @@
 use crate::{
-    Connectable, GenerateId, GraphError, ResonixConnection, ResonixGraph, ResonixId,
-    ResonixNodeHandle, ResonixPortAddress,
+    Connectable, GenerateId, GraphError, HasPortDescriptors, ResonixConnection, ResonixGraph,
+    ResonixId, ResonixNodeHandle, ResonixPortAddress,
 };
 
 use alloc::vec::Vec;
@@ -77,10 +77,14 @@ impl GenerateId for Graph {
 }
 
 impl ResonixGraph for Graph {
-    fn add<C: Into<Connectable>>(&mut self, connectable: C) -> ResonixNodeHandle {
+    fn add<PortDescriptors, C: Into<Connectable> + HasPortDescriptors<PortDescriptors>>(
+        &mut self,
+        connectable: C,
+    ) -> ResonixNodeHandle<PortDescriptors> {
+        let port_descriptors = connectable.port_descriptors();
         let connectable = connectable.into();
         let node_id = connectable.node_id();
-        let node_handle = ResonixNodeHandle::new(node_id);
+        let node_handle = ResonixNodeHandle::new(node_id, port_descriptors);
 
         // bookkeeping
         let index = self.graph.add_node(node_id);
@@ -148,9 +152,9 @@ mod graph_tests {
 
         use crate::{ResonixId, ResonixNodeHandle};
 
-        fn assert_visit_order_matches_handles(
+        fn assert_visit_order_matches_handles<PortDescriptors>(
             visit_order: &Option<&[ResonixId]>,
-            node_handles: &[ResonixNodeHandle],
+            node_handles: &[ResonixNodeHandle<PortDescriptors>],
         ) {
             let node_handles_as_node_ids: Vec<ResonixId> = node_handles
                 .iter()
@@ -175,7 +179,8 @@ mod graph_tests {
                 let constant_node_2 = ConstantNode::new(&mut graph);
                 let multiply_node_2 = MultiplyNode::new(&mut graph);
 
-                let constant_node_handle_1 = graph.add(Audio(constant_node_1));
+                let audio = Audio(constant_node_1);
+                let constant_node_handle_1 = graph.add(audio);
                 let multiply_node_handle_1 = graph.add(Audio(multiply_node_1));
                 let constant_node_handle_2 = graph.add(Audio(constant_node_2));
                 let multiply_node_handle_2 = graph.add(Audio(multiply_node_2));

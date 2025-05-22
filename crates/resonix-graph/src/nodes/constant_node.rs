@@ -1,13 +1,25 @@
 use alloc::vec::Vec;
 
 use crate::{
-    GenerateId, ResonixAudioNode, ResonixData, ResonixDataList, ResonixId, ResonixPortAddress,
-    ResonixPortAddressDirection,
+    GenerateId, HasPortDescriptors, ResonixAudioNode, ResonixData, ResonixDataList, ResonixId,
+    ResonixPortAddress, ResonixPortAddressDirection,
 };
 
 pub struct ConstantNode {
     node_id: ResonixId,
     constant_value: ResonixData,
+}
+
+pub struct ConstantNodePortDescriptors {
+    node_id: ResonixId,
+}
+
+impl HasPortDescriptors<ConstantNodePortDescriptors> for ConstantNode {
+    fn port_descriptors(&self) -> ConstantNodePortDescriptors {
+        ConstantNodePortDescriptors {
+            node_id: self.node_id,
+        }
+    }
 }
 
 impl ConstantNode {
