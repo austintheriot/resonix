@@ -144,7 +144,7 @@ mod graph_tests {
     }
 
     mod node_visit_order {
-        use std::vec::Vec;
+        use alloc::vec::Vec;
 
         use crate::{ResonixId, ResonixNodeHandle};
 

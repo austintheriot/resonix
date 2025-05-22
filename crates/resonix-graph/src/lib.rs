@@ -1,10 +1,7 @@
 #![no_std]
+
 #[macro_use]
 extern crate alloc;
-
-#[cfg(test)]
-#[macro_use]
-extern crate std;
 
 mod audio_node;
 mod connectable;
