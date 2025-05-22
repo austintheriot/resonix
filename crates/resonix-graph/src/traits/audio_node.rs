@@ -1,8 +1,8 @@
 use core::ops::Deref;
 
-use crate::{DescribePorts, GetNodeId, ResonixDataList};
+use crate::{GetNodeId, ResonixDataList};
 
-pub trait ResonixAudioNode: DescribePorts + GetNodeId {
+pub trait ResonixAudioNode: GetNodeId {
     fn next(&mut self) -> ResonixDataList;
 
     fn assign_inputs(&mut self, inputs: ResonixDataList);

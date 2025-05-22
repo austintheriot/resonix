@@ -4,7 +4,7 @@ use alloc::vec::Vec;
 
 use crate::ResonixPortAddress;
 
-/// Having a separate trait for describing a node's ports
+/// Having a separate trait/inner object on a node for describing a node's ports
 /// allows that functionality to move into the node handle itself
 /// once the node has already been moved into the Graph
 ///

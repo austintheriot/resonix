@@ -1,8 +1,8 @@
 use core::ops::Deref;
 
 use crate::{
-    Connectable, GenerateId, GetNodeId, GetPorts, GraphError, ResonixConnection, ResonixGraph,
-    ResonixId, ResonixNodeHandle, ResonixPortAddress,
+    Connectable, DescribePorts, GenerateId, GetNodeId, GetPorts, GraphError, ResonixConnection,
+    ResonixGraph, ResonixId, ResonixNodeHandle, ResonixPortAddress,
 };
 
 use alloc::vec::Vec;
@@ -81,11 +81,11 @@ impl GenerateId for Graph {
 impl ResonixGraph for Graph {
     /// `node` must be able to be converted into a `Connectable` and it must deref
     /// to some type that implements `GetPorts`
-    fn add<G: GetPorts<Ports>, Ports, C: Into<Connectable> + Deref<Target = G>>(
+    fn add<P: DescribePorts, G: GetPorts<P>, C: Into<Connectable> + Deref<Target = G>>(
         &mut self,
         node: C,
-    ) -> Result<ResonixNodeHandle<Ports>, GraphError> {
-        let port_descriptors: Ports = node.get_ports();
+    ) -> Result<ResonixNodeHandle<P>, GraphError> {
+        let port_descriptors: P = node.get_ports();
         let connectable = node.into();
         let node_id = connectable.node_id();
         let node_handle = ResonixNodeHandle::new(node_id, port_descriptors);
