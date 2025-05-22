@@ -1,23 +1,28 @@
 use core::ops::Deref;
 
 use crate::{
-    DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GraphError, Node, ResonixConnection,
-    ResonixGraph, ResonixId, ResonixNodeHandle, ResonixPortAddress,
+    ConnectionId, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GraphError, Node,
+    NodeId, ResonixConnection, ResonixGraph, ResonixId, ResonixNodeHandle, ResonixPortAddress,
 };
 
 use alloc::vec::Vec;
 use hashbrown::HashMap;
 use petgraph::graph as pgraph;
 
+enum GraphItem {
+    Node(Node),
+    Connection(ResonixConnection),
+}
+
 pub struct Graph {
     current_node_id: usize,
-    nodes: Vec<Option<Node>>,
+    // vec used as a HashMap for efficient lookups
+    graph_items: Vec<Option<GraphItem>>,
     visit_order: Option<Vec<ResonixId>>,
-    node_id_to_index_map: HashMap<ResonixId, pgraph::NodeIndex<pgraph::DefaultIx>>,
-    index_to_node_id_map: HashMap<pgraph::NodeIndex<pgraph::DefaultIx>, ResonixId>,
-    graph: petgraph::Graph<ResonixId, ResonixConnection>,
-    // we want to preserve insertion order
-    starter_nodes: Vec<ResonixId>,
+    id_to_pegraph_index_map: HashMap<ResonixId, pgraph::NodeIndex<pgraph::DefaultIx>>,
+    petgraph_index_to_id_map: HashMap<pgraph::NodeIndex<pgraph::DefaultIx>, ResonixId>,
+    graph: petgraph::Graph<NodeId, ConnectionId>,
+    starter_nodes: Vec<Option<NodeId>>,
     // will be necessary when processing data
     //port_data_map: HashMap<ResonixPortAddress, ResonixDataList>,
 }
@@ -27,32 +32,42 @@ impl Graph {
     fn new() -> Self {
         Graph {
             current_node_id: 0,
-            nodes: Vec::new(),
+            graph_items: Vec::new(),
             visit_order: None,
-            node_id_to_index_map: HashMap::new(),
-            graph: petgraph::Graph::<ResonixId, ResonixConnection>::new(),
+            id_to_pegraph_index_map: HashMap::new(),
+            graph: petgraph::Graph::<NodeId, ConnectionId>::new(),
             starter_nodes: Vec::new(),
-            index_to_node_id_map: HashMap::new(),
+            petgraph_index_to_id_map: HashMap::new(),
             //port_data_map: HashMap::new(),
         }
     }
 
-    fn push_node(&mut self, node_id: ResonixId, node: Node, node_index: usize) {
-        if self.nodes.len() <= node_index {
-            self.nodes.resize_with(node_index + 1, Default::default);
+    fn set_vec_map_item<K: Deref<Target = usize>, V>(
+        key: K,
+        value: V,
+        vector: &mut Vec<Option<V>>,
+    ) {
+        let index: usize = *key.deref();
+        if vector.len() <= index {
+            vector.resize_with(index + 1, Default::default);
         }
-        self.nodes[*node_id] = Some(node);
+        vector[index] = Some(value);
     }
 
     fn calculate_new_visit_order(&self) -> Vec<ResonixId> {
         let mut visit_order: Vec<ResonixId> = Vec::new();
 
+        // DFS, starting with id/creation order the starter nodes
         for input_node_id in self.starter_nodes.iter() {
-            let starting_node_index = self.node_id_to_index_map.get(input_node_id).unwrap();
-            let mut dfs = petgraph::visit::Dfs::new(&self.graph, *starting_node_index);
-            while let Some(node_index) = dfs.next(&self.graph) {
-                let node_id = self.index_to_node_id_map.get(&node_index).unwrap();
-                visit_order.push(*node_id);
+            if let Some(input_node_id) = input_node_id {
+                let starting_node_index =
+                    self.id_to_pegraph_index_map.get(&**input_node_id).unwrap();
+
+                let mut dfs = petgraph::visit::Dfs::new(&self.graph, *starting_node_index);
+                while let Some(node_index) = dfs.next(&self.graph) {
+                    let node_id = self.petgraph_index_to_id_map.get(&node_index).unwrap();
+                    visit_order.push(*node_id);
+                }
             }
         }
 
@@ -79,17 +94,17 @@ impl ResonixGraph for Graph {
     ) -> Result<ResonixNodeHandle<P>, GraphError> {
         let port_descriptors: P = node.get_port_descriptors();
         let node = node.into();
-        let node_id = node.node_id();
+        let node_id = NodeId::from(node.node_id());
         let node_handle = ResonixNodeHandle::new(node_id, port_descriptors);
 
         // bookkeeping
         let index = self.graph.add_node(node_id);
-        self.node_id_to_index_map.insert(node_id, index);
-        self.index_to_node_id_map.insert(index, node_id);
-        self.push_node(node_id, node, *node_id);
-
+        self.id_to_pegraph_index_map.insert(*node_id, index);
+        self.petgraph_index_to_id_map.insert(index, *node_id);
+        // petgraph only keeps ids--we keep the real values for easier bookkeeping
+        Graph::set_vec_map_item(*node_id, GraphItem::Node(node), &mut self.graph_items);
         // until a node as an incoming connection, it is a starter node
-        self.starter_nodes.push(node_id);
+        Graph::set_vec_map_item(*node_id, node_id, &mut self.starter_nodes);
 
         // must be recomputed on every modification
         self.visit_order = Some(self.calculate_new_visit_order());
@@ -104,26 +119,26 @@ impl ResonixGraph for Graph {
     ) -> Result<&mut Self, GraphError> {
         // TODO: check that the connection is valid before making it
 
+        let connection = ResonixConnection::new(self, start_port_address, end_port_address);
+        let connection_id = connection.connection_id;
+
         let start_node_id = start_port_address.node_id();
+        let start_index = *self.id_to_pegraph_index_map.get(&*start_node_id).unwrap();
+
         let end_node_id = end_port_address.node_id();
+        let end_index = *self.id_to_pegraph_index_map.get(&*end_node_id).unwrap();
 
-        let start_index = self.node_id_to_index_map.get(&*start_node_id).unwrap();
-        let end_index = self.node_id_to_index_map.get(&*end_node_id).unwrap();
-
-        self.graph.add_edge(
-            *start_index,
-            *end_index,
-            ResonixConnection::new(start_port_address, end_port_address),
+        Graph::set_vec_map_item(
+            *connection_id,
+            GraphItem::Connection(connection),
+            &mut self.graph_items,
         );
 
+        self.graph.add_edge(start_index, end_index, connection_id);
+
         // if it has a connection coming in now, it is no longer a starter node
-        let end_node_ved_index = self
-            .starter_nodes
-            .iter()
-            .find(|node_id| **node_id == *end_node_id);
-        if let Some(index) = end_node_ved_index {
-            self.starter_nodes.remove(**index);
-        }
+        let end_node_vec_index: usize = **end_node_id;
+        core::mem::take(&mut self.starter_nodes[end_node_vec_index]);
 
         // must be recomputed on every modification
         self.visit_order = Some(self.calculate_new_visit_order());
@@ -171,18 +186,19 @@ mod graph_tests {
 
             // Constant Multiply Constant Multiply
             #[test]
-            fn run_order_for_unconnected_nodes_should_be_their_insertion_order() {
+            fn run_order_for_unconnected_nodes_should_be_their_creation_order() {
                 let mut graph = Graph::new();
 
                 let constant_node_1 = ConstantNode::new(&mut graph);
-                let multiply_node_1 = MultiplyNode::new(&mut graph);
                 let constant_node_2 = ConstantNode::new(&mut graph);
+                let multiply_node_1 = MultiplyNode::new(&mut graph);
                 let multiply_node_2 = MultiplyNode::new(&mut graph);
 
-                let constant_node_handle_1 = graph.add(Audio(constant_node_1)).unwrap();
+                // add in different order than creation
                 let multiply_node_handle_1 = graph.add(Audio(multiply_node_1)).unwrap();
-                let constant_node_handle_2 = graph.add(Audio(constant_node_2)).unwrap();
                 let multiply_node_handle_2 = graph.add(Audio(multiply_node_2)).unwrap();
+                let constant_node_handle_1 = graph.add(Audio(constant_node_1)).unwrap();
+                let constant_node_handle_2 = graph.add(Audio(constant_node_2)).unwrap();
 
                 let visit_order = graph.visit_order();
 
@@ -190,8 +206,8 @@ mod graph_tests {
                     &visit_order,
                     &[
                         Box::new(constant_node_handle_1),
-                        Box::new(multiply_node_handle_1),
                         Box::new(constant_node_handle_2),
+                        Box::new(multiply_node_handle_1),
                         Box::new(multiply_node_handle_2),
                     ],
                 );
