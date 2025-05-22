@@ -1,5 +1,6 @@
 use core::ops::Deref;
 
+/// Basic id for data structures around the Graph
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ResonixId(usize);
 

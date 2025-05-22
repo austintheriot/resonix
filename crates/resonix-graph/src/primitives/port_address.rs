@@ -1,5 +1,6 @@
 use crate::{ResonixId, ResonixPortAddressDirection};
 
+/// Indicates the exact connection address that a node is connected at
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ResonixPortAddress {
     node_id: ResonixId,

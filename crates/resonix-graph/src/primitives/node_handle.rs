@@ -2,6 +2,9 @@ use core::ops::Deref;
 
 use crate::{GetNodeId, ResonixId};
 
+/// Indicates the presence of a Node in the Graph
+/// Derefs to the Node's PortDescriptors to allow making
+/// connections easier after Nodes have already been added to the Graph.
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ResonixNodeHandle<PortDescriptor> {
     node_id: ResonixId,
