@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-use crate::ResonixId;
+use crate::{GetNodeId, ResonixId};
 
 #[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ResonixNodeHandle<PortDescriptor> {
@@ -15,8 +15,10 @@ impl<PortDescriptors> ResonixNodeHandle<PortDescriptors> {
             port_descriptors,
         }
     }
+}
 
-    pub fn node_id(&self) -> ResonixId {
+impl<PortDescriptors> GetNodeId for ResonixNodeHandle<PortDescriptors> {
+    fn node_id(&self) -> ResonixId {
         self.node_id
     }
 }

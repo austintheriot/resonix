@@ -3,8 +3,8 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
-    DescribePorts, GenerateId, ResonixAudioNode, ResonixData, ResonixDataList, ResonixId,
-    ResonixPortAddress, ResonixPortAddressDirection,
+    DescribePorts, GenerateId, GetNodeId, ResonixAudioNode, ResonixData, ResonixDataList,
+    ResonixId, ResonixPortAddress, ResonixPortAddressDirection,
 };
 
 pub struct ConstantNode {
@@ -41,6 +41,12 @@ impl Deref for ConstantNode {
     }
 }
 
+impl GetNodeId for ConstantNode {
+    fn node_id(&self) -> ResonixId {
+        self.node_id
+    }
+}
+
 impl ResonixAudioNode for ConstantNode {
     fn next(&mut self) -> ResonixDataList {
         ResonixDataList::from([self.constant_value.clone()])
@@ -49,10 +55,6 @@ impl ResonixAudioNode for ConstantNode {
     fn assign_inputs(&mut self, _inputs: ResonixDataList) {
         // assign any inputs to the constant value it holds
         todo!()
-    }
-
-    fn node_id(&self) -> ResonixId {
-        self.node_id
     }
 }
 

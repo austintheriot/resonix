@@ -1,7 +1,7 @@
 use core::ops::Deref;
 
 use crate::{
-    Connectable, GenerateId, GraphError, ResonixConnection, ResonixGraph, ResonixId,
+    Connectable, GenerateId, GetNodeId, GraphError, ResonixConnection, ResonixGraph, ResonixId,
     ResonixNodeHandle, ResonixPortAddress,
 };
 
@@ -150,13 +150,13 @@ mod graph_tests {
     }
 
     mod node_visit_order {
-        use alloc::vec::Vec;
+        use alloc::{boxed::Box, vec::Vec};
 
-        use crate::{ResonixId, ResonixNodeHandle};
+        use crate::{GetNodeId, ResonixId};
 
-        fn assert_visit_order_matches_handles<PortDescriptors>(
+        fn assert_visit_order_matches_handles(
             visit_order: &Option<&[ResonixId]>,
-            node_handles: &[ResonixNodeHandle<PortDescriptors>],
+            node_handles: &[Box<dyn GetNodeId>],
         ) {
             let node_handles_as_node_ids: Vec<ResonixId> = node_handles
                 .iter()
@@ -166,9 +166,11 @@ mod graph_tests {
         }
 
         mod unconnected_graphs {
-            use crate::{
-                Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph,
-            };
+            use alloc::boxed::Box;
+
+            use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
+
+            use super::assert_visit_order_matches_handles;
 
             // Constant Multiply Constant Multiply
             #[test]
@@ -187,22 +189,24 @@ mod graph_tests {
 
                 let visit_order = graph.visit_order();
 
-                //assert_visit_order_matches_handles(
-                //    &visit_order,
-                //    &[
-                //        constant_node_handle_1,
-                //        multiply_node_handle_1,
-                //        constant_node_handle_2,
-                //        multiply_node_handle_2,
-                //    ],
-                //);
+                assert_visit_order_matches_handles(
+                    &visit_order,
+                    &[
+                        Box::new(constant_node_handle_1),
+                        Box::new(multiply_node_handle_1),
+                        Box::new(constant_node_handle_2),
+                        Box::new(multiply_node_handle_2),
+                    ],
+                );
             }
         }
 
         mod acyclic_graphs {
+            use alloc::boxed::Box;
+
             use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
 
-            
+            use super::assert_visit_order_matches_handles;
 
             // Constant
             //    |
@@ -229,10 +233,13 @@ mod graph_tests {
 
                 let node_run_order = graph.visit_order();
 
-                //assert_visit_order_matches_handles(
-                //    &node_run_order,
-                //    &[constant_node_handle, multiply_node_handle],
-                //);
+                assert_visit_order_matches_handles(
+                    &node_run_order,
+                    &[
+                        Box::new(constant_node_handle),
+                        Box::new(multiply_node_handle),
+                    ],
+                );
             }
 
             // 2        3
@@ -265,16 +272,16 @@ mod graph_tests {
 
                 let node_run_order = graph.visit_order();
 
-                //assert_visit_order_matches_handles(
-                //    &node_run_order,
-                //    &[
-                //        constant_node_value_2_handle,
-                //        constant_node_value_3_handle,
-                //        constant_node_value_5_handle,
-                //        multiply_node_1_handle,
-                //        multiply_node_2_handle,
-                //    ],
-                //);
+                assert_visit_order_matches_handles(
+                    &node_run_order,
+                    &[
+                        Box::new(constant_node_value_2_handle),
+                        Box::new(constant_node_value_3_handle),
+                        Box::new(constant_node_value_5_handle),
+                        Box::new(multiply_node_1_handle),
+                        Box::new(multiply_node_2_handle),
+                    ],
+                );
             }
         }
 
