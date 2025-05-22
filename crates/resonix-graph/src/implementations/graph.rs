@@ -57,6 +57,15 @@ impl Graph {
     fn calculate_new_visit_order(&self) -> Vec<ResonixId> {
         let mut visit_order: Vec<ResonixId> = Vec::new();
 
+        self.dfs(|node_id| {
+            // TODO: implement Tarjan's algorith here for finding SCCs
+            visit_order.push(node_id);
+        });
+
+        visit_order
+    }
+
+    fn dfs<F: FnMut(ResonixId)>(&self, mut cb: F) {
         // DFS, starting with id/creation order the starter nodes
         for input_node_id in self.starter_nodes.iter() {
             if let Some(input_node_id) = input_node_id {
@@ -66,12 +75,10 @@ impl Graph {
                 let mut dfs = petgraph::visit::Dfs::new(&self.graph, *starting_node_index);
                 while let Some(node_index) = dfs.next(&self.graph) {
                     let node_id = self.petgraph_index_to_id_map.get(&node_index).unwrap();
-                    visit_order.push(*node_id);
+                    cb(*node_id);
                 }
             }
         }
-
-        visit_order
     }
 
     pub fn visit_order(&self) -> Option<&[ResonixId]> {
@@ -264,7 +271,6 @@ mod graph_tests {
             // Multiply
             //    |
             // Output
-            #[ignore]
             #[test]
             fn multiple_connections() {
                 let mut graph = Graph::new();
@@ -306,6 +312,10 @@ mod graph_tests {
                     .unwrap();
 
                 let node_run_order = graph.visit_order();
+
+                graph.dfs(|id| {
+                    println!("{:?}", id);
+                });
 
                 assert_visit_order_matches_handles(
                     &node_run_order,
