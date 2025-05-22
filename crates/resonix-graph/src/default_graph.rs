@@ -1,8 +1,8 @@
 use core::ops::Deref;
 
 use crate::{
-    Node, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GraphError,
-    ResonixConnection, ResonixGraph, ResonixId, ResonixNodeHandle, ResonixPortAddress,
+    Node, GenerateId, GetNodeId, GraphError, ResonixConnection, ResonixGraph, ResonixId,
+    ResonixNodeHandle, ResonixPortAddress,
 };
 
 use alloc::vec::Vec;
@@ -79,11 +79,11 @@ impl GenerateId for Graph {
 }
 
 impl ResonixGraph for Graph {
-    fn add<P: DescribePorts, G: GetPortDescriptors<P>, C: Into<Node> + Deref<Target = G>>(
+    fn add<PortDescriptors: Clone, C: Into<Node> + Deref<Target = PortDescriptors>>(
         &mut self,
         node: C,
-    ) -> Result<ResonixNodeHandle<P>, GraphError> {
-        let port_descriptors: P = node.get_port_descriptors();
+    ) -> Result<ResonixNodeHandle<PortDescriptors>, GraphError> {
+        let port_descriptors: PortDescriptors = (*node).clone();
         let node = node.into();
         let node_id = node.node_id();
         let node_handle = ResonixNodeHandle::new(node_id, port_descriptors);
@@ -141,7 +141,7 @@ impl ResonixGraph for Graph {
 #[cfg(test)]
 mod graph_tests {
     mod initialization {
-        use crate::implementations::Graph;
+        use crate::Graph;
 
         #[test]
         fn it_should_allow_constructing_without_panicking() {
@@ -168,10 +168,7 @@ mod graph_tests {
         mod unconnected_graphs {
             use alloc::boxed::Box;
 
-            use crate::{
-                Audio, ResonixGraph,
-                implementations::{ConstantNode, Graph, MultiplyNode},
-            };
+            use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
 
             use super::assert_visit_order_matches_handles;
 
@@ -207,10 +204,7 @@ mod graph_tests {
         mod acyclic_graphs {
             use alloc::boxed::Box;
 
-            use crate::{
-                Audio, ResonixGraph,
-                implementations::{ConstantNode, Graph, MultiplyNode},
-            };
+            use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
 
             use super::assert_visit_order_matches_handles;
 
@@ -254,7 +248,6 @@ mod graph_tests {
             // Multiply
             //    |
             // Output
-            #[ignore]
             #[test]
             fn multiple_connections() {
                 let mut graph = Graph::new();

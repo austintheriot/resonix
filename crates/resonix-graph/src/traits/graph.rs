@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-use crate::{Connectable, ResonixNodeHandle, ResonixPortAddress};
+use crate::{Node, ResonixNodeHandle, ResonixPortAddress};
 
 use super::{DescribePorts, GetPortDescriptors};
 
@@ -9,9 +9,9 @@ use super::{DescribePorts, GetPortDescriptors};
 pub struct GraphError;
 
 pub trait ResonixGraph {
-    /// `node` must be able to be converted into a `Connectable` and it must deref
+    /// `node` must be able to be converted into a `Node` and it must deref
     /// to some type that implements `GetPorts`
-    fn add<P: DescribePorts, G: GetPortDescriptors<P>, N: Into<Connectable> + Deref<Target = G>>(
+    fn add<P: DescribePorts, G: GetPortDescriptors<P>, N: Into<Node> + Deref<Target = G>>(
         &mut self,
         node: N,
     ) -> Result<ResonixNodeHandle<P>, GraphError>;
