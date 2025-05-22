@@ -1,18 +1,17 @@
+use core::ops::Deref;
+
 use alloc::vec::Vec;
 
-use crate::{HasPortDescriptors, ResonixDataList, ResonixId, ResonixPortAddress};
+use crate::{DescribePorts, HasPortDescriptors, ResonixDataList, ResonixId, ResonixPortAddress};
 
-pub trait ResonixAudioNode {
+pub trait ResonixAudioNode: DescribePorts {
     fn node_id(&self) -> ResonixId;
 
     fn next(&mut self) -> ResonixDataList;
 
     fn assign_inputs(&mut self, inputs: ResonixDataList);
-
-    fn input_port_addresses(&self) -> Vec<ResonixPortAddress>;
-
-    fn output_port_addresses(&self) -> Vec<ResonixPortAddress>;
 }
+
 
 // newtype wrapper due to Rust limitation: https://github.com/rust-lang/rust/issues/20400
 pub struct Audio<PortDescriptors, A>
