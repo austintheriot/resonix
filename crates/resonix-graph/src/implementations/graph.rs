@@ -141,7 +141,7 @@ impl ResonixGraph for Graph {
 #[cfg(test)]
 mod graph_tests {
     mod initialization {
-        use crate::Graph;
+        use crate::implementations::Graph;
 
         #[test]
         fn it_should_allow_constructing_without_panicking() {
@@ -168,7 +168,10 @@ mod graph_tests {
         mod unconnected_graphs {
             use alloc::boxed::Box;
 
-            use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
+            use crate::{
+                Audio, ResonixGraph,
+                implementations::{ConstantNode, Graph, MultiplyNode},
+            };
 
             use super::assert_visit_order_matches_handles;
 
@@ -204,7 +207,10 @@ mod graph_tests {
         mod acyclic_graphs {
             use alloc::boxed::Box;
 
-            use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
+            use crate::{
+                Audio, ResonixGraph,
+                implementations::{ConstantNode, Graph, MultiplyNode},
+            };
 
             use super::assert_visit_order_matches_handles;
 

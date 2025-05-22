@@ -3,10 +3,9 @@
 #[macro_use]
 extern crate alloc;
 
-mod implementations;
+pub mod implementations;
 mod primitives;
 mod traits;
 
-pub use implementations::*;
 pub use primitives::*;
 pub use traits::*;

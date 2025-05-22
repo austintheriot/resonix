@@ -1,5 +1,5 @@
-mod default_graph;
+mod graph;
 mod nodes;
 
-pub use default_graph::*;
+pub use graph::*;
 pub use nodes::*;
