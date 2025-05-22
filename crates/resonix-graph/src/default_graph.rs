@@ -82,7 +82,7 @@ impl ResonixGraph for Graph {
     fn add<PortDescriptors: Clone, C: Into<Connectable> + Deref<Target = PortDescriptors>>(
         &mut self,
         connectable: C,
-    ) -> ResonixNodeHandle<PortDescriptors> {
+    ) -> Result<ResonixNodeHandle<PortDescriptors>, GraphError> {
         let port_descriptors: PortDescriptors = (*connectable).clone();
         let connectable = connectable.into();
         let node_id = connectable.node_id();
@@ -100,14 +100,14 @@ impl ResonixGraph for Graph {
         // must be recomputed on every modification
         self.visit_order = Some(self.calculate_new_visit_order());
 
-        node_handle
+        Ok(node_handle)
     }
 
     fn connect(
         &mut self,
         start_port_address: ResonixPortAddress,
         end_port_address: ResonixPortAddress,
-    ) -> Result<(), GraphError> {
+    ) -> Result<&mut Self, GraphError> {
         // TODO: check that the connection is valid before making it
 
         let start_node_id = start_port_address.node_id();
@@ -134,7 +134,7 @@ impl ResonixGraph for Graph {
         // must be recomputed on every modification
         self.visit_order = Some(self.calculate_new_visit_order());
 
-        Ok(())
+        Ok(self)
     }
 }
 
@@ -182,10 +182,10 @@ mod graph_tests {
                 let constant_node_2 = ConstantNode::new(&mut graph);
                 let multiply_node_2 = MultiplyNode::new(&mut graph);
 
-                let constant_node_handle_1 = graph.add(Audio(constant_node_1));
-                let multiply_node_handle_1 = graph.add(Audio(multiply_node_1));
-                let constant_node_handle_2 = graph.add(Audio(constant_node_2));
-                let multiply_node_handle_2 = graph.add(Audio(multiply_node_2));
+                let constant_node_handle_1 = graph.add(Audio(constant_node_1)).unwrap();
+                let multiply_node_handle_1 = graph.add(Audio(multiply_node_1)).unwrap();
+                let constant_node_handle_2 = graph.add(Audio(constant_node_2)).unwrap();
+                let multiply_node_handle_2 = graph.add(Audio(multiply_node_2)).unwrap();
 
                 let visit_order = graph.visit_order();
 
@@ -221,8 +221,8 @@ mod graph_tests {
                 let constant_node_output_port_address = constant_node.output_port_address();
                 let multiply_input_port_address = multiply_node.left_operator_input_address();
 
-                let constant_node_handle = graph.add(Audio(constant_node));
-                let multiply_node_handle = graph.add(Audio(multiply_node));
+                let constant_node_handle = graph.add(Audio(constant_node)).unwrap();
+                let multiply_node_handle = graph.add(Audio(multiply_node)).unwrap();
 
                 graph
                     .connect(
@@ -262,13 +262,19 @@ mod graph_tests {
                 let constant_node_value_5 = ConstantNode::new_with_value(&mut graph, 5);
                 let multiply_node_2 = MultiplyNode::new(&mut graph);
 
-                let constant_node_value_2_handle = graph.add(Audio(constant_node_value_2));
-                let constant_node_value_3_handle = graph.add(Audio(constant_node_value_3));
-                let multiply_node_1_handle = graph.add(Audio(multiply_node_1));
-                let constant_node_value_5_handle = graph.add(Audio(constant_node_value_5));
-                let multiply_node_2_handle = graph.add(Audio(multiply_node_2));
+                let constant_node_value_2_handle = graph.add(Audio(constant_node_value_2)).unwrap();
+                let constant_node_value_3_handle = graph.add(Audio(constant_node_value_3)).unwrap();
+                let multiply_node_1_handle = graph.add(Audio(multiply_node_1)).unwrap();
+                let constant_node_value_5_handle = graph.add(Audio(constant_node_value_5)).unwrap();
+                let multiply_node_2_handle = graph.add(Audio(multiply_node_2)).unwrap();
 
                 // TODO connect them
+                graph
+                    .connect(
+                        constant_node_value_2_handle.output_port_address(),
+                        multiply_node_1_handle.left_operator_input_address(),
+                    )
+                    .unwrap();
 
                 let node_run_order = graph.visit_order();
 

@@ -10,11 +10,11 @@ pub trait ResonixGraph {
     fn add<PortDescriptors: Clone, C: Into<Connectable> + Deref<Target = PortDescriptors>>(
         &mut self,
         connectable: C,
-    ) -> ResonixNodeHandle<PortDescriptors>;
+    ) -> Result<ResonixNodeHandle<PortDescriptors>, GraphError>;
 
     fn connect(
         &mut self,
         port_a: ResonixPortAddress,
         port_b: ResonixPortAddress,
-    ) -> Result<(), GraphError>;
+    ) -> Result<&mut Self, GraphError>;
 }
