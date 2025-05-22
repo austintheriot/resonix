@@ -1,8 +1,8 @@
 use core::ops::Deref;
 
 use crate::{
-    Node, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GraphError,
-    ResonixConnection, ResonixGraph, ResonixId, ResonixNodeHandle, ResonixPortAddress,
+    DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GraphError, Node, ResonixConnection,
+    ResonixGraph, ResonixId, ResonixNodeHandle, ResonixPortAddress,
 };
 
 use alloc::vec::Vec;
@@ -37,15 +37,9 @@ impl Graph {
         }
     }
 
-    fn push_node(
-        &mut self,
-        node_id: ResonixId,
-        node: Node,
-        node_index: usize,
-    ) {
+    fn push_node(&mut self, node_id: ResonixId, node: Node, node_index: usize) {
         if self.nodes.len() <= node_index {
-            self.nodes
-                .resize_with(node_index + 1, Default::default);
+            self.nodes.resize_with(node_index + 1, Default::default);
         }
         self.nodes[*node_id] = Some(node);
     }
