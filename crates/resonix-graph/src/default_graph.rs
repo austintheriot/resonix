@@ -168,7 +168,6 @@ mod graph_tests {
         mod unconnected_graphs {
             use crate::{
                 Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph,
-                default_graph::graph_tests::node_visit_order::assert_visit_order_matches_handles,
             };
 
             // Constant Multiply Constant Multiply
@@ -203,7 +202,7 @@ mod graph_tests {
         mod acyclic_graphs {
             use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
 
-            use super::assert_visit_order_matches_handles;
+            
 
             // Constant
             //    |

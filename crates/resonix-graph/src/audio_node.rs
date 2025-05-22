@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-use crate::{DescribePorts, ResonixDataList, ResonixId, ResonixPortAddress};
+use crate::{DescribePorts, ResonixDataList, ResonixId};
 
 pub trait ResonixAudioNode: DescribePorts {
     fn node_id(&self) -> ResonixId;
