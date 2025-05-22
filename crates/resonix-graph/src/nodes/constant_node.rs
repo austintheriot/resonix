@@ -3,24 +3,14 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
-    DescribePorts, GenerateId, HasPortDescriptors, ResonixAudioNode, ResonixData, ResonixDataList,
-    ResonixId, ResonixPortAddress, ResonixPortAddressDirection,
+    DescribePorts, GenerateId, ResonixAudioNode, ResonixData, ResonixDataList, ResonixId,
+    ResonixPortAddress, ResonixPortAddressDirection,
 };
 
 pub struct ConstantNode {
     node_id: ResonixId,
     constant_value: ResonixData,
     port_descriptors: ConstantNodePortDescriptors,
-}
-
-impl HasPortDescriptors for ConstantNode {
-    type PortDescriptors = ConstantNodePortDescriptors;
-
-    fn port_descriptors(&self) -> ConstantNodePortDescriptors {
-        ConstantNodePortDescriptors {
-            node_id: self.node_id,
-        }
-    }
 }
 
 impl ConstantNode {

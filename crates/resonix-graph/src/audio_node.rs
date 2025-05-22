@@ -1,8 +1,6 @@
 use core::ops::Deref;
 
-use alloc::vec::Vec;
-
-use crate::{DescribePorts, HasPortDescriptors, ResonixDataList, ResonixId, ResonixPortAddress};
+use crate::{DescribePorts, ResonixDataList, ResonixId, ResonixPortAddress};
 
 pub trait ResonixAudioNode: DescribePorts {
     fn node_id(&self) -> ResonixId;
@@ -12,47 +10,40 @@ pub trait ResonixAudioNode: DescribePorts {
     fn assign_inputs(&mut self, inputs: ResonixDataList);
 }
 
-
 // newtype wrapper due to Rust limitation: https://github.com/rust-lang/rust/issues/20400
-pub struct Audio<PortDescriptors, A>
+pub struct Audio<PortDescriptors, A>(pub A)
 where
     PortDescriptors: Clone,
-    A: ResonixAudioNode + HasPortDescriptors<PortDescriptors = PortDescriptors> + 'static,
-{
-    audio_node: A,
-    port_descriptors: PortDescriptors,
-}
+    A: ResonixAudioNode + Deref<Target = PortDescriptors> + 'static;
 
 impl<PortDescriptors, A> Audio<PortDescriptors, A>
 where
     PortDescriptors: Clone,
-    A: ResonixAudioNode + HasPortDescriptors<PortDescriptors = PortDescriptors> + 'static,
+    A: ResonixAudioNode + Deref<Target = PortDescriptors> + 'static,
 {
     pub fn into_inner(self) -> A {
-        self.audio_node
+        self.0
     }
 }
 
 impl<PortDescriptors, A> From<A> for Audio<PortDescriptors, A>
 where
     PortDescriptors: Clone,
-    A: ResonixAudioNode + HasPortDescriptors<PortDescriptors = PortDescriptors> + 'static,
+    A: ResonixAudioNode + Deref<Target = PortDescriptors> + 'static,
 {
     fn from(audio_node: A) -> Self {
-        let port_descriptors = audio_node.port_descriptors();
-        Audio {
-            audio_node,
-            port_descriptors,
-        }
+        Audio(audio_node)
     }
 }
 
-impl<PortDescriptors, A> AsRef<PortDescriptors> for Audio<PortDescriptors, A>
+impl<PortDescriptors, A> Deref for Audio<PortDescriptors, A>
 where
     PortDescriptors: Clone,
-    A: ResonixAudioNode + HasPortDescriptors<PortDescriptors = PortDescriptors> + 'static,
+    A: ResonixAudioNode + Deref<Target = PortDescriptors> + 'static,
 {
-    fn as_ref(&self) -> &PortDescriptors {
-        &self.port_descriptors
+    type Target = PortDescriptors;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }

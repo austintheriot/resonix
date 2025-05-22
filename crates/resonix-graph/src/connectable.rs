@@ -1,9 +1,8 @@
+use core::ops::Deref;
+
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::{
-    Audio, HasPortDescriptors, Param, ResonixAudioNode, ResonixId, ResonixParamNode,
-    ResonixPortAddress,
-};
+use crate::{Audio, Param, ResonixAudioNode, ResonixId, ResonixParamNode, ResonixPortAddress};
 
 pub enum Connectable {
     AudioNode(Box<dyn ResonixAudioNode>),
@@ -40,7 +39,7 @@ impl Connectable {
 impl<PortDescriptors, A> From<Audio<PortDescriptors, A>> for Connectable
 where
     PortDescriptors: Clone,
-    A: ResonixAudioNode + HasPortDescriptors<PortDescriptors = PortDescriptors> + 'static,
+    A: ResonixAudioNode + Deref<Target = PortDescriptors> + 'static,
 {
     fn from(value: Audio<PortDescriptors, A>) -> Self {
         Connectable::AudioNode(Box::new(value.into_inner()))
