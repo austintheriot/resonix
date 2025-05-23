@@ -101,17 +101,29 @@ impl<'a, NodeId, ConnectionId> TarjanSCC<'a, NodeId, ConnectionId> {
 mod tests {
     use super::*;
     use petgraph::Graph;
+    use std::collections::HashSet;
+
+    fn sorted_sccs(sccs: Vec<Vec<NodeIndex>>) -> Vec<Vec<NodeIndex>> {
+        let mut sorted = sccs
+            .into_iter()
+            .map(|mut scc| {
+                scc.sort();
+                scc
+            })
+            .collect::<Vec<_>>();
+        sorted.sort();
+        sorted
+    }
 
     #[test]
     fn test_single_node_no_edges() {
-        let mut graph: Graph<&'static str, ()> = Graph::new();
+        let mut graph = Graph::<&str, ()>::new();
         let n1 = graph.add_node("single");
 
         let mut tarjan = TarjanSCC::new(&graph);
-        let sccs = tarjan.compute_sccs_as_indexes();
+        let sccs = sorted_sccs(tarjan.compute_sccs_as_indexes());
 
-        assert_eq!(sccs.len(), 1);
-        assert_eq!(sccs[0], vec![n1]);
+        assert_eq!(sccs, vec![vec![n1]]);
     }
 
     #[test]
@@ -121,10 +133,9 @@ mod tests {
         graph.add_edge(n1, n1, ());
 
         let mut tarjan = TarjanSCC::new(&graph);
-        let sccs = tarjan.compute_sccs_as_indexes();
+        let sccs = sorted_sccs(tarjan.compute_sccs_as_indexes());
 
-        assert_eq!(sccs.len(), 1);
-        assert_eq!(sccs[0], vec![n1]);
+        assert_eq!(sccs, vec![vec![n1]]);
     }
 
     #[test]
@@ -139,10 +150,12 @@ mod tests {
         graph.add_edge(n3, n1, ());
 
         let mut tarjan = TarjanSCC::new(&graph);
-        let sccs = tarjan.compute_sccs_as_indexes();
-
+        let mut sccs = tarjan.compute_sccs_as_indexes();
         assert_eq!(sccs.len(), 1);
-        assert_eq!(sccs[0].len(), 3);
+
+        let mut cycle = sccs.pop().unwrap();
+        cycle.sort();
+        assert_eq!(cycle, vec![n1, n2, n3]);
     }
 
     #[test]
@@ -167,34 +180,27 @@ mod tests {
         graph.add_edge(n3, n4, "bridge");
 
         let mut tarjan = TarjanSCC::new(&graph);
-        let sccs = tarjan.compute_sccs_as_indexes();
+        let sccs = sorted_sccs(tarjan.compute_sccs_as_indexes());
 
-        assert_eq!(sccs.len(), 2);
-
-        // Check that we have one SCC of size 3 and one of size 2
-        let mut sizes: Vec<usize> = sccs.iter().map(|scc| scc.len()).collect();
-        sizes.sort();
-        assert_eq!(sizes, vec![2, 3]);
+        let expected = vec![vec![n1, n2, n3], vec![n4, n5]];
+        assert_eq!(sccs, expected);
     }
 
     #[test]
     fn test_isolated_nodes() {
         let mut graph = Graph::new();
-        let _n1 = graph.add_node("isolated1");
-        let _n2 = graph.add_node("isolated2");
+        let n1 = graph.add_node("isolated1");
+        let n2 = graph.add_node("isolated2");
         let n3 = graph.add_node("connected");
         let n4 = graph.add_node("connected2");
-
-        // Only one edge
         graph.add_edge(n3, n4, ());
 
         let mut tarjan = TarjanSCC::new(&graph);
-        let sccs = tarjan.compute_sccs_as_indexes();
+        let sccs = sorted_sccs(tarjan.compute_sccs_as_indexes());
 
-        assert_eq!(sccs.len(), 4); // Each node is its own SCC
-        for scc in &sccs {
-            assert_eq!(scc.len(), 1);
-        }
+        let mut expected = vec![vec![n1], vec![n2], vec![n3], vec![n4]];
+        expected.sort();
+        assert_eq!(sccs, expected);
     }
 
     #[test]
@@ -202,19 +208,15 @@ mod tests {
         let mut graph = Graph::new();
         let n1 = graph.add_node("Node A");
         let n2 = graph.add_node("Node B");
-
-        graph.add_edge(n1, n2, "connection");
-        graph.add_edge(n2, n1, "back_connection");
+        graph.add_edge(n1, n2, ());
+        graph.add_edge(n2, n1, ());
 
         let mut tarjan = TarjanSCC::new(&graph);
-        let sccs_with_data = tarjan.compute_sccs_as_node_ids();
+        let sccs = tarjan.compute_sccs_as_node_ids();
 
-        assert_eq!(sccs_with_data.len(), 1);
-        assert_eq!(sccs_with_data[0].len(), 2);
-
-        let node_data: HashSet<&str> = sccs_with_data[0].iter().copied().copied().collect();
-        assert!(node_data.contains(&"Node A"));
-        assert!(node_data.contains(&"Node B"));
+        assert_eq!(sccs.len(), 1);
+        let node_data: HashSet<&str> = sccs[0].iter().copied().copied().collect();
+        assert_eq!(node_data, HashSet::from(["Node A", "Node B"]));
     }
 
     #[test]
@@ -227,12 +229,11 @@ mod tests {
         graph.add_edge(n2, n3, ());
 
         let mut tarjan = TarjanSCC::new(&graph);
-        let sccs = tarjan.compute_sccs_as_indexes();
+        let sccs = sorted_sccs(tarjan.compute_sccs_as_indexes());
 
-        assert_eq!(sccs.len(), 3);
-        for scc in sccs {
-            assert_eq!(scc.len(), 1);
-        }
+        let mut expected = vec![vec![n1], vec![n2], vec![n3]];
+        expected.sort();
+        assert_eq!(sccs, expected);
     }
 
     #[test]
@@ -241,18 +242,16 @@ mod tests {
         let n1 = graph.add_node(1);
         let n2 = graph.add_node(2);
         let n3 = graph.add_node(3);
-
         graph.add_edge(n1, n2, ());
         graph.add_edge(n2, n1, ());
         graph.add_edge(n3, n1, ());
 
         let mut tarjan = TarjanSCC::new(&graph);
-        let sccs = tarjan.compute_sccs_as_indexes();
+        let sccs = sorted_sccs(tarjan.compute_sccs_as_indexes());
 
-        assert_eq!(sccs.len(), 2);
-        let mut sizes: Vec<usize> = sccs.iter().map(|scc| scc.len()).collect();
-        sizes.sort();
-        assert_eq!(sizes, vec![1, 2]);
+        let mut expected = vec![vec![n1, n2], vec![n3]];
+        expected.sort();
+        assert_eq!(sccs, expected);
     }
 
     #[test]
@@ -269,9 +268,11 @@ mod tests {
         graph.add_edge(n4, n3, ());
 
         let mut tarjan = TarjanSCC::new(&graph);
-        let sccs = tarjan.compute_sccs_as_indexes();
-
+        let mut sccs = tarjan.compute_sccs_as_indexes();
         assert_eq!(sccs.len(), 1);
-        assert_eq!(sccs[0].len(), 4);
+
+        let mut scc = sccs.pop().unwrap();
+        scc.sort();
+        assert_eq!(scc, vec![n1, n2, n3, n4]);
     }
 }
