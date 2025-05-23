@@ -358,6 +358,7 @@ mod graph_tests {
             // │       └────────────┘       │
             // │                            │
             // └────────────────────────────┘
+            #[ignore]
             #[test]
             fn two_node_circular_graph() {
                 // TODO: implement cyclic graph tests
