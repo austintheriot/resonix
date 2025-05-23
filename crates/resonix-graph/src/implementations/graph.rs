@@ -6,11 +6,14 @@ use crate::{
 };
 
 use alloc::vec::Vec;
-use hashbrown::HashMap;
-use petgraph::graph as pgraph;
+use hashbrown::{HashMap, HashSet};
+use petgraph::{algo::tarjan_scc, graph as pgraph};
 
 enum GraphItem {
     Node(Node),
+
+    // TODO: add/remove this type once we know we need it
+    #[allow(dead_code)]
     Connection(ResonixConnection),
 }
 
@@ -57,27 +60,76 @@ impl Graph {
     fn calculate_new_visit_order(&self) -> Vec<ResonixId> {
         let mut visit_order: Vec<ResonixId> = Vec::new();
 
-        self.dfs(|node_id| {
-            // TODO: implement Tarjan's algorith here for finding SCCs
-            visit_order.push(node_id);
+        let scc_node_indexes = tarjan_scc(&self.graph);
+        let sccs: Vec<Vec<NodeId>> = scc_node_indexes
+            .into_iter()
+            .map(|scc| {
+                scc.into_iter()
+                    .map(|node_idx| self.graph[node_idx])
+                    .collect()
+            })
+            .collect();
+
+        let mut visited: HashSet<ResonixId> = HashSet::new();
+
+        self.dfs(|id| {
+            if visited.get(&id).is_some() {
+                return;
+            }
+
+            let nodes_scc = sccs
+                .iter()
+                .find(|&scc| scc.iter().any(|&scc_id| *scc_id == id))
+                .expect("Every node should be part of an SCC");
+
+            let mut sorted_nodes = nodes_scc.clone();
+            sorted_nodes.sort();
+
+            nodes_scc.iter().for_each(|&node_id| {
+                if visited.get(&*node_id).is_some() {
+                    return;
+                }
+
+                visited.insert(*node_id);
+                visit_order.push(*node_id);
+            });
         });
 
         visit_order
     }
 
+    // TODO:is this logically sound?
+    // We can't do a dfs from starting nodes, because a cyclical graph will not
+    // have a starting node, so unless we nodes as they becomes cyclical,
+    // we just have to iterate through all nodes
     fn dfs<F: FnMut(ResonixId)>(&self, mut cb: F) {
-        // DFS, starting with id/creation order the starter nodes
-        for input_node_id in self
-            .starter_nodes
+        let mut visited: HashSet<ResonixId> = HashSet::new();
+
+        for node_id in self
+            .graph_items
             .iter()
-            .filter_map(|node_id| *node_id)
-            .take(1)
+            .filter_map(|graph_item| match graph_item {
+                Some(graph_item) => match graph_item {
+                    GraphItem::Node(node) => Some(node.node_id()),
+                    GraphItem::Connection(_) => None,
+                },
+                _ => None,
+            })
         {
-            let starting_node_index = self.id_to_pegraph_index_map.get(&*input_node_id).unwrap();
+            if visited.get(&node_id).is_some() {
+                return;
+            }
+
+            let starting_node_index = self.id_to_pegraph_index_map.get(&node_id).unwrap();
 
             let mut dfs = petgraph::visit::Dfs::new(&self.graph, *starting_node_index);
             while let Some(node_index) = dfs.next(&self.graph) {
                 let node_id = self.petgraph_index_to_id_map.get(&node_index).unwrap();
+                if visited.get(node_id).is_some() {
+                    continue;
+                }
+                visited.insert(*node_id);
+
                 cb(*node_id);
             }
         }
@@ -199,7 +251,6 @@ mod graph_tests {
             use super::assert_visit_order_matches_handles;
 
             // Constant Multiply Constant Multiply
-            #[ignore]
             #[test]
             fn run_order_for_unconnected_nodes_should_be_their_creation_order() {
                 let mut graph = Graph::new();
@@ -322,10 +373,6 @@ mod graph_tests {
 
                 let node_run_order = graph.visit_order();
 
-                graph.dfs(|id| {
-                    println!("{:?}", id);
-                });
-
                 assert_visit_order_matches_handles(
                     &node_run_order,
                     &[
@@ -349,6 +396,30 @@ mod graph_tests {
 
             use super::assert_visit_order_matches_handles;
 
+            //   ┌─────┐
+            //┌──▼───┐ │
+            //│ Node │ │
+            //└──┬───┘ │
+            //   └─────┘
+            #[test]
+            fn self_connection() {
+                let mut graph = Graph::new();
+
+                let constant_node_1 = ConstantNode::new_with_value(&mut graph, 2);
+                let constant_node_1 = graph.add(constant_node_1).unwrap();
+
+                graph
+                    .connect(
+                        constant_node_1.output_port_address(),
+                        constant_node_1.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+
+                let node_run_order = graph.visit_order();
+
+                assert_visit_order_matches_handles(&node_run_order, &[Box::new(constant_node_1)]);
+            }
+
             // ┌───────┐            ┌───────┐
             // │       │            │       │
             // │  ┌────▼───────┐    │  ┌────▼───────┐
@@ -358,11 +429,9 @@ mod graph_tests {
             // │       └────────────┘       │
             // │                            │
             // └────────────────────────────┘
-            #[ignore]
             #[test]
+            #[ignore]
             fn two_node_circular_graph() {
-                // TODO: implement cyclic graph tests
-
                 let mut graph = Graph::new();
 
                 let constant_node_1 = ConstantNode::new_with_value(&mut graph, 2);
@@ -385,10 +454,6 @@ mod graph_tests {
                     .unwrap();
 
                 let node_run_order = graph.visit_order();
-
-                graph.dfs(|id| {
-                    println!("{:?}", id);
-                });
 
                 assert_visit_order_matches_handles(
                     &node_run_order,
