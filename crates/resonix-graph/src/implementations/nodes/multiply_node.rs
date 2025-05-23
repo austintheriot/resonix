@@ -3,8 +3,9 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
-    DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, NodeId, PortId, ResonixAudioNode,
-    ResonixData, ResonixDataList, ResonixId, ResonixPortAddress, ResonixPortAddressDirection,
+    Audio, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, NodeId, PortId,
+    ResonixAudioNode, ResonixData, ResonixDataList, ResonixId, ResonixPortAddress,
+    ResonixPortAddressDirection,
 };
 
 pub struct MultiplyNode {
@@ -15,7 +16,7 @@ pub struct MultiplyNode {
 }
 
 impl MultiplyNode {
-    pub fn new<G: GenerateId>(id_generator: &mut G) -> Self {
+    pub fn new<G: GenerateId>(id_generator: &mut G) -> Audio<Self> {
         Self::new_with_values(id_generator, ResonixData::None, ResonixData::None)
     }
 
@@ -23,18 +24,19 @@ impl MultiplyNode {
         id_generator: &mut G,
         left_operand: L,
         right_operand: R,
-    ) -> Self {
+    ) -> Audio<Self> {
         let node_id = NodeId::from(id_generator.generate_id());
         let left_operand_value = left_operand.into();
         let right_operand_value = right_operand.into();
         let port_descriptors = MultiplyNodePortDescriptors::new(node_id);
 
-        Self {
+        let multiply_node = Self {
             node_id,
             right_operand_value,
             left_operand_value,
             port_descriptors,
-        }
+        };
+        Audio(multiply_node)
     }
 }
 
