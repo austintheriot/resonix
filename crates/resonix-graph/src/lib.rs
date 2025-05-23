@@ -14,4 +14,3 @@ mod traversal;
 
 pub use primitives::*;
 pub use traits::*;
-pub use traversal::*;
