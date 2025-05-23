@@ -103,6 +103,31 @@ mod tests {
     use petgraph::Graph;
 
     #[test]
+    fn test_single_node_no_edges() {
+        let mut graph: Graph<&'static str, ()> = Graph::new();
+        let n1 = graph.add_node("single");
+
+        let mut tarjan = TarjanSCC::new(&graph);
+        let sccs = tarjan.compute_sccs_as_indexes();
+
+        assert_eq!(sccs.len(), 1);
+        assert_eq!(sccs[0], vec![n1]);
+    }
+
+    #[test]
+    fn test_single_node_self_loop() {
+        let mut graph = Graph::new();
+        let n1 = graph.add_node("single");
+        graph.add_edge(n1, n1, ());
+
+        let mut tarjan = TarjanSCC::new(&graph);
+        let sccs = tarjan.compute_sccs_as_indexes();
+
+        assert_eq!(sccs.len(), 1);
+        assert_eq!(sccs[0], vec![n1]);
+    }
+
+    #[test]
     fn test_simple_cycle() {
         let mut graph = Graph::new();
         let n1 = graph.add_node("1");
@@ -187,8 +212,66 @@ mod tests {
         assert_eq!(sccs_with_data.len(), 1);
         assert_eq!(sccs_with_data[0].len(), 2);
 
-        let node_data: HashSet<&str> = sccs_with_data[0].iter().copied().map(|s| *s).collect();
+        let node_data: HashSet<&str> = sccs_with_data[0].iter().copied().copied().collect();
         assert!(node_data.contains(&"Node A"));
         assert!(node_data.contains(&"Node B"));
+    }
+
+    #[test]
+    fn test_dag() {
+        let mut graph = Graph::new();
+        let n1 = graph.add_node(1);
+        let n2 = graph.add_node(2);
+        let n3 = graph.add_node(3);
+        graph.add_edge(n1, n2, ());
+        graph.add_edge(n2, n3, ());
+
+        let mut tarjan = TarjanSCC::new(&graph);
+        let sccs = tarjan.compute_sccs_as_indexes();
+
+        assert_eq!(sccs.len(), 3);
+        for scc in sccs {
+            assert_eq!(scc.len(), 1);
+        }
+    }
+
+    #[test]
+    fn test_two_node_cycle_with_extra() {
+        let mut graph = Graph::new();
+        let n1 = graph.add_node(1);
+        let n2 = graph.add_node(2);
+        let n3 = graph.add_node(3);
+
+        graph.add_edge(n1, n2, ());
+        graph.add_edge(n2, n1, ());
+        graph.add_edge(n3, n1, ());
+
+        let mut tarjan = TarjanSCC::new(&graph);
+        let sccs = tarjan.compute_sccs_as_indexes();
+
+        assert_eq!(sccs.len(), 2);
+        let mut sizes: Vec<usize> = sccs.iter().map(|scc| scc.len()).collect();
+        sizes.sort();
+        assert_eq!(sizes, vec![1, 2]);
+    }
+
+    #[test]
+    fn test_large_scc() {
+        let mut graph = Graph::new();
+        let n1 = graph.add_node("A");
+        let n2 = graph.add_node("B");
+        let n3 = graph.add_node("C");
+        let n4 = graph.add_node("D");
+        graph.add_edge(n1, n2, ());
+        graph.add_edge(n2, n3, ());
+        graph.add_edge(n3, n1, ());
+        graph.add_edge(n3, n4, ());
+        graph.add_edge(n4, n3, ());
+
+        let mut tarjan = TarjanSCC::new(&graph);
+        let sccs = tarjan.compute_sccs_as_indexes();
+
+        assert_eq!(sccs.len(), 1);
+        assert_eq!(sccs[0].len(), 4);
     }
 }
