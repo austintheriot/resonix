@@ -457,7 +457,7 @@ mod graph_tests {
             //└──┬───┘ │
             //   └─────┘
             #[test]
-            fn self_connection() {
+            fn single_node() {
                 let mut graph = Graph::new();
 
                 let constant_node_1 = ConstantNode::new_with_value(&mut graph, 2);
@@ -475,14 +475,16 @@ mod graph_tests {
                 assert_visit_order_matches_handles(&node_run_order, &[Box::new(constant_node_1)]);
             }
 
-            //           ┌─────────────┐    ┌────────────┐
-            // ┌─────────▼───────────┐ │    │ ┌──────────▼──────────┐
-            // │ Constant Node id=0  │ │    │ │ Constant Node id=1  │
-            // └─────────┬───────────┘ │    │ └──────────┬──────────┘
-            //           └─────────────┼────┘            │
-            //                         └─────────────────┘
+            //           ┌────────────┐
+            // ┌─────────▼──────────┐ │
+            // │ Constant Node id=0 │ │
+            // └─────────┬──────────┘ │
+            // ┌─────────▼──────────┐ │
+            // │ Constant Node id=1 │ │
+            // └─────────┬──────────┘ │
+            //           └────────────┘
             #[test]
-            fn two_node_circular_graph() {
+            fn two_node() {
                 let mut graph = Graph::new();
 
                 let constant_node_1 = ConstantNode::new_with_value(&mut graph, 2);
@@ -509,6 +511,67 @@ mod graph_tests {
                 assert_visit_order_matches_handles(
                     &node_run_order,
                     &[Box::new(constant_node_1), Box::new(constant_node_2)],
+                );
+            }
+
+            //           ┌────────────┐
+            // ┌─────────▼──────────┐ │
+            // │ Constant Node id=0 │ │
+            // └─────────┬──────────┘ │
+            // ┌─────────▼──────────┐ │
+            // │ Constant Node id=1 │ │
+            // └─────────┬──────────┘ │
+            // ┌─────────▼──────────┐ │
+            // │ Constant Node id=2 │ │
+            // └─────────┬──────────┘ │
+            //           └────────────┘
+            #[ignore]
+            #[test]
+            fn three_node() {
+                let mut graph = Graph::new();
+
+                let constant_node_0 = ConstantNode::new_with_value(&mut graph, 0);
+                let constant_node_1 = ConstantNode::new_with_value(&mut graph, 1);
+                let constant_node_2 = ConstantNode::new_with_value(&mut graph, 2);
+
+                let constant_node_0 = graph.add(constant_node_0).unwrap();
+                let constant_node_1 = graph.add(constant_node_1).unwrap();
+                let constant_node_2 = graph.add(constant_node_2).unwrap();
+
+                graph
+                    .connect(
+                        constant_node_0.output_port_address(),
+                        constant_node_1.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        constant_node_1.output_port_address(),
+                        constant_node_0.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        constant_node_1.output_port_address(),
+                        constant_node_2.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        constant_node_2.output_port_address(),
+                        constant_node_0.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+
+                let node_run_order = graph.visit_order();
+
+                assert_visit_order_matches_handles(
+                    &node_run_order,
+                    &[
+                        Box::new(constant_node_0),
+                        Box::new(constant_node_1),
+                        Box::new(constant_node_2),
+                    ],
                 );
             }
         }
