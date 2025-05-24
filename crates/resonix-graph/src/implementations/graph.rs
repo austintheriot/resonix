@@ -25,7 +25,7 @@ pub struct Graph {
     id_to_pegraph_index_map: HashMap<ResonixId, pgraph::NodeIndex<pgraph::DefaultIx>>,
     petgraph_index_to_id_map: HashMap<pgraph::NodeIndex<pgraph::DefaultIx>, ResonixId>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
-    starter_nodes: Vec<Option<NodeId>>,
+    leaf_nodes: Vec<Option<NodeId>>,
     // will be necessary when processing data
     //port_data_map: HashMap<ResonixPortAddress, ResonixDataList>,
 }
@@ -39,7 +39,7 @@ impl Graph {
             visit_order: None,
             id_to_pegraph_index_map: HashMap::new(),
             graph: petgraph::Graph::<NodeId, ConnectionId>::new(),
-            starter_nodes: Vec::new(),
+            leaf_nodes: Vec::new(),
             petgraph_index_to_id_map: HashMap::new(),
             //port_data_map: HashMap::new(),
         }
@@ -57,7 +57,12 @@ impl Graph {
         vector[index] = Some(value);
     }
 
-    fn calculate_new_visit_order(&self) -> Vec<ResonixId> {
+    // If we track the leaf nodes, and then iterate UP through the tree,
+    // rather than DOWN, and we do a POST-order traversal, where
+    // all starting nodes/dependencies are guaranteed to be visited before
+    // any leaf node that depends on them, that should guarantee no leaf
+    // node is ever without its depedencies.
+    fn compute_new_visit_order(&self) -> Vec<ResonixId> {
         let mut visit_order: Vec<ResonixId> = Vec::new();
 
         let scc_node_indexes = tarjan_scc(&self.graph);
@@ -111,17 +116,19 @@ impl Graph {
     where
         F: FnMut(ResonixId, &mut HashSet<ResonixId>, bool),
     {
-        let starting_nodes = self
-            .starter_nodes
+        let mut leaf_nodes: Vec<NodeId> = self
+            .leaf_nodes
             .iter()
-            .filter_map(|maybe_node_id| *maybe_node_id);
+            .filter_map(|maybe_node_id| *maybe_node_id)
+            .collect();
+        leaf_nodes.sort();
 
-        for starting_node_id in starting_nodes {
-            // starting nodes should not have alread been visited
-            debug_assert!(visited_set.get(&*starting_node_id).is_none());
+        for leaf_node_id in leaf_nodes {
+            // leaf nodes should not have already been visited
+            debug_assert!(visited_set.get(&*leaf_node_id).is_none());
 
             let is_cyclical = false;
-            self.visit(*starting_node_id, visited_set, cb, is_cyclical);
+            self.visit(*leaf_node_id, visited_set, cb, is_cyclical);
         }
 
         let cyclical_ids: Vec<ResonixId> = self
@@ -159,21 +166,35 @@ impl Graph {
     ) where
         F: FnMut(ResonixId, &mut HashSet<ResonixId>, bool),
     {
+        // post-order traversal: visit all neighbors first
+        let petgraph_index = self.id_to_pegraph_index_map.get(&id).unwrap();
+        let neighbor_indexes: Vec<_> = self
+            .graph
+            .neighbors_directed(*petgraph_index, petgraph::Direction::Incoming)
+            .collect();
+        let mut neighbords_ids: Vec<ResonixId> = neighbor_indexes
+            .into_iter()
+            .map(|neighbor_petgraph_index| {
+                *self
+                    .petgraph_index_to_id_map
+                    .get(&neighbor_petgraph_index)
+                    .unwrap()
+            })
+            .collect();
+
+        // sort parent nodes by id--smaller gets higher priority
+        // TODO: sort by explicity priority later?
+        neighbords_ids.sort();
+        for neighbor_id in neighbords_ids {
+            self.visit(neighbor_id, visited_set, cb, is_cyclical);
+        }
+
+        // now visit the leaf node last
         if visited_set.get(&id).is_some() {
             return;
         }
         visited_set.insert(id);
         cb(id, visited_set, is_cyclical);
-
-        let petgraph_index = self.id_to_pegraph_index_map.get(&id).unwrap();
-        let neighbors = self
-            .graph
-            .neighbors_directed(*petgraph_index, petgraph::Direction::Outgoing);
-
-        for petgraph_index in neighbors {
-            let id = *self.petgraph_index_to_id_map.get(&petgraph_index).unwrap();
-            self.visit(id, visited_set, cb, is_cyclical);
-        }
     }
 
     pub fn visit_order(&self) -> Option<&[ResonixId]> {
@@ -205,11 +226,11 @@ impl ResonixGraph for Graph {
         self.petgraph_index_to_id_map.insert(index, *node_id);
         // petgraph only keeps ids--we keep the real values for easier bookkeeping
         Graph::set_vec_map_item(*node_id, GraphItem::Node(node), &mut self.graph_items);
-        // until a node as an incoming connection, it is a starter node
-        Graph::set_vec_map_item(*node_id, node_id, &mut self.starter_nodes);
+        // until a node as an outgoing connection, it is a leaf node
+        Graph::set_vec_map_item(*node_id, node_id, &mut self.leaf_nodes);
 
         // must be recomputed on every modification
-        self.visit_order = Some(self.calculate_new_visit_order());
+        self.visit_order = Some(self.compute_new_visit_order());
 
         Ok(node_handle)
     }
@@ -238,12 +259,12 @@ impl ResonixGraph for Graph {
 
         self.graph.add_edge(start_index, end_index, connection_id);
 
-        // if it has a connection coming in now, it is no longer a starter node
-        let end_node_vec_index: usize = **end_node_id;
-        core::mem::take(&mut self.starter_nodes[end_node_vec_index]);
+        // if it has a connection going out now, it is no longer a leaf node
+        let start_node_vec_index: usize = **start_node_id;
+        core::mem::take(&mut self.leaf_nodes[start_node_vec_index]);
 
         // must be recomputed on every modification
-        self.visit_order = Some(self.calculate_new_visit_order());
+        self.visit_order = Some(self.compute_new_visit_order());
 
         Ok(self)
     }
@@ -363,52 +384,48 @@ mod graph_tests {
                 );
             }
 
-            // 2        3
-            // |       /
-            // L      R
-            // Multiply  5
-            // |        /
-            // I      R
-            // Multiply
+            // N0=0        N1=1
+            // |          /
+            // N2=Multiply  N3=3
+            // |           /
+            // N4=Multiply
             //    |
             // Output
-            #[ignore]
             #[test]
             fn multiple_connections() {
                 let mut graph = Graph::new();
 
-                let constant_node_value_2 = ConstantNode::new_with_value(&mut graph, 2);
-                let constant_node_value_3 = ConstantNode::new_with_value(&mut graph, 3);
-                let multiply_node_1 = MultiplyNode::new(&mut graph);
+                let node_0 = ConstantNode::new_with_value(&mut graph, 0);
+                let node_1 = ConstantNode::new_with_value(&mut graph, 1);
+                let node_2 = MultiplyNode::new(&mut graph);
+                let node_3 = ConstantNode::new_with_value(&mut graph, 3);
+                let node_4 = MultiplyNode::new(&mut graph);
 
-                let constant_node_value_5 = ConstantNode::new_with_value(&mut graph, 5);
-                let multiply_node_2 = MultiplyNode::new(&mut graph);
-
-                let constant_node_value_2 = graph.add(constant_node_value_2).unwrap();
-                let constant_node_value_3 = graph.add(constant_node_value_3).unwrap();
-                let multiply_node_1 = graph.add(multiply_node_1).unwrap();
-                let constant_node_value_5 = graph.add(constant_node_value_5).unwrap();
-                let multiply_node_2 = graph.add(multiply_node_2).unwrap();
+                let node_0 = graph.add(node_0).unwrap();
+                let node_1 = graph.add(node_1).unwrap();
+                let node_2 = graph.add(node_2).unwrap();
+                let node_3 = graph.add(node_3).unwrap();
+                let node_4 = graph.add(node_4).unwrap();
 
                 graph
                     .connect(
-                        constant_node_value_2.output_port_address(),
-                        multiply_node_1.left_operand_input_address(),
+                        node_0.output_port_address(),
+                        node_2.left_operand_input_address(),
                     )
                     .unwrap()
                     .connect(
-                        constant_node_value_3.output_port_address(),
-                        multiply_node_1.right_operand_input_address(),
+                        node_1.output_port_address(),
+                        node_2.right_operand_input_address(),
                     )
                     .unwrap()
                     .connect(
-                        multiply_node_1.output_port_address(),
-                        multiply_node_2.left_operand_input_address(),
+                        node_2.output_port_address(),
+                        node_4.left_operand_input_address(),
                     )
                     .unwrap()
                     .connect(
-                        constant_node_value_5.output_port_address(),
-                        multiply_node_2.right_operand_input_address(),
+                        node_3.output_port_address(),
+                        node_4.right_operand_input_address(),
                     )
                     .unwrap();
 
@@ -417,11 +434,11 @@ mod graph_tests {
                 assert_visit_order_matches_handles(
                     &node_run_order,
                     &[
-                        Box::new(constant_node_value_2),
-                        Box::new(constant_node_value_3),
-                        Box::new(constant_node_value_5),
-                        Box::new(multiply_node_1),
-                        Box::new(multiply_node_2),
+                        Box::new(node_0),
+                        Box::new(node_1),
+                        Box::new(node_2),
+                        Box::new(node_3),
+                        Box::new(node_4),
                     ],
                 );
             }
