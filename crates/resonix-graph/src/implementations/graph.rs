@@ -359,15 +359,15 @@ mod graph_tests {
 
             use super::assert_visit_order_matches_handles;
 
-            // Constant None
-            //    |      |
-            //    L      R
-            //    Multiply
-            //       |
-            //     Output
-            #[ignore]
+            // ┌────────────────────┐
+            // │ Constant Node id=0 │         None
+            // └──────────────┬─────┘          │
+            //                │                │
+            //              ┌─▼────────────────▼─┐
+            //              │ Multiply Node id=3 │
+            //              └────────────────────┘
             #[test]
-            fn constant_node_to_multiply_node() {
+            fn single_connection() {
                 let mut graph = Graph::new();
 
                 let constant_node = ConstantNode::new(&mut graph);
