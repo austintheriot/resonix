@@ -128,6 +128,11 @@ impl Graph {
             debug_assert!(visited_set.get(&*leaf_node_id).is_none());
 
             let is_cyclical = false;
+
+            if visited_set.get(&*leaf_node_id).is_some() {
+                continue;
+            }
+            visited_set.insert(*leaf_node_id);
             self.visit(*leaf_node_id, visited_set, cb, is_cyclical);
         }
 
@@ -153,6 +158,10 @@ impl Graph {
 
         for cyclical_id in cyclical_ids {
             let is_cyclical = true;
+            if visited_set.get(&cyclical_id).is_some() {
+                continue;
+            }
+            visited_set.insert(cyclical_id);
             self.visit(cyclical_id, visited_set, cb, is_cyclical);
         }
     }
@@ -193,14 +202,13 @@ impl Graph {
             .collect();
 
         for neighbor_id in neighbor_ids {
+            if visited_set.get(&neighbor_id).is_some() {
+                continue;
+            }
             self.visit(neighbor_id, visited_set, cb, is_cyclical);
         }
 
         // now visit the leaf node last
-        if visited_set.get(&id).is_some() {
-            return;
-        }
-        visited_set.insert(id);
         cb(id, visited_set, is_cyclical);
     }
 
@@ -489,17 +497,13 @@ mod graph_tests {
                 assert_visit_order_matches_handles(&node_run_order, &[Box::new(constant_node_1)]);
             }
 
-            // ┌───────┐            ┌───────┐
-            // │       │            │       │
-            // │  ┌────▼───────┐    │  ┌────▼───────┐
-            // │  │ Constant 1 │    │  │ Constant 2 │
-            // │  └────┬───────┘    │  └────┬───────┘
-            // │       │            │       │
-            // │       └────────────┘       │
-            // │                            │
-            // └────────────────────────────┘
+            //           ┌─────────────┐    ┌────────────┐
+            // ┌─────────▼───────────┐ │    │ ┌──────────▼──────────┐
+            // │ Constant Node id=0  │ │    │ │ Constant Node id=1  │
+            // └─────────┬───────────┘ │    │ └──────────┬──────────┘
+            //           └─────────────┼────┘            │
+            //                         └─────────────────┘
             #[test]
-            #[ignore]
             fn two_node_circular_graph() {
                 let mut graph = Graph::new();
 
