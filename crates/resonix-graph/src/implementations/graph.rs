@@ -384,13 +384,17 @@ mod graph_tests {
                 );
             }
 
-            // N0=0        N1=1
-            // |          /
-            // N2=Multiply  N3=3
-            // |           /
-            // N4=Multiply
-            //    |
-            // Output
+            //┌────────────────────┐  ┌────────────────────┐
+            //│ Constant Node id=0 │  │ Constant Node id=1 │
+            //└──────────────┬─────┘  └───────┬────────────┘
+            //               │                │
+            //             ┌─▼────────────────▼─┐  ┌────────────────────┐
+            //             │ Multiply Node id=3 │  │ Constant Node id=2 │
+            //             └─────────────┬──────┘  └───────┬────────────┘
+            //                           │                 │
+            //                          ┌▼─────────────────▼─┐
+            //                          │ Multiply Node id=3 │
+            //                          └────────────────────┘
             #[test]
             fn multiple_connections() {
                 let mut graph = Graph::new();
