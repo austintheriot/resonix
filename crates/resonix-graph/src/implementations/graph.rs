@@ -172,7 +172,7 @@ impl Graph {
             .graph
             .neighbors_directed(*petgraph_index, petgraph::Direction::Incoming)
             .collect();
-        let mut neighbords_ids: Vec<ResonixId> = neighbor_indexes
+        let mut neighbor_ids: Vec<ResonixId> = neighbor_indexes
             .into_iter()
             .map(|neighbor_petgraph_index| {
                 *self
@@ -184,8 +184,15 @@ impl Graph {
 
         // sort parent nodes by id--smaller gets higher priority
         // TODO: sort by explicity priority later?
-        neighbords_ids.sort();
-        for neighbor_id in neighbords_ids {
+        neighbor_ids.sort();
+
+        // ignore the current node we're visiting
+        let neighbor_ids: Vec<ResonixId> = neighbor_ids
+            .into_iter()
+            .filter(|&node_id| node_id != id)
+            .collect();
+
+        for neighbor_id in neighbor_ids {
             self.visit(neighbor_id, visited_set, cb, is_cyclical);
         }
 
@@ -463,7 +470,6 @@ mod graph_tests {
             //│ Node │ │
             //└──┬───┘ │
             //   └─────┘
-            #[ignore]
             #[test]
             fn self_connection() {
                 let mut graph = Graph::new();
