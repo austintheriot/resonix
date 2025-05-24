@@ -7,7 +7,7 @@ use crate::{
 
 use alloc::vec::Vec;
 use hashbrown::{HashMap, HashSet};
-use petgraph::{algo::tarjan_scc, graph as pgraph};
+use petgraph::graph as pgraph;
 
 enum GraphItem {
     Node(Node),
@@ -64,39 +64,12 @@ impl Graph {
     // node is ever without its depedencies.
     fn compute_new_visit_order(&self) -> Vec<ResonixId> {
         let mut visit_order: Vec<ResonixId> = Vec::new();
-
-        let scc_node_indexes = tarjan_scc(&self.graph);
-        let sccs: Vec<Vec<NodeId>> = scc_node_indexes
-            .into_iter()
-            .map(|scc| {
-                scc.into_iter()
-                    .map(|node_idx| self.graph[node_idx])
-                    .collect()
-            })
-            .collect();
-
         let mut visited_set: HashSet<ResonixId> = HashSet::new();
 
         self.traverse_graph(&mut visited_set, &mut |id, visited, _is_cyclical| {
-            let nodes_scc = sccs
-                .iter()
-                .find(|&scc| scc.iter().any(|&scc_id| *scc_id == id))
-                .expect("Every node should be part of an SCC");
-
-            let mut sorted_nodes = nodes_scc.clone();
-            sorted_nodes.sort();
-
-            // TODO: not sure what to do here
-            // add all SCC to the visit order?
-            nodes_scc.iter().for_each(|&node_id| {
-                // do not double-add any nodes to the visit order
-                if visit_order.iter().any(|&id| id == *node_id) {
-                    return;
-                }
-
-                visited.insert(*node_id);
-                visit_order.push(*node_id);
-            });
+            // TODO: maybe compute sccs and use them here?
+            visited.insert(id);
+            visit_order.push(id);
         });
 
         visit_order
@@ -136,7 +109,7 @@ impl Graph {
             self.visit(*leaf_node_id, visited_set, cb, is_cyclical);
         }
 
-        let cyclical_ids: Vec<ResonixId> = self
+        let mut cyclical_ids: Vec<ResonixId> = self
             .graph_items
             .iter()
             .filter_map(|graph_item| {
@@ -155,6 +128,11 @@ impl Graph {
                 None
             })
             .collect();
+
+        // the cyclical node with the least-high priority id becomes
+        // a stand-in leaf-node
+        cyclical_ids.sort();
+        cyclical_ids.reverse();
 
         for cyclical_id in cyclical_ids {
             let is_cyclical = true;
