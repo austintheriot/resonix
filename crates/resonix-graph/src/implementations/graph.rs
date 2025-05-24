@@ -7,7 +7,7 @@ use crate::{
 
 use alloc::vec::Vec;
 use hashbrown::{HashMap, HashSet};
-use petgraph::{algo::tarjan_scc, graph as pgraph, visit::IntoNeighborsDirected};
+use petgraph::{algo::tarjan_scc, graph as pgraph};
 
 enum GraphItem {
     Node(Node),
@@ -72,7 +72,7 @@ impl Graph {
 
         let mut visited_set: HashSet<ResonixId> = HashSet::new();
 
-        self.traverse_graph(&mut visited_set, &mut |id, visited, is_cyclical| {
+        self.traverse_graph(&mut visited_set, &mut |id, visited, _is_cyclical| {
             let nodes_scc = sccs
                 .iter()
                 .find(|&scc| scc.iter().any(|&scc_id| *scc_id == id))
@@ -84,7 +84,8 @@ impl Graph {
             // TODO: not sure what to do here
             // add all SCC to the visit order?
             nodes_scc.iter().for_each(|&node_id| {
-                if visited.get(&*node_id).is_some() {
+                // do not double-add any nodes to the visit order
+                if visit_order.iter().any(|&id| id == *node_id) {
                     return;
                 }
 
