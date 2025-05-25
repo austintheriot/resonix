@@ -1,9 +1,9 @@
 use core::ops::Deref;
 
 use crate::{
-    ConnectionId, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors,
-    GraphError, Node, NodeId, ResonixConnection, ResonixGraph, ResonixId, ResonixNodeHandle,
-    ResonixPortAddress, compare_nodes_by_priority,
+    ConnectionId, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GraphError, Node,
+    NodeId, ResonixConnection, ResonixGraph, ResonixId, ResonixNodeHandle, ResonixPortAddress,
+    compare_nodes_by_priority,
 };
 
 use alloc::vec::Vec;
@@ -541,7 +541,6 @@ mod graph_tests {
             // │ Constant Node id=2 │ │
             // └─────────┬──────────┘ │
             //           └────────────┘
-            #[ignore]
             #[test]
             fn three_node() {
                 let mut graph = Graph::new();
@@ -558,12 +557,6 @@ mod graph_tests {
                     .connect(
                         constant_node_0.output_port_address(),
                         constant_node_1.set_constant_value_port_address(),
-                    )
-                    .unwrap();
-                graph
-                    .connect(
-                        constant_node_1.output_port_address(),
-                        constant_node_0.set_constant_value_port_address(),
                     )
                     .unwrap();
                 graph
