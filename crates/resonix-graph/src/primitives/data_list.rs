@@ -12,6 +12,10 @@ impl ResonixDataList {
         ResonixDataList(resonix_data)
     }
 
+    pub fn empty() -> Self {
+        ResonixDataList(Vec::new())
+    }
+
     pub fn into_inner(self) -> Vec<ResonixData> {
         self.0
     }
