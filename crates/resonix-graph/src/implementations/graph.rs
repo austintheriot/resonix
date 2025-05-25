@@ -230,6 +230,7 @@ impl Graph {
                 if visited_set.get(&cyclical_neighbor_id).is_some() {
                     continue;
                 }
+                visited_set.insert(cyclical_neighbor_id);
                 self.visit_node(cyclical_neighbor_id, sccs, visited_set, cb);
             }
 
@@ -237,6 +238,7 @@ impl Graph {
                 if visited_set.get(&acyclical_neighbor_id).is_some() {
                     continue;
                 }
+                visited_set.insert(acyclical_neighbor_id);
                 self.visit_node(acyclical_neighbor_id, sccs, visited_set, cb);
             }
         } else {
@@ -244,6 +246,7 @@ impl Graph {
                 if visited_set.get(&neighbor_id).is_some() {
                     continue;
                 }
+                visited_set.insert(neighbor_id);
                 self.visit_node(neighbor_id, sccs, visited_set, cb);
             }
         }
@@ -895,7 +898,6 @@ mod graph_tests {
             //             │ Output n=6 │
             //             └────────────┘
             // TODO: this is test is having a stack overflow! Investigate
-            #[ignore]
             #[test]
             fn mix_of_everything() {
                 let mut graph = Graph::new();
@@ -916,7 +918,7 @@ mod graph_tests {
                 let node_4 = graph.add(node_4).unwrap();
                 let node_5 = graph.add(node_5).unwrap();
                 let node_6 = graph.add(node_6).unwrap();
-                let _node_7 = graph.add(node_7).unwrap();
+                let node_7 = graph.add(node_7).unwrap();
 
                 graph
                     .connect(node_1.output_port_address(), node_2.input_port_address())
@@ -946,7 +948,19 @@ mod graph_tests {
 
                 let node_run_order = graph.visit_order();
 
-                assert_visit_order_matches_handles(&node_run_order, &[Box::new(node_0)]);
+                assert_visit_order_matches_handles(
+                    &node_run_order,
+                    &[
+                        Box::new(node_0),
+                        Box::new(node_1),
+                        Box::new(node_2),
+                        Box::new(node_3),
+                        Box::new(node_4),
+                        Box::new(node_5),
+                        Box::new(node_6),
+                        Box::new(node_7),
+                    ],
+                );
             }
         }
     }
