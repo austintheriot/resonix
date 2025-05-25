@@ -4,6 +4,7 @@ use crate::{GetNodeId, ResonixDataList};
 
 use super::GetPriority;
 
+// TODO: remove "Resonix" from all types in this library
 pub trait ResonixAudioNode: GetNodeId + GetPriority {
     fn next(&mut self) -> ResonixDataList;
 
