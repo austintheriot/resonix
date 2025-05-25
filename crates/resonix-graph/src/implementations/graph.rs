@@ -243,6 +243,9 @@ impl ResonixGraph for Graph {
         Graph::set_vec_map_item(*node_id, node_id, &mut self.leaf_nodes);
 
         // must be recomputed on every modification
+        // TODO: do incremental updates in the future?
+        // May not be necessary, since it can be computed in O(n) time,
+        // where n is the number of nodes
         self.visit_order = Some(self.compute_new_visit_order());
 
         Ok(node_handle)
