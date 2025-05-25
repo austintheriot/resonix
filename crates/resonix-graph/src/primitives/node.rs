@@ -1,6 +1,6 @@
 use alloc::boxed::Box;
 
-use crate::{Audio, GetNodeId, Param, ResonixAudioNode, ResonixId, ResonixParamNode};
+use crate::{Audio, GetNodeId, GetPriority, Param, ResonixAudioNode, ResonixId, ResonixParamNode};
 
 /// Wrapper type around the `ResonixAudioNode` and `ResonixParamNode` types
 /// for easier, opaque handling in the Graph.
@@ -17,6 +17,15 @@ impl GetNodeId for Node {
         match self {
             Node::AudioNode(resonix_audio_node) => resonix_audio_node.node_id(),
             Node::ParamNode(resonix_param_node) => resonix_param_node.node_id(),
+        }
+    }
+}
+
+impl GetPriority for Node {
+    fn get_priority(&self) -> super::Priority {
+        match self {
+            Node::AudioNode(resonix_audio_node) => resonix_audio_node.get_priority(),
+            Node::ParamNode(resonix_param_node) => resonix_param_node.get_priority(),
         }
     }
 }

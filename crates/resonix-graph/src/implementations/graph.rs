@@ -1,8 +1,9 @@
 use core::ops::Deref;
 
 use crate::{
-    ConnectionId, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GraphError, Node,
-    NodeId, ResonixConnection, ResonixGraph, ResonixId, ResonixNodeHandle, ResonixPortAddress,
+    ConnectionId, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
+    GraphError, Node, NodeId, ResonixConnection, ResonixGraph, ResonixId, ResonixNodeHandle,
+    ResonixPortAddress, compare_nodes_by_priority,
 };
 
 use alloc::vec::Vec;
@@ -94,7 +95,10 @@ impl Graph {
             .iter()
             .filter_map(|maybe_node_id| *maybe_node_id)
             .collect();
-        leaf_nodes.sort();
+
+        leaf_nodes.sort_by(|id_a, id_b| {
+            compare_nodes_by_priority(self.get_node(*id_a).unwrap(), self.get_node(*id_b).unwrap())
+        });
 
         for leaf_node_id in leaf_nodes {
             // leaf nodes should not have already been visited
@@ -129,9 +133,10 @@ impl Graph {
             })
             .collect();
 
-        // the cyclical node with the least-high priority id becomes
-        // a stand-in leaf-node
-        cyclical_ids.sort();
+        // the cyclical node with the least-high priority id becomes a stand-in leaf-node
+        cyclical_ids.sort_by(|id_a, id_b| {
+            compare_nodes_by_priority(self.get_node(id_a).unwrap(), self.get_node(id_b).unwrap())
+        });
         cyclical_ids.reverse();
 
         for cyclical_id in cyclical_ids {
@@ -142,6 +147,17 @@ impl Graph {
             visited_set.insert(cyclical_id);
             self.visit(cyclical_id, visited_set, cb, is_cyclical);
         }
+    }
+
+    fn get_node<I: Deref<Target = ResonixId>>(&self, id: I) -> Option<&Node> {
+        let index: usize = **id;
+        let graph_item = self.graph_items.get(index);
+
+        if let Some(Some(GraphItem::Node(node))) = graph_item {
+            return Some(node);
+        }
+
+        None
     }
 
     fn visit<F>(
@@ -169,9 +185,9 @@ impl Graph {
             })
             .collect();
 
-        // sort parent nodes by id--smaller gets higher priority
-        // TODO: sort by explicity priority later?
-        neighbor_ids.sort();
+        neighbor_ids.sort_by(|id_a, id_b| {
+            compare_nodes_by_priority(self.get_node(id_a).unwrap(), self.get_node(id_b).unwrap())
+        });
 
         // ignore the current node we're visiting
         let neighbor_ids: Vec<ResonixId> = neighbor_ids

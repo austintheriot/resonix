@@ -2,7 +2,9 @@ use core::ops::Deref;
 
 use crate::{GetNodeId, ResonixDataList};
 
-pub trait ResonixAudioNode: GetNodeId {
+use super::GetPriority;
+
+pub trait ResonixAudioNode: GetNodeId + GetPriority {
     fn next(&mut self) -> ResonixDataList;
 
     fn assign_inputs(&mut self, inputs: ResonixDataList);

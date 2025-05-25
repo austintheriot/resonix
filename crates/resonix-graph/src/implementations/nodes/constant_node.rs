@@ -3,7 +3,7 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
-    Audio, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, NodeId, PortId,
+    Audio, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority, NodeId, PortId,
     ResonixAudioNode, ResonixData, ResonixDataList, ResonixId, ResonixPortAddress,
     ResonixPortAddressDirection,
 };
@@ -44,6 +44,14 @@ impl GetPortDescriptors<ConstantNodePortDescriptors> for ConstantNode {
 impl GetNodeId for ConstantNode {
     fn node_id(&self) -> ResonixId {
         *self.node_id
+    }
+}
+
+// TODO: implement true priority configurations
+// for now, just use id for priority
+impl GetPriority for ConstantNode {
+    fn get_priority(&self) -> crate::Priority {
+        (**self.node_id).into()
     }
 }
 

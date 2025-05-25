@@ -2,7 +2,9 @@ use core::ops::Deref;
 
 use crate::GetNodeId;
 
-pub trait ResonixParamNode: GetNodeId {}
+use super::GetPriority;
+
+pub trait ResonixParamNode: GetNodeId + GetPriority {}
 
 // newtype wrapper due to Rust limitation: https://github.com/rust-lang/rust/issues/20400
 // signals to the compiler that the underlying type should be treated as if it ONLY implements

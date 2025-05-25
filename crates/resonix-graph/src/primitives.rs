@@ -9,6 +9,7 @@ mod node_id;
 mod port_address;
 mod port_address_direction;
 mod port_id;
+mod priority;
 
 pub use connection::*;
 pub use connection_id::*;
@@ -21,3 +22,4 @@ pub use node_id::*;
 pub use port_address::*;
 pub use port_address_direction::*;
 pub use port_id::*;
+pub use priority::*;

@@ -10,6 +10,8 @@ extern crate alloc;
 pub mod implementations;
 mod primitives;
 mod traits;
+mod utils;
 
 pub use primitives::*;
 pub use traits::*;
+pub use utils::*;
