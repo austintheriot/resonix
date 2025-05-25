@@ -358,7 +358,7 @@ mod graph_tests {
 
             use crate::{
                 ResonixGraph,
-                implementations::{ConstantNode, Graph, MultiplyNode},
+                implementations::{ConstantNode, Graph, MultiplyNode, OutputNode},
             };
 
             use super::assert_visit_order_matches_handles;
@@ -407,7 +407,7 @@ mod graph_tests {
             //                           │ Multiply Node id=3 │
             //                           └────────────────────┘
             #[test]
-            fn simple_tree() {
+            fn many_starter_nodes_one_leaf() {
                 let mut graph = Graph::new();
 
                 let node_0 = ConstantNode::new_with_value(&mut graph, 0);
@@ -442,6 +442,56 @@ mod graph_tests {
                         node_3.output_port_address(),
                         node_4.right_operand_input_address(),
                     )
+                    .unwrap();
+
+                let node_run_order = graph.visit_order();
+
+                assert_visit_order_matches_handles(
+                    &node_run_order,
+                    &[
+                        Box::new(node_0),
+                        Box::new(node_1),
+                        Box::new(node_2),
+                        Box::new(node_3),
+                        Box::new(node_4),
+                    ],
+                );
+            }
+
+            //                     ┌──────────────┐
+            //                     │ Constant n=0 │
+            //                     └──────────────┘
+            //        ┌───────────────┬─────────┬───────────────┐
+            // ┌──────▼──────┐ ┌──────▼──────┐  │               │
+            // │ Output id=1 │ │ Output id=2 │  │               │
+            // └─────────────┘ └─────────────┘  │               │
+            //                           ┌──────▼──────┐ ┌──────▼──────┐
+            //                           │ Output id=3 │ │ Output id=4 │
+            //                           └─────────────┘ └─────────────┘
+            #[test]
+            fn one_starter_node_many_leaves() {
+                let mut graph = Graph::new();
+
+                let node_0 = ConstantNode::new_with_value(&mut graph, 0);
+                let node_1 = OutputNode::new(&mut graph);
+                let node_2 = OutputNode::new(&mut graph);
+                let node_3 = OutputNode::new(&mut graph);
+                let node_4 = OutputNode::new(&mut graph);
+
+                let node_0 = graph.add(node_0).unwrap();
+                let node_1 = graph.add(node_1).unwrap();
+                let node_2 = graph.add(node_2).unwrap();
+                let node_3 = graph.add(node_3).unwrap();
+                let node_4 = graph.add(node_4).unwrap();
+
+                graph
+                    .connect(node_0.output_port_address(), node_1.input_port_address())
+                    .unwrap()
+                    .connect(node_0.output_port_address(), node_2.input_port_address())
+                    .unwrap()
+                    .connect(node_0.output_port_address(), node_3.input_port_address())
+                    .unwrap()
+                    .connect(node_0.output_port_address(), node_4.input_port_address())
                     .unwrap();
 
                 let node_run_order = graph.visit_order();
