@@ -224,6 +224,10 @@ impl ResonixGraph for Graph {
         &mut self,
         node: C,
     ) -> Result<ResonixNodeHandle<P>, GraphError> {
+        // TODO: check that the adding the node is valid before making it
+        // - node id should not already be in the graph
+        // - node id should not be weirdly higher than the rest
+
         let port_descriptors: P = node.get_port_descriptors();
         let node = node.into();
         let node_id = NodeId::from(node.node_id());
@@ -250,6 +254,11 @@ impl ResonixGraph for Graph {
         end_port_address: ResonixPortAddress,
     ) -> Result<&mut Self, GraphError> {
         // TODO: check that the connection is valid before making it
+        // - connection should not already exist
+        // - valid node id, port id, and direction
+        // - must be compatible data-types
+        // - must be the correct number of connections for both nodes
+        // - must be correct node relationship node->node, param->node, etc.
 
         let connection = ResonixConnection::new(self, start_port_address, end_port_address);
         let connection_id = connection.connection_id;
