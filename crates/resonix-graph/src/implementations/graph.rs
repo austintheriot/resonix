@@ -99,7 +99,7 @@ impl Graph {
     // by a starting Node.
     fn traverse_graph<F>(
         &self,
-        sccs: &Vec<Vec<ResonixId>>,
+        sccs: &[Vec<ResonixId>],
         visited_set: &mut HashSet<ResonixId>,
         cb: &mut F,
     ) where
@@ -175,7 +175,7 @@ impl Graph {
     fn visit_node<F>(
         &self,
         current_id: ResonixId,
-        sccs: &Vec<Vec<ResonixId>>,
+        sccs: &[Vec<ResonixId>],
         visited_set: &mut HashSet<ResonixId>,
         cb: &mut F,
     ) where
@@ -254,7 +254,7 @@ impl Graph {
 
     /// a node is cyclical if the new node to visit is in a SCC of length > 1
     /// OR if it's directly connected to itself
-    fn is_cyclical_node(&self, id: ResonixId, sccs: &Vec<Vec<ResonixId>>) -> bool {
+    fn is_cyclical_node(&self, id: ResonixId, sccs: &[Vec<ResonixId>]) -> bool {
         let scc = sccs
             .iter()
             .find(|scc| scc.iter().any(|scc_id| *id == **scc_id))
@@ -279,7 +279,7 @@ impl Graph {
             })
             .collect();
 
-        return neighbor_ids.iter().any(|neighbor_id| *neighbor_id == id);
+        neighbor_ids.iter().any(|neighbor_id| *neighbor_id == id)
     }
 
     pub fn visit_order(&self) -> Option<&[ResonixId]> {
