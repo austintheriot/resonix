@@ -622,6 +622,108 @@ mod graph_tests {
                     &[Box::new(constant_node_0), Box::new(constant_node_1)],
                 );
             }
+
+            //          ┌────────────┐
+            //┌─────────▼──────────┐ │
+            //│ Constant Node id=0 │ │
+            //└─────────┬┬─────────┘ │
+            //          │└───────────┘
+            //          │┌───────────┐
+            //┌─────────▼▼─────────┐ │
+            //│ Constant Node id=1 │ │
+            //└─────────┬──────────┘ │
+            //          └────────────┘
+            #[test]
+            fn two_connected_single_loop_back_nodes() {
+                let mut graph = Graph::new();
+
+                let constant_node_0 = ConstantNode::new_with_value(&mut graph, 0);
+                let constant_node_1 = ConstantNode::new_with_value(&mut graph, 1);
+
+                let constant_node_0 = graph.add(constant_node_0).unwrap();
+                let constant_node_1 = graph.add(constant_node_1).unwrap();
+
+                graph
+                    .connect(
+                        constant_node_0.output_port_address(),
+                        constant_node_0.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        constant_node_0.output_port_address(),
+                        constant_node_1.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        constant_node_1.output_port_address(),
+                        constant_node_1.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+
+                let node_run_order = graph.visit_order();
+
+                assert_visit_order_matches_handles(
+                    &node_run_order,
+                    &[Box::new(constant_node_0), Box::new(constant_node_1)],
+                );
+            }
+
+            //         ┌────────────────┐
+            //         │ ┌────────────┐ │
+            // ┌───────▼─▼──────────┐ │ │
+            // │ Constant Node id=0 │ │ │
+            // └─────────┬┬─────────┘ │ │
+            //           │└───────────┘ │
+            //           │┌───────────┐ │
+            // ┌─────────▼▼─────────┐ │ │
+            // │ Constant Node id=1 │ │ │
+            // └───────┬─┬──────────┘ │ │
+            //         │ └────────────┘ │
+            //         └────────────────┘
+            #[test]
+            fn two_nodes_every_connection() {
+                let mut graph = Graph::new();
+
+                let constant_node_0 = ConstantNode::new_with_value(&mut graph, 0);
+                let constant_node_1 = ConstantNode::new_with_value(&mut graph, 1);
+
+                let constant_node_0 = graph.add(constant_node_0).unwrap();
+                let constant_node_1 = graph.add(constant_node_1).unwrap();
+
+                graph
+                    .connect(
+                        constant_node_0.output_port_address(),
+                        constant_node_0.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        constant_node_0.output_port_address(),
+                        constant_node_1.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        constant_node_1.output_port_address(),
+                        constant_node_1.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        constant_node_1.output_port_address(),
+                        constant_node_0.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+
+                let node_run_order = graph.visit_order();
+
+                assert_visit_order_matches_handles(
+                    &node_run_order,
+                    &[Box::new(constant_node_0), Box::new(constant_node_1)],
+                );
+            }
         }
 
         mod mix_ayclic_and_cyclic {
