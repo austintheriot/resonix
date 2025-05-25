@@ -1,7 +1,7 @@
 use core::ops::Deref;
 
 use crate::{
-    ConnectionId, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
+    ConnectionId, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors,
     GraphError, Node, NodeId, ResonixConnection, ResonixGraph, ResonixId, ResonixNodeHandle,
     ResonixPortAddress, compare_nodes_by_priority,
 };
