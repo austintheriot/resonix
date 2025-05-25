@@ -8,7 +8,7 @@ use crate::{
 
 use alloc::vec::Vec;
 use hashbrown::{HashMap, HashSet};
-use petgraph::graph as pgraph;
+use petgraph::{algo::tarjan_scc, graph as pgraph};
 
 enum GraphItem {
     Node(Node),
@@ -67,7 +67,18 @@ impl Graph {
         let mut visit_order: Vec<ResonixId> = Vec::new();
         let mut visited_set: HashSet<ResonixId> = HashSet::new();
 
-        self.traverse_graph(&mut visited_set, &mut |id, visited, _is_cyclical| {
+        let sccs = tarjan_scc(&self.graph);
+        let sccs: Vec<Vec<ResonixId>> = sccs
+            .into_iter()
+            .map(|node_index_vec| {
+                node_index_vec
+                    .into_iter()
+                    .map(|node_index| *self.petgraph_index_to_id_map.get(&node_index).unwrap())
+                    .collect()
+            })
+            .collect();
+
+        self.traverse_graph(&sccs, &mut visited_set, &mut |id, visited, _is_cyclical| {
             // TODO: maybe compute sccs and use them here?
             visited.insert(id);
             visit_order.push(id);
@@ -86,8 +97,12 @@ impl Graph {
     // Then we iterate through all non-visited Nodes. Any non-visited Nodes
     // at this stage are, by definition, cyclical because they were not visited
     // by a starting Node.
-    fn traverse_graph<F>(&self, visited_set: &mut HashSet<ResonixId>, cb: &mut F)
-    where
+    fn traverse_graph<F>(
+        &self,
+        sccs: &Vec<Vec<ResonixId>>,
+        visited_set: &mut HashSet<ResonixId>,
+        cb: &mut F,
+    ) where
         F: FnMut(ResonixId, &mut HashSet<ResonixId>, bool),
     {
         let mut leaf_nodes: Vec<NodeId> = self
@@ -104,13 +119,11 @@ impl Graph {
             // leaf nodes should not have already been visited
             debug_assert!(visited_set.get(&*leaf_node_id).is_none());
 
-            let is_cyclical = false;
-
             if visited_set.get(&*leaf_node_id).is_some() {
                 continue;
             }
             visited_set.insert(*leaf_node_id);
-            self.visit(*leaf_node_id, visited_set, cb, is_cyclical);
+            self.visit_node(*leaf_node_id, sccs, visited_set, cb);
         }
 
         let mut cyclical_ids: Vec<ResonixId> = self
@@ -140,12 +153,11 @@ impl Graph {
         cyclical_ids.reverse();
 
         for cyclical_id in cyclical_ids {
-            let is_cyclical = true;
             if visited_set.get(&cyclical_id).is_some() {
                 continue;
             }
             visited_set.insert(cyclical_id);
-            self.visit(cyclical_id, visited_set, cb, is_cyclical);
+            self.visit_node(cyclical_id, sccs, visited_set, cb);
         }
     }
 
@@ -160,17 +172,19 @@ impl Graph {
         None
     }
 
-    fn visit<F>(
+    fn visit_node<F>(
         &self,
-        id: ResonixId,
+        current_id: ResonixId,
+        sccs: &Vec<Vec<ResonixId>>,
         visited_set: &mut HashSet<ResonixId>,
         cb: &mut F,
-        is_cyclical: bool,
     ) where
         F: FnMut(ResonixId, &mut HashSet<ResonixId>, bool),
     {
+        let is_cyclical = self.is_cyclical_node(current_id, sccs);
+
         // post-order traversal: visit all neighbors first
-        let petgraph_index = self.id_to_pegraph_index_map.get(&id).unwrap();
+        let petgraph_index = self.id_to_pegraph_index_map.get(&current_id).unwrap();
         let neighbor_indexes: Vec<_> = self
             .graph
             .neighbors_directed(*petgraph_index, petgraph::Direction::Incoming)
@@ -190,20 +204,82 @@ impl Graph {
         });
 
         // ignore the current node we're visiting
-        let neighbor_ids: Vec<ResonixId> = neighbor_ids
+        let mut neighbor_ids: Vec<ResonixId> = neighbor_ids
             .into_iter()
-            .filter(|&node_id| node_id != id)
+            .filter(|&node_id| node_id != current_id)
             .collect();
 
-        for neighbor_id in neighbor_ids {
-            if visited_set.get(&neighbor_id).is_some() {
-                continue;
+        neighbor_ids.sort();
+
+        let cyclical_neighbor_ids: Vec<ResonixId> = neighbor_ids
+            .iter()
+            .filter(|neighbor_id| self.is_cyclical_node(**neighbor_id, sccs))
+            .copied()
+            .collect();
+
+        let acyclical_neighbor_ids: Vec<ResonixId> = neighbor_ids
+            .iter()
+            .filter(|neighbor_id| !self.is_cyclical_node(**neighbor_id, sccs))
+            .copied()
+            .collect();
+
+        // TODO: if we're already computing a cycle, process all cyclical conections
+        // before moving on to other neighbors (process cycle as a single unit)
+        if is_cyclical {
+            for cyclical_neighbor_id in cyclical_neighbor_ids {
+                if visited_set.get(&cyclical_neighbor_id).is_some() {
+                    continue;
+                }
+                self.visit_node(cyclical_neighbor_id, sccs, visited_set, cb);
             }
-            self.visit(neighbor_id, visited_set, cb, is_cyclical);
+
+            for acyclical_neighbor_id in acyclical_neighbor_ids {
+                if visited_set.get(&acyclical_neighbor_id).is_some() {
+                    continue;
+                }
+                self.visit_node(acyclical_neighbor_id, sccs, visited_set, cb);
+            }
+        } else {
+            for neighbor_id in neighbor_ids {
+                if visited_set.get(&neighbor_id).is_some() {
+                    continue;
+                }
+                self.visit_node(neighbor_id, sccs, visited_set, cb);
+            }
         }
 
         // now visit the leaf node last
-        cb(id, visited_set, is_cyclical);
+        cb(current_id, visited_set, is_cyclical);
+    }
+
+    /// a node is cyclical if the new node to visit is in a SCC of length > 1
+    /// OR if it's directly connected to itself
+    fn is_cyclical_node(&self, id: ResonixId, sccs: &Vec<Vec<ResonixId>>) -> bool {
+        let scc = sccs
+            .iter()
+            .find(|scc| scc.iter().any(|scc_id| *id == **scc_id))
+            .unwrap();
+
+        if scc.len() > 1 {
+            return true;
+        }
+
+        let petgraph_index = self.id_to_pegraph_index_map.get(&id).unwrap();
+        let neighbor_indexes: Vec<_> = self
+            .graph
+            .neighbors_directed(*petgraph_index, petgraph::Direction::Incoming)
+            .collect();
+        let neighbor_ids: Vec<ResonixId> = neighbor_indexes
+            .into_iter()
+            .map(|neighbor_petgraph_index| {
+                *self
+                    .petgraph_index_to_id_map
+                    .get(&neighbor_petgraph_index)
+                    .unwrap()
+            })
+            .collect();
+
+        return neighbor_ids.iter().any(|neighbor_id| *neighbor_id == id);
     }
 
     pub fn visit_order(&self) -> Option<&[ResonixId]> {
