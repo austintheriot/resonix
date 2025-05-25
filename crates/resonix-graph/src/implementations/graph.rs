@@ -321,7 +321,9 @@ mod graph_tests {
 
             use super::assert_visit_order_matches_handles;
 
-            // Constant Multiply Constant Multiply
+            // ┌──────────┐ ┌──────────┐ ┌──────────┐  ┌──────────┐
+            // │ Constant │ │ Multiply │ │ Constant │  │ Multiply │
+            // └──────────┘ └──────────┘ └──────────┘  └──────────┘
             #[test]
             fn run_order_for_unconnected_nodes_should_be_their_creation_order() {
                 let mut graph = Graph::new();
