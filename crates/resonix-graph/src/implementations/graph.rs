@@ -373,7 +373,7 @@ mod graph_tests {
             use super::assert_visit_order_matches_handles;
 
             // ┌────────────────────┐
-            // │ Constant Node id=0 │         None
+            // │ Constant Node id=0 │        (None)
             // └──────────────┬─────┘          │
             //                │                │
             //              ┌─▼────────────────▼─┐
@@ -788,8 +788,87 @@ mod graph_tests {
         }
 
         mod mix_ayclic_and_cyclic {
+            use std::boxed::Box;
 
-            // TODO: implement tests
+            use crate::{
+                ResonixGraph,
+                implementations::{ConstantNode, Graph, MultiplyNode, OutputNode},
+            };
+
+            use super::assert_visit_order_matches_handles;
+
+            //     ┌──────────────┐ ┌──────────────┐
+            //     │ Constant n=0 │ │ Constant n=1 │
+            //     └──────────────┘ └──────┬───────┘
+            //                       ┌─────▼──────┐
+            //                       │ Output n=2 │
+            //                       └────────────┘
+            // ┌─────────┐                ┌─────────┐
+            // │ ┌───────▼──────┐ ┌───────▼───────┐ │
+            // │ │ Constant n=3 │ │ Constant n=4  │ │
+            // │ └───────┬──────┘ └────────┬─┬────┘ │
+            // │         └──┐        ┌─────┘ └──────┘
+            // │         ┌──▼────────▼──┐
+            // │         │ Multiply n=5 │   ┌────────────┐
+            // │         └──────┬─┬─────┘   │ Output n=7 │
+            // └────────────────┘ │         └────────────┘
+            //             ┌──────▼─────┐
+            //             │ Output n=6 │
+            //             └────────────┘
+            // TODO: this is test is having a stack overflow! Investigate
+            #[ignore]
+            #[test]
+            fn mix_of_everything() {
+                let mut graph = Graph::new();
+
+                let node_0 = ConstantNode::new(&mut graph);
+                let node_1 = ConstantNode::new(&mut graph);
+                let node_2 = OutputNode::new(&mut graph);
+                let node_3 = ConstantNode::new(&mut graph);
+                let node_4 = ConstantNode::new(&mut graph);
+                let node_5 = MultiplyNode::new(&mut graph);
+                let node_6 = OutputNode::new(&mut graph);
+                let node_7 = OutputNode::new(&mut graph);
+
+                let node_0 = graph.add(node_0).unwrap();
+                let node_1 = graph.add(node_1).unwrap();
+                let node_2 = graph.add(node_2).unwrap();
+                let node_3 = graph.add(node_3).unwrap();
+                let node_4 = graph.add(node_4).unwrap();
+                let node_5 = graph.add(node_5).unwrap();
+                let node_6 = graph.add(node_6).unwrap();
+                let _node_7 = graph.add(node_7).unwrap();
+
+                graph
+                    .connect(node_1.output_port_address(), node_2.input_port_address())
+                    .unwrap()
+                    .connect(
+                        node_3.output_port_address(),
+                        node_5.left_operand_input_address(),
+                    )
+                    .unwrap()
+                    .connect(
+                        node_4.output_port_address(),
+                        node_5.right_operand_input_address(),
+                    )
+                    .unwrap()
+                    .connect(
+                        node_5.output_port_address(),
+                        node_3.set_constant_value_port_address(),
+                    )
+                    .unwrap()
+                    .connect(
+                        node_4.output_port_address(),
+                        node_4.set_constant_value_port_address(),
+                    )
+                    .unwrap()
+                    .connect(node_5.output_port_address(), node_6.input_port_address())
+                    .unwrap();
+
+                let node_run_order = graph.visit_order();
+
+                assert_visit_order_matches_handles(&node_run_order, &[Box::new(node_0)]);
+            }
         }
     }
 }
