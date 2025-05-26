@@ -87,16 +87,21 @@ impl Graph {
         visit_order
     }
 
-    // Every Node is assumed to be a starting node when it's inserted into the Graph.
-    // As soon as it receives an incoming Connection, it is no longer a starting Node.
+    // Stricly speaking, this function does all the heavy lifting of figuring out the
+    // graph order, so there's no necessity to pre-compute the graph order, but computing
+    // this ahead-of-time significantly decreases number of runtime calculations that
+    // are required for every audio frame otherwise.
+    //
+    // Every Node is assumed to be a leaf node when it's inserted into the Graph.
+    // As soon as it receives an outgoing Connection, it is no longer a leaf Node.
     // If that Connection forms a cycle, then that Node can become unreachable.
     //
-    // For this reason, we begin by iterating through all starting Nodes, which,
+    // For this reason, we begin by iterating through all leaf Nodes, which,
     // by definition, are not cyclical.
     //
     // Then we iterate through all non-visited Nodes. Any non-visited Nodes
     // at this stage are, by definition, cyclical because they were not visited
-    // by a starting Node.
+    // from a a path that includes a leaf Node.
     fn traverse_graph<F>(
         &self,
         sccs: &[Vec<ResonixId>],
@@ -211,21 +216,27 @@ impl Graph {
 
         neighbor_ids.sort();
 
-        let cyclical_neighbor_ids: Vec<ResonixId> = neighbor_ids
+        let mut cyclical_neighbor_ids: Vec<ResonixId> = neighbor_ids
             .iter()
             .filter(|neighbor_id| self.is_cyclical_node(**neighbor_id, sccs))
             .copied()
             .collect();
+        cyclical_neighbor_ids.sort_by(|id_a, id_b| {
+            compare_nodes_by_priority(self.get_node(id_a).unwrap(), self.get_node(id_b).unwrap())
+        });
 
-        let acyclical_neighbor_ids: Vec<ResonixId> = neighbor_ids
+        let mut acyclical_neighbor_ids: Vec<ResonixId> = neighbor_ids
             .iter()
             .filter(|neighbor_id| !self.is_cyclical_node(**neighbor_id, sccs))
             .copied()
             .collect();
+        acyclical_neighbor_ids.sort_by(|id_a, id_b| {
+            compare_nodes_by_priority(self.get_node(id_a).unwrap(), self.get_node(id_b).unwrap())
+        });
 
-        // TODO: if we're already computing a cycle, process all cyclical conections
-        // before moving on to other neighbors (process cycle as a single unit)
         if is_cyclical {
+            // cycles are treated with priority to isolate their weird run order
+            // before moving onto acyclic parts of the graph
             for cyclical_neighbor_id in cyclical_neighbor_ids {
                 if visited_set.get(&cyclical_neighbor_id).is_some() {
                     continue;
@@ -285,7 +296,8 @@ impl Graph {
         neighbor_ids.iter().any(|neighbor_id| *neighbor_id == id)
     }
 
-    pub fn visit_order(&self) -> Option<&[ResonixId]> {
+    #[cfg(test)]
+    fn visit_order(&self) -> Option<&[ResonixId]> {
         self.visit_order.as_deref()
     }
 }
@@ -957,6 +969,148 @@ mod graph_tests {
                         Box::new(node_3),
                         Box::new(node_4),
                         Box::new(node_5),
+                        Box::new(node_6),
+                        Box::new(node_7),
+                    ],
+                );
+            }
+
+            // This graph is totally cracked, and I think the resulting output
+            // is jank too, but this test is here mostly just to capture existing
+            // behavior and compare to later later implementations if I ever change
+            // the implementation.
+            //
+            // It is somewhat sensible in that it processes all the circular junk before
+            // the final 2 nodes, and the inner stuff is correctly linear, but the
+            // starting place seems wack, or at least unexpected.
+            //
+            //       ┌──────────────────────┐        ┌─────┐
+            //       │                   ┌──▼────────▼──┐  │
+            //       │                   │ Multiply n=0 │  │
+            //       │                   └──────┬───────┘  │
+            //       │                          └──────────┼─────┐
+            // ┌─────┼──────────────────────────┐          │     │
+            // │  ┌──┼─────────┐                │          │     │
+            // │  │  │  ┌──────▼───────┐ ┌──────▼───────┐  │     │
+            // │  │  │  │ Constant n=1 │ │ Constant n=2 │  │     │
+            // │  │  │  └──────────┬───┘ └──────────────┘  │     │
+            // │  │  │             │          ┌─┴────┐     │     │
+            // │  │  │           ┌─▼──────────▼─┐    │     │     │
+            // │  │  │           │ Multiply n=3 │    │     │     │
+            // │  │  │           └──────┬───────┘    │     │     │
+            // │  │  └──────────────────┴────┬───────┼─────┘     │
+            // │  │  ┌─────────┐          ┌──▼───────▼───┐       │
+            // │  │  │ ┌───────▼──────┐   │ Multiply n=5 │       │
+            // │  │  │ │ Constant n=4 │   └──────┬───────┘       │
+            // │  │  │ └───────┬──────┘          │               │
+            // │  │  └─────────┴─────────────────┼──────┐        │
+            // │  └──────────────────────────────┘   ┌──▼────────▼──┐
+            // │                                     │ Multiply n=6 │
+            // │                                     └───────┬──────┘
+            // └─────────────────────────────────────────────┤
+            //                                         ┌─────▼──────┐
+            //                                         │ Output n=7 │
+            //                                         └────────────┘
+            #[test]
+            fn nuts_recursion() {
+                let mut graph = Graph::new();
+
+                let node_0 = MultiplyNode::new(&mut graph);
+                let node_1 = ConstantNode::new(&mut graph);
+                let node_2 = ConstantNode::new(&mut graph);
+                let node_3 = MultiplyNode::new(&mut graph);
+                let node_4 = ConstantNode::new(&mut graph);
+                let node_5 = MultiplyNode::new(&mut graph);
+                let node_6 = MultiplyNode::new(&mut graph);
+                let node_7 = OutputNode::new(&mut graph);
+
+                let node_0 = graph.add(node_0).unwrap();
+                let node_1 = graph.add(node_1).unwrap();
+                let node_2 = graph.add(node_2).unwrap();
+                let node_3 = graph.add(node_3).unwrap();
+                let node_4 = graph.add(node_4).unwrap();
+                let node_5 = graph.add(node_5).unwrap();
+                let node_6 = graph.add(node_6).unwrap();
+                let node_7 = graph.add(node_7).unwrap();
+
+                graph
+                    .connect(
+                        node_0.output_port_address(),
+                        node_6.right_operand_input_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_1.output_port_address(),
+                        node_3.left_operand_input_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_2.output_port_address(),
+                        node_3.right_operand_input_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_2.output_port_address(),
+                        node_5.right_operand_input_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_3.output_port_address(),
+                        node_0.left_operand_input_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_3.output_port_address(),
+                        node_0.right_operand_input_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_3.output_port_address(),
+                        node_5.left_operand_input_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_4.output_port_address(),
+                        node_4.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(node_4.output_port_address(), node_6.output_port_address())
+                    .unwrap();
+                graph
+                    .connect(
+                        node_5.output_port_address(),
+                        node_1.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_6.output_port_address(),
+                        node_2.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(node_6.output_port_address(), node_7.input_port_address())
+                    .unwrap();
+
+                let node_run_order = graph.visit_order();
+
+                assert_visit_order_matches_handles(
+                    &node_run_order,
+                    &[
+                        Box::new(node_2),
+                        Box::new(node_5),
+                        Box::new(node_1),
+                        Box::new(node_3),
+                        Box::new(node_0),
+                        Box::new(node_4),
                         Box::new(node_6),
                         Box::new(node_7),
                     ],
