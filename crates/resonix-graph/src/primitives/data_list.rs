@@ -8,8 +8,8 @@ use crate::primitives::Data;
 pub struct DataList(pub(crate) Vec<Data>);
 
 impl DataList {
-    pub fn new(resonix_data: Vec<Data>) -> Self {
-        DataList(resonix_data)
+    pub fn new(data: Vec<Data>) -> Self {
+        DataList(data)
     }
 
     pub fn empty() -> Self {

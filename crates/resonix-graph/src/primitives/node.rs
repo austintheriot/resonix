@@ -18,8 +18,8 @@ pub enum Node {
 impl GetNodeId for Node {
     fn node_id(&self) -> Id {
         match self {
-            Node::AudioNode(resonix_audio_node) => resonix_audio_node.node_id(),
-            Node::ParamNode(resonix_param_node) => resonix_param_node.node_id(),
+            Node::AudioNode(audio_node) => audio_node.node_id(),
+            Node::ParamNode(param_node) => param_node.node_id(),
         }
     }
 }
@@ -27,8 +27,8 @@ impl GetNodeId for Node {
 impl GetPriority for Node {
     fn get_priority(&self) -> super::Priority {
         match self {
-            Node::AudioNode(resonix_audio_node) => resonix_audio_node.get_priority(),
-            Node::ParamNode(resonix_param_node) => resonix_param_node.get_priority(),
+            Node::AudioNode(audio_node) => audio_node.get_priority(),
+            Node::ParamNode(param_node) => param_node.get_priority(),
         }
     }
 }
