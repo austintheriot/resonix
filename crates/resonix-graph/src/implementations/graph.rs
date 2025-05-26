@@ -8,7 +8,7 @@ use crate::{
 
 use alloc::vec::Vec;
 use hashbrown::{HashMap, HashSet};
-use petgraph::{algo::tarjan_scc, graph as pgraph};
+use petgraph::algo::tarjan_scc;
 
 enum GraphItem {
     Node(Node),
@@ -23,8 +23,10 @@ pub struct Graph {
     // vec used as a HashMap for efficient lookups
     graph_items: Vec<Option<GraphItem>>,
     visit_order: Option<Vec<ResonixId>>,
-    id_to_pegraph_index_map: HashMap<ResonixId, pgraph::NodeIndex<pgraph::DefaultIx>>,
-    petgraph_index_to_id_map: HashMap<pgraph::NodeIndex<pgraph::DefaultIx>, ResonixId>,
+    id_to_pegraph_index_map:
+        HashMap<ResonixId, petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>>,
+    petgraph_index_to_id_map:
+        HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, ResonixId>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: Vec<Option<NodeId>>,
     // will be necessary when processing data
@@ -58,11 +60,11 @@ impl Graph {
         vector[index] = Some(value);
     }
 
-    // If we track the leaf nodes, and then iterate UP through the tree,
+    // If we track the leaf nodes, and then iterate UP/backwards through the tree,
     // rather than DOWN, and we do a POST-order traversal, where
     // all starting nodes/dependencies are guaranteed to be visited before
     // any leaf node that depends on them, that should guarantee no leaf
-    // node is ever without its depedencies.
+    // node is ever run without its dependencies (in an acylic graph).
     fn compute_new_visit_order(&self) -> Vec<ResonixId> {
         let mut visit_order: Vec<ResonixId> = Vec::new();
         let mut visited_set: HashSet<ResonixId> = HashSet::new();
@@ -78,9 +80,7 @@ impl Graph {
             })
             .collect();
 
-        self.traverse_graph(&sccs, &mut visited_set, &mut |id, visited, _is_cyclical| {
-            // TODO: maybe compute sccs and use them here?
-            visited.insert(id);
+        self.traverse_graph(&sccs, &mut visited_set, &mut |id| {
             visit_order.push(id);
         });
 
@@ -108,7 +108,7 @@ impl Graph {
         visited_set: &mut HashSet<ResonixId>,
         cb: &mut F,
     ) where
-        F: FnMut(ResonixId, &mut HashSet<ResonixId>, bool),
+        F: FnMut(ResonixId),
     {
         let mut leaf_nodes: Vec<NodeId> = self
             .leaf_nodes
@@ -184,86 +184,56 @@ impl Graph {
         visited_set: &mut HashSet<ResonixId>,
         cb: &mut F,
     ) where
-        F: FnMut(ResonixId, &mut HashSet<ResonixId>, bool),
+        F: FnMut(ResonixId),
     {
-        let is_cyclical = self.is_cyclical_node(current_id, sccs);
-
-        // post-order traversal: visit all neighbors first
         let petgraph_index = self.id_to_pegraph_index_map.get(&current_id).unwrap();
-        let neighbor_indexes: Vec<_> = self
+        let mut neighbor_ids: Vec<ResonixId> = self
             .graph
+            // traverse backwards/UP the graph from the bottom/leaf nodes
             .neighbors_directed(*petgraph_index, petgraph::Direction::Incoming)
-            .collect();
-        let mut neighbor_ids: Vec<ResonixId> = neighbor_indexes
-            .into_iter()
+            //convert petgraph index to node id
             .map(|neighbor_petgraph_index| {
                 *self
                     .petgraph_index_to_id_map
                     .get(&neighbor_petgraph_index)
                     .unwrap()
             })
+            // ignore the current node we're visiting
+            .filter(|&node_id| node_id != current_id)
             .collect();
 
         neighbor_ids.sort_by(|id_a, id_b| {
             compare_nodes_by_priority(self.get_node(id_a).unwrap(), self.get_node(id_b).unwrap())
         });
 
-        // ignore the current node we're visiting
-        let mut neighbor_ids: Vec<ResonixId> = neighbor_ids
-            .into_iter()
-            .filter(|&node_id| node_id != current_id)
-            .collect();
-
-        neighbor_ids.sort();
-
-        let mut cyclical_neighbor_ids: Vec<ResonixId> = neighbor_ids
+        let cyclical_neighbor_ids = neighbor_ids
             .iter()
-            .filter(|neighbor_id| self.is_cyclical_node(**neighbor_id, sccs))
-            .copied()
-            .collect();
-        cyclical_neighbor_ids.sort_by(|id_a, id_b| {
-            compare_nodes_by_priority(self.get_node(id_a).unwrap(), self.get_node(id_b).unwrap())
-        });
+            .filter(|neighbor_id| self.is_cyclical_node(**neighbor_id, sccs));
 
-        let mut acyclical_neighbor_ids: Vec<ResonixId> = neighbor_ids
+        let acyclical_neighbor_ids = neighbor_ids
             .iter()
-            .filter(|neighbor_id| !self.is_cyclical_node(**neighbor_id, sccs))
-            .copied()
-            .collect();
-        acyclical_neighbor_ids.sort_by(|id_a, id_b| {
-            compare_nodes_by_priority(self.get_node(id_a).unwrap(), self.get_node(id_b).unwrap())
-        });
+            .filter(|neighbor_id| !self.is_cyclical_node(**neighbor_id, sccs));
 
-        if is_cyclical {
-            // cycles are treated with priority to isolate their weird run order
-            // before moving onto acyclic parts of the graph
-            for cyclical_neighbor_id in cyclical_neighbor_ids {
-                if visited_set.get(&cyclical_neighbor_id).is_some() {
-                    continue;
-                }
-                visited_set.insert(cyclical_neighbor_id);
-                self.visit_node(cyclical_neighbor_id, sccs, visited_set, cb);
+        // cycles are treated with priority to isolate their weird run order
+        // before moving onto acyclic parts of the graph
+        for cyclical_neighbor_id in cyclical_neighbor_ids {
+            if visited_set.get(cyclical_neighbor_id).is_some() {
+                continue;
             }
+            visited_set.insert(*cyclical_neighbor_id);
+            self.visit_node(*cyclical_neighbor_id, sccs, visited_set, cb);
+        }
 
-            for acyclical_neighbor_id in acyclical_neighbor_ids {
-                if visited_set.get(&acyclical_neighbor_id).is_some() {
-                    continue;
-                }
-                visited_set.insert(acyclical_neighbor_id);
-                self.visit_node(acyclical_neighbor_id, sccs, visited_set, cb);
+        for acyclical_neighbor_id in acyclical_neighbor_ids {
+            if visited_set.get(acyclical_neighbor_id).is_some() {
+                continue;
             }
-        } else {
-            for neighbor_id in neighbor_ids {
-                if visited_set.get(&neighbor_id).is_some() {
-                    continue;
-                }
-                visited_set.insert(neighbor_id);
-                self.visit_node(neighbor_id, sccs, visited_set, cb);
-            }
+            visited_set.insert(*acyclical_neighbor_id);
+            self.visit_node(*acyclical_neighbor_id, sccs, visited_set, cb);
         }
 
         // now visit the leaf node last
-        cb(current_id, visited_set, is_cyclical);
+        cb(current_id);
     }
 
     /// a node is cyclical if the new node to visit is in a SCC of length > 1
