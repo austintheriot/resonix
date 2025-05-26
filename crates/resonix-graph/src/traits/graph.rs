@@ -6,6 +6,8 @@ use crate::primitives::PortAddress;
 
 use crate::traits::{DescribePorts, GetPortDescriptors};
 
+// TODO: move into the official error module
+// TODO: specify error per function?
 // TODO:fill out with specific types
 #[derive(Debug)]
 pub struct GraphError;

@@ -1,13 +1,13 @@
 use core::ops::Deref;
 
-use crate::{primitives::DataList, traits::GetNodeId};
+use crate::{errors::AudioNodeAssignInputError, primitives::DataList, traits::GetNodeId};
 
 use super::GetPriority;
 
 pub trait AudioNode: GetNodeId + GetPriority {
-    fn next(&mut self) -> DataList;
+    fn run(&mut self) -> DataList;
 
-    fn assign_inputs(&mut self, inputs: DataList);
+    fn assign_inputs(&mut self, inputs: DataList) -> Result<(), AudioNodeAssignInputError>;
 }
 
 // newtype wrapper due to Rust limitation: https://github.com/rust-lang/rust/issues/20400

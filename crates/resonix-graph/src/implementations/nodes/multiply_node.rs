@@ -3,6 +3,7 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
+    errors::AudioNodeAssignInputError,
     primitives::{Data, DataList, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
@@ -62,7 +63,7 @@ impl GetPriority for MultiplyNode {
 }
 
 impl AudioNode for MultiplyNode {
-    fn next(&mut self) -> DataList {
+    fn run(&mut self) -> DataList {
         let resonid_data = match self.left_operand_value {
             Data::F32(original_value_f32) => match self.right_operand_value {
                 Data::F32(multiplier_f32) => Data::F32(original_value_f32 * multiplier_f32),
@@ -83,7 +84,8 @@ impl AudioNode for MultiplyNode {
         DataList::from(vec![resonid_data])
     }
 
-    fn assign_inputs(&mut self, inputs: DataList) {
+    fn assign_inputs(&mut self, inputs: DataList) -> Result<(), AudioNodeAssignInputError> {
+        // TODO: validate inputs
         inputs
             .into_inner()
             .into_iter()
@@ -98,6 +100,8 @@ impl AudioNode for MultiplyNode {
                     self.right_operand_value = data
                 }
             });
+
+        Ok(())
     }
 }
 

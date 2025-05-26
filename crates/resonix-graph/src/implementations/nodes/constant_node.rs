@@ -3,6 +3,7 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
+    errors::AudioNodeAssignInputError,
     primitives::{Data, DataList, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
@@ -57,13 +58,23 @@ impl GetPriority for ConstantNode {
 }
 
 impl AudioNode for ConstantNode {
-    fn next(&mut self) -> DataList {
+    fn run(&mut self) -> DataList {
         DataList::from([self.constant_value.clone()])
     }
 
-    fn assign_inputs(&mut self, mut inputs: DataList) {
-        // TODO: return error value if more inputs given than expected
+    fn assign_inputs(&mut self, mut inputs: DataList) -> Result<(), AudioNodeAssignInputError> {
+        let num_inputs = inputs.len();
+        if num_inputs > 1 {
+            // TODO: lift this requirement?
+            return Err(AudioNodeAssignInputError::TooManyInputs {
+                expected: 1,
+                found: num_inputs,
+            });
+        }
+
         self.constant_value = inputs.remove(0);
+
+        Ok(())
     }
 }
 

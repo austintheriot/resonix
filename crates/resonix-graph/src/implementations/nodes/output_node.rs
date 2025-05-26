@@ -3,6 +3,7 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
+    errors::AudioNodeAssignInputError,
     primitives::{Data, DataList, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
@@ -48,15 +49,25 @@ impl GetPriority for OutputNode {
 }
 
 impl AudioNode for OutputNode {
-    fn next(&mut self) -> DataList {
+    fn run(&mut self) -> DataList {
         // nothing to do--just receives input
         // TODO: make output data `Option<DataList>`?
         DataList::empty()
     }
 
-    fn assign_inputs(&mut self, mut inputs: DataList) {
-        // TODO: return error value if more inputs given than expected
+    fn assign_inputs(&mut self, mut inputs: DataList) -> Result<(), AudioNodeAssignInputError> {
+        // TODO: lift this requirement? Sum inputs instead of throwing error?
+        let num_inputs = inputs.len();
+        if num_inputs > 1 {
+            return Err(AudioNodeAssignInputError::TooManyInputs {
+                expected: 1,
+                found: num_inputs,
+            });
+        }
+
         self.intput_value = inputs.remove(0);
+
+        Ok(())
     }
 }
 
