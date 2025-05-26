@@ -898,7 +898,6 @@ mod graph_tests {
             //             ┌──────▼─────┐
             //             │ Output n=6 │
             //             └────────────┘
-            // TODO: this is test is having a stack overflow! Investigate
             #[test]
             fn mix_of_everything() {
                 let mut graph = Graph::new();
@@ -960,6 +959,108 @@ mod graph_tests {
                         Box::new(node_5),
                         Box::new(node_6),
                         Box::new(node_7),
+                    ],
+                );
+            }
+        }
+
+        mod priority_changes {
+
+            use std::boxed::Box;
+
+            use crate::{
+                ResonixGraph,
+                implementations::{ConstantNode, Graph, MultiplyNode, OutputNode},
+            };
+
+            use super::assert_visit_order_matches_handles;
+
+            //     ┌──────────────┐ ┌──────────────┐
+            //     │ Constant n=3 │ │ Constant n=5 │
+            //     └──────────────┘ └──────┬───────┘
+            //                       ┌─────▼──────┐
+            //                       │ Output n=4 │
+            //                       └────────────┘
+            // ┌─────────┐                ┌─────────┐
+            // │ ┌───────▼──────┐ ┌───────▼───────┐ │
+            // │ │ Constant n=2 │ │ Constant n=7  │ │
+            // │ └───────┬──────┘ └────────┬─┬────┘ │
+            // │         └──┐        ┌─────┘ └──────┘
+            // │         ┌──▼────────▼──┐
+            // │         │ Multiply n=6 │   ┌────────────┐
+            // │         └──────┬─┬─────┘   │ Output n=1 │
+            // └────────────────┘ │         └────────────┘
+            //             ┌──────▼─────┐
+            //             │ Output n=0 │
+            //             └────────────┘
+            #[test]
+            fn out_of_order_creation_produces_acceptable_result() {
+                let mut graph = Graph::new();
+
+                // create them in a weird order
+                let node_0 = OutputNode::new(&mut graph);
+                let node_1 = OutputNode::new(&mut graph);
+                let node_2 = ConstantNode::new(&mut graph);
+                let node_3 = ConstantNode::new(&mut graph);
+                let node_4 = OutputNode::new(&mut graph);
+                let node_5 = ConstantNode::new(&mut graph);
+                let node_6 = MultiplyNode::new(&mut graph);
+                let node_7 = ConstantNode::new(&mut graph);
+
+                // add them out of order
+                let node_2 = graph.add(node_2).unwrap();
+                let node_6 = graph.add(node_6).unwrap();
+                let node_4 = graph.add(node_4).unwrap();
+                let node_5 = graph.add(node_5).unwrap();
+                let node_3 = graph.add(node_3).unwrap();
+                let node_0 = graph.add(node_0).unwrap();
+                let node_7 = graph.add(node_7).unwrap();
+                let node_1 = graph.add(node_1).unwrap();
+
+                // connect them in weird order
+                graph
+                    .connect(node_5.output_port_address(), node_4.input_port_address())
+                    .unwrap();
+                graph
+                    .connect(
+                        node_2.output_port_address(),
+                        node_6.left_operand_input_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(node_6.output_port_address(), node_0.input_port_address())
+                    .unwrap();
+                graph
+                    .connect(
+                        node_7.output_port_address(),
+                        node_6.right_operand_input_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_7.output_port_address(),
+                        node_7.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_6.output_port_address(),
+                        node_2.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                let node_run_order = graph.visit_order();
+
+                assert_visit_order_matches_handles(
+                    &node_run_order,
+                    &[
+                        Box::new(node_2),
+                        Box::new(node_7),
+                        Box::new(node_6),
+                        Box::new(node_0),
+                        Box::new(node_1),
+                        Box::new(node_3),
+                        Box::new(node_5),
+                        Box::new(node_4),
                     ],
                 );
             }
