@@ -290,6 +290,7 @@ impl Graph {
     }
 }
 
+// TODO: move implementation to a sub-component rather than the graph itself
 impl GenerateId for Graph {
     fn generate_id(&mut self) -> ResonixId {
         let current_node_id = self.current_node_id;
