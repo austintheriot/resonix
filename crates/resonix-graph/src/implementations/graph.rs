@@ -1116,6 +1116,9 @@ mod graph_tests {
                     ],
                 );
             }
+
+            // TODO: add test case for cyclical islands connected by a bridge
+            // TODO: add test case for what happens when their priorities are reversed
         }
 
         mod priority_changes {
