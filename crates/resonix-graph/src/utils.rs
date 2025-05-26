@@ -1,6 +1,6 @@
 use core::{cmp::Ordering, ops::Deref};
 
-use crate::GetPriority;
+use crate::traits::GetPriority;
 
 pub fn compare_nodes_by_priority<
     Ga: GetPriority,

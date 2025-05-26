@@ -1,9 +1,9 @@
 use core::ops::Deref;
 
 use crate::{
-    ConnectionId, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GraphError, Node,
-    NodeId, ResonixConnection, ResonixGraph, ResonixId, ResonixNodeHandle, ResonixPortAddress,
-    compare_nodes_by_priority,
+    primitives::{Connection, ConnectionId, Node, NodeHandle, NodeId, PortAddress, ResonixId},
+    traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GraphError},
+    utils::compare_nodes_by_priority,
 };
 
 use alloc::vec::Vec;
@@ -15,7 +15,7 @@ enum GraphItem {
 
     // TODO: add/remove this type once we know we need it
     #[allow(dead_code)]
-    Connection(ResonixConnection),
+    Connection(Connection),
 }
 
 pub struct Graph {
@@ -30,7 +30,7 @@ pub struct Graph {
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: Vec<Option<NodeId>>,
     // will be necessary when processing data
-    //port_data_map: HashMap<ResonixPortAddress, ResonixDataList>,
+    //port_data_map: HashMap<PortAddress, ResonixDataList>,
 }
 
 impl Graph {
@@ -280,11 +280,11 @@ impl GenerateId for Graph {
     }
 }
 
-impl ResonixGraph for Graph {
+impl crate::traits::Graph for Graph {
     fn add<P: DescribePorts, G: GetPortDescriptors<P>, C: Into<Node> + Deref<Target = G>>(
         &mut self,
         node: C,
-    ) -> Result<ResonixNodeHandle<P>, GraphError> {
+    ) -> Result<NodeHandle<P>, GraphError> {
         // TODO: check that the adding the node is valid before making it
         // - node id should not already be in the graph
         // - node id should not be weirdly higher than the rest
@@ -292,7 +292,7 @@ impl ResonixGraph for Graph {
         let port_descriptors: P = node.get_port_descriptors();
         let node = node.into();
         let node_id = NodeId::from(node.node_id());
-        let node_handle = ResonixNodeHandle::new(node_id, port_descriptors);
+        let node_handle = NodeHandle::new(node_id, port_descriptors);
 
         // bookkeeping
         let index = self.graph.add_node(node_id);
@@ -314,8 +314,8 @@ impl ResonixGraph for Graph {
 
     fn connect(
         &mut self,
-        start_port_address: ResonixPortAddress,
-        end_port_address: ResonixPortAddress,
+        start_port_address: PortAddress,
+        end_port_address: PortAddress,
     ) -> Result<&mut Self, GraphError> {
         // TODO: check that the connection is valid before making it
         // - connection should not already exist
@@ -324,7 +324,7 @@ impl ResonixGraph for Graph {
         // - must be the correct number of connections for both nodes
         // - must be correct node relationship node->node, param->node, etc.
 
-        let connection = ResonixConnection::new(self, start_port_address, end_port_address);
+        let connection = Connection::new(self, start_port_address, end_port_address);
         let connection_id = connection.connection_id;
 
         let start_node_id = start_port_address.node_id();
@@ -366,7 +366,7 @@ mod graph_tests {
     mod node_visit_order {
         use alloc::{boxed::Box, vec::Vec};
 
-        use crate::{GetNodeId, ResonixId};
+        use crate::{primitives::ResonixId, traits::GetNodeId};
 
         #[track_caller]
         fn assert_visit_order_matches_handles(
@@ -388,8 +388,8 @@ mod graph_tests {
             use alloc::boxed::Box;
 
             use crate::{
-                ResonixGraph,
                 implementations::{ConstantNode, Graph, MultiplyNode},
+                traits::Graph as GraphTrait,
             };
 
             use super::assert_visit_order_matches_handles;
@@ -429,12 +429,11 @@ mod graph_tests {
         mod acyclic_graphs {
             use alloc::boxed::Box;
 
-            use crate::{
-                ResonixGraph,
-                implementations::{ConstantNode, Graph, MultiplyNode, OutputNode},
-            };
-
             use super::assert_visit_order_matches_handles;
+            use crate::{
+                implementations::{ConstantNode, Graph, MultiplyNode, OutputNode},
+                traits::Graph as GraphTrait,
+            };
 
             // ┌────────────────────┐
             // │ Constant Node id=0 │        (None)
@@ -586,8 +585,8 @@ mod graph_tests {
             use std::boxed::Box;
 
             use crate::{
-                ResonixGraph,
                 implementations::{ConstantNode, Graph},
+                traits::Graph as GraphTrait,
             };
 
             use super::assert_visit_order_matches_handles;
@@ -855,8 +854,8 @@ mod graph_tests {
             use std::boxed::Box;
 
             use crate::{
-                ResonixGraph,
                 implementations::{ConstantNode, Graph, MultiplyNode, OutputNode},
+                traits::Graph as GraphTrait,
             };
 
             use super::assert_visit_order_matches_handles;
@@ -1095,8 +1094,8 @@ mod graph_tests {
             use std::boxed::Box;
 
             use crate::{
-                ResonixGraph,
                 implementations::{ConstantNode, Graph, MultiplyNode, OutputNode},
+                traits::Graph as GraphTrait,
             };
 
             use super::assert_visit_order_matches_handles;

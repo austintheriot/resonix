@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-use crate::ResonixId;
+use crate::primitives::ResonixId;
 
 /// Strongly typed wrapper around the Id primitive for strong type-checking
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]

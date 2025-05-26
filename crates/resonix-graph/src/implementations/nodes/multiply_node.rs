@@ -3,9 +3,14 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
-    Audio, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority, NodeId, PortId,
-    ResonixAudioNode, ResonixData, ResonixDataList, ResonixId, ResonixPortAddress,
-    ResonixPortAddressDirection,
+    primitives::{
+        NodeId, PortAddress, PortId, Priority, ResonixData, ResonixDataList, ResonixId,
+        ResonixPortAddressDirection,
+    },
+    traits::{
+        Audio, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
+        ResonixAudioNode,
+    },
 };
 
 pub struct MultiplyNode {
@@ -55,7 +60,7 @@ impl GetNodeId for MultiplyNode {
 // TODO: implement true priority configurations
 // for now, just use id for priority
 impl GetPriority for MultiplyNode {
-    fn get_priority(&self) -> crate::Priority {
+    fn get_priority(&self) -> Priority {
         (**self.node_id).into()
     }
 }
@@ -130,24 +135,24 @@ impl MultiplyNodePortDescriptors {
         Self { node_id }
     }
 
-    pub fn left_operand_input_address(&self) -> ResonixPortAddress {
-        ResonixPortAddress::new(
+    pub fn left_operand_input_address(&self) -> PortAddress {
+        PortAddress::new(
             self.node_id,
             Self::LEFT_OPERAND_INPUT_PORT_ID,
             ResonixPortAddressDirection::Input,
         )
     }
 
-    pub fn right_operand_input_address(&self) -> ResonixPortAddress {
-        ResonixPortAddress::new(
+    pub fn right_operand_input_address(&self) -> PortAddress {
+        PortAddress::new(
             self.node_id,
             Self::RIGHT_OPERAND_INPUT_PORT_ID,
             ResonixPortAddressDirection::Input,
         )
     }
 
-    pub fn output_port_address(&self) -> ResonixPortAddress {
-        ResonixPortAddress::new(
+    pub fn output_port_address(&self) -> PortAddress {
+        PortAddress::new(
             self.node_id,
             Self::OUTPUT_PORT_ID,
             ResonixPortAddressDirection::Output,
@@ -156,11 +161,11 @@ impl MultiplyNodePortDescriptors {
 }
 
 impl DescribePorts for MultiplyNodePortDescriptors {
-    fn input_port_addresses(&self) -> Vec<ResonixPortAddress> {
+    fn input_port_addresses(&self) -> Vec<PortAddress> {
         vec![self.left_operand_input_address()]
     }
 
-    fn output_port_addresses(&self) -> Vec<ResonixPortAddress> {
+    fn output_port_addresses(&self) -> Vec<PortAddress> {
         vec![self.output_port_address()]
     }
 }

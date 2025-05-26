@@ -1,24 +1,26 @@
 use core::ops::Deref;
 
-use crate::{Node, ResonixNodeHandle, ResonixPortAddress};
+use crate::primitives::Node;
+use crate::primitives::NodeHandle;
+use crate::primitives::PortAddress;
 
-use crate::{DescribePorts, GetPortDescriptors};
+use crate::traits::{DescribePorts, GetPortDescriptors};
 
 // TODO:fill out with specific types
 #[derive(Debug)]
 pub struct GraphError;
 
-pub trait ResonixGraph {
+pub trait Graph {
     /// `node` must be able to be converted into a `Node` and it must deref
     /// to some type that implements `GetPorts`
     fn add<P: DescribePorts, G: GetPortDescriptors<P>, N: Into<Node> + Deref<Target = G>>(
         &mut self,
         node: N,
-    ) -> Result<ResonixNodeHandle<P>, GraphError>;
+    ) -> Result<NodeHandle<P>, GraphError>;
 
     fn connect(
         &mut self,
-        port_a: ResonixPortAddress,
-        port_b: ResonixPortAddress,
+        port_a: PortAddress,
+        port_b: PortAddress,
     ) -> Result<&mut Self, GraphError>;
 }

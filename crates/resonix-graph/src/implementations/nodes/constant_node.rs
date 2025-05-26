@@ -3,9 +3,14 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
-    Audio, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority, NodeId, PortId,
-    ResonixAudioNode, ResonixData, ResonixDataList, ResonixId, ResonixPortAddress,
-    ResonixPortAddressDirection,
+    primitives::{
+        NodeId, PortAddress, PortId, Priority, ResonixData, ResonixDataList, ResonixId,
+        ResonixPortAddressDirection,
+    },
+    traits::{
+        Audio, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
+        ResonixAudioNode,
+    },
 };
 
 pub struct ConstantNode {
@@ -50,7 +55,7 @@ impl GetNodeId for ConstantNode {
 // TODO: implement true priority configurations
 // for now, just use id for priority
 impl GetPriority for ConstantNode {
-    fn get_priority(&self) -> crate::Priority {
+    fn get_priority(&self) -> Priority {
         (**self.node_id).into()
     }
 }
@@ -86,11 +91,11 @@ impl ConstantNodePortDescriptors {
 }
 
 impl DescribePorts for ConstantNodePortDescriptors {
-    fn input_port_addresses(&self) -> Vec<ResonixPortAddress> {
+    fn input_port_addresses(&self) -> Vec<PortAddress> {
         vec![self.set_constant_value_port_address()]
     }
 
-    fn output_port_addresses(&self) -> Vec<ResonixPortAddress> {
+    fn output_port_addresses(&self) -> Vec<PortAddress> {
         vec![self.output_port_address()]
     }
 }
@@ -99,16 +104,16 @@ impl ConstantNodePortDescriptors {
     pub const SET_CONSTANT_VALUE_PORT_ID: PortId = PortId::new(0usize);
     pub const OUTPUT_PORT_ID: PortId = PortId::new(1usize);
 
-    pub fn set_constant_value_port_address(&self) -> ResonixPortAddress {
-        ResonixPortAddress::new(
+    pub fn set_constant_value_port_address(&self) -> PortAddress {
+        PortAddress::new(
             self.node_id,
             Self::SET_CONSTANT_VALUE_PORT_ID,
             ResonixPortAddressDirection::Input,
         )
     }
 
-    pub fn output_port_address(&self) -> ResonixPortAddress {
-        ResonixPortAddress::new(
+    pub fn output_port_address(&self) -> PortAddress {
+        PortAddress::new(
             self.node_id,
             Self::OUTPUT_PORT_ID,
             ResonixPortAddressDirection::Output,

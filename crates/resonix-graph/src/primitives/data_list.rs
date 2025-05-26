@@ -2,7 +2,7 @@ use core::ops::{Deref, DerefMut};
 
 use alloc::vec::Vec;
 
-use crate::ResonixData;
+use crate::primitives::ResonixData;
 
 #[derive(Debug, Clone)]
 pub struct ResonixDataList(pub(crate) Vec<ResonixData>);

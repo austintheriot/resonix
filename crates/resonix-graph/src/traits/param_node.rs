@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-use crate::GetNodeId;
+use crate::traits::GetNodeId;
 
 use super::GetPriority;
 

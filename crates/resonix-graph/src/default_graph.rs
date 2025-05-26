@@ -1,8 +1,8 @@
 use core::ops::Deref;
 
 use crate::{
-    Node, GenerateId, GetNodeId, GraphError, ResonixConnection, ResonixGraph, ResonixId,
-    ResonixNodeHandle, ResonixPortAddress,
+    Node, GenerateId, GetNodeId, GraphError, Connection, Graph, ResonixId,
+    NodeHandle, PortAddress,
 };
 
 use alloc::vec::Vec;
@@ -15,11 +15,11 @@ pub struct Graph {
     visit_order: Option<Vec<ResonixId>>,
     node_id_to_index_map: HashMap<ResonixId, pgraph::NodeIndex<pgraph::DefaultIx>>,
     index_to_node_id_map: HashMap<pgraph::NodeIndex<pgraph::DefaultIx>, ResonixId>,
-    graph: petgraph::Graph<ResonixId, ResonixConnection>,
+    graph: petgraph::Graph<ResonixId, Connection>,
     // we want to preserve insertion order
     starter_nodes: Vec<ResonixId>,
     // will be necessary when processing data
-    //port_data_map: HashMap<ResonixPortAddress, ResonixDataList>,
+    //port_data_map: HashMap<PortAddress, ResonixDataList>,
 }
 
 impl Graph {
@@ -30,7 +30,7 @@ impl Graph {
             nodes: Vec::new(),
             visit_order: None,
             node_id_to_index_map: HashMap::new(),
-            graph: petgraph::Graph::<ResonixId, ResonixConnection>::new(),
+            graph: petgraph::Graph::<ResonixId, Connection>::new(),
             starter_nodes: Vec::new(),
             index_to_node_id_map: HashMap::new(),
             //port_data_map: HashMap::new(),
@@ -78,15 +78,15 @@ impl GenerateId for Graph {
     }
 }
 
-impl ResonixGraph for Graph {
+impl Graph for Graph {
     fn add<PortDescriptors: Clone, C: Into<Node> + Deref<Target = PortDescriptors>>(
         &mut self,
         node: C,
-    ) -> Result<ResonixNodeHandle<PortDescriptors>, GraphError> {
+    ) -> Result<NodeHandle<PortDescriptors>, GraphError> {
         let port_descriptors: PortDescriptors = (*node).clone();
         let node = node.into();
         let node_id = node.node_id();
-        let node_handle = ResonixNodeHandle::new(node_id, port_descriptors);
+        let node_handle = NodeHandle::new(node_id, port_descriptors);
 
         // bookkeeping
         let index = self.graph.add_node(node_id);
@@ -105,8 +105,8 @@ impl ResonixGraph for Graph {
 
     fn connect(
         &mut self,
-        start_port_address: ResonixPortAddress,
-        end_port_address: ResonixPortAddress,
+        start_port_address: PortAddress,
+        end_port_address: PortAddress,
     ) -> Result<&mut Self, GraphError> {
         // TODO: check that the connection is valid before making it
 
@@ -119,7 +119,7 @@ impl ResonixGraph for Graph {
         self.graph.add_edge(
             *start_index,
             *end_index,
-            ResonixConnection::new(start_port_address, end_port_address),
+            Connection::new(start_port_address, end_port_address),
         );
 
         // if it has a connection coming in now, it is no longer a starter node
@@ -168,7 +168,7 @@ mod graph_tests {
         mod unconnected_graphs {
             use alloc::boxed::Box;
 
-            use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
+            use crate::{Audio, ConstantNode, Graph, MultiplyNode, Graph};
 
             use super::assert_visit_order_matches_handles;
 
@@ -204,7 +204,7 @@ mod graph_tests {
         mod acyclic_graphs {
             use alloc::boxed::Box;
 
-            use crate::{Audio, ConstantNode, Graph, MultiplyNode, ResonixGraph};
+            use crate::{Audio, ConstantNode, Graph, MultiplyNode, Graph};
 
             use super::assert_visit_order_matches_handles;
 

@@ -1,6 +1,9 @@
 use alloc::boxed::Box;
 
-use crate::{Audio, GetNodeId, GetPriority, Param, ResonixAudioNode, ResonixId, ResonixParamNode};
+use crate::primitives::ResonixId;
+use crate::traits::Audio;
+use crate::traits::GetPriority;
+use crate::traits::{GetNodeId, Param, ResonixAudioNode, ResonixParamNode};
 
 /// Wrapper type around the `ResonixAudioNode` and `ResonixParamNode` types
 /// for easier, opaque handling in the Graph.

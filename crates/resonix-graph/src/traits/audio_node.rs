@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-use crate::{GetNodeId, ResonixDataList};
+use crate::{primitives::ResonixDataList, traits::GetNodeId};
 
 use super::GetPriority;
 

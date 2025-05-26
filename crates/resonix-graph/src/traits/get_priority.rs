@@ -1,4 +1,4 @@
-use crate::Priority;
+use crate::primitives::Priority;
 
 pub trait GetPriority {
     fn get_priority(&self) -> Priority;
