@@ -293,7 +293,7 @@ impl Graph {
             })
             .collect();
 
-        neighbor_ids.iter().any(|neighbor_id| *neighbor_id == id)
+        neighbor_ids.contains(&id)
     }
 
     #[cfg(test)]
