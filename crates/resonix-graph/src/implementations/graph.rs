@@ -69,8 +69,7 @@ impl Graph {
         let mut visit_order: Vec<ResonixId> = Vec::new();
         let mut visited_set: HashSet<ResonixId> = HashSet::new();
 
-        let sccs = tarjan_scc(&self.graph);
-        let sccs: Vec<Vec<ResonixId>> = sccs
+        let sccs: Vec<Vec<ResonixId>> = tarjan_scc(&self.graph)
             .into_iter()
             .map(|node_index_vec| {
                 node_index_vec
