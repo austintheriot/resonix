@@ -1,7 +1,7 @@
 use core::ops::Deref;
 
 use crate::{
-    Node, GenerateId, GetNodeId, GraphError, Connection, Graph, ResonixId,
+    Node, GenerateId, GetNodeId, GraphError, Connection, Graph, Id,
     NodeHandle, PortAddress,
 };
 
@@ -12,14 +12,14 @@ use petgraph::graph as pgraph;
 pub struct Graph {
     current_node_id: usize,
     nodes: Vec<Option<Node>>,
-    visit_order: Option<Vec<ResonixId>>,
-    node_id_to_index_map: HashMap<ResonixId, pgraph::NodeIndex<pgraph::DefaultIx>>,
-    index_to_node_id_map: HashMap<pgraph::NodeIndex<pgraph::DefaultIx>, ResonixId>,
-    graph: petgraph::Graph<ResonixId, Connection>,
+    visit_order: Option<Vec<Id>>,
+    node_id_to_index_map: HashMap<Id, pgraph::NodeIndex<pgraph::DefaultIx>>,
+    index_to_node_id_map: HashMap<pgraph::NodeIndex<pgraph::DefaultIx>, Id>,
+    graph: petgraph::Graph<Id, Connection>,
     // we want to preserve insertion order
-    starter_nodes: Vec<ResonixId>,
+    starter_nodes: Vec<Id>,
     // will be necessary when processing data
-    //port_data_map: HashMap<PortAddress, ResonixDataList>,
+    //port_data_map: HashMap<PortAddress, DataList>,
 }
 
 impl Graph {
@@ -30,7 +30,7 @@ impl Graph {
             nodes: Vec::new(),
             visit_order: None,
             node_id_to_index_map: HashMap::new(),
-            graph: petgraph::Graph::<ResonixId, Connection>::new(),
+            graph: petgraph::Graph::<Id, Connection>::new(),
             starter_nodes: Vec::new(),
             index_to_node_id_map: HashMap::new(),
             //port_data_map: HashMap::new(),
@@ -39,7 +39,7 @@ impl Graph {
 
     fn push_node(
         &mut self,
-        node_id: ResonixId,
+        node_id: Id,
         node: Node,
         node_index: usize,
     ) {
@@ -50,8 +50,8 @@ impl Graph {
         self.nodes[*node_id] = Some(node);
     }
 
-    fn calculate_new_visit_order(&self) -> Vec<ResonixId> {
-        let mut visit_order: Vec<ResonixId> = Vec::new();
+    fn calculate_new_visit_order(&self) -> Vec<Id> {
+        let mut visit_order: Vec<Id> = Vec::new();
 
         for input_node_id in self.starter_nodes.iter() {
             let starting_node_index = self.node_id_to_index_map.get(input_node_id).unwrap();
@@ -65,13 +65,13 @@ impl Graph {
         visit_order
     }
 
-    pub fn visit_order(&self) -> Option<&[ResonixId]> {
+    pub fn visit_order(&self) -> Option<&[Id]> {
         self.visit_order.as_deref()
     }
 }
 
 impl GenerateId for Graph {
-    fn generate_id(&mut self) -> ResonixId {
+    fn generate_id(&mut self) -> Id {
         let current_node_id = self.current_node_id;
         self.current_node_id += 1;
         current_node_id.into()
@@ -152,13 +152,13 @@ mod graph_tests {
     mod node_visit_order {
         use alloc::{boxed::Box, vec::Vec};
 
-        use crate::{GetNodeId, ResonixId};
+        use crate::{GetNodeId, Id};
 
         fn assert_visit_order_matches_handles(
-            visit_order: &Option<&[ResonixId]>,
+            visit_order: &Option<&[Id]>,
             node_handles: &[Box<dyn GetNodeId>],
         ) {
-            let node_handles_as_node_ids: Vec<ResonixId> = node_handles
+            let node_handles_as_node_ids: Vec<Id> = node_handles
                 .iter()
                 .map(|node_handle| node_handle.node_id())
                 .collect();

@@ -1,28 +1,28 @@
 use core::ops::Deref;
 
-use crate::primitives::ResonixId;
+use crate::primitives::Id;
 
 /// Strongly typed wrapper around the Id primitive for strong type-checking
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct NodeId(ResonixId);
+pub struct NodeId(Id);
 
 impl NodeId {
     pub const fn new(id: usize) -> Self {
-        Self(ResonixId::new(id))
+        Self(Id::new(id))
     }
 }
 
 // other convenience implementations possible here
 
 impl Deref for NodeId {
-    type Target = ResonixId;
+    type Target = Id;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<I: Into<ResonixId>> From<I> for NodeId {
+impl<I: Into<Id>> From<I> for NodeId {
     fn from(value: I) -> Self {
         NodeId(value.into())
     }

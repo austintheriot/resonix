@@ -3,19 +3,15 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
-    primitives::{
-        NodeId, PortAddress, PortId, Priority, ResonixData, ResonixDataList, ResonixId,
-        ResonixPortAddressDirection,
-    },
+    primitives::{Data, DataList, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
     traits::{
-        Audio, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
-        ResonixAudioNode,
+        Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
     },
 };
 
 pub struct OutputNode {
     node_id: NodeId,
-    intput_value: ResonixData,
+    intput_value: Data,
     port_descriptors: OutputNodePortDescriptors,
 }
 
@@ -24,7 +20,7 @@ impl OutputNode {
         let node_id: NodeId = id_generator.generate_id().into();
         let output_node = Self {
             node_id,
-            intput_value: ResonixData::None,
+            intput_value: Data::None,
             port_descriptors: OutputNodePortDescriptors::new(node_id),
         };
         Audio(output_node)
@@ -38,7 +34,7 @@ impl GetPortDescriptors<OutputNodePortDescriptors> for OutputNode {
 }
 
 impl GetNodeId for OutputNode {
-    fn node_id(&self) -> ResonixId {
+    fn node_id(&self) -> Id {
         *self.node_id
     }
 }
@@ -51,14 +47,14 @@ impl GetPriority for OutputNode {
     }
 }
 
-impl ResonixAudioNode for OutputNode {
-    fn next(&mut self) -> ResonixDataList {
+impl AudioNode for OutputNode {
+    fn next(&mut self) -> DataList {
         // nothing to do--just receives input
-        // TODO: make output data `Option<ResonixDataList>`?
-        ResonixDataList::empty()
+        // TODO: make output data `Option<DataList>`?
+        DataList::empty()
     }
 
-    fn assign_inputs(&mut self, mut inputs: ResonixDataList) {
+    fn assign_inputs(&mut self, mut inputs: DataList) {
         // TODO: return error value if more inputs given than expected
         self.intput_value = inputs.remove(0);
     }
@@ -100,7 +96,7 @@ impl OutputNodePortDescriptors {
         PortAddress::new(
             self.node_id,
             Self::INPUT_PORT_ID,
-            ResonixPortAddressDirection::Input,
+            PortAddressDirection::Input,
         )
     }
 }

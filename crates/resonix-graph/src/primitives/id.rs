@@ -2,9 +2,9 @@ use core::ops::Deref;
 
 /// Basic id for data structures around the Graph
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ResonixId(usize);
+pub struct Id(usize);
 
-impl ResonixId {
+impl Id {
     pub const fn new(id: usize) -> Self {
         Self(id)
     }
@@ -12,7 +12,7 @@ impl ResonixId {
 
 // other convenience implementations possible here
 
-impl Deref for ResonixId {
+impl Deref for Id {
     type Target = usize;
 
     fn deref(&self) -> &Self::Target {
@@ -20,14 +20,14 @@ impl Deref for ResonixId {
     }
 }
 
-impl From<i32> for ResonixId {
+impl From<i32> for Id {
     fn from(value: i32) -> Self {
-        ResonixId(value as usize)
+        Id(value as usize)
     }
 }
 
-impl From<usize> for ResonixId {
+impl From<usize> for Id {
     fn from(value: usize) -> Self {
-        ResonixId(value)
+        Id(value)
     }
 }

@@ -3,29 +3,25 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
-    primitives::{
-        NodeId, PortAddress, PortId, Priority, ResonixData, ResonixDataList, ResonixId,
-        ResonixPortAddressDirection,
-    },
+    primitives::{Data, DataList, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
     traits::{
-        Audio, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
-        ResonixAudioNode,
+        Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
     },
 };
 
 pub struct MultiplyNode {
     node_id: NodeId,
-    left_operand_value: ResonixData,
-    right_operand_value: ResonixData,
+    left_operand_value: Data,
+    right_operand_value: Data,
     port_descriptors: MultiplyNodePortDescriptors,
 }
 
 impl MultiplyNode {
     pub fn new<G: GenerateId>(id_generator: &mut G) -> Audio<Self> {
-        Self::new_with_values(id_generator, ResonixData::None, ResonixData::None)
+        Self::new_with_values(id_generator, Data::None, Data::None)
     }
 
-    pub fn new_with_values<G: GenerateId, L: Into<ResonixData>, R: Into<ResonixData>>(
+    pub fn new_with_values<G: GenerateId, L: Into<Data>, R: Into<Data>>(
         id_generator: &mut G,
         left_operand: L,
         right_operand: R,
@@ -52,7 +48,7 @@ impl GetPortDescriptors<MultiplyNodePortDescriptors> for MultiplyNode {
 }
 
 impl GetNodeId for MultiplyNode {
-    fn node_id(&self) -> ResonixId {
+    fn node_id(&self) -> Id {
         *self.node_id
     }
 }
@@ -65,37 +61,29 @@ impl GetPriority for MultiplyNode {
     }
 }
 
-impl ResonixAudioNode for MultiplyNode {
-    fn next(&mut self) -> ResonixDataList {
+impl AudioNode for MultiplyNode {
+    fn next(&mut self) -> DataList {
         let resonid_data = match self.left_operand_value {
-            ResonixData::F32(original_value_f32) => match self.right_operand_value {
-                ResonixData::F32(multiplier_f32) => {
-                    ResonixData::F32(original_value_f32 * multiplier_f32)
-                }
-                ResonixData::I32(multiplier_i32) => {
-                    ResonixData::F32(original_value_f32 * multiplier_i32 as f32)
-                }
-                ResonixData::None => ResonixData::Error,
-                ResonixData::Error => ResonixData::Error,
+            Data::F32(original_value_f32) => match self.right_operand_value {
+                Data::F32(multiplier_f32) => Data::F32(original_value_f32 * multiplier_f32),
+                Data::I32(multiplier_i32) => Data::F32(original_value_f32 * multiplier_i32 as f32),
+                Data::None => Data::Error,
+                Data::Error => Data::Error,
             },
-            ResonixData::I32(original_value_i32) => match self.right_operand_value {
-                ResonixData::F32(multiplier_f32) => {
-                    ResonixData::I32(original_value_i32 * multiplier_f32 as i32)
-                }
-                ResonixData::I32(multiplier_i32) => {
-                    ResonixData::I32(original_value_i32 * multiplier_i32)
-                }
-                ResonixData::None => ResonixData::Error,
-                ResonixData::Error => ResonixData::Error,
+            Data::I32(original_value_i32) => match self.right_operand_value {
+                Data::F32(multiplier_f32) => Data::I32(original_value_i32 * multiplier_f32 as i32),
+                Data::I32(multiplier_i32) => Data::I32(original_value_i32 * multiplier_i32),
+                Data::None => Data::Error,
+                Data::Error => Data::Error,
             },
-            ResonixData::None => ResonixData::Error,
-            ResonixData::Error => ResonixData::Error,
+            Data::None => Data::Error,
+            Data::Error => Data::Error,
         };
 
-        ResonixDataList::from(vec![resonid_data])
+        DataList::from(vec![resonid_data])
     }
 
-    fn assign_inputs(&mut self, inputs: ResonixDataList) {
+    fn assign_inputs(&mut self, inputs: DataList) {
         inputs
             .into_inner()
             .into_iter()
@@ -139,7 +127,7 @@ impl MultiplyNodePortDescriptors {
         PortAddress::new(
             self.node_id,
             Self::LEFT_OPERAND_INPUT_PORT_ID,
-            ResonixPortAddressDirection::Input,
+            PortAddressDirection::Input,
         )
     }
 
@@ -147,7 +135,7 @@ impl MultiplyNodePortDescriptors {
         PortAddress::new(
             self.node_id,
             Self::RIGHT_OPERAND_INPUT_PORT_ID,
-            ResonixPortAddressDirection::Input,
+            PortAddressDirection::Input,
         )
     }
 
@@ -155,7 +143,7 @@ impl MultiplyNodePortDescriptors {
         PortAddress::new(
             self.node_id,
             Self::OUTPUT_PORT_ID,
-            ResonixPortAddressDirection::Output,
+            PortAddressDirection::Output,
         )
     }
 }

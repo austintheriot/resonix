@@ -1,5 +1,5 @@
-use crate::primitives::ResonixId;
+use crate::primitives::Id;
 
 pub trait GetNodeId {
-    fn node_id(&self) -> ResonixId;
+    fn node_id(&self) -> Id;
 }

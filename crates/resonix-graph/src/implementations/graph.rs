@@ -1,7 +1,7 @@
 use core::ops::Deref;
 
 use crate::{
-    primitives::{Connection, ConnectionId, Node, NodeHandle, NodeId, PortAddress, ResonixId},
+    primitives::{Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress},
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GraphError},
     utils::compare_nodes_by_priority,
 };
@@ -22,15 +22,13 @@ pub struct Graph {
     current_node_id: usize,
     // vec used as a HashMap for efficient lookups
     graph_items: Vec<Option<GraphItem>>,
-    visit_order: Option<Vec<ResonixId>>,
-    id_to_pegraph_index_map:
-        HashMap<ResonixId, petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>>,
-    petgraph_index_to_id_map:
-        HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, ResonixId>,
+    visit_order: Option<Vec<Id>>,
+    id_to_pegraph_index_map: HashMap<Id, petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>>,
+    petgraph_index_to_id_map: HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, Id>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: Vec<Option<NodeId>>,
     // will be necessary when processing data
-    //port_data_map: HashMap<PortAddress, ResonixDataList>,
+    //port_data_map: HashMap<PortAddress, DataList>,
 }
 
 impl Graph {
@@ -65,11 +63,11 @@ impl Graph {
     // all starting nodes/dependencies are guaranteed to be visited before
     // any leaf node that depends on them, that should guarantee no leaf
     // node is ever run without its dependencies (in an acylic graph).
-    fn compute_new_visit_order(&self) -> Vec<ResonixId> {
-        let mut visit_order: Vec<ResonixId> = Vec::new();
-        let mut visited_set: HashSet<ResonixId> = HashSet::new();
+    fn compute_new_visit_order(&self) -> Vec<Id> {
+        let mut visit_order: Vec<Id> = Vec::new();
+        let mut visited_set: HashSet<Id> = HashSet::new();
 
-        let sccs: Vec<Vec<ResonixId>> = tarjan_scc(&self.graph)
+        let sccs: Vec<Vec<Id>> = tarjan_scc(&self.graph)
             .into_iter()
             .map(|node_index_vec| {
                 node_index_vec
@@ -101,13 +99,9 @@ impl Graph {
     // Then we iterate through all non-visited Nodes. Any non-visited Nodes
     // at this stage are, by definition, cyclical because they were not visited
     // from a a path that includes a leaf Node.
-    fn traverse_graph<F>(
-        &self,
-        sccs: &[Vec<ResonixId>],
-        visited_set: &mut HashSet<ResonixId>,
-        cb: &mut F,
-    ) where
-        F: FnMut(ResonixId),
+    fn traverse_graph<F>(&self, sccs: &[Vec<Id>], visited_set: &mut HashSet<Id>, cb: &mut F)
+    where
+        F: FnMut(Id),
     {
         let mut leaf_nodes: Vec<NodeId> = self
             .leaf_nodes
@@ -130,7 +124,7 @@ impl Graph {
             self.visit_node(*leaf_node_id, sccs, visited_set, cb);
         }
 
-        let mut cyclical_ids: Vec<ResonixId> = self
+        let mut cyclical_ids: Vec<Id> = self
             .graph_items
             .iter()
             .filter_map(|graph_item| {
@@ -165,7 +159,7 @@ impl Graph {
         }
     }
 
-    fn get_node<I: Deref<Target = ResonixId>>(&self, id: I) -> Option<&Node> {
+    fn get_node<I: Deref<Target = Id>>(&self, id: I) -> Option<&Node> {
         let index: usize = **id;
         let graph_item = self.graph_items.get(index);
 
@@ -178,15 +172,15 @@ impl Graph {
 
     fn visit_node<F>(
         &self,
-        current_id: ResonixId,
-        sccs: &[Vec<ResonixId>],
-        visited_set: &mut HashSet<ResonixId>,
+        current_id: Id,
+        sccs: &[Vec<Id>],
+        visited_set: &mut HashSet<Id>,
         cb: &mut F,
     ) where
-        F: FnMut(ResonixId),
+        F: FnMut(Id),
     {
         let petgraph_index = self.id_to_pegraph_index_map.get(&current_id).unwrap();
-        let mut neighbor_ids: Vec<ResonixId> = self
+        let mut neighbor_ids: Vec<Id> = self
             .graph
             // traverse backwards/UP the graph from the bottom/leaf nodes
             .neighbors_directed(*petgraph_index, petgraph::Direction::Incoming)
@@ -237,7 +231,7 @@ impl Graph {
 
     /// a node is cyclical if the new node to visit is in a SCC of length > 1
     /// OR if it's directly connected to itself
-    fn is_cyclical_node(&self, id: ResonixId, sccs: &[Vec<ResonixId>]) -> bool {
+    fn is_cyclical_node(&self, id: Id, sccs: &[Vec<Id>]) -> bool {
         let scc = sccs
             .iter()
             .find(|scc| scc.iter().any(|scc_id| *id == **scc_id))
@@ -252,7 +246,7 @@ impl Graph {
             .graph
             .neighbors_directed(*petgraph_index, petgraph::Direction::Incoming)
             .collect();
-        let neighbor_ids: Vec<ResonixId> = neighbor_indexes
+        let neighbor_ids: Vec<Id> = neighbor_indexes
             .into_iter()
             .map(|neighbor_petgraph_index| {
                 *self
@@ -266,14 +260,14 @@ impl Graph {
     }
 
     #[cfg(test)]
-    fn visit_order(&self) -> Option<&[ResonixId]> {
+    fn visit_order(&self) -> Option<&[Id]> {
         self.visit_order.as_deref()
     }
 }
 
 // TODO: move implementation to a sub-component rather than the graph itself
 impl GenerateId for Graph {
-    fn generate_id(&mut self) -> ResonixId {
+    fn generate_id(&mut self) -> Id {
         let current_node_id = self.current_node_id;
         self.current_node_id += 1;
         current_node_id.into()
@@ -366,14 +360,14 @@ mod graph_tests {
     mod node_visit_order {
         use alloc::{boxed::Box, vec::Vec};
 
-        use crate::{primitives::ResonixId, traits::GetNodeId};
+        use crate::{primitives::Id, traits::GetNodeId};
 
         #[track_caller]
         fn assert_visit_order_matches_handles(
-            visit_order: &Option<&[ResonixId]>,
+            visit_order: &Option<&[Id]>,
             node_handles: &[Box<dyn GetNodeId>],
         ) {
-            let node_handles_as_node_ids: Vec<ResonixId> = node_handles
+            let node_handles_as_node_ids: Vec<Id> = node_handles
                 .iter()
                 .map(|node_handle| node_handle.node_id())
                 .collect();

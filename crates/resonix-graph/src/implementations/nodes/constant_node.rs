@@ -3,28 +3,24 @@ use core::ops::Deref;
 use alloc::vec::Vec;
 
 use crate::{
-    primitives::{
-        NodeId, PortAddress, PortId, Priority, ResonixData, ResonixDataList, ResonixId,
-        ResonixPortAddressDirection,
-    },
+    primitives::{Data, DataList, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
     traits::{
-        Audio, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
-        ResonixAudioNode,
+        Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
     },
 };
 
 pub struct ConstantNode {
     node_id: NodeId,
-    constant_value: ResonixData,
+    constant_value: Data,
     port_descriptors: ConstantNodePortDescriptors,
 }
 
 impl ConstantNode {
     pub fn new<G: GenerateId>(id_generator: &mut G) -> Audio<Self> {
-        Self::new_with_value(id_generator, ResonixData::None)
+        Self::new_with_value(id_generator, Data::None)
     }
 
-    pub fn new_with_value<G: GenerateId, D: Into<ResonixData>>(
+    pub fn new_with_value<G: GenerateId, D: Into<Data>>(
         id_generator: &mut G,
         constant_value: D,
     ) -> Audio<Self> {
@@ -47,7 +43,7 @@ impl GetPortDescriptors<ConstantNodePortDescriptors> for ConstantNode {
 }
 
 impl GetNodeId for ConstantNode {
-    fn node_id(&self) -> ResonixId {
+    fn node_id(&self) -> Id {
         *self.node_id
     }
 }
@@ -60,12 +56,12 @@ impl GetPriority for ConstantNode {
     }
 }
 
-impl ResonixAudioNode for ConstantNode {
-    fn next(&mut self) -> ResonixDataList {
-        ResonixDataList::from([self.constant_value.clone()])
+impl AudioNode for ConstantNode {
+    fn next(&mut self) -> DataList {
+        DataList::from([self.constant_value.clone()])
     }
 
-    fn assign_inputs(&mut self, mut inputs: ResonixDataList) {
+    fn assign_inputs(&mut self, mut inputs: DataList) {
         // TODO: return error value if more inputs given than expected
         self.constant_value = inputs.remove(0);
     }
@@ -108,7 +104,7 @@ impl ConstantNodePortDescriptors {
         PortAddress::new(
             self.node_id,
             Self::SET_CONSTANT_VALUE_PORT_ID,
-            ResonixPortAddressDirection::Input,
+            PortAddressDirection::Input,
         )
     }
 
@@ -116,7 +112,7 @@ impl ConstantNodePortDescriptors {
         PortAddress::new(
             self.node_id,
             Self::OUTPUT_PORT_ID,
-            ResonixPortAddressDirection::Output,
+            PortAddressDirection::Output,
         )
     }
 }

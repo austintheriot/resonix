@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-use crate::primitives::ResonixId;
+use crate::primitives::Id;
 use crate::traits::GetNodeId;
 
 use super::NodeId;
@@ -24,7 +24,7 @@ impl<PortDescriptors> NodeHandle<PortDescriptors> {
 }
 
 impl<PortDescriptors> GetNodeId for NodeHandle<PortDescriptors> {
-    fn node_id(&self) -> ResonixId {
+    fn node_id(&self) -> Id {
         *self.node_id
     }
 }

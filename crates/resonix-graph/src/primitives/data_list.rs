@@ -2,40 +2,40 @@ use core::ops::{Deref, DerefMut};
 
 use alloc::vec::Vec;
 
-use crate::primitives::ResonixData;
+use crate::primitives::Data;
 
 #[derive(Debug, Clone)]
-pub struct ResonixDataList(pub(crate) Vec<ResonixData>);
+pub struct DataList(pub(crate) Vec<Data>);
 
-impl ResonixDataList {
-    pub fn new(resonix_data: Vec<ResonixData>) -> Self {
-        ResonixDataList(resonix_data)
+impl DataList {
+    pub fn new(resonix_data: Vec<Data>) -> Self {
+        DataList(resonix_data)
     }
 
     pub fn empty() -> Self {
-        ResonixDataList(Vec::new())
+        DataList(Vec::new())
     }
 
-    pub fn into_inner(self) -> Vec<ResonixData> {
+    pub fn into_inner(self) -> Vec<Data> {
         self.0
     }
 }
 
-impl Deref for ResonixDataList {
-    type Target = Vec<ResonixData>;
+impl Deref for DataList {
+    type Target = Vec<Data>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl DerefMut for ResonixDataList {
+impl DerefMut for DataList {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<F: Into<Vec<ResonixData>>> From<F> for ResonixDataList {
+impl<F: Into<Vec<Data>>> From<F> for DataList {
     fn from(value: F) -> Self {
         Self(value.into())
     }

@@ -1,4 +1,4 @@
-use crate::primitives::ResonixPortAddressDirection;
+use crate::primitives::PortAddressDirection;
 
 use super::{NodeId, PortId};
 
@@ -7,15 +7,11 @@ use super::{NodeId, PortId};
 pub struct PortAddress {
     node_id: NodeId,
     port_id: PortId,
-    port_address_direction: ResonixPortAddressDirection,
+    port_address_direction: PortAddressDirection,
 }
 
 impl PortAddress {
-    pub const fn new(
-        node_id: NodeId,
-        port_id: PortId,
-        direction: ResonixPortAddressDirection,
-    ) -> Self {
+    pub const fn new(node_id: NodeId, port_id: PortId, direction: PortAddressDirection) -> Self {
         Self {
             node_id,
             port_id,
@@ -31,7 +27,7 @@ impl PortAddress {
         self.port_id
     }
 
-    pub const fn port_address_direction(&self) -> ResonixPortAddressDirection {
+    pub const fn port_address_direction(&self) -> PortAddressDirection {
         self.port_address_direction
     }
 }
