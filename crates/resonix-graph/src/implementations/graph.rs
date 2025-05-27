@@ -11,6 +11,9 @@ use alloc::vec::Vec;
 use hashbrown::{HashMap, HashSet};
 use petgraph::algo::tarjan_scc;
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 enum GraphItem {
     Node(Node),
 
