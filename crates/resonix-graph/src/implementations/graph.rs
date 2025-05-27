@@ -345,6 +345,10 @@ impl crate::traits::Graph for Graph {
 
         Ok(self)
     }
+
+    fn run(&mut self) -> Result<crate::primitives::GraphRunResult, crate::errors::GraphRunError> {
+        todo!()
+    }
 }
 
 #[cfg(test)]

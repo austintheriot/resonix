@@ -2,6 +2,8 @@ use core::ops::Deref;
 
 use crate::errors::GraphAddError;
 use crate::errors::GraphConnectionError;
+use crate::errors::GraphRunError;
+use crate::primitives::GraphRunResult;
 use crate::primitives::Node;
 use crate::primitives::NodeHandle;
 use crate::primitives::PortAddress;
@@ -21,4 +23,6 @@ pub trait Graph {
         port_a: PortAddress,
         port_b: PortAddress,
     ) -> Result<&mut Self, GraphConnectionError>;
+
+    fn run(&mut self) -> Result<GraphRunResult, GraphRunError>;
 }
