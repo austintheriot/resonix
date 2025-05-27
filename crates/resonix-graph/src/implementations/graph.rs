@@ -1,8 +1,11 @@
 use core::ops::Deref;
 
 use crate::{
-    errors::{GraphAddError, GraphConnectionError},
-    primitives::{Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress},
+    errors::{GraphAddError, GraphConnectionError, GraphRunError},
+    primitives::{
+        Connection, ConnectionId, DataList, GraphRunResult, Id, Node, NodeHandle, NodeId,
+        PortAddress,
+    },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::compare_nodes_by_priority,
 };
@@ -32,8 +35,7 @@ pub struct Graph {
     petgraph_index_to_id_map: HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, Id>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: Vec<Option<NodeId>>,
-    // will be necessary when processing data
-    //port_data_map: HashMap<PortAddress, DataList>,
+    port_data_map: HashMap<PortAddress, DataList>,
 }
 
 impl Graph {
@@ -47,7 +49,7 @@ impl Graph {
             graph: petgraph::Graph::<NodeId, ConnectionId>::new(),
             leaf_nodes: Vec::new(),
             petgraph_index_to_id_map: HashMap::new(),
-            //port_data_map: HashMap::new(),
+            port_data_map: HashMap::new(),
         }
     }
 
@@ -264,7 +266,6 @@ impl Graph {
         neighbor_ids.contains(&id)
     }
 
-    #[cfg(test)]
     fn visit_order(&self) -> Option<&[Id]> {
         self.visit_order.as_deref()
     }
@@ -351,7 +352,37 @@ impl crate::traits::Graph for Graph {
     }
 
     fn run(&mut self) -> Result<crate::primitives::GraphRunResult, crate::errors::GraphRunError> {
-        todo!()
+        let visit_order = self.visit_order();
+        let Some(visit_order) = visit_order else {
+            // only `None` when no nodes have been added to the Graph
+            return Ok(GraphRunResult::new(HashMap::new()));
+        };
+
+        let visit_order: Vec<Id> = visit_order.iter().copied().collect();
+        let mut outputs = HashMap::new();
+
+        for id in visit_order {
+            let graph_item_index = *id;
+            let Some(Some(GraphItem::Node(Node::AudioNode(node)))) =
+                self.graph_items.get_mut(graph_item_index)
+            else {
+                return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
+            };
+
+            let Ok(node_outputs) = node.run() else {
+                return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
+            };
+
+            let Some(node_outputs) = node_outputs else {
+                continue;
+            };
+
+            self.port_data_map.extend(node_outputs);
+
+            // TODO: save some outputs to return to the caller
+        }
+
+        Ok(GraphRunResult::new(outputs))
     }
 }
 

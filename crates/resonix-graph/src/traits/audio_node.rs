@@ -1,11 +1,19 @@
-use core::ops::Deref;
+use core::{error::Error, ops::Deref};
 
-use crate::{errors::AudioNodeAssignInputError, primitives::DataList, traits::GetNodeId};
+use alloc::boxed::Box;
+
+use hashbrown::HashMap;
+
+use crate::{
+    errors::AudioNodeAssignInputError,
+    primitives::{DataList, PortAddress},
+    traits::GetNodeId,
+};
 
 use super::GetPriority;
 
 pub trait AudioNode: GetNodeId + GetPriority {
-    fn run(&mut self) -> DataList;
+    fn run(&mut self) -> Result<Option<HashMap<PortAddress, DataList>>, Box<dyn Error>>;
 
     fn assign_inputs(&mut self, inputs: DataList) -> Result<(), AudioNodeAssignInputError>;
 }

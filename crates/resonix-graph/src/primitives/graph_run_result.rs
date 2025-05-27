@@ -7,6 +7,10 @@ pub struct GraphRunResult {
 }
 
 impl GraphRunResult {
+    pub fn new(outputs: HashMap<Id, Data>) -> Self {
+        Self { outputs }
+    }
+
     pub fn outputs(&self) -> &HashMap<Id, Data> {
         &self.outputs
     }
