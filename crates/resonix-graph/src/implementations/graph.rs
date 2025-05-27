@@ -19,6 +19,7 @@ enum GraphItem {
     Connection(Connection),
 }
 
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 pub struct Graph {
     current_node_id: usize,
     // vec used as a HashMap for efficient lookups

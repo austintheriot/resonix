@@ -7,3 +7,6 @@ edition = "2024"
 hashbrown = "0.15.3"
 petgraph = "0.8.1"
 thiserror.workspace = true
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+wasm-bindgen = { workspace = true }

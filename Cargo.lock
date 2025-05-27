@@ -156,6 +156,7 @@ dependencies = [
  "hashbrown",
  "petgraph",
  "thiserror",
+ "wasm-bindgen",
 ]
 
 [[package]]
