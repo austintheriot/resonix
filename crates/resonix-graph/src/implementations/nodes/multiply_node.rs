@@ -160,4 +160,8 @@ impl DescribePorts for MultiplyNodePortDescriptors {
     fn output_port_addresses(&self) -> Vec<PortAddress> {
         vec![self.output_port_address()]
     }
+
+    fn param_port_addresses(&self) -> Vec<PortAddress> {
+        vec![]
+    }
 }

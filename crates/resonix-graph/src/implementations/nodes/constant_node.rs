@@ -105,6 +105,10 @@ impl DescribePorts for ConstantNodePortDescriptors {
     fn output_port_addresses(&self) -> Vec<PortAddress> {
         vec![self.output_port_address()]
     }
+
+    fn param_port_addresses(&self) -> Vec<PortAddress> {
+        vec![]
+    }
 }
 
 impl ConstantNodePortDescriptors {

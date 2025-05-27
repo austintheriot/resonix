@@ -98,6 +98,10 @@ impl DescribePorts for OutputNodePortDescriptors {
     fn output_port_addresses(&self) -> Vec<PortAddress> {
         vec![]
     }
+
+    fn param_port_addresses(&self) -> Vec<PortAddress> {
+        vec![]
+    }
 }
 
 impl OutputNodePortDescriptors {

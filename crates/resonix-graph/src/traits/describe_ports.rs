@@ -14,6 +14,8 @@ pub trait DescribePorts {
     fn input_port_addresses(&self) -> Vec<PortAddress>;
 
     fn output_port_addresses(&self) -> Vec<PortAddress>;
+
+    fn param_port_addresses(&self) -> Vec<PortAddress>;
 }
 
 // Implement this trait automatically for any traits that Deref
@@ -29,5 +31,9 @@ impl<D: DescribePorts, T: Deref<Target = D>> DescribePorts for T {
 
     fn output_port_addresses(&self) -> Vec<PortAddress> {
         (**self).input_port_addresses()
+    }
+
+    fn param_port_addresses(&self) -> Vec<PortAddress> {
+        (**self).param_port_addresses()
     }
 }
