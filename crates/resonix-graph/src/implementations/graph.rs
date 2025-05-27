@@ -1,8 +1,9 @@
 use core::ops::Deref;
 
 use crate::{
+    errors::{GraphAddError, GraphConnectionError},
     primitives::{Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress},
-    traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GraphError},
+    traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::compare_nodes_by_priority,
 };
 
@@ -278,7 +279,7 @@ impl crate::traits::Graph for Graph {
     fn add<P: DescribePorts, G: GetPortDescriptors<P>, C: Into<Node> + Deref<Target = G>>(
         &mut self,
         node: C,
-    ) -> Result<NodeHandle<P>, GraphError> {
+    ) -> Result<NodeHandle<P>, GraphAddError> {
         // TODO: check that the adding the node is valid before making it
         // - node id should not already be in the graph
         // - node id should not be weirdly higher than the rest
@@ -310,7 +311,7 @@ impl crate::traits::Graph for Graph {
         &mut self,
         start_port_address: PortAddress,
         end_port_address: PortAddress,
-    ) -> Result<&mut Self, GraphError> {
+    ) -> Result<&mut Self, GraphConnectionError> {
         // TODO: check that the connection is valid before making it
         // - connection should not already exist
         // - valid node id, port id, and direction
