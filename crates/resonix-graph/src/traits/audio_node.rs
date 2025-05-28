@@ -13,9 +13,10 @@ use crate::{
 use super::GetPriority;
 
 pub trait AudioNode: GetNodeId + GetPriority {
-    fn run(&mut self) -> Result<Option<HashMap<PortAddress, DataList>>, Box<dyn Error>>;
-
-    fn assign_inputs(&mut self, inputs: DataList) -> Result<(), AudioNodeAssignInputError>;
+    fn run(
+        &mut self,
+        inputs: &DataList,
+    ) -> Result<Option<HashMap<PortAddress, DataList>>, Box<dyn Error>>;
 }
 
 // newtype wrapper due to Rust limitation: https://github.com/rust-lang/rust/issues/20400

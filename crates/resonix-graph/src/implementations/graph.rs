@@ -35,7 +35,6 @@ pub struct Graph {
     petgraph_index_to_id_map: HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, Id>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: Vec<Option<NodeId>>,
-    port_data_map: HashMap<PortAddress, DataList>,
 }
 
 impl Graph {
@@ -49,7 +48,6 @@ impl Graph {
             graph: petgraph::Graph::<NodeId, ConnectionId>::new(),
             leaf_nodes: Vec::new(),
             petgraph_index_to_id_map: HashMap::new(),
-            port_data_map: HashMap::new(),
         }
     }
 
@@ -358,8 +356,11 @@ impl crate::traits::Graph for Graph {
             return Ok(GraphRunResult::new(HashMap::new()));
         };
 
+        let mut port_data_map: HashMap<PortAddress, DataList> = HashMap::new();
+        let outputs = HashMap::new();
+
+        // must copy to prevent a mutable and immutable reference at the same time
         let visit_order: Vec<Id> = visit_order.iter().copied().collect();
-        let mut outputs = HashMap::new();
 
         for id in visit_order {
             let graph_item_index = *id;
@@ -377,9 +378,8 @@ impl crate::traits::Graph for Graph {
                 continue;
             };
 
-            self.port_data_map.extend(node_outputs);
-
             // TODO: save some outputs to return to the caller
+            port_data_map.extend(node_outputs);
         }
 
         Ok(GraphRunResult::new(outputs))
