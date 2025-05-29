@@ -83,7 +83,7 @@ impl GetPriority for ConstantNode {
 }
 
 impl AudioNode for ConstantNode {
-    fn run(
+    fn process(
         &mut self,
         inputs: &HashMap<PortAddress, &Data>,
     ) -> Result<Option<HashMap<PortAddress, Data>>, AudioNodeRunError> {

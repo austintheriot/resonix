@@ -375,7 +375,7 @@ impl crate::traits::Graph for Graph {
                 .map(|address| (address, port_data_map.get(&address).unwrap_or(&empty_data)))
                 .collect();
 
-            let Some(node_outputs) = node.run(&inputs)? else {
+            let Some(node_outputs) = node.process(&inputs)? else {
                 continue;
             };
 

@@ -73,7 +73,7 @@ impl GetPriority for OutputNode {
 }
 
 impl AudioNode for OutputNode {
-    fn run(
+    fn process(
         &mut self,
         inputs: &HashMap<PortAddress, &Data>,
     ) -> Result<Option<HashMap<PortAddress, Data>>, AudioNodeRunError> {

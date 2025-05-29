@@ -11,7 +11,7 @@ use crate::{
 use super::{DescribePorts, GetPriority};
 
 pub trait AudioNode: GetNodeId + GetPriority + DescribePorts {
-    fn run(
+    fn process(
         &mut self,
         inputs: &HashMap<PortAddress, &Data>,
     ) -> Result<Option<HashMap<PortAddress, Data>>, AudioNodeRunError>;
