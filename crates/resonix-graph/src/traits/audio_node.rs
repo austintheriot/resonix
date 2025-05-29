@@ -1,22 +1,20 @@
-use core::{error::Error, ops::Deref};
-
-use alloc::boxed::Box;
+use core::ops::Deref;
 
 use hashbrown::HashMap;
 
 use crate::{
-    errors::AudioNodeAssignInputError,
-    primitives::{DataList, PortAddress},
+    errors::AudioNodeRunError,
+    primitives::{Data, PortAddress},
     traits::GetNodeId,
 };
 
-use super::GetPriority;
+use super::{DescribePorts, GetPriority};
 
-pub trait AudioNode: GetNodeId + GetPriority {
+pub trait AudioNode: GetNodeId + GetPriority + DescribePorts {
     fn run(
         &mut self,
-        inputs: &DataList,
-    ) -> Result<Option<HashMap<PortAddress, DataList>>, Box<dyn Error>>;
+        inputs: &HashMap<PortAddress, &Data>,
+    ) -> Result<Option<HashMap<PortAddress, Data>>, AudioNodeRunError>;
 }
 
 // newtype wrapper due to Rust limitation: https://github.com/rust-lang/rust/issues/20400

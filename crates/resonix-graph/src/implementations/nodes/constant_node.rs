@@ -1,10 +1,11 @@
 use core::ops::Deref;
 
 use alloc::vec::Vec;
+use hashbrown::HashMap;
 
 use crate::{
-    errors::AudioNodeAssignInputError,
-    primitives::{Data, DataList, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
+    errors::AudioNodeRunError,
+    primitives::{Data, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
     },
@@ -35,6 +36,30 @@ impl ConstantNode {
         };
         Audio(constant_node)
     }
+
+    fn assign_inputs(
+        &mut self,
+        inputs: &HashMap<PortAddress, &Data>,
+    ) -> Result<(), AudioNodeRunError> {
+        let num_inputs = inputs.len();
+        if num_inputs > 1 {
+            // TODO: lift this requirement?
+            return Err(AudioNodeRunError::TooManyInputs {
+                expected: 1,
+                found: num_inputs,
+            });
+        }
+
+        if inputs.is_empty() {
+            return Ok(());
+        }
+
+        // TODO: return error if port doesn't match
+        self.constant_value =
+            (**inputs.get(&self.set_constant_value_port_address()).unwrap()).clone();
+
+        Ok(())
+    }
 }
 
 impl GetPortDescriptors<ConstantNodePortDescriptors> for ConstantNode {
@@ -58,23 +83,16 @@ impl GetPriority for ConstantNode {
 }
 
 impl AudioNode for ConstantNode {
-    fn run(&mut self) -> DataList {
-        DataList::from([self.constant_value.clone()])
-    }
+    fn run(
+        &mut self,
+        inputs: &HashMap<PortAddress, &Data>,
+    ) -> Result<Option<HashMap<PortAddress, Data>>, AudioNodeRunError> {
+        // TODO: return error if thrown
+        self.assign_inputs(inputs)?;
 
-    fn assign_inputs(&mut self, mut inputs: DataList) -> Result<(), AudioNodeAssignInputError> {
-        let num_inputs = inputs.len();
-        if num_inputs > 1 {
-            // TODO: lift this requirement?
-            return Err(AudioNodeAssignInputError::TooManyInputs {
-                expected: 1,
-                found: num_inputs,
-            });
-        }
+        let data = HashMap::from([(self.output_port_address(), self.constant_value.clone())]);
 
-        self.constant_value = inputs.remove(0);
-
-        Ok(())
+        Ok(Some(data))
     }
 }
 

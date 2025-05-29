@@ -3,8 +3,7 @@ use core::ops::Deref;
 use crate::{
     errors::{GraphAddError, GraphConnectionError, GraphRunError},
     primitives::{
-        Connection, ConnectionId, DataList, GraphRunResult, Id, Node, NodeHandle, NodeId,
-        PortAddress,
+        Connection, ConnectionId, Data, GraphRunResult, Id, Node, NodeHandle, NodeId, PortAddress,
     },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::compare_nodes_by_priority,
@@ -349,19 +348,18 @@ impl crate::traits::Graph for Graph {
         Ok(self)
     }
 
-    fn run(&mut self) -> Result<crate::primitives::GraphRunResult, crate::errors::GraphRunError> {
+    fn run(&mut self) -> Result<GraphRunResult, GraphRunError> {
         let visit_order = self.visit_order();
         let Some(visit_order) = visit_order else {
             // only `None` when no nodes have been added to the Graph
             return Ok(GraphRunResult::new(HashMap::new()));
         };
 
-        let mut port_data_map: HashMap<PortAddress, DataList> = HashMap::new();
+        let mut port_data_map: HashMap<PortAddress, Data> = HashMap::new();
         let outputs = HashMap::new();
 
         // must copy to prevent a mutable and immutable reference at the same time
-        let visit_order: Vec<Id> = visit_order.iter().copied().collect();
-
+        let visit_order: Vec<Id> = visit_order.to_vec();
         for id in visit_order {
             let graph_item_index = *id;
             let Some(Some(GraphItem::Node(Node::AudioNode(node)))) =
@@ -370,13 +368,18 @@ impl crate::traits::Graph for Graph {
                 return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
             };
 
-            let Ok(node_outputs) = node.run() else {
-                return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
-            };
+            let empty_data = Data::None;
+            let inputs: HashMap<PortAddress, &Data> = node
+                .input_port_addresses()
+                .into_iter()
+                .map(|address| (address, port_data_map.get(&address).unwrap_or(&empty_data)))
+                .collect();
 
-            let Some(node_outputs) = node_outputs else {
+            let Some(node_outputs) = node.run(&inputs)? else {
                 continue;
             };
+
+            drop(inputs);
 
             // TODO: save some outputs to return to the caller
             port_data_map.extend(node_outputs);

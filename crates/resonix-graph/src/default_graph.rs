@@ -1,8 +1,7 @@
 use core::ops::Deref;
 
 use crate::{
-    Node, GenerateId, GetNodeId, GraphError, Connection, Graph, Id,
-    NodeHandle, PortAddress,
+    Connection, GenerateId, GetNodeId, Graph, GraphError, Id, Node, NodeHandle, PortAddress,
 };
 
 use alloc::vec::Vec;
@@ -18,8 +17,6 @@ pub struct Graph {
     graph: petgraph::Graph<Id, Connection>,
     // we want to preserve insertion order
     starter_nodes: Vec<Id>,
-    // will be necessary when processing data
-    //port_data_map: HashMap<PortAddress, DataList>,
 }
 
 impl Graph {
@@ -37,15 +34,9 @@ impl Graph {
         }
     }
 
-    fn push_node(
-        &mut self,
-        node_id: Id,
-        node: Node,
-        node_index: usize,
-    ) {
+    fn push_node(&mut self, node_id: Id, node: Node, node_index: usize) {
         if self.nodes.len() <= node_index {
-            self.nodes
-                .resize_with(node_index + 1, Default::default);
+            self.nodes.resize_with(node_index + 1, Default::default);
         }
         self.nodes[*node_id] = Some(node);
     }
@@ -168,7 +159,7 @@ mod graph_tests {
         mod unconnected_graphs {
             use alloc::boxed::Box;
 
-            use crate::{Audio, ConstantNode, Graph, MultiplyNode, Graph};
+            use crate::{Audio, ConstantNode, Graph, Graph, MultiplyNode};
 
             use super::assert_visit_order_matches_handles;
 
@@ -204,7 +195,7 @@ mod graph_tests {
         mod acyclic_graphs {
             use alloc::boxed::Box;
 
-            use crate::{Audio, ConstantNode, Graph, MultiplyNode, Graph};
+            use crate::{Audio, ConstantNode, Graph, Graph, MultiplyNode};
 
             use super::assert_visit_order_matches_handles;
 

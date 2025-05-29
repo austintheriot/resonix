@@ -1,10 +1,11 @@
 use core::ops::Deref;
 
 use alloc::vec::Vec;
+use hashbrown::HashMap;
 
 use crate::{
-    errors::AudioNodeAssignInputError,
-    primitives::{Data, DataList, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
+    errors::AudioNodeRunError,
+    primitives::{Data, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
     },
@@ -12,7 +13,7 @@ use crate::{
 
 pub struct OutputNode {
     node_id: NodeId,
-    intput_value: Data,
+    input_value: Data,
     port_descriptors: OutputNodePortDescriptors,
 }
 
@@ -21,10 +22,33 @@ impl OutputNode {
         let node_id: NodeId = id_generator.generate_id().into();
         let output_node = Self {
             node_id,
-            intput_value: Data::None,
+            input_value: Data::None,
             port_descriptors: OutputNodePortDescriptors::new(node_id),
         };
         Audio(output_node)
+    }
+
+    fn assign_inputs(
+        &mut self,
+        inputs: &HashMap<PortAddress, &Data>,
+    ) -> Result<(), AudioNodeRunError> {
+        let num_inputs = inputs.len();
+        if num_inputs > 1 {
+            // TODO: lift this requirement?
+            return Err(AudioNodeRunError::TooManyInputs {
+                expected: 1,
+                found: num_inputs,
+            });
+        }
+
+        if inputs.is_empty() {
+            return Ok(());
+        }
+
+        // TODO: return error if port doesn't match
+        self.input_value = (*inputs.get(&self.input_port_address()).unwrap()).clone();
+
+        Ok(())
     }
 }
 
@@ -49,25 +73,14 @@ impl GetPriority for OutputNode {
 }
 
 impl AudioNode for OutputNode {
-    fn run(&mut self) -> DataList {
+    fn run(
+        &mut self,
+        inputs: &HashMap<PortAddress, &Data>,
+    ) -> Result<Option<HashMap<PortAddress, Data>>, AudioNodeRunError> {
+        self.assign_inputs(inputs)?;
+
         // nothing to do--just receives input
-        // TODO: make output data `Option<DataList>`?
-        DataList::empty()
-    }
-
-    fn assign_inputs(&mut self, mut inputs: DataList) -> Result<(), AudioNodeAssignInputError> {
-        // TODO: lift this requirement? Sum inputs instead of throwing error?
-        let num_inputs = inputs.len();
-        if num_inputs > 1 {
-            return Err(AudioNodeAssignInputError::TooManyInputs {
-                expected: 1,
-                found: num_inputs,
-            });
-        }
-
-        self.intput_value = inputs.remove(0);
-
-        Ok(())
+        Ok(None)
     }
 }
 

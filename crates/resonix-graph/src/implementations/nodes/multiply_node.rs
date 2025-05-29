@@ -1,10 +1,11 @@
 use core::ops::Deref;
 
 use alloc::vec::Vec;
+use hashbrown::HashMap;
 
 use crate::{
-    errors::AudioNodeAssignInputError,
-    primitives::{Data, DataList, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
+    errors::AudioNodeRunError,
+    primitives::{Data, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
     },
@@ -40,6 +41,26 @@ impl MultiplyNode {
         };
         Audio(multiply_node)
     }
+
+    fn assign_inputs(
+        &mut self,
+        inputs: &HashMap<PortAddress, &Data>,
+    ) -> Result<(), AudioNodeRunError> {
+        // TODO: validate inputs
+        inputs.iter().for_each(|(port_address, data)| {
+            let port_id = port_address.port_id();
+            let left_port_id = self.left_operand_input_address().port_id();
+            let right_port_id = self.right_operand_input_address().port_id();
+
+            if port_id == left_port_id {
+                self.left_operand_value = (**data).clone()
+            } else if port_id == right_port_id {
+                self.right_operand_value = (**data).clone()
+            }
+        });
+
+        Ok(())
+    }
 }
 
 impl GetPortDescriptors<MultiplyNodePortDescriptors> for MultiplyNode {
@@ -63,8 +84,13 @@ impl GetPriority for MultiplyNode {
 }
 
 impl AudioNode for MultiplyNode {
-    fn run(&mut self) -> DataList {
-        let resonid_data = match self.left_operand_value {
+    fn run(
+        &mut self,
+        inputs: &HashMap<PortAddress, &Data>,
+    ) -> Result<Option<HashMap<PortAddress, Data>>, AudioNodeRunError> {
+        self.assign_inputs(inputs)?;
+
+        let data = match self.left_operand_value {
             Data::F32(original_value_f32) => match self.right_operand_value {
                 Data::F32(multiplier_f32) => Data::F32(original_value_f32 * multiplier_f32),
                 Data::I32(multiplier_i32) => Data::F32(original_value_f32 * multiplier_i32 as f32),
@@ -81,27 +107,9 @@ impl AudioNode for MultiplyNode {
             Data::Error => Data::Error,
         };
 
-        DataList::from(vec![resonid_data])
-    }
+        let outputs = HashMap::from([(self.output_port_address(), data)]);
 
-    fn assign_inputs(&mut self, inputs: DataList) -> Result<(), AudioNodeAssignInputError> {
-        // TODO: validate inputs
-        inputs
-            .into_inner()
-            .into_iter()
-            .enumerate()
-            .for_each(|(i, data)| {
-                let left_operand_index: usize = **self.left_operand_input_address().port_id();
-                let right_operand_index: usize = **self.right_operand_input_address().port_id();
-
-                if i == left_operand_index {
-                    self.left_operand_value = data
-                } else if i == right_operand_index {
-                    self.right_operand_value = data
-                }
-            });
-
-        Ok(())
+        Ok(Some(outputs))
     }
 }
 
