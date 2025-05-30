@@ -6,11 +6,12 @@ use crate::{
         Connection, ConnectionId, Data, GraphRunResult, Id, Node, NodeHandle, NodeId, PortAddress,
     },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
-    utils::compare_nodes_by_priority,
+    utils::{IntMap, compare_nodes_by_priority},
 };
 
 use alloc::vec::Vec;
 use hashbrown::{HashMap, HashSet};
+use nohash_hasher::IntSet;
 use petgraph::algo::tarjan_scc;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -27,13 +28,12 @@ enum GraphItem {
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 pub struct Graph {
     current_node_id: usize,
-    // vec used as a HashMap for efficient lookups
-    graph_items: Vec<Option<GraphItem>>,
+    graph_items: IntMap<Id, GraphItem>,
     visit_order: Option<Vec<Id>>,
     id_to_pegraph_index_map: HashMap<Id, petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>>,
     petgraph_index_to_id_map: HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, Id>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
-    leaf_nodes: Vec<Option<NodeId>>,
+    leaf_nodes: IntSet<NodeId>,
 }
 
 impl Graph {
@@ -41,25 +41,13 @@ impl Graph {
     fn new() -> Self {
         Graph {
             current_node_id: 0,
-            graph_items: Vec::new(),
+            graph_items: IntMap::default(),
             visit_order: None,
             id_to_pegraph_index_map: HashMap::new(),
             graph: petgraph::Graph::<NodeId, ConnectionId>::new(),
-            leaf_nodes: Vec::new(),
+            leaf_nodes: IntSet::default(),
             petgraph_index_to_id_map: HashMap::new(),
         }
-    }
-
-    fn set_vec_map_item<K: Deref<Target = usize>, V>(
-        key: K,
-        value: V,
-        vector: &mut Vec<Option<V>>,
-    ) {
-        let index: usize = *key.deref();
-        if vector.len() <= index {
-            vector.resize_with(index + 1, Default::default);
-        }
-        vector[index] = Some(value);
     }
 
     // If we track the leaf nodes, and then iterate UP/backwards through the tree,
@@ -107,11 +95,7 @@ impl Graph {
     where
         F: FnMut(Id),
     {
-        let mut leaf_nodes: Vec<NodeId> = self
-            .leaf_nodes
-            .iter()
-            .filter_map(|maybe_node_id| *maybe_node_id)
-            .collect();
+        let mut leaf_nodes: Vec<NodeId> = self.leaf_nodes.iter().copied().collect();
 
         leaf_nodes.sort_by(|id_a, id_b| {
             compare_nodes_by_priority(self.get_node(*id_a).unwrap(), self.get_node(*id_b).unwrap())
@@ -131,17 +115,15 @@ impl Graph {
         let mut cyclical_ids: Vec<Id> = self
             .graph_items
             .iter()
-            .filter_map(|graph_item| {
+            .filter_map(|(node_id, graph_item)| {
                 // ignore all Connections
-                if let Some(GraphItem::Node(node)) = graph_item {
-                    let node_id = node.node_id();
-
+                if let GraphItem::Node(_node) = graph_item {
                     // ignore all nodes already visited
-                    if visited_set.get(&node_id).is_some() {
+                    if visited_set.get(node_id).is_some() {
                         return None;
                     }
 
-                    return Some(node_id);
+                    return Some(*node_id);
                 }
 
                 None
@@ -164,10 +146,9 @@ impl Graph {
     }
 
     fn get_node<I: Deref<Target = Id>>(&self, id: I) -> Option<&Node> {
-        let index: usize = **id;
-        let graph_item = self.graph_items.get(index);
+        let graph_item = self.graph_items.get(id.deref());
 
-        if let Some(Some(GraphItem::Node(node))) = graph_item {
+        if let Some(GraphItem::Node(node)) = graph_item {
             return Some(node);
         }
 
@@ -296,9 +277,9 @@ impl crate::traits::Graph for Graph {
         self.id_to_pegraph_index_map.insert(*node_id, index);
         self.petgraph_index_to_id_map.insert(index, *node_id);
         // petgraph only keeps ids--we keep the real values for easier bookkeeping
-        Graph::set_vec_map_item(*node_id, GraphItem::Node(node), &mut self.graph_items);
+        self.graph_items.insert(*node_id, GraphItem::Node(node));
         // until a node as an outgoing connection, it is a leaf node
-        Graph::set_vec_map_item(*node_id, node_id, &mut self.leaf_nodes);
+        self.leaf_nodes.insert(node_id);
 
         // must be recomputed on every modification
         // TODO: do incremental updates in the future?
@@ -330,17 +311,13 @@ impl crate::traits::Graph for Graph {
         let end_node_id = end_port_address.node_id();
         let end_index = *self.id_to_pegraph_index_map.get(&*end_node_id).unwrap();
 
-        Graph::set_vec_map_item(
-            *connection_id,
-            GraphItem::Connection(connection),
-            &mut self.graph_items,
-        );
+        self.graph_items
+            .insert(*connection_id, GraphItem::Connection(connection));
 
         self.graph.add_edge(start_index, end_index, connection_id);
 
         // if it has a connection going out now, it is no longer a leaf node
-        let start_node_vec_index: usize = **start_node_id;
-        core::mem::take(&mut self.leaf_nodes[start_node_vec_index]);
+        self.leaf_nodes.remove(&start_node_id);
 
         // must be recomputed on every modification
         self.visit_order = Some(self.compute_new_visit_order());
@@ -361,10 +338,7 @@ impl crate::traits::Graph for Graph {
         // must copy to prevent a mutable and immutable reference at the same time
         let visit_order: Vec<Id> = visit_order.to_vec();
         for id in visit_order {
-            let graph_item_index = *id;
-            let Some(Some(GraphItem::Node(Node::AudioNode(node)))) =
-                self.graph_items.get_mut(graph_item_index)
-            else {
+            let Some(GraphItem::Node(Node::AudioNode(node))) = self.graph_items.get_mut(&id) else {
                 return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
             };
 

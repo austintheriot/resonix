@@ -1,15 +1,7 @@
-use core::{cmp::Ordering, ops::Deref};
+mod compare_nodes_by_priority;
+mod int_map;
+mod int_set;
 
-use crate::traits::GetPriority;
-
-pub fn compare_nodes_by_priority<
-    Ga: GetPriority,
-    Gb: GetPriority,
-    Na: Deref<Target = Ga>,
-    Nb: Deref<Target = Gb>,
->(
-    node_a: Na,
-    node_b: Nb,
-) -> Ordering {
-    node_a.get_priority().cmp(&node_b.get_priority())
-}
+pub use compare_nodes_by_priority::*;
+pub use int_map::*;
+pub use int_set::*;

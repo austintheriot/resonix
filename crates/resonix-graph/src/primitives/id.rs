@@ -1,5 +1,7 @@
 use core::ops::Deref;
 
+use nohash_hasher::IsEnabled;
+
 /// Basic id for data structures around the Graph
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Id(usize);
@@ -9,6 +11,8 @@ impl Id {
         Self(id)
     }
 }
+
+impl IsEnabled for Id {}
 
 // other convenience implementations possible here
 

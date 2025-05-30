@@ -1,5 +1,7 @@
 use core::ops::Deref;
 
+use nohash_hasher::IsEnabled;
+
 use crate::primitives::Id;
 
 /// Strongly typed wrapper around the Id primitive for strong type-checking
@@ -13,6 +15,8 @@ impl NodeId {
 }
 
 // other convenience implementations possible here
+
+impl IsEnabled for NodeId {}
 
 impl Deref for NodeId {
     type Target = Id;
