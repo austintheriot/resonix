@@ -1277,10 +1277,8 @@ mod graph_tests {
 
             assert_eq!(
                 result.outputs(),
-                &HashMap::from([(output_node.external_output_port_address(), Data::None)])
+                &HashMap::from([(output_node.external_output_port_address(), Data::I32(5))])
             );
-
-            todo!("This test should be failing as written")
         }
     }
 }
