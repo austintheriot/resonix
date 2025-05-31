@@ -24,9 +24,22 @@ enum GraphItem {
     Connection(Connection),
 }
 
+#[derive(Default)]
+struct GraphIdGenerator {
+    current_node_id: usize,
+}
+
+impl GenerateId for GraphIdGenerator {
+    fn generate_id(&mut self) -> Id {
+        let current_node_id = self.current_node_id;
+        self.current_node_id += 1;
+        current_node_id.into()
+    }
+}
+
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 pub struct Graph {
-    current_node_id: usize,
+    id_generator: GraphIdGenerator,
     graph_items: IntMap<Id, GraphItem>,
     visit_order: Option<Vec<Id>>,
     id_to_pegraph_index_map: HashMap<Id, petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>>,
@@ -39,7 +52,7 @@ impl Graph {
     #[cfg(test)]
     fn new() -> Self {
         Graph {
-            current_node_id: 0,
+            id_generator: GraphIdGenerator::default(),
             graph_items: IntMap::default(),
             visit_order: None,
             id_to_pegraph_index_map: HashMap::new(),
@@ -47,6 +60,10 @@ impl Graph {
             leaf_nodes: IntSet::default(),
             petgraph_index_to_id_map: HashMap::new(),
         }
+    }
+
+    fn id_generator(&mut self) -> &mut impl GenerateId {
+        &mut self.id_generator
     }
 
     // If we track the leaf nodes, and then iterate UP/backwards through the tree,
@@ -248,12 +265,9 @@ impl Graph {
     }
 }
 
-// TODO: move implementation to a sub-component rather than the graph itself
 impl GenerateId for Graph {
     fn generate_id(&mut self) -> Id {
-        let current_node_id = self.current_node_id;
-        self.current_node_id += 1;
-        current_node_id.into()
+        self.id_generator().generate_id()
     }
 }
 
