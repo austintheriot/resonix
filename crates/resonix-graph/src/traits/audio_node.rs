@@ -1,4 +1,4 @@
-use core::ops::Deref;
+use core::{any::Any, ops::Deref};
 
 use hashbrown::HashMap;
 
@@ -10,11 +10,15 @@ use crate::{
 
 use super::{DescribePorts, GetPriority};
 
-pub trait AudioNode: GetNodeId + GetPriority + DescribePorts {
+pub trait AudioNode: GetNodeId + GetPriority + DescribePorts + Any {
     fn process(
         &mut self,
         inputs: &HashMap<PortAddress, &Data>,
     ) -> Result<Option<HashMap<PortAddress, Data>>, AudioNodeRunError>;
+
+    fn as_any(&self) -> &dyn Any;
+
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 // newtype wrapper due to Rust limitation: https://github.com/rust-lang/rust/issues/20400

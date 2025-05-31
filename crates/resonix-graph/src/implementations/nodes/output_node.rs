@@ -82,6 +82,14 @@ impl AudioNode for OutputNode {
         // nothing to do--just receives input
         Ok(None)
     }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn core::any::Any {
+        self
+    }
 }
 
 impl Deref for OutputNode {

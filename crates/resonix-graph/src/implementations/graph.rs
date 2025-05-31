@@ -6,12 +6,11 @@ use crate::{
         Connection, ConnectionId, Data, GraphRunResult, Id, Node, NodeHandle, NodeId, PortAddress,
     },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
-    utils::{IntMap, compare_nodes_by_priority},
+    utils::{IntMap, IntSet, compare_nodes_by_priority},
 };
 
 use alloc::vec::Vec;
 use hashbrown::{HashMap, HashSet};
-use nohash_hasher::IntSet;
 use petgraph::algo::tarjan_scc;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -332,8 +331,8 @@ impl crate::traits::Graph for Graph {
             return Ok(GraphRunResult::new(HashMap::new()));
         };
 
-        let mut port_data_map: HashMap<PortAddress, Data> = HashMap::new();
-        let outputs = HashMap::new();
+        let mut connections_data_map: HashMap<PortAddress, Data> = HashMap::new();
+        let mut outputs_data_map: HashMap<PortAddress, Data> = HashMap::new();
 
         // must copy to prevent a mutable and immutable reference at the same time
         let visit_order: Vec<Id> = visit_order.to_vec();
@@ -346,7 +345,12 @@ impl crate::traits::Graph for Graph {
             let inputs: HashMap<PortAddress, &Data> = node
                 .input_port_addresses()
                 .into_iter()
-                .map(|address| (address, port_data_map.get(&address).unwrap_or(&empty_data)))
+                .map(|address| {
+                    (
+                        address,
+                        connections_data_map.get(&address).unwrap_or(&empty_data),
+                    )
+                })
                 .collect();
 
             let Some(node_outputs) = node.process(&inputs)? else {
@@ -355,11 +359,22 @@ impl crate::traits::Graph for Graph {
 
             drop(inputs);
 
-            // TODO: save some outputs to return to the caller
-            port_data_map.extend(node_outputs);
+            if let Some(_output_node) = node
+                .as_any()
+                .downcast_ref::<crate::implementations::OutputNode>()
+            {
+                // output nodes, by definition, are not relied upon by any
+                // other nodes--their output goes directly to the caller for
+                // external handling--in whatever form that may take
+                outputs_data_map.extend(node_outputs);
+            } else {
+                // all other outputs get saved to the Graph so other nodes
+                // can receive the inputs they need to get run
+                connections_data_map.extend(node_outputs);
+            }
         }
 
-        Ok(GraphRunResult::new(outputs))
+        Ok(GraphRunResult::new(outputs_data_map))
     }
 }
 

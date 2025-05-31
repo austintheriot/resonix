@@ -111,6 +111,14 @@ impl AudioNode for MultiplyNode {
 
         Ok(Some(outputs))
     }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn core::any::Any {
+        self
+    }
 }
 
 impl Deref for MultiplyNode {
