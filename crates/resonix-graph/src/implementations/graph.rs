@@ -355,17 +355,15 @@ impl crate::traits::Graph for Graph {
                 return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
             };
 
-            let empty_data = Data::None;
-            let inputs: HashMap<PortAddress, &Data> = node
-                .input_port_addresses()
-                .into_iter()
-                .map(|address| {
-                    (
-                        address,
-                        connections_data_map.get(&address).unwrap_or(&empty_data),
-                    )
-                })
-                .collect();
+            let mut inputs: HashMap<PortAddress, &Data> = HashMap::new();
+            node.input_port_addresses().into_iter().for_each(|address| {
+                // only include data that is actually present from a Connection
+                let Some(data) = connections_data_map.get(&address) else {
+                    return;
+                };
+
+                inputs.insert(address, data);
+            });
 
             let Some(mut node_outputs) = node.process(&inputs)? else {
                 continue;
@@ -1239,7 +1237,7 @@ mod graph_tests {
         use hashbrown::HashMap;
 
         use crate::{
-            implementations::{Graph, OutputNode},
+            implementations::{ConstantNode, Graph, OutputNode},
             primitives::Data,
             traits::Graph as GraphTrait,
         };
@@ -1256,6 +1254,33 @@ mod graph_tests {
                 result.outputs(),
                 &HashMap::from([(output_node.external_output_port_address(), Data::None)])
             )
+        }
+
+        #[test]
+        fn constant_node_to_output_node() {
+            let mut graph = Graph::new();
+
+            let constant_node = ConstantNode::new_with_value(&mut graph, Data::I32(5));
+            let output_node = OutputNode::new(&mut graph);
+
+            let constant_node = graph.add(constant_node).unwrap();
+            let output_node = graph.add(output_node).unwrap();
+
+            graph
+                .connect(
+                    constant_node.output_port_address(),
+                    output_node.input_port_address(),
+                )
+                .unwrap();
+
+            let result = graph.run().unwrap();
+
+            assert_eq!(
+                result.outputs(),
+                &HashMap::from([(output_node.external_output_port_address(), Data::None)])
+            );
+
+            todo!("This test should be failing as written")
         }
     }
 }

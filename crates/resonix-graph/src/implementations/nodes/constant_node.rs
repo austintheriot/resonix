@@ -54,9 +54,12 @@ impl ConstantNode {
             return Ok(());
         }
 
-        // TODO: return error if port doesn't match
-        self.constant_value =
-            (**inputs.get(&self.set_constant_value_port_address()).unwrap()).clone();
+        // TODO: return error if port doesn't match?
+        let Some(&new_constant_value) = inputs.get(&self.set_constant_value_port_address()) else {
+            return Ok(());
+        };
+
+        self.constant_value = new_constant_value.clone();
 
         Ok(())
     }

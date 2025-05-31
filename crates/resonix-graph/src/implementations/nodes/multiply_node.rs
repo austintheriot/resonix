@@ -136,8 +136,8 @@ pub struct MultiplyNodePortDescriptors {
 
 impl MultiplyNodePortDescriptors {
     pub const LEFT_OPERAND_INPUT_PORT_ID: PortId = PortId::new(0usize);
-    pub const RIGHT_OPERAND_INPUT_PORT_ID: PortId = PortId::new(0usize);
-    pub const OUTPUT_PORT_ID: PortId = PortId::new(1usize);
+    pub const RIGHT_OPERAND_INPUT_PORT_ID: PortId = PortId::new(1usize);
+    pub const OUTPUT_PORT_ID: PortId = PortId::new(2usize);
 
     pub fn new(node_id: NodeId) -> Self {
         Self { node_id }
@@ -170,7 +170,10 @@ impl MultiplyNodePortDescriptors {
 
 impl DescribePorts for MultiplyNodePortDescriptors {
     fn input_port_addresses(&self) -> Vec<PortAddress> {
-        vec![self.left_operand_input_address()]
+        vec![
+            self.left_operand_input_address(),
+            self.right_operand_input_address(),
+        ]
     }
 
     fn output_port_addresses(&self) -> Vec<PortAddress> {
