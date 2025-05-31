@@ -346,7 +346,7 @@ impl crate::traits::Graph for Graph {
         };
 
         let mut connections_data_map: HashMap<PortAddress, Data> = HashMap::new();
-        let mut outputs_data_map: HashMap<PortAddress, Data> = HashMap::new();
+        let mut external_outputs_data_map: HashMap<PortAddress, Data> = HashMap::new();
 
         // must copy to prevent a mutable and immutable reference at the same time
         let visit_order: Vec<Id> = visit_order.to_vec();
@@ -367,28 +367,28 @@ impl crate::traits::Graph for Graph {
                 })
                 .collect();
 
-            let Some(node_outputs) = node.process(&inputs)? else {
+            let Some(mut node_outputs) = node.process(&inputs)? else {
                 continue;
             };
 
             drop(inputs);
 
-            if let Some(_output_node) = node
-                .as_any()
-                .downcast_ref::<crate::implementations::OutputNode>()
-            {
-                // output nodes, by definition, are not relied upon by any
-                // other nodes--their output goes directly to the caller for
-                // external handling--in whatever form that may take
-                outputs_data_map.extend(node_outputs);
-            } else {
-                // all other outputs get saved to the Graph so other nodes
-                // can receive the inputs they need to get run
-                connections_data_map.extend(node_outputs);
+            for external_output_port_address in node.external_output_port_addresses() {
+                let external_output = node_outputs
+                    .remove(&external_output_port_address)
+                    .unwrap_or(Data::None);
+                external_outputs_data_map.insert(external_output_port_address, external_output);
+            }
+
+            for output_port_address in node.output_port_addresses() {
+                let output = node_outputs
+                    .remove(&output_port_address)
+                    .unwrap_or(Data::None);
+                connections_data_map.insert(output_port_address, output);
             }
         }
 
-        Ok(GraphRunResult::new(outputs_data_map))
+        Ok(GraphRunResult::new(external_outputs_data_map))
     }
 }
 
@@ -1229,6 +1229,30 @@ mod graph_tests {
                     ],
                 );
             }
+        }
+    }
+
+    mod audio_processing {
+        use hashbrown::HashMap;
+
+        use crate::{
+            implementations::{Graph, OutputNode},
+            primitives::Data,
+            traits::Graph as GraphTrait,
+        };
+
+        #[test]
+        fn only_output_node() {
+            let mut graph = Graph::new();
+            let output_node = OutputNode::new(&mut graph);
+            let output_node = graph.add(output_node).unwrap();
+
+            let result = graph.run().unwrap();
+
+            assert_eq!(
+                result.outputs(),
+                &HashMap::from([(output_node.external_output_port_address(), Data::None)])
+            )
         }
     }
 }

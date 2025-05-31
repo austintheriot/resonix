@@ -11,11 +11,25 @@ use crate::primitives::PortAddress;
 /// This makes connecting Node ports after they have already been
 /// added to the Graph (the primary user flow) much simpler/ergonomic.
 pub trait DescribePorts {
-    fn input_port_addresses(&self) -> Vec<PortAddress>;
+    fn input_port_addresses(&self) -> Vec<PortAddress> {
+        vec![]
+    }
 
-    fn output_port_addresses(&self) -> Vec<PortAddress>;
+    fn output_port_addresses(&self) -> Vec<PortAddress> {
+        vec![]
+    }
 
-    fn param_port_addresses(&self) -> Vec<PortAddress>;
+    fn external_output_port_addresses(&self) -> Vec<PortAddress> {
+        vec![]
+    }
+
+    fn external_input_port_addresses(&self) -> Vec<PortAddress> {
+        vec![]
+    }
+
+    fn param_port_addresses(&self) -> Vec<PortAddress> {
+        vec![]
+    }
 }
 
 // Implement this trait automatically for any traits that Deref
@@ -35,5 +49,13 @@ impl<D: DescribePorts, T: Deref<Target = D>> DescribePorts for T {
 
     fn param_port_addresses(&self) -> Vec<PortAddress> {
         (**self).param_port_addresses()
+    }
+
+    fn external_output_port_addresses(&self) -> Vec<PortAddress> {
+        (**self).external_output_port_addresses()
+    }
+
+    fn external_input_port_addresses(&self) -> Vec<PortAddress> {
+        (**self).external_input_port_addresses()
     }
 }

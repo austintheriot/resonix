@@ -79,8 +79,11 @@ impl AudioNode for OutputNode {
     ) -> Result<Option<HashMap<PortAddress, Data>>, AudioNodeRunError> {
         self.assign_inputs(inputs)?;
 
-        // nothing to do--just receives input
-        Ok(None)
+        // emit the received data to the system
+        Ok(Some(HashMap::from([(
+            self.external_output_port_address(),
+            self.input_value.clone(),
+        )])))
     }
 
     fn as_any(&self) -> &dyn core::any::Any {
@@ -105,34 +108,37 @@ pub struct OutputNodePortDescriptors {
     node_id: NodeId,
 }
 
-impl OutputNodePortDescriptors {
-    pub fn new(node_id: NodeId) -> Self {
-        Self { node_id }
-    }
-}
-
 impl DescribePorts for OutputNodePortDescriptors {
     fn input_port_addresses(&self) -> Vec<PortAddress> {
         vec![self.input_port_address()]
     }
 
-    fn output_port_addresses(&self) -> Vec<PortAddress> {
-        vec![]
-    }
-
-    fn param_port_addresses(&self) -> Vec<PortAddress> {
-        vec![]
+    fn external_output_port_addresses(&self) -> Vec<PortAddress> {
+        vec![self.external_output_port_address()]
     }
 }
 
 impl OutputNodePortDescriptors {
     pub const INPUT_PORT_ID: PortId = PortId::new(0usize);
+    pub const EXTERNAL_OUTPUT_PORT_ID: PortId = PortId::new(1usize);
+
+    pub fn new(node_id: NodeId) -> Self {
+        Self { node_id }
+    }
 
     pub fn input_port_address(&self) -> PortAddress {
         PortAddress::new(
             self.node_id,
             Self::INPUT_PORT_ID,
             PortAddressDirection::Input,
+        )
+    }
+
+    pub fn external_output_port_address(&self) -> PortAddress {
+        PortAddress::new(
+            self.node_id,
+            Self::EXTERNAL_OUTPUT_PORT_ID,
+            PortAddressDirection::ExternalOutput,
         )
     }
 }

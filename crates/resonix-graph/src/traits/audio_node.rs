@@ -10,7 +10,10 @@ use crate::{
 
 use super::{DescribePorts, GetPriority};
 
+// TODO: remove `Any` type rescription--we can use port descriptors to accomplish this
 pub trait AudioNode: GetNodeId + GetPriority + DescribePorts + Any {
+    // TODO: adjust signature to pass an array of mutable pointers, so the node doesn't need to
+    // directly access a hashmap
     fn process(
         &mut self,
         inputs: &HashMap<PortAddress, &Data>,
