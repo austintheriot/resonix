@@ -374,16 +374,19 @@ impl crate::traits::Graph for Graph {
             drop(inputs);
 
             for external_output_port_address in node.external_output_port_addresses() {
-                let external_output = node_outputs
-                    .remove(&external_output_port_address)
-                    .unwrap_or(Data::None);
+                let Some(external_output) = node_outputs.remove(&external_output_port_address)
+                else {
+                    continue;
+                };
+
                 external_outputs_data_map.insert(external_output_port_address, external_output);
             }
 
             for output_port_address in node.output_port_addresses() {
-                let output = node_outputs
-                    .remove(&output_port_address)
-                    .unwrap_or(Data::None);
+                let Some(output) = node_outputs.remove(&output_port_address) else {
+                    continue;
+                };
+
                 connections_data_map.insert(output_port_address, output);
             }
         }
