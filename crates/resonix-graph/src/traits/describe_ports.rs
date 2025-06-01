@@ -44,7 +44,7 @@ impl<D: DescribePorts, T: Deref<Target = D>> DescribePorts for T {
     }
 
     fn output_port_addresses(&self) -> Vec<PortAddress> {
-        (**self).input_port_addresses()
+        (**self).output_port_addresses()
     }
 
     fn param_port_addresses(&self) -> Vec<PortAddress> {

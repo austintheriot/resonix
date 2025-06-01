@@ -44,6 +44,7 @@ pub struct Graph {
     visit_order: Option<Vec<Id>>,
     id_to_pegraph_index_map: HashMap<Id, petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>>,
     petgraph_index_to_id_map: HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, Id>,
+    port_address_to_connection_id_map: HashMap<PortAddress, ConnectionId>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: IntSet<NodeId>,
 }
@@ -59,6 +60,7 @@ impl Graph {
             graph: petgraph::Graph::<NodeId, ConnectionId>::new(),
             leaf_nodes: IntSet::default(),
             petgraph_index_to_id_map: HashMap::new(),
+            port_address_to_connection_id_map: HashMap::new(),
         }
     }
 
@@ -317,6 +319,10 @@ impl crate::traits::Graph for Graph {
 
         let connection = Connection::new(self, start_port_address, end_port_address);
         let connection_id = connection.connection_id;
+        self.port_address_to_connection_id_map
+            .insert(start_port_address, connection_id);
+        self.port_address_to_connection_id_map
+            .insert(end_port_address, connection_id);
 
         let start_node_id = start_port_address.node_id();
         let start_index = *self.id_to_pegraph_index_map.get(&*start_node_id).unwrap();
@@ -345,7 +351,7 @@ impl crate::traits::Graph for Graph {
             return Ok(GraphRunResult::new(HashMap::new()));
         };
 
-        let mut connections_data_map: HashMap<PortAddress, Data> = HashMap::new();
+        let mut connections_data_map: IntMap<ConnectionId, Data> = IntMap::default();
         let mut external_outputs_data_map: HashMap<PortAddress, Data> = HashMap::new();
 
         // must copy to prevent a mutable and immutable reference at the same time
@@ -358,7 +364,12 @@ impl crate::traits::Graph for Graph {
             let mut inputs: HashMap<PortAddress, &Data> = HashMap::new();
             node.input_port_addresses().into_iter().for_each(|address| {
                 // only include data that is actually present from a Connection
-                let Some(data) = connections_data_map.get(&address) else {
+                let Some(connection_id) = self.port_address_to_connection_id_map.get(&address)
+                else {
+                    return;
+                };
+
+                let Some(data) = connections_data_map.get(connection_id) else {
                     return;
                 };
 
@@ -385,7 +396,11 @@ impl crate::traits::Graph for Graph {
                     continue;
                 };
 
-                connections_data_map.insert(output_port_address, output);
+                let connection_id = self
+                    .port_address_to_connection_id_map
+                    .get(&output_port_address)
+                    .unwrap();
+                connections_data_map.insert(*connection_id, output);
             }
         }
 
