@@ -351,54 +351,56 @@ impl crate::traits::Graph for Graph {
             return Ok(GraphRunResult::new(HashMap::new()));
         };
 
+        let mut inputs: Vec<&Data> = Vec::new();
+        let mut outputs: Vec<&mut Data> = Vec::new();
         let mut connections_data_map: IntMap<ConnectionId, Data> = IntMap::default();
         let mut external_outputs_data_map: HashMap<PortAddress, Data> = HashMap::new();
 
         // must copy to prevent a mutable and immutable reference at the same time
         let visit_order: Vec<Id> = visit_order.to_vec();
         for id in visit_order {
+            inputs.clear();
+
             let Some(GraphItem::Node(Node::AudioNode(node))) = self.graph_items.get_mut(&id) else {
                 return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
             };
 
-            let mut inputs: HashMap<PortAddress, &Data> = HashMap::new();
+            // assign inputs
             if let Some(input_port_addresses) = node.input_port_addresses() {
-                input_port_addresses.iter().for_each(|address| {
-                    // only include data that is actually present from a Connection
-                    let Some(connection_id) = self.port_address_to_connection_id_map.get(address)
-                    else {
-                        return;
-                    };
-
-                    let Some(data) = connections_data_map.get(connection_id) else {
-                        return;
-                    };
-
-                    inputs.insert(*address, data);
-                });
+                for address in input_port_addresses {
+                    // 1) look up the ConnectionId
+                    if let Some(&connection_id) =
+                        self.port_address_to_connection_id_map.get(address)
+                    {
+                        // 2) get a reference to the Data (immutable borrow)
+                        if let Some(data) = connections_data_map.get(&connection_id) {
+                            // store the &Data into `inputs`; the borrow from .get()
+                            // ends at the semicolon here for this iteration
+                            inputs[**address.port_id()] = data;
+                        }
+                    }
+                }
             }
 
-            let Some(mut node_outputs) = node.process(&inputs)? else {
-                continue;
-            };
-
-            drop(inputs);
+            node.process(&inputs, &mut outputs)?;
+            inputs.clear();
 
             if let Some(external_output_port_addresses) = node.external_output_port_addresses() {
                 for external_output_port_address in external_output_port_addresses {
-                    let Some(external_output) = node_outputs.remove(external_output_port_address)
+                    let Some(external_output) =
+                        outputs.get(**external_output_port_address.port_id())
                     else {
                         continue;
                     };
 
                     external_outputs_data_map
-                        .insert(*external_output_port_address, external_output);
+                        .insert(*external_output_port_address, (**external_output).clone());
                 }
             }
 
             if let Some(output_port_addresses) = node.output_port_addresses() {
                 for output_port_address in output_port_addresses {
-                    let Some(output) = node_outputs.remove(output_port_address) else {
+                    let Some(output) = outputs.get(**output_port_address.port_id()) else {
                         continue;
                     };
 
@@ -406,7 +408,7 @@ impl crate::traits::Graph for Graph {
                         .port_address_to_connection_id_map
                         .get(output_port_address)
                         .unwrap();
-                    connections_data_map.insert(*connection_id, output);
+                    connections_data_map.insert(*connection_id, (**output).clone());
                 }
             }
         }

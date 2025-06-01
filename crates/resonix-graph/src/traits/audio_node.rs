@@ -15,8 +15,9 @@ pub trait AudioNode: GetNodeId + GetPriority + DescribePorts {
     // directly access a hashmap
     fn process(
         &mut self,
-        inputs: &HashMap<PortAddress, &Data>,
-    ) -> Result<Option<HashMap<PortAddress, Data>>, AudioNodeRunError>;
+        inputs: &[&Data],
+        outputs: &mut [&mut Data],
+    ) -> Result<(), AudioNodeRunError>;
 }
 
 // newtype wrapper due to Rust limitation: https://github.com/rust-lang/rust/issues/20400
