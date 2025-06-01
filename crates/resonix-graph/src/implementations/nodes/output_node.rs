@@ -1,6 +1,5 @@
 use core::ops::Deref;
 
-use alloc::vec::Vec;
 use hashbrown::HashMap;
 
 use crate::{
@@ -98,15 +97,17 @@ impl Deref for OutputNode {
 #[derive(Copy, Clone)]
 pub struct OutputNodePortDescriptors {
     node_id: NodeId,
+    input_port_addresses: [PortAddress; 1],
+    external_port_address: [PortAddress; 1],
 }
 
 impl DescribePorts for OutputNodePortDescriptors {
-    fn input_port_addresses(&self) -> Vec<PortAddress> {
-        vec![self.input_port_address()]
+    fn input_port_addresses(&self) -> Option<&[PortAddress]> {
+        Some(&self.input_port_addresses)
     }
 
-    fn external_output_port_addresses(&self) -> Vec<PortAddress> {
-        vec![self.external_output_port_address()]
+    fn external_output_port_addresses(&self) -> Option<&[PortAddress]> {
+        Some(&self.external_port_address)
     }
 }
 
@@ -115,22 +116,30 @@ impl OutputNodePortDescriptors {
     pub const EXTERNAL_OUTPUT_PORT_ID: PortId = PortId::new(1usize);
 
     pub fn new(node_id: NodeId) -> Self {
-        Self { node_id }
+        Self {
+            node_id,
+            input_port_addresses: [Self::gen_input_port_address(node_id)],
+            external_port_address: [Self::gen_external_output_port_address(node_id)],
+        }
     }
 
-    pub fn input_port_address(&self) -> PortAddress {
-        PortAddress::new(
-            self.node_id,
-            Self::INPUT_PORT_ID,
-            PortAddressDirection::Input,
-        )
+    fn gen_input_port_address(node_id: NodeId) -> PortAddress {
+        PortAddress::new(node_id, Self::INPUT_PORT_ID, PortAddressDirection::Input)
     }
 
-    pub fn external_output_port_address(&self) -> PortAddress {
+    fn gen_external_output_port_address(node_id: NodeId) -> PortAddress {
         PortAddress::new(
-            self.node_id,
+            node_id,
             Self::EXTERNAL_OUTPUT_PORT_ID,
             PortAddressDirection::ExternalOutput,
         )
+    }
+
+    pub fn input_port_address(&self) -> PortAddress {
+        Self::gen_input_port_address(self.node_id)
+    }
+
+    pub fn external_output_port_address(&self) -> PortAddress {
+        Self::gen_external_output_port_address(self.node_id)
     }
 }

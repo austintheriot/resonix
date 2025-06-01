@@ -362,19 +362,21 @@ impl crate::traits::Graph for Graph {
             };
 
             let mut inputs: HashMap<PortAddress, &Data> = HashMap::new();
-            node.input_port_addresses().into_iter().for_each(|address| {
-                // only include data that is actually present from a Connection
-                let Some(connection_id) = self.port_address_to_connection_id_map.get(&address)
-                else {
-                    return;
-                };
+            if let Some(input_port_addresses) = node.input_port_addresses() {
+                input_port_addresses.iter().for_each(|address| {
+                    // only include data that is actually present from a Connection
+                    let Some(connection_id) = self.port_address_to_connection_id_map.get(address)
+                    else {
+                        return;
+                    };
 
-                let Some(data) = connections_data_map.get(connection_id) else {
-                    return;
-                };
+                    let Some(data) = connections_data_map.get(connection_id) else {
+                        return;
+                    };
 
-                inputs.insert(address, data);
-            });
+                    inputs.insert(*address, data);
+                });
+            }
 
             let Some(mut node_outputs) = node.process(&inputs)? else {
                 continue;
@@ -382,25 +384,30 @@ impl crate::traits::Graph for Graph {
 
             drop(inputs);
 
-            for external_output_port_address in node.external_output_port_addresses() {
-                let Some(external_output) = node_outputs.remove(&external_output_port_address)
-                else {
-                    continue;
-                };
+            if let Some(external_output_port_addresses) = node.external_output_port_addresses() {
+                for external_output_port_address in external_output_port_addresses {
+                    let Some(external_output) = node_outputs.remove(external_output_port_address)
+                    else {
+                        continue;
+                    };
 
-                external_outputs_data_map.insert(external_output_port_address, external_output);
+                    external_outputs_data_map
+                        .insert(*external_output_port_address, external_output);
+                }
             }
 
-            for output_port_address in node.output_port_addresses() {
-                let Some(output) = node_outputs.remove(&output_port_address) else {
-                    continue;
-                };
+            if let Some(output_port_addresses) = node.output_port_addresses() {
+                for output_port_address in output_port_addresses {
+                    let Some(output) = node_outputs.remove(output_port_address) else {
+                        continue;
+                    };
 
-                let connection_id = self
-                    .port_address_to_connection_id_map
-                    .get(&output_port_address)
-                    .unwrap();
-                connections_data_map.insert(*connection_id, output);
+                    let connection_id = self
+                        .port_address_to_connection_id_map
+                        .get(output_port_address)
+                        .unwrap();
+                    connections_data_map.insert(*connection_id, output);
+                }
             }
         }
 

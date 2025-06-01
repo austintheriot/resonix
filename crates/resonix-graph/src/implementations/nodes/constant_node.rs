@@ -1,6 +1,5 @@
 use core::ops::Deref;
 
-use alloc::vec::Vec;
 use hashbrown::HashMap;
 
 use crate::{
@@ -110,25 +109,27 @@ impl Deref for ConstantNode {
 #[derive(Copy, Clone)]
 pub struct ConstantNodePortDescriptors {
     node_id: NodeId,
+    input_port_addresses: [PortAddress; 1],
+    output_port_addresses: [PortAddress; 1],
 }
 
 impl ConstantNodePortDescriptors {
     pub fn new(node_id: NodeId) -> Self {
-        Self { node_id }
+        Self {
+            node_id,
+            input_port_addresses: [Self::gen_set_constant_value_port_address(node_id)],
+            output_port_addresses: [Self::gen_output_port_address(node_id)],
+        }
     }
 }
 
 impl DescribePorts for ConstantNodePortDescriptors {
-    fn input_port_addresses(&self) -> Vec<PortAddress> {
-        vec![self.set_constant_value_port_address()]
+    fn input_port_addresses(&self) -> Option<&[PortAddress]> {
+        Some(&self.input_port_addresses)
     }
 
-    fn output_port_addresses(&self) -> Vec<PortAddress> {
-        vec![self.output_port_address()]
-    }
-
-    fn param_port_addresses(&self) -> Vec<PortAddress> {
-        vec![]
+    fn output_port_addresses(&self) -> Option<&[PortAddress]> {
+        Some(&self.output_port_addresses)
     }
 }
 
@@ -136,19 +137,23 @@ impl ConstantNodePortDescriptors {
     pub const SET_CONSTANT_VALUE_PORT_ID: PortId = PortId::new(0usize);
     pub const OUTPUT_PORT_ID: PortId = PortId::new(1usize);
 
-    pub fn set_constant_value_port_address(&self) -> PortAddress {
+    fn gen_set_constant_value_port_address(node_id: NodeId) -> PortAddress {
         PortAddress::new(
-            self.node_id,
+            node_id,
             Self::SET_CONSTANT_VALUE_PORT_ID,
             PortAddressDirection::Input,
         )
     }
 
+    pub fn set_constant_value_port_address(&self) -> PortAddress {
+        Self::gen_set_constant_value_port_address(self.node_id)
+    }
+
+    fn gen_output_port_address(node_id: NodeId) -> PortAddress {
+        PortAddress::new(node_id, Self::OUTPUT_PORT_ID, PortAddressDirection::Output)
+    }
+
     pub fn output_port_address(&self) -> PortAddress {
-        PortAddress::new(
-            self.node_id,
-            Self::OUTPUT_PORT_ID,
-            PortAddressDirection::Output,
-        )
+        Self::gen_output_port_address(self.node_id)
     }
 }

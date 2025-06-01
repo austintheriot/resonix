@@ -1,7 +1,5 @@
 use core::ops::Deref;
 
-use alloc::vec::Vec;
-
 use crate::primitives::PortAddress;
 
 /// Having a separate trait/inner object on a node for describing a node's ports
@@ -11,24 +9,24 @@ use crate::primitives::PortAddress;
 /// This makes connecting Node ports after they have already been
 /// added to the Graph (the primary user flow) much simpler/ergonomic.
 pub trait DescribePorts {
-    fn input_port_addresses(&self) -> Vec<PortAddress> {
-        vec![]
+    fn input_port_addresses(&self) -> Option<&[PortAddress]> {
+        None
     }
 
-    fn output_port_addresses(&self) -> Vec<PortAddress> {
-        vec![]
+    fn output_port_addresses(&self) -> Option<&[PortAddress]> {
+        None
     }
 
-    fn external_output_port_addresses(&self) -> Vec<PortAddress> {
-        vec![]
+    fn external_output_port_addresses(&self) -> Option<&[PortAddress]> {
+        None
     }
 
-    fn external_input_port_addresses(&self) -> Vec<PortAddress> {
-        vec![]
+    fn external_input_port_addresses(&self) -> Option<&[PortAddress]> {
+        None
     }
 
-    fn param_port_addresses(&self) -> Vec<PortAddress> {
-        vec![]
+    fn param_port_addresses(&self) -> Option<&[PortAddress]> {
+        None
     }
 }
 
@@ -38,24 +36,27 @@ pub trait DescribePorts {
 // Most Nodes would want to Deref to their port descriptors anyway,
 // since you want to be able to access that information directly
 // from the Node in most cases.
-impl<D: DescribePorts, T: Deref<Target = D>> DescribePorts for T {
-    fn input_port_addresses(&self) -> Vec<PortAddress> {
+impl<D: DescribePorts + ?Sized, T: Deref<Target = D>> DescribePorts for T
+where
+    for<'x> D: 'x,
+{
+    fn input_port_addresses(&self) -> Option<&[PortAddress]> {
         (**self).input_port_addresses()
     }
 
-    fn output_port_addresses(&self) -> Vec<PortAddress> {
+    fn output_port_addresses(&self) -> Option<&[PortAddress]> {
         (**self).output_port_addresses()
     }
 
-    fn param_port_addresses(&self) -> Vec<PortAddress> {
+    fn param_port_addresses(&self) -> Option<&[PortAddress]> {
         (**self).param_port_addresses()
     }
 
-    fn external_output_port_addresses(&self) -> Vec<PortAddress> {
+    fn external_output_port_addresses(&self) -> Option<&[PortAddress]> {
         (**self).external_output_port_addresses()
     }
 
-    fn external_input_port_addresses(&self) -> Vec<PortAddress> {
+    fn external_input_port_addresses(&self) -> Option<&[PortAddress]> {
         (**self).external_input_port_addresses()
     }
 }

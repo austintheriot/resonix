@@ -1,6 +1,5 @@
 use core::ops::Deref;
 
-use alloc::vec::Vec;
 use hashbrown::HashMap;
 
 use crate::{
@@ -124,6 +123,8 @@ impl Deref for MultiplyNode {
 #[derive(Copy, Clone)]
 pub struct MultiplyNodePortDescriptors {
     node_id: NodeId,
+    input_port_addresses: [PortAddress; 2],
+    output_port_addresses: [PortAddress; 1],
 }
 
 impl MultiplyNodePortDescriptors {
@@ -132,47 +133,55 @@ impl MultiplyNodePortDescriptors {
     pub const OUTPUT_PORT_ID: PortId = PortId::new(2usize);
 
     pub fn new(node_id: NodeId) -> Self {
-        Self { node_id }
+        Self {
+            node_id,
+            input_port_addresses: [
+                Self::gen_left_operand_input_address(node_id),
+                Self::gen_right_operand_input_address(node_id),
+            ],
+            output_port_addresses: [Self::gen_output_port_address(node_id)],
+        }
     }
 
-    pub fn left_operand_input_address(&self) -> PortAddress {
+    fn gen_left_operand_input_address(node_id: NodeId) -> PortAddress {
         PortAddress::new(
-            self.node_id,
+            node_id,
             Self::LEFT_OPERAND_INPUT_PORT_ID,
             PortAddressDirection::Input,
         )
     }
 
-    pub fn right_operand_input_address(&self) -> PortAddress {
+    pub fn left_operand_input_address(&self) -> PortAddress {
+        Self::gen_left_operand_input_address(self.node_id)
+    }
+
+    fn gen_right_operand_input_address(node_id: NodeId) -> PortAddress {
         PortAddress::new(
-            self.node_id,
+            node_id,
             Self::RIGHT_OPERAND_INPUT_PORT_ID,
             PortAddressDirection::Input,
         )
     }
 
+    pub fn right_operand_input_address(&self) -> PortAddress {
+        Self::gen_right_operand_input_address(self.node_id)
+    }
+
+    fn gen_output_port_address(node_id: NodeId) -> PortAddress {
+        PortAddress::new(node_id, Self::OUTPUT_PORT_ID, PortAddressDirection::Output)
+    }
+
     pub fn output_port_address(&self) -> PortAddress {
-        PortAddress::new(
-            self.node_id,
-            Self::OUTPUT_PORT_ID,
-            PortAddressDirection::Output,
-        )
+        Self::gen_output_port_address(self.node_id)
     }
 }
 
 impl DescribePorts for MultiplyNodePortDescriptors {
-    fn input_port_addresses(&self) -> Vec<PortAddress> {
-        vec![
-            self.left_operand_input_address(),
-            self.right_operand_input_address(),
-        ]
+    fn input_port_addresses(&self) -> Option<&[PortAddress]> {
+        Some(&self.input_port_addresses)
     }
 
-    fn output_port_addresses(&self) -> Vec<PortAddress> {
-        vec![self.output_port_address()]
-    }
-
-    fn param_port_addresses(&self) -> Vec<PortAddress> {
-        vec![]
+    fn output_port_addresses(&self) -> Option<&[PortAddress]> {
+        Some(&self.output_port_addresses)
     }
 }
