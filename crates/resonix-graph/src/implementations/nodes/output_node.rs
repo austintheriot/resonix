@@ -85,14 +85,6 @@ impl AudioNode for OutputNode {
             self.input_value.clone(),
         )])))
     }
-
-    fn as_any(&self) -> &dyn core::any::Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn core::any::Any {
-        self
-    }
 }
 
 impl Deref for OutputNode {
