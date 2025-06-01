@@ -1272,7 +1272,32 @@ mod graph_tests {
         }
 
         #[test]
-        fn constant_node_to_output_node() {
+        fn constant_node_without_value_to_output_node() {
+            let mut graph = Graph::new();
+
+            let constant_node = ConstantNode::new(&mut graph);
+            let output_node = OutputNode::new(&mut graph);
+
+            let constant_node = graph.add(constant_node).unwrap();
+            let output_node = graph.add(output_node).unwrap();
+
+            graph
+                .connect(
+                    constant_node.output_port_address(),
+                    output_node.input_port_address(),
+                )
+                .unwrap();
+
+            let result = graph.run().unwrap();
+
+            assert_eq!(
+                result.outputs(),
+                &HashMap::from([(output_node.external_output_port_address(), Data::None)])
+            );
+        }
+
+        #[test]
+        fn constant_node_with_value_to_output_node() {
             let mut graph = Graph::new();
 
             let constant_node = ConstantNode::new_with_value(&mut graph, Data::I32(5));
