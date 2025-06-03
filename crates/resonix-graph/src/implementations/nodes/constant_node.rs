@@ -1,7 +1,5 @@
 use core::ops::Deref;
 
-use hashbrown::HashMap;
-
 use crate::{
     errors::AudioNodeRunError,
     primitives::{Data, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
@@ -9,6 +7,8 @@ use crate::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
     },
 };
+
+use super::OutputNodePortDescriptors;
 
 pub struct ConstantNode {
     node_id: NodeId,
@@ -36,25 +36,15 @@ impl ConstantNode {
         Audio(constant_node)
     }
 
-    fn assign_inputs(
-        &mut self,
-        inputs: &HashMap<PortAddress, &Data>,
-    ) -> Result<(), AudioNodeRunError> {
-        let num_inputs = inputs.len();
-        if num_inputs > 1 {
-            // TODO: lift this requirement?
-            return Err(AudioNodeRunError::TooManyInputs {
-                expected: 1,
-                found: num_inputs,
-            });
-        }
-
-        if inputs.is_empty() {
+    fn assign_inputs(&mut self, inputs: &[&Data]) -> Result<(), AudioNodeRunError> {
+        if inputs.len() <= **ConstantNodePortDescriptors::SET_CONSTANT_VALUE_PORT_ID {
             return Ok(());
         }
 
         // TODO: return error if port doesn't match?
-        let Some(&new_constant_value) = inputs.get(&self.set_constant_value_port_address()) else {
+        let Some(&new_constant_value) =
+            inputs.get(**ConstantNodePortDescriptors::SET_CONSTANT_VALUE_PORT_ID)
+        else {
             return Ok(());
         };
 
@@ -87,14 +77,16 @@ impl GetPriority for ConstantNode {
 impl AudioNode for ConstantNode {
     fn process(
         &mut self,
-        inputs: &HashMap<PortAddress, &Data>,
-    ) -> Result<Option<HashMap<PortAddress, Data>>, AudioNodeRunError> {
+        inputs: &[&Data],
+        outputs: &mut [&mut Data],
+    ) -> Result<(), AudioNodeRunError> {
         // TODO: return error if thrown
         self.assign_inputs(inputs)?;
 
-        let data = HashMap::from([(self.output_port_address(), self.constant_value.clone())]);
+        *outputs[**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID] =
+            self.constant_value.clone();
 
-        Ok(Some(data))
+        Ok(())
     }
 }
 

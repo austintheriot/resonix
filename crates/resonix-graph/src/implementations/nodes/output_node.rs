@@ -1,7 +1,5 @@
 use core::ops::Deref;
 
-use hashbrown::HashMap;
-
 use crate::{
     errors::AudioNodeRunError,
     primitives::{Data, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
@@ -27,25 +25,20 @@ impl OutputNode {
         Audio(output_node)
     }
 
-    fn assign_inputs(
-        &mut self,
-        inputs: &HashMap<PortAddress, &Data>,
-    ) -> Result<(), AudioNodeRunError> {
-        let num_inputs = inputs.len();
-        if num_inputs > 1 {
-            // TODO: lift this requirement?
-            return Err(AudioNodeRunError::TooManyInputs {
-                expected: 1,
-                found: num_inputs,
-            });
-        }
-
-        if inputs.is_empty() {
+    fn assign_inputs(&mut self, inputs: &[&Data]) -> Result<(), AudioNodeRunError> {
+        // TODO: return error?
+        if inputs.len() <= **OutputNodePortDescriptors::INPUT_PORT_ID {
             return Ok(());
         }
 
+        let Some(&new_input_value) =
+            inputs.get(**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
+        else {
+            return Ok(());
+        };
+
         // TODO: return error if port doesn't match
-        self.input_value = (*inputs.get(&self.input_port_address()).unwrap()).clone();
+        self.input_value = (*new_input_value).clone();
 
         Ok(())
     }
@@ -74,15 +67,14 @@ impl GetPriority for OutputNode {
 impl AudioNode for OutputNode {
     fn process(
         &mut self,
-        inputs: &HashMap<PortAddress, &Data>,
-    ) -> Result<Option<HashMap<PortAddress, Data>>, AudioNodeRunError> {
+        inputs: &[&Data],
+        outputs: &mut [&mut Data],
+    ) -> Result<(), AudioNodeRunError> {
         self.assign_inputs(inputs)?;
 
-        // emit the received data to the system
-        Ok(Some(HashMap::from([(
-            self.external_output_port_address(),
-            self.input_value.clone(),
-        )])))
+        *outputs[**self.external_output_port_address().port_id()] = self.input_value.clone();
+
+        Ok(())
     }
 }
 
