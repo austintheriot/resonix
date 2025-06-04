@@ -273,32 +273,26 @@ impl Graph {
     ) -> usize {
         // make sure outputs is empty and matches length
         const PORT_INDEX_OFFSET: usize = 1;
-        let max_a = ports_a
-            .map(|output_addresses| {
-                output_addresses
-                    .iter()
-                    .map(|address| **address.port_id())
-                    .max()
-            })
-            .flatten();
+        let max_a = ports_a.and_then(|output_addresses| {
+            output_addresses
+                .iter()
+                .map(|address| **address.port_id())
+                .max()
+        });
 
-        let max_b = ports_b
-            .map(|output_addresses| {
-                output_addresses
-                    .iter()
-                    .map(|address| **address.port_id())
-                    .max()
-            })
-            .flatten();
+        let max_b = ports_b.and_then(|output_addresses| {
+            output_addresses
+                .iter()
+                .map(|address| **address.port_id())
+                .max()
+        });
 
-        let new_output_length = match (max_a, max_b) {
+        match (max_a, max_b) {
             (None, None) => 0,
             (None, Some(max)) => max + PORT_INDEX_OFFSET,
             (Some(max), None) => max + PORT_INDEX_OFFSET,
             (Some(max_a), Some(max_b)) => max_a.max(max_b) + PORT_INDEX_OFFSET,
-        };
-
-        new_output_length
+        }
     }
 }
 
