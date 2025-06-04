@@ -31,11 +31,14 @@ impl OutputNode {
             return Ok(());
         }
 
-        let Some(&new_input_value) =
-            inputs.get(**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
-        else {
+        let Some(&new_input_value) = inputs.get(**OutputNodePortDescriptors::INPUT_PORT_ID) else {
             return Ok(());
         };
+
+        // TODO: should `None`s actually be ignored?
+        if *new_input_value == Data::None {
+            return Ok(());
+        }
 
         // TODO: return error if port doesn't match
         self.input_value = (*new_input_value).clone();
@@ -65,14 +68,10 @@ impl GetPriority for OutputNode {
 }
 
 impl AudioNode for OutputNode {
-    fn process(
-        &mut self,
-        inputs: &[&Data],
-        outputs: &mut [&mut Data],
-    ) -> Result<(), AudioNodeRunError> {
+    fn process(&mut self, inputs: &[&Data], outputs: &mut [Data]) -> Result<(), AudioNodeRunError> {
         self.assign_inputs(inputs)?;
 
-        *outputs[**self.external_output_port_address().port_id()] = self.input_value.clone();
+        outputs[**self.external_output_port_address().port_id()] = self.input_value.clone();
 
         Ok(())
     }

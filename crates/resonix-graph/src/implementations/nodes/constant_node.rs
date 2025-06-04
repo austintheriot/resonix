@@ -48,6 +48,11 @@ impl ConstantNode {
             return Ok(());
         };
 
+        // TODO: should `None`s actually be ignored?
+        if *new_constant_value == Data::None {
+            return Ok(());
+        }
+
         self.constant_value = new_constant_value.clone();
 
         Ok(())
@@ -75,16 +80,11 @@ impl GetPriority for ConstantNode {
 }
 
 impl AudioNode for ConstantNode {
-    fn process(
-        &mut self,
-        inputs: &[&Data],
-        outputs: &mut [&mut Data],
-    ) -> Result<(), AudioNodeRunError> {
+    fn process(&mut self, inputs: &[&Data], outputs: &mut [Data]) -> Result<(), AudioNodeRunError> {
         // TODO: return error if thrown
         self.assign_inputs(inputs)?;
 
-        *outputs[**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID] =
-            self.constant_value.clone();
+        outputs[**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID] = self.constant_value.clone();
 
         Ok(())
     }

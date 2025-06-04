@@ -13,11 +13,7 @@ use super::{DescribePorts, GetPriority};
 pub trait AudioNode: GetNodeId + GetPriority + DescribePorts {
     // TODO: adjust signature to pass an array of mutable pointers, so the node doesn't need to
     // directly access a hashmap
-    fn process(
-        &mut self,
-        inputs: &[&Data],
-        outputs: &mut [&mut Data],
-    ) -> Result<(), AudioNodeRunError>;
+    fn process(&mut self, inputs: &[&Data], outputs: &mut [Data]) -> Result<(), AudioNodeRunError>;
 }
 
 // newtype wrapper due to Rust limitation: https://github.com/rust-lang/rust/issues/20400

@@ -77,11 +77,7 @@ impl GetPriority for MultiplyNode {
 }
 
 impl AudioNode for MultiplyNode {
-    fn process(
-        &mut self,
-        inputs: &[&Data],
-        outputs: &mut [&mut Data],
-    ) -> Result<(), AudioNodeRunError> {
+    fn process(&mut self, inputs: &[&Data], outputs: &mut [Data]) -> Result<(), AudioNodeRunError> {
         self.assign_inputs(inputs)?;
 
         let data = match self.left_operand_value {
@@ -101,7 +97,7 @@ impl AudioNode for MultiplyNode {
             Data::Error => Data::Error,
         };
 
-        *outputs[**MultiplyNodePortDescriptors::OUTPUT_PORT_ID] = data;
+        outputs[**MultiplyNodePortDescriptors::OUTPUT_PORT_ID] = data;
 
         Ok(())
     }

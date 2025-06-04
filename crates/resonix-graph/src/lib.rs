@@ -4,6 +4,7 @@
 #[macro_use]
 extern crate std;
 
+#[macro_use]
 extern crate alloc;
 
 pub mod errors;

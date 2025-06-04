@@ -266,6 +266,40 @@ impl Graph {
     fn visit_order(&self) -> Option<&[Id]> {
         self.visit_order.as_deref()
     }
+
+    fn calculate_input_output_len(
+        ports_a: Option<&[PortAddress]>,
+        ports_b: Option<&[PortAddress]>,
+    ) -> usize {
+        // make sure outputs is empty and matches length
+        const PORT_INDEX_OFFSET: usize = 1;
+        let max_a = ports_a
+            .map(|output_addresses| {
+                output_addresses
+                    .iter()
+                    .map(|address| **address.port_id())
+                    .max()
+            })
+            .flatten();
+
+        let max_b = ports_b
+            .map(|output_addresses| {
+                output_addresses
+                    .iter()
+                    .map(|address| **address.port_id())
+                    .max()
+            })
+            .flatten();
+
+        let new_output_length = match (max_a, max_b) {
+            (None, None) => 0,
+            (None, Some(max)) => max + PORT_INDEX_OFFSET,
+            (Some(max), None) => max + PORT_INDEX_OFFSET,
+            (Some(max_a), Some(max_b)) => max_a.max(max_b) + PORT_INDEX_OFFSET,
+        };
+
+        new_output_length
+    }
 }
 
 impl GenerateId for Graph {
@@ -352,7 +386,7 @@ impl crate::traits::Graph for Graph {
             return Ok(GraphRunResult::new(HashMap::new()));
         };
 
-        let mut outputs: Vec<&mut Data> = Vec::new();
+        let mut outputs: Vec<Data> = Vec::new();
         let connections_data_map: RefCell<IntMap<ConnectionId, Data>> =
             RefCell::new(IntMap::default());
         let mut external_outputs_data_map: HashMap<PortAddress, Data> = HashMap::new();
@@ -367,28 +401,38 @@ impl crate::traits::Graph for Graph {
                 };
 
                 {
+                    let inputs_length = Self::calculate_input_output_len(
+                        node.input_port_addresses(),
+                        node.output_port_addresses(),
+                    );
                     // TODO: figure out a way not to have to re-initialize this on every node
-                    let mut inputs: Vec<&Data> = Vec::new();
+                    let mut inputs: Vec<&Data> = vec![&Data::None; inputs_length];
                     let connections_data_ref = connections_data_map.borrow();
 
                     // assign inputs
-                    if let Some(input_port_addresses) = node.input_port_addresses() {
-                        for address in input_port_addresses {
-                            // 1) look up the ConnectionId
-                            if let Some(&connection_id) =
-                                self.port_address_to_connection_id_map.get(address)
-                            {
-                                // 2) get a reference to the Data (immutable borrow)
-                                if let Some(data) = connections_data_ref.get(&connection_id) {
-                                    // store the &Data into `inputs`; the borrow from .get()
-                                    // ends at the semicolon here for this iteration
-                                    inputs[**address.port_id()] = data;
-                                }
+                    for port_address in node
+                        .input_port_addresses()
+                        .into_iter()
+                        .flatten()
+                        .chain(node.external_input_port_addresses().into_iter().flatten())
+                    {
+                        if let Some(&connection_id) =
+                            self.port_address_to_connection_id_map.get(port_address)
+                        {
+                            if let Some(data) = connections_data_ref.get(&connection_id) {
+                                // store the &Data into `inputs`; the borrow from .get()
+                                // ends at the semicolon here for this iteration
+                                inputs[**port_address.port_id()] = data;
                             }
                         }
                     }
 
-                    outputs.clear();
+                    let new_output_length = Self::calculate_input_output_len(
+                        node.output_port_addresses(),
+                        node.external_output_port_addresses(),
+                    );
+                    outputs.resize(new_output_length, Data::None);
+                    outputs.fill(Data::None);
 
                     // TODO: resize outputs to match expected length OR store statically somewhere?
                     node.process(&inputs, &mut outputs)?;
@@ -412,7 +456,7 @@ impl crate::traits::Graph for Graph {
                             };
 
                             external_outputs_data_map
-                                .insert(*external_output_port_address, (**external_output).clone());
+                                .insert(*external_output_port_address, (*external_output).clone());
                         }
                     }
 
@@ -426,7 +470,7 @@ impl crate::traits::Graph for Graph {
                                 .port_address_to_connection_id_map
                                 .get(output_port_address)
                                 .unwrap();
-                            connections_data_ref_mut.insert(*connection_id, (**output).clone());
+                            connections_data_ref_mut.insert(*connection_id, (*output).clone());
                         }
                     }
                 }
