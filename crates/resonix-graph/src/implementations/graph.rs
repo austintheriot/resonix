@@ -387,85 +387,82 @@ impl crate::traits::Graph for Graph {
 
         // must copy to prevent a mutable and immutable reference at the same time
         let visit_order: Vec<Id> = visit_order.to_vec();
-        {
-            for id in visit_order.iter() {
-                let Some(GraphItem::Node(Node::AudioNode(node))) = self.graph_items.get_mut(id)
-                else {
-                    return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
-                };
 
+        for id in visit_order.iter() {
+            let Some(GraphItem::Node(Node::AudioNode(node))) = self.graph_items.get_mut(id) else {
+                return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
+            };
+
+            {
+                let inputs_length = Self::calculate_input_output_len(
+                    node.input_port_addresses(),
+                    node.output_port_addresses(),
+                );
+                // TODO: figure out a way not to have to re-initialize this on every node
+                let mut inputs: Vec<&Data> = vec![&Data::None; inputs_length];
+                let connections_data_ref = connections_data_map.borrow();
+
+                // assign inputs
+                for port_address in node
+                    .input_port_addresses()
+                    .into_iter()
+                    .flatten()
+                    .chain(node.external_input_port_addresses().into_iter().flatten())
                 {
-                    let inputs_length = Self::calculate_input_output_len(
-                        node.input_port_addresses(),
-                        node.output_port_addresses(),
-                    );
-                    // TODO: figure out a way not to have to re-initialize this on every node
-                    let mut inputs: Vec<&Data> = vec![&Data::None; inputs_length];
-                    let connections_data_ref = connections_data_map.borrow();
-
-                    // assign inputs
-                    for port_address in node
-                        .input_port_addresses()
-                        .into_iter()
-                        .flatten()
-                        .chain(node.external_input_port_addresses().into_iter().flatten())
+                    if let Some(&connection_id) =
+                        self.port_address_to_connection_id_map.get(port_address)
                     {
-                        if let Some(&connection_id) =
-                            self.port_address_to_connection_id_map.get(port_address)
-                        {
-                            if let Some(data) = connections_data_ref.get(&connection_id) {
-                                // store the &Data into `inputs`; the borrow from .get()
-                                // ends at the semicolon here for this iteration
-                                inputs[**port_address.port_id()] = data;
-                            }
+                        if let Some(data) = connections_data_ref.get(&connection_id) {
+                            // store the &Data into `inputs`; the borrow from .get()
+                            // ends at the semicolon here for this iteration
+                            inputs[**port_address.port_id()] = data;
                         }
                     }
-
-                    let new_output_length = Self::calculate_input_output_len(
-                        node.output_port_addresses(),
-                        node.external_output_port_addresses(),
-                    );
-                    outputs.resize(new_output_length, Data::None);
-                    outputs.fill(Data::None);
-
-                    // TODO: resize outputs to match expected length OR store statically somewhere?
-                    node.process(&inputs, &mut outputs)?;
-                    inputs.clear();
                 }
 
-                // these two blocks are split to prevent the `connections_data_map` borrows
-                // from extending longer than we'd like--not easy to convince the borrow checker
-                // that this is correct
+                let new_output_length = Self::calculate_input_output_len(
+                    node.output_port_addresses(),
+                    node.external_output_port_addresses(),
+                );
+                outputs.resize(new_output_length, Data::None);
+                outputs.fill(Data::None);
+
+                // TODO: resize outputs to match expected length OR store statically somewhere?
+                node.process(&inputs, &mut outputs)?;
+                inputs.clear();
+            }
+
+            // these two blocks are split to prevent the `connections_data_map` borrows
+            // from extending longer than we'd like--not easy to convince the borrow checker
+            // that this is correct
+            {
+                let mut connections_data_ref_mut = connections_data_map.borrow_mut();
+
+                if let Some(external_output_port_addresses) = node.external_output_port_addresses()
                 {
-                    let mut connections_data_ref_mut = connections_data_map.borrow_mut();
+                    for external_output_port_address in external_output_port_addresses {
+                        let Some(external_output) =
+                            outputs.get(**external_output_port_address.port_id())
+                        else {
+                            continue;
+                        };
 
-                    if let Some(external_output_port_addresses) =
-                        node.external_output_port_addresses()
-                    {
-                        for external_output_port_address in external_output_port_addresses {
-                            let Some(external_output) =
-                                outputs.get(**external_output_port_address.port_id())
-                            else {
-                                continue;
-                            };
-
-                            external_outputs_data_map
-                                .insert(*external_output_port_address, (*external_output).clone());
-                        }
+                        external_outputs_data_map
+                            .insert(*external_output_port_address, (*external_output).clone());
                     }
+                }
 
-                    if let Some(output_port_addresses) = node.output_port_addresses() {
-                        for output_port_address in output_port_addresses {
-                            let Some(output) = outputs.get(**output_port_address.port_id()) else {
-                                continue;
-                            };
+                if let Some(output_port_addresses) = node.output_port_addresses() {
+                    for output_port_address in output_port_addresses {
+                        let Some(output) = outputs.get(**output_port_address.port_id()) else {
+                            continue;
+                        };
 
-                            let connection_id = self
-                                .port_address_to_connection_id_map
-                                .get(output_port_address)
-                                .unwrap();
-                            connections_data_ref_mut.insert(*connection_id, (*output).clone());
-                        }
+                        let connection_id = self
+                            .port_address_to_connection_id_map
+                            .get(output_port_address)
+                            .unwrap();
+                        connections_data_ref_mut.insert(*connection_id, (*output).clone());
                     }
                 }
             }
