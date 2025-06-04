@@ -5,8 +5,6 @@ use crate::{errors::AudioNodeRunError, primitives::Data, traits::GetNodeId};
 use super::{DescribePorts, GetPriority};
 
 pub trait AudioNode: GetNodeId + GetPriority + DescribePorts {
-    // TODO: adjust signature to pass an array of mutable pointers, so the node doesn't need to
-    // directly access a hashmap
     fn process(&mut self, inputs: &[&Data], outputs: &mut [Data]) -> Result<(), AudioNodeRunError>;
 }
 
