@@ -6,12 +6,11 @@ use crate::{
         Connection, ConnectionId, Data, GraphRunResult, Id, Node, NodeHandle, NodeId, PortAddress,
     },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
-    utils::{IntSet, compare_nodes_by_priority},
+    utils::{IntMap, IntSet, compare_nodes_by_priority},
 };
 
 use alloc::vec::Vec;
 use hashbrown::{HashMap, HashSet};
-use nohash_hasher::IntMap;
 use petgraph::algo::tarjan_scc;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -48,11 +47,20 @@ pub struct Graph {
     port_address_to_connection_id_map: HashMap<PortAddress, ConnectionId>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: IntSet<NodeId>,
+
+    // cached values to prevent allocations in the `run` loop
+    // TODO: figure out a way not to have to own/clone input data--would
+    // be great to hold `Vec<&Data>` and not clone within the `run` function
+    run_inputs: Vec<Data>,
+    run_outputs: Vec<Data>,
+    run_connections_data_map: IntMap<ConnectionId, Data>,
 }
 
 impl Graph {
     #[cfg(test)]
     fn new() -> Self {
+        use crate::utils::IntMap;
+
         Graph {
             id_generator: GraphIdGenerator::default(),
             graph_items: IntMap::default(),
@@ -62,6 +70,10 @@ impl Graph {
             leaf_nodes: IntSet::default(),
             petgraph_index_to_id_map: HashMap::new(),
             port_address_to_connection_id_map: HashMap::new(),
+
+            run_inputs: Vec::new(),
+            run_outputs: Vec::new(),
+            run_connections_data_map: IntMap::default(),
         }
     }
 
@@ -380,14 +392,16 @@ impl crate::traits::Graph for Graph {
             return Ok(GraphRunResult::new(HashMap::new()));
         };
 
-        // TODO: figure out a way not to have to own/clone input data
-        let mut inputs: Vec<Data> = Vec::new();
-        let mut outputs: Vec<Data> = Vec::new();
-        let mut connections_data_map: IntMap<ConnectionId, Data> = IntMap::default();
-        let mut external_outputs_data_map: HashMap<PortAddress, Data> = HashMap::new();
-
         // must copy to prevent a mutable and immutable reference at the same time
         let visit_order: Vec<Id> = visit_order.to_vec();
+
+        // TODO: pass in this value to prevent an allocation in this function
+        let mut run_external_outputs_data_map: HashMap<PortAddress, Data> = HashMap::new();
+
+        // clear any cached values
+        self.run_connections_data_map.clear();
+        self.run_inputs.clear();
+        self.run_outputs.clear();
 
         for id in visit_order.iter() {
             let Some(GraphItem::Node(Node::AudioNode(node))) = self.graph_items.get_mut(id) else {
@@ -399,8 +413,8 @@ impl crate::traits::Graph for Graph {
                     node.input_port_addresses(),
                     node.output_port_addresses(),
                 );
-                inputs.resize(inputs_length, Data::None);
-                inputs.fill(Data::None);
+                self.run_inputs.resize(inputs_length, Data::None);
+                self.run_inputs.fill(Data::None);
 
                 // assign inputs
                 for port_address in node
@@ -412,10 +426,10 @@ impl crate::traits::Graph for Graph {
                     if let Some(&connection_id) =
                         self.port_address_to_connection_id_map.get(port_address)
                     {
-                        if let Some(data) = connections_data_map.get(&connection_id) {
+                        if let Some(data) = self.run_connections_data_map.get(&connection_id) {
                             // store the &Data into `inputs`; the borrow from .get()
                             // ends at the semicolon here for this iteration
-                            inputs[**port_address.port_id()] = data.clone();
+                            self.run_inputs[**port_address.port_id()] = data.clone();
                         }
                     }
                 }
@@ -424,11 +438,11 @@ impl crate::traits::Graph for Graph {
                     node.output_port_addresses(),
                     node.external_output_port_addresses(),
                 );
-                outputs.resize(new_output_length, Data::None);
-                outputs.fill(Data::None);
+                self.run_outputs.resize(new_output_length, Data::None);
+                self.run_outputs.fill(Data::None);
 
-                node.process(inputs.as_slice(), &mut outputs)?;
-                inputs.clear();
+                node.process(self.run_inputs.as_slice(), &mut self.run_outputs)?;
+                self.run_inputs.clear();
             }
 
             // these two blocks are split to prevent the `connections_data_map` borrows
@@ -438,20 +452,22 @@ impl crate::traits::Graph for Graph {
                 if let Some(external_output_port_addresses) = node.external_output_port_addresses()
                 {
                     for external_output_port_address in external_output_port_addresses {
-                        let Some(external_output) =
-                            outputs.get(**external_output_port_address.port_id())
+                        let Some(external_output) = self
+                            .run_outputs
+                            .get(**external_output_port_address.port_id())
                         else {
                             continue;
                         };
 
-                        external_outputs_data_map
+                        run_external_outputs_data_map
                             .insert(*external_output_port_address, (*external_output).clone());
                     }
                 }
 
                 if let Some(output_port_addresses) = node.output_port_addresses() {
                     for output_port_address in output_port_addresses {
-                        let Some(output) = outputs.get(**output_port_address.port_id()) else {
+                        let Some(output) = self.run_outputs.get(**output_port_address.port_id())
+                        else {
                             continue;
                         };
 
@@ -459,13 +475,14 @@ impl crate::traits::Graph for Graph {
                             .port_address_to_connection_id_map
                             .get(output_port_address)
                             .unwrap();
-                        connections_data_map.insert(*connection_id, (*output).clone());
+                        self.run_connections_data_map
+                            .insert(*connection_id, (*output).clone());
                     }
                 }
             }
         }
 
-        Ok(GraphRunResult::new(external_outputs_data_map))
+        Ok(GraphRunResult::new(run_external_outputs_data_map))
     }
 }
 
