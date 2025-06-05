@@ -1,4 +1,4 @@
-use core::{cell::RefCell, ops::Deref};
+use core::ops::Deref;
 
 use crate::{
     errors::{GraphAddError, GraphConnectionError, GraphRunError},
@@ -381,8 +381,7 @@ impl crate::traits::Graph for Graph {
         };
 
         let mut outputs: Vec<Data> = Vec::new();
-        let connections_data_map: RefCell<IntMap<ConnectionId, Data>> =
-            RefCell::new(IntMap::default());
+        let mut connections_data_map: IntMap<ConnectionId, Data> = IntMap::default();
         // TODO: figure out a way not to have to own this data
         let mut inputs: Vec<Data> = Vec::new();
         let mut external_outputs_data_map: HashMap<PortAddress, Data> = HashMap::new();
@@ -402,7 +401,6 @@ impl crate::traits::Graph for Graph {
                 );
                 inputs.resize(inputs_length, Data::None);
                 inputs.fill(Data::None);
-                let connections_data_ref = connections_data_map.borrow();
 
                 // assign inputs
                 for port_address in node
@@ -414,7 +412,7 @@ impl crate::traits::Graph for Graph {
                     if let Some(&connection_id) =
                         self.port_address_to_connection_id_map.get(port_address)
                     {
-                        if let Some(data) = connections_data_ref.get(&connection_id) {
+                        if let Some(data) = connections_data_map.get(&connection_id) {
                             // store the &Data into `inputs`; the borrow from .get()
                             // ends at the semicolon here for this iteration
                             inputs[**port_address.port_id()] = data.clone();
@@ -437,8 +435,6 @@ impl crate::traits::Graph for Graph {
             // from extending longer than we'd like--not easy to convince the borrow checker
             // that this is correct
             {
-                let mut connections_data_ref_mut = connections_data_map.borrow_mut();
-
                 if let Some(external_output_port_addresses) = node.external_output_port_addresses()
                 {
                     for external_output_port_address in external_output_port_addresses {
@@ -463,7 +459,7 @@ impl crate::traits::Graph for Graph {
                             .port_address_to_connection_id_map
                             .get(output_port_address)
                             .unwrap();
-                        connections_data_ref_mut.insert(*connection_id, (*output).clone());
+                        connections_data_map.insert(*connection_id, (*output).clone());
                     }
                 }
             }
