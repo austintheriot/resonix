@@ -417,8 +417,6 @@ impl crate::traits::Graph for Graph {
                         self.port_address_to_connection_id_map.get(port_address)
                     {
                         if let Some(data) = self.run_connections_data_map.get(&connection_id) {
-                            // store the &Data into `inputs`; the borrow from .get()
-                            // ends at the semicolon here for this iteration
                             self.run_inputs[**port_address.port_id()] = data.clone();
                         }
                     }
