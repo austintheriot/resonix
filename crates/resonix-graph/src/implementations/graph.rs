@@ -2,9 +2,7 @@ use core::ops::Deref;
 
 use crate::{
     errors::{GraphAddError, GraphConnectionError, GraphRunError},
-    primitives::{
-        Connection, ConnectionId, Data, GraphRunResult, Id, Node, NodeHandle, NodeId, PortAddress,
-    },
+    primitives::{Connection, ConnectionId, Data, Id, Node, NodeHandle, NodeId, PortAddress},
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
 };
@@ -385,18 +383,19 @@ impl crate::traits::Graph for Graph {
         Ok(self)
     }
 
-    fn run(&mut self) -> Result<GraphRunResult, GraphRunError> {
+    fn run(
+        &mut self,
+        _inputs: &HashMap<PortAddress, Data>,
+        outputs: &mut HashMap<PortAddress, Data>,
+    ) -> Result<(), GraphRunError> {
         let visit_order = self.visit_order();
         let Some(visit_order) = visit_order else {
             // only `None` when no nodes have been added to the Graph
-            return Ok(GraphRunResult::new(HashMap::new()));
+            return Ok(());
         };
 
         // must copy to prevent a mutable and immutable reference at the same time
         let visit_order: Vec<Id> = visit_order.to_vec();
-
-        // TODO: pass in this value to prevent an allocation in this function
-        let mut run_external_outputs_data_map: HashMap<PortAddress, Data> = HashMap::new();
 
         // clear any cached values
         self.run_connections_data_map.clear();
@@ -459,8 +458,7 @@ impl crate::traits::Graph for Graph {
                             continue;
                         };
 
-                        run_external_outputs_data_map
-                            .insert(*external_output_port_address, (*external_output).clone());
+                        outputs.insert(*external_output_port_address, (*external_output).clone());
                     }
                 }
 
@@ -482,7 +480,7 @@ impl crate::traits::Graph for Graph {
             }
         }
 
-        Ok(GraphRunResult::new(run_external_outputs_data_map))
+        Ok(())
     }
 }
 
@@ -1341,11 +1339,13 @@ mod graph_tests {
             let output_node = OutputNode::new(&mut graph);
             let output_node = graph.add(output_node).unwrap();
 
-            let result = graph.run().unwrap();
+            let inputs = HashMap::new();
+            let mut outputs = HashMap::new();
+            graph.run(&inputs, &mut outputs).unwrap();
 
             assert_eq!(
-                result.outputs(),
-                &HashMap::from([(output_node.external_output_port_address(), Data::None)])
+                outputs,
+                HashMap::from([(output_node.external_output_port_address(), Data::None)])
             )
         }
 
@@ -1366,11 +1366,13 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let result = graph.run().unwrap();
+            let inputs = HashMap::new();
+            let mut outputs = HashMap::new();
+            graph.run(&inputs, &mut outputs).unwrap();
 
             assert_eq!(
-                result.outputs(),
-                &HashMap::from([(output_node.external_output_port_address(), Data::None)])
+                outputs,
+                HashMap::from([(output_node.external_output_port_address(), Data::None)])
             );
         }
 
@@ -1391,11 +1393,13 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let result = graph.run().unwrap();
+            let inputs = HashMap::new();
+            let mut outputs = HashMap::new();
+            graph.run(&inputs, &mut outputs).unwrap();
 
             assert_eq!(
-                result.outputs(),
-                &HashMap::from([(output_node.external_output_port_address(), Data::I32(5))])
+                outputs,
+                HashMap::from([(output_node.external_output_port_address(), Data::I32(5))])
             );
         }
     }
