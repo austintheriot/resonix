@@ -36,13 +36,13 @@ impl ConstantNode {
         Audio(constant_node)
     }
 
-    fn assign_inputs(&mut self, inputs: &[&Data]) -> Result<(), AudioNodeRunError> {
+    fn assign_inputs(&mut self, inputs: &[Data]) -> Result<(), AudioNodeRunError> {
         if inputs.len() <= **ConstantNodePortDescriptors::SET_CONSTANT_VALUE_PORT_ID {
             return Ok(());
         }
 
         // TODO: return error if port doesn't match?
-        let Some(&new_constant_value) =
+        let Some(new_constant_value) =
             inputs.get(**ConstantNodePortDescriptors::SET_CONSTANT_VALUE_PORT_ID)
         else {
             return Ok(());
@@ -80,7 +80,7 @@ impl GetPriority for ConstantNode {
 }
 
 impl AudioNode for ConstantNode {
-    fn process(&mut self, inputs: &[&Data], outputs: &mut [Data]) -> Result<(), AudioNodeRunError> {
+    fn process(&mut self, inputs: &[Data], outputs: &mut [Data]) -> Result<(), AudioNodeRunError> {
         // TODO: return error if thrown
         self.assign_inputs(inputs)?;
 

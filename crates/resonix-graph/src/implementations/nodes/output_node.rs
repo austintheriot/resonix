@@ -25,13 +25,13 @@ impl OutputNode {
         Audio(output_node)
     }
 
-    fn assign_inputs(&mut self, inputs: &[&Data]) -> Result<(), AudioNodeRunError> {
+    fn assign_inputs(&mut self, inputs: &[Data]) -> Result<(), AudioNodeRunError> {
         // TODO: return error?
         if inputs.len() <= **OutputNodePortDescriptors::INPUT_PORT_ID {
             return Ok(());
         }
 
-        let Some(&new_input_value) = inputs.get(**OutputNodePortDescriptors::INPUT_PORT_ID) else {
+        let Some(new_input_value) = inputs.get(**OutputNodePortDescriptors::INPUT_PORT_ID) else {
             return Ok(());
         };
 
@@ -41,7 +41,7 @@ impl OutputNode {
         }
 
         // TODO: return error if port doesn't match
-        self.input_value = (*new_input_value).clone();
+        self.input_value = new_input_value.clone();
 
         Ok(())
     }
@@ -68,7 +68,7 @@ impl GetPriority for OutputNode {
 }
 
 impl AudioNode for OutputNode {
-    fn process(&mut self, inputs: &[&Data], outputs: &mut [Data]) -> Result<(), AudioNodeRunError> {
+    fn process(&mut self, inputs: &[Data], outputs: &mut [Data]) -> Result<(), AudioNodeRunError> {
         self.assign_inputs(inputs)?;
 
         outputs[**self.external_output_port_address().port_id()] = self.input_value.clone();

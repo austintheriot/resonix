@@ -39,16 +39,16 @@ impl MultiplyNode {
         Audio(multiply_node)
     }
 
-    fn assign_inputs(&mut self, inputs: &[&Data]) -> Result<(), AudioNodeRunError> {
+    fn assign_inputs(&mut self, inputs: &[Data]) -> Result<(), AudioNodeRunError> {
         // TODO: validate inputs
         inputs.iter().enumerate().for_each(|(i, data)| {
             let left_port_index: usize = **self.left_operand_input_address().port_id();
             let right_port_index: usize = **self.right_operand_input_address().port_id();
 
             if i == left_port_index {
-                self.left_operand_value = (**data).clone()
+                self.left_operand_value = (*data).clone()
             } else if i == right_port_index {
-                self.right_operand_value = (**data).clone()
+                self.right_operand_value = (*data).clone()
             }
         });
 
@@ -77,7 +77,7 @@ impl GetPriority for MultiplyNode {
 }
 
 impl AudioNode for MultiplyNode {
-    fn process(&mut self, inputs: &[&Data], outputs: &mut [Data]) -> Result<(), AudioNodeRunError> {
+    fn process(&mut self, inputs: &[Data], outputs: &mut [Data]) -> Result<(), AudioNodeRunError> {
         self.assign_inputs(inputs)?;
 
         let data = match self.left_operand_value {

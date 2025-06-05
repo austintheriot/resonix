@@ -383,6 +383,8 @@ impl crate::traits::Graph for Graph {
         let mut outputs: Vec<Data> = Vec::new();
         let connections_data_map: RefCell<IntMap<ConnectionId, Data>> =
             RefCell::new(IntMap::default());
+        // TODO: figure out a way not to have to own this data
+        let mut inputs: Vec<Data> = Vec::new();
         let mut external_outputs_data_map: HashMap<PortAddress, Data> = HashMap::new();
 
         // must copy to prevent a mutable and immutable reference at the same time
@@ -398,8 +400,8 @@ impl crate::traits::Graph for Graph {
                     node.input_port_addresses(),
                     node.output_port_addresses(),
                 );
-                // TODO: figure out a way not to have to re-initialize this on every node
-                let mut inputs: Vec<&Data> = vec![&Data::None; inputs_length];
+                inputs.resize(inputs_length, Data::None);
+                inputs.fill(Data::None);
                 let connections_data_ref = connections_data_map.borrow();
 
                 // assign inputs
@@ -415,7 +417,7 @@ impl crate::traits::Graph for Graph {
                         if let Some(data) = connections_data_ref.get(&connection_id) {
                             // store the &Data into `inputs`; the borrow from .get()
                             // ends at the semicolon here for this iteration
-                            inputs[**port_address.port_id()] = data;
+                            inputs[**port_address.port_id()] = data.clone();
                         }
                     }
                 }
@@ -427,8 +429,7 @@ impl crate::traits::Graph for Graph {
                 outputs.resize(new_output_length, Data::None);
                 outputs.fill(Data::None);
 
-                // TODO: resize outputs to match expected length OR store statically somewhere?
-                node.process(&inputs, &mut outputs)?;
+                node.process(inputs.as_slice(), &mut outputs)?;
                 inputs.clear();
             }
 
