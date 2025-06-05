@@ -273,10 +273,6 @@ impl Graph {
         neighbor_ids.contains(&id)
     }
 
-    fn visit_order(&self) -> Option<&[Id]> {
-        self.visit_order.as_deref()
-    }
-
     fn calculate_input_output_len(
         ports_a: Option<&[PortAddress]>,
         ports_b: Option<&[PortAddress]>,
@@ -388,14 +384,9 @@ impl crate::traits::Graph for Graph {
         _inputs: &HashMap<PortAddress, Data>,
         outputs: &mut HashMap<PortAddress, Data>,
     ) -> Result<(), GraphRunError> {
-        let visit_order = self.visit_order();
-        let Some(visit_order) = visit_order else {
-            // only `None` when no nodes have been added to the Graph
+        let Some(visit_order) = self.visit_order.as_ref() else {
             return Ok(());
         };
-
-        // must copy to prevent a mutable and immutable reference at the same time
-        let visit_order: Vec<Id> = visit_order.to_vec();
 
         // clear any cached values
         self.run_connections_data_map.clear();
@@ -544,10 +535,8 @@ mod graph_tests {
                 let constant_node_handle_1 = graph.add(constant_node_1).unwrap();
                 let constant_node_handle_2 = graph.add(constant_node_2).unwrap();
 
-                let visit_order = graph.visit_order();
-
                 assert_visit_order_matches_handles(
-                    &visit_order,
+                    &graph.visit_order.as_deref(),
                     &[
                         Box::new(constant_node_handle_1),
                         Box::new(constant_node_handle_2),
@@ -591,10 +580,8 @@ mod graph_tests {
                     )
                     .unwrap();
 
-                let node_run_order = graph.visit_order();
-
                 assert_visit_order_matches_handles(
-                    &node_run_order,
+                    &graph.visit_order.as_deref(),
                     &[Box::new(constant_node), Box::new(multiply_node)],
                 );
             }
@@ -648,10 +635,8 @@ mod graph_tests {
                     )
                     .unwrap();
 
-                let node_run_order = graph.visit_order();
-
                 assert_visit_order_matches_handles(
-                    &node_run_order,
+                    &graph.visit_order.as_deref(),
                     &[
                         Box::new(node_0),
                         Box::new(node_1),
@@ -698,10 +683,8 @@ mod graph_tests {
                     .connect(node_0.output_port_address(), node_4.input_port_address())
                     .unwrap();
 
-                let node_run_order = graph.visit_order();
-
                 assert_visit_order_matches_handles(
-                    &node_run_order,
+                    &graph.visit_order.as_deref(),
                     &[
                         Box::new(node_0),
                         Box::new(node_1),
@@ -742,9 +725,10 @@ mod graph_tests {
                     )
                     .unwrap();
 
-                let node_run_order = graph.visit_order();
-
-                assert_visit_order_matches_handles(&node_run_order, &[Box::new(constant_node_1)]);
+                assert_visit_order_matches_handles(
+                    &graph.visit_order.as_deref(),
+                    &[Box::new(constant_node_1)],
+                );
             }
 
             //           ┌────────────┐
@@ -778,10 +762,8 @@ mod graph_tests {
                     )
                     .unwrap();
 
-                let node_run_order = graph.visit_order();
-
                 assert_visit_order_matches_handles(
-                    &node_run_order,
+                    &graph.visit_order.as_deref(),
                     &[Box::new(constant_node_1), Box::new(constant_node_2)],
                 );
             }
@@ -828,10 +810,8 @@ mod graph_tests {
                     )
                     .unwrap();
 
-                let node_run_order = graph.visit_order();
-
                 assert_visit_order_matches_handles(
-                    &node_run_order,
+                    &graph.visit_order.as_deref(),
                     &[
                         Box::new(constant_node_0),
                         Box::new(constant_node_1),
@@ -871,10 +851,8 @@ mod graph_tests {
                     )
                     .unwrap();
 
-                let node_run_order = graph.visit_order();
-
                 assert_visit_order_matches_handles(
-                    &node_run_order,
+                    &graph.visit_order.as_deref(),
                     &[Box::new(constant_node_0), Box::new(constant_node_1)],
                 );
             }
@@ -918,10 +896,8 @@ mod graph_tests {
                     )
                     .unwrap();
 
-                let node_run_order = graph.visit_order();
-
                 assert_visit_order_matches_handles(
-                    &node_run_order,
+                    &graph.visit_order.as_deref(),
                     &[Box::new(constant_node_0), Box::new(constant_node_1)],
                 );
             }
@@ -973,10 +949,8 @@ mod graph_tests {
                     )
                     .unwrap();
 
-                let node_run_order = graph.visit_order();
-
                 assert_visit_order_matches_handles(
-                    &node_run_order,
+                    &graph.visit_order.as_deref(),
                     &[Box::new(constant_node_0), Box::new(constant_node_1)],
                 );
             }
@@ -1058,10 +1032,8 @@ mod graph_tests {
                     .connect(node_5.output_port_address(), node_6.input_port_address())
                     .unwrap();
 
-                let node_run_order = graph.visit_order();
-
                 assert_visit_order_matches_handles(
-                    &node_run_order,
+                    &graph.visit_order.as_deref(),
                     &[
                         Box::new(node_0),
                         Box::new(node_1),
@@ -1200,10 +1172,8 @@ mod graph_tests {
                     .connect(node_6.output_port_address(), node_7.input_port_address())
                     .unwrap();
 
-                let node_run_order = graph.visit_order();
-
                 assert_visit_order_matches_handles(
-                    &node_run_order,
+                    &graph.visit_order.as_deref(),
                     &[
                         Box::new(node_2),
                         Box::new(node_5),
@@ -1305,10 +1275,9 @@ mod graph_tests {
                         node_2.set_constant_value_port_address(),
                     )
                     .unwrap();
-                let node_run_order = graph.visit_order();
 
                 assert_visit_order_matches_handles(
-                    &node_run_order,
+                    &graph.visit_order.as_deref(),
                     &[
                         Box::new(node_2),
                         Box::new(node_7),
