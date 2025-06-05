@@ -380,10 +380,10 @@ impl crate::traits::Graph for Graph {
             return Ok(GraphRunResult::new(HashMap::new()));
         };
 
+        // TODO: figure out a way not to have to own/clone input data
+        let mut inputs: Vec<Data> = Vec::new();
         let mut outputs: Vec<Data> = Vec::new();
         let mut connections_data_map: IntMap<ConnectionId, Data> = IntMap::default();
-        // TODO: figure out a way not to have to own this data
-        let mut inputs: Vec<Data> = Vec::new();
         let mut external_outputs_data_map: HashMap<PortAddress, Data> = HashMap::new();
 
         // must copy to prevent a mutable and immutable reference at the same time
