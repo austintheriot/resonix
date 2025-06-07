@@ -1,6 +1,7 @@
-use core::f32;
+#[cfg(not(test))]
 use std::{thread::sleep, time::Duration};
 
+#[cfg(not(test))]
 use resonix_audio::SystemAudioOutput;
 
 #[cfg(not(test))]
@@ -11,6 +12,8 @@ type AudioOutput<S> = resonix_audio::MockAudioOutput<S>;
 
 #[cfg(not(test))]
 fn main() {
+    use core::f32;
+
     let mut audio_output = AudioOutput::from_defaults();
 
     let mut sample_clock = 0f32;
@@ -18,7 +21,7 @@ fn main() {
     let mut next_value = move || {
         sample_clock = (sample_clock + 1.0) % sample_rate as f32;
         let octave = 1.0;
-        (sample_clock * 440.0 * octave * 3.141592 / sample_rate as f32).sin()
+        (sample_clock * 440.0 * octave * f32::consts::PI / sample_rate as f32).sin()
     };
 
     for _ in 0..5 {
