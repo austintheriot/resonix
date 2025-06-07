@@ -1,6 +1,9 @@
 use cpal::Sample;
 
-use crate::{Consumer, SystemAudioOutputError};
+#[cfg(feature = "mock")]
+use crate::Consumer;
+
+use crate::SystemAudioOutputError;
 
 pub trait SystemAudioOutput<S: Sample> {
     fn write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError>;

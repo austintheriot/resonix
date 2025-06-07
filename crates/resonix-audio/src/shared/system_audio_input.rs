@@ -1,5 +1,8 @@
 use cpal::Sample;
 
+#[cfg(feature = "mock")]
+use crate::Producer;
+
 use crate::SystemAudioInputError;
 
 pub trait SystemAudioInput<S: Sample> {
