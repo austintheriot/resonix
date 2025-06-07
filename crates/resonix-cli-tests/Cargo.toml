@@ -1,0 +1,8 @@
+[package]
+name = "resonix-cli-tests"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+resonix-audio = { path = "../resonix-audio/", features = ["cpal", "mock"] }
+dasp_sample = "0.11"

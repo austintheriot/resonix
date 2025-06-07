@@ -599,6 +599,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "resonix-cli-tests"
+version = "0.1.0"
+dependencies = [
+ "dasp_sample",
+ "resonix-audio",
+]
+
+[[package]]
 name = "resonix-core"
 version = "0.1.0"
 dependencies = [

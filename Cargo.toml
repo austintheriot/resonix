@@ -1,5 +1,5 @@
 [workspace]
-members = [ "crates/resonix", "crates/resonix-audio",
+members = [ "crates/resonix", "crates/resonix-audio", "crates/resonix-cli-tests",
 	"crates/resonix-core",
 	"crates/resonix-graph",
 	"crates/resonix-gui",

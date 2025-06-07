@@ -1,6 +1,6 @@
 use alloc::boxed::Box;
 use cpal::{
-    Sample, SizedSample, Stream,
+    Sample, SizedSample, Stream, StreamConfig, SupportedOutputConfigs,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use ringbuf::HeapRb;
@@ -13,6 +13,13 @@ pub struct CpalAudioOutput<S: Sample> {
     // must be kept alive so stream doesn't end
     #[allow(dead_code)]
     stream: Stream,
+    config: StreamConfig,
+}
+
+impl<S: Sample> CpalAudioOutput<S> {
+    pub fn config(&self) -> &StreamConfig {
+        &self.config
+    }
 }
 
 impl<S: Sample + SizedSample + Send + 'static> CpalAudioOutput<S> {
@@ -21,8 +28,8 @@ impl<S: Sample + SizedSample + Send + 'static> CpalAudioOutput<S> {
         let device = host
             .default_output_device()
             .expect("failed to find a default output device");
-        let config = device.default_output_config().unwrap();
-        let channels = config.channels() as usize;
+        let supported_config = device.default_output_config().unwrap();
+        let channels = supported_config.channels() as usize;
 
         let ring_buffer_capacity = 65536;
         let buffer = HeapRb::new(ring_buffer_capacity);
@@ -37,7 +44,7 @@ impl<S: Sample + SizedSample + Send + 'static> CpalAudioOutput<S> {
 
         let stream = device
             .build_output_stream(
-                &config.config(),
+                &supported_config.config(),
                 move |data: &mut [S], _| write_data(data, channels, &mut next_value),
                 err_fn,
                 None,
@@ -48,6 +55,7 @@ impl<S: Sample + SizedSample + Send + 'static> CpalAudioOutput<S> {
 
         Self {
             stream,
+            config: supported_config.config(),
             producer: Producer(producer),
         }
     }
