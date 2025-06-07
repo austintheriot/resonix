@@ -15,6 +15,12 @@ pub struct MockAudioOutput<S: Sample> {
 
 impl<S: Sample> MockAudioOutput<S> {
     pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl<S: Sample> Default for MockAudioOutput<S> {
+    fn default() -> Self {
         let buffer = HeapRb::new(1024);
         let (producer, consumer) = buffer.split();
         Self {

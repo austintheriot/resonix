@@ -13,14 +13,20 @@ pub struct MockAudioInput<S: Sample> {
     producer: Option<<SharedRb<Heap<S>> as Split>::Prod>,
 }
 
-impl<S: Sample> MockAudioInput<S> {
-    pub fn new() -> Self {
+impl<S: Sample> Default for MockAudioInput<S> {
+    fn default() -> Self {
         let buffer = HeapRb::new(1024);
         let (producer, consumer) = buffer.split();
         Self {
             consumer,
             producer: Some(producer),
         }
+    }
+}
+
+impl<S: Sample> MockAudioInput<S> {
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 
