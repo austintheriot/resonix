@@ -6,11 +6,11 @@ use ringbuf::{
     traits::{Consumer, Split},
 };
 
-use crate::{MockAudioInputError, SystemAudioInput, SystemAudioInputError};
+use crate::{MockAudioInputError, Producer, SystemAudioInput, SystemAudioInputError};
 
 pub struct MockAudioInput<S: Sample> {
     consumer: <SharedRb<Heap<S>> as Split>::Cons,
-    producer: Option<<SharedRb<Heap<S>> as Split>::Prod>,
+    producer: Option<Producer<S>>,
 }
 
 impl<S: Sample> Default for MockAudioInput<S> {
@@ -19,7 +19,7 @@ impl<S: Sample> Default for MockAudioInput<S> {
         let (producer, consumer) = buffer.split();
         Self {
             consumer,
-            producer: Some(producer),
+            producer: Some(Producer(producer)),
         }
     }
 }
@@ -39,7 +39,7 @@ impl<S: Sample> SystemAudioInput<S> for MockAudioInput<S> {
         Ok(sample)
     }
 
-    fn producer(&mut self) -> Option<<SharedRb<Heap<S>> as Split>::Prod> {
+    fn producer(&mut self) -> Option<Producer<S>> {
         self.producer.take()
     }
 }

@@ -1,28 +1,30 @@
 use alloc::boxed::Box;
 use cpal::Sample;
-use ringbuf::{
-    HeapRb, SharedRb,
-    storage::Heap,
-    traits::{Consumer, Split},
-};
+use ringbuf::{HeapRb, SharedRb, storage::Heap, traits::Split};
 
-use crate::{CpalAudioInputError, SystemAudioInput, SystemAudioInputError};
+use crate::{Consumer, CpalAudioInputError, Producer, SystemAudioInput, SystemAudioInputError};
 
 pub struct CpalAudioInput<S: Sample> {
-    consumer: <SharedRb<Heap<S>> as Split>::Cons,
+    consumer: Consumer<S>,
+    // TODO: will use to receive data from cpal
+    #[allow(dead_code)]
+    producer: Option<Producer<S>>,
 }
 
 impl<S: Sample> CpalAudioInput<S> {
-    pub fn new() -> (Self, <SharedRb<Heap<S>> as Split>::Prod) {
+    pub fn new() -> Self {
         let buffer = HeapRb::new(1024);
         let (producer, consumer) = buffer.split();
-        (Self { consumer }, producer)
+        Self {
+            consumer: Consumer(consumer),
+            producer: Some(Producer(producer)),
+        }
     }
 }
 
 impl<S: Sample> SystemAudioInput<S> for CpalAudioInput<S> {
     fn read_sample(&mut self) -> Result<S, SystemAudioInputError> {
-        let sample = self.consumer.try_pop().ok_or_else(|| {
+        let sample = self.consumer.read().map_err(|_| {
             SystemAudioInputError::ReadError(Box::new(CpalAudioInputError::ReadError))
         })?;
 
@@ -30,7 +32,7 @@ impl<S: Sample> SystemAudioInput<S> for CpalAudioInput<S> {
     }
 
     #[cfg(feature = "mock")]
-    fn producer(&mut self) -> Option<<SharedRb<Heap<S>> as Split>::Prod> {
+    fn producer(&mut self) -> Option<Producer<S>> {
         // only used in Mock implementation
         None
     }

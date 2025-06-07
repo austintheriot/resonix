@@ -1,8 +1,12 @@
+mod consumer;
+mod producer;
 mod system_audio_input;
 mod system_audio_input_error;
 mod system_audio_output;
 mod system_audio_output_error;
 
+pub use consumer::*;
+pub use producer::*;
 pub use system_audio_input::*;
 pub use system_audio_input_error::*;
 pub use system_audio_output::*;

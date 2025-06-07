@@ -1,11 +1,13 @@
 use alloc::boxed::Box;
 use cpal::Sample;
-use ringbuf::{HeapRb, traits::Producer};
 
-use crate::{CpalAudioOutputError, SystemAudioOutput, SystemAudioOutputError};
+use crate::{Consumer, CpalAudioOutputError, Producer, SystemAudioOutput, SystemAudioOutputError};
 
 pub struct CpalAudioOutput<S: Sample> {
-    buffer: HeapRb<S>,
+    producer: Producer<S>,
+    // TODO: will use to send data to cpal
+    #[allow(dead_code)]
+    consumer: Option<Consumer<S>>,
 }
 
 impl<S: Sample> CpalAudioOutput<S> {}
@@ -15,7 +17,7 @@ where
     S: Sample,
 {
     fn write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError> {
-        self.buffer.try_push(sample).map_err(|_sample| {
+        self.producer.write(sample).map_err(|_sample| {
             SystemAudioOutputError::WriteError(Box::new(CpalAudioOutputError::WriteError))
         })?;
 
@@ -23,10 +25,7 @@ where
     }
 
     #[cfg(feature = "mock")]
-    fn consumer(
-        &mut self,
-    ) -> Option<<ringbuf::SharedRb<ringbuf::storage::Heap<S>> as ringbuf::traits::Split>::Cons>
-    {
+    fn consumer(&mut self) -> Option<Consumer<S>> {
         // only used in Mock implementation
         None
     }
