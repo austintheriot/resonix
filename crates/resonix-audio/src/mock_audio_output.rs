@@ -6,13 +6,13 @@ use ringbuf::{
     traits::{Producer, Split},
 };
 
-use crate::{SystemAudioOutput, SystemAudioOutputError, TestAudioOutputError};
+use crate::{MockAudioOutputError, SystemAudioOutput, SystemAudioOutputError};
 
-pub struct TestAudioOutput<S: Sample> {
+pub struct MockAudioOutput<S: Sample> {
     producer: <SharedRb<Heap<S>> as Split>::Prod,
 }
 
-impl<S: Sample> TestAudioOutput<S> {
+impl<S: Sample> MockAudioOutput<S> {
     pub fn new() -> (Self, <SharedRb<Heap<S>> as Split>::Cons) {
         let buffer = HeapRb::new(1024);
         let (producer, consumer) = buffer.split();
@@ -20,10 +20,10 @@ impl<S: Sample> TestAudioOutput<S> {
     }
 }
 
-impl<S: Sample> SystemAudioOutput<S> for TestAudioOutput<S> {
+impl<S: Sample> SystemAudioOutput<S> for MockAudioOutput<S> {
     fn write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError> {
         self.producer.try_push(sample).map_err(|_sample| {
-            SystemAudioOutputError::WriteError(Box::new(TestAudioOutputError::WriteError))
+            SystemAudioOutputError::WriteError(Box::new(MockAudioOutputError::WriteError))
         })?;
 
         Ok(())

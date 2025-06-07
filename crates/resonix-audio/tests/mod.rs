@@ -1,12 +1,12 @@
-#[cfg(all(test, feature = "test"))]
+#[cfg(all(test, feature = "mock"))]
 mod test_audio_output {
     use cpal::Sample;
-    use resonix_audio::{SystemAudioOutput, TestAudioOutput};
+    use resonix_audio::{SystemAudioOutput, MockAudioOutput};
     use ringbuf::traits::consumer::Consumer;
 
     #[test]
     fn test_receives_audio() {
-        let (mut audio_output, mut consumer) = TestAudioOutput::<f32>::new();
+        let (mut audio_output, mut consumer) = MockAudioOutput::<f32>::new();
 
         audio_output
             .write_sample(Sample::from_sample(0.123))

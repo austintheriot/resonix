@@ -5,7 +5,7 @@ edition = "2024"
 
 [features]
 cpal = []
-test = []
+mock = []
 
 [dependencies]
 cpal = "0.15.3"
