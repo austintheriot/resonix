@@ -1,6 +1,5 @@
 use alloc::boxed::Box;
 use cpal::Sample;
-use ringbuf::{HeapRb, traits::Split};
 
 use crate::{Consumer, CpalAudioInputError, Producer, SystemAudioInput, SystemAudioInputError};
 
@@ -11,16 +10,7 @@ pub struct CpalAudioInput<S: Sample> {
     producer: Option<Producer<S>>,
 }
 
-impl<S: Sample> CpalAudioInput<S> {
-    pub fn new() -> Self {
-        let buffer = HeapRb::new(1024);
-        let (producer, consumer) = buffer.split();
-        Self {
-            consumer: Consumer(consumer),
-            producer: Some(Producer(producer)),
-        }
-    }
-}
+impl<S: Sample> CpalAudioInput<S> {}
 
 impl<S: Sample> SystemAudioInput<S> for CpalAudioInput<S> {
     fn read_sample(&mut self) -> Result<S, SystemAudioInputError> {
