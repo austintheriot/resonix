@@ -2,12 +2,14 @@
 
 extern crate alloc;
 
-mod cpal;
-mod mock;
+mod cpal_impl;
+mod mock_impl;
 mod shared;
 
 #[cfg(feature = "cpal")]
-pub use cpal::*;
+pub use cpal::{Sample, SizedSample};
+#[cfg(feature = "cpal")]
+pub use cpal_impl::*;
 #[cfg(feature = "mock")]
-pub use mock::*;
+pub use mock_impl::*;
 pub use shared::*;

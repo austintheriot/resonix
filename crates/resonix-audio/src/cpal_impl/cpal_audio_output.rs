@@ -31,7 +31,9 @@ impl<S: Sample + SizedSample + Send + 'static> CpalAudioOutput<S> {
         let supported_config = device.default_output_config().unwrap();
         let channels = supported_config.channels() as usize;
 
-        let ring_buffer_capacity = 65536;
+        // TODO: consider a more thought-out buffer size
+        // --for now keep a 1-second audio buffer
+        let ring_buffer_capacity = supported_config.sample_rate().0 as usize;
         let buffer = HeapRb::new(ring_buffer_capacity);
 
         // setup ringbuffer to relay messages to the audio thread
