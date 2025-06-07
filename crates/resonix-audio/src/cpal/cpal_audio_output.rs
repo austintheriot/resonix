@@ -1,16 +1,68 @@
 use alloc::boxed::Box;
-use cpal::Sample;
+use cpal::{
+    Sample, SizedSample, Stream,
+    traits::{DeviceTrait, HostTrait, StreamTrait},
+};
+use ringbuf::HeapRb;
+use ringbuf::traits::Split;
 
 use crate::{Consumer, CpalAudioOutputError, Producer, SystemAudioOutput, SystemAudioOutputError};
 
 pub struct CpalAudioOutput<S: Sample> {
     producer: Producer<S>,
-    // TODO: will use to send data to cpal
+    // must be kept alive so stream doesn't end
     #[allow(dead_code)]
-    consumer: Option<Consumer<S>>,
+    stream: Stream,
 }
 
-impl<S: Sample> CpalAudioOutput<S> {}
+impl<S: Sample + SizedSample + Send + 'static> CpalAudioOutput<S> {
+    pub fn from_defaults() -> Self {
+        let host = cpal::default_host();
+        let device = host
+            .default_output_device()
+            .expect("failed to find a default output device");
+        let config = device.default_output_config().unwrap();
+        let channels = config.channels() as usize;
+
+        let ring_buffer_capacity = 65536;
+        let buffer = HeapRb::new(ring_buffer_capacity);
+
+        // setup ringbuffer to relay messages to the audio thread
+        let (producer, consumer) = buffer.split();
+        let mut consumer = Consumer::<S>(consumer);
+
+        // just output whatever is read from the ring buffer
+        let mut next_value = move || consumer.read().unwrap();
+        let err_fn = |_err| unimplemented!();
+
+        let stream = device
+            .build_output_stream(
+                &config.config(),
+                move |data: &mut [S], _| write_data(data, channels, &mut next_value),
+                err_fn,
+                None,
+            )
+            .unwrap();
+
+        stream.play().unwrap();
+
+        Self {
+            stream,
+            producer: Producer(producer),
+        }
+    }
+}
+
+fn write_data<S>(output: &mut [S], channels: usize, next_sample: &mut dyn FnMut() -> S)
+where
+    S: cpal::Sample,
+{
+    for frame in output.chunks_mut(channels) {
+        for sample in frame.iter_mut() {
+            *sample = next_sample();
+        }
+    }
+}
 
 impl<S> SystemAudioOutput<S> for CpalAudioOutput<S>
 where
