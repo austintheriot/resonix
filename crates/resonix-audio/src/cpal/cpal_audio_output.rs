@@ -1,6 +1,6 @@
 use alloc::boxed::Box;
 use cpal::{
-    Sample, SizedSample, Stream, StreamConfig, SupportedOutputConfigs,
+    Sample, SizedSample, Stream, StreamConfig,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 use ringbuf::HeapRb;
