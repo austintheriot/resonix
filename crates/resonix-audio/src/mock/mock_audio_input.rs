@@ -10,13 +10,17 @@ use crate::{MockAudioInputError, SystemAudioInput, SystemAudioInputError};
 
 pub struct MockAudioInput<S: Sample> {
     consumer: <SharedRb<Heap<S>> as Split>::Cons,
+    producer: Option<<SharedRb<Heap<S>> as Split>::Prod>,
 }
 
 impl<S: Sample> MockAudioInput<S> {
-    pub fn new() -> (Self, <SharedRb<Heap<S>> as Split>::Prod) {
+    pub fn new() -> Self {
         let buffer = HeapRb::new(1024);
         let (producer, consumer) = buffer.split();
-        (Self { consumer }, producer)
+        Self {
+            consumer,
+            producer: Some(producer),
+        }
     }
 }
 
@@ -27,5 +31,9 @@ impl<S: Sample> SystemAudioInput<S> for MockAudioInput<S> {
         })?;
 
         Ok(sample)
+    }
+
+    fn producer(&mut self) -> Option<<SharedRb<Heap<S>> as Split>::Prod> {
+        self.producer.take()
     }
 }

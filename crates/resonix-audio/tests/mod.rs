@@ -8,13 +8,13 @@ mod test_audio_output {
 
         #[test]
         fn send_audio() {
-            let (mut audio_output, mut consumer) = MockAudioOutput::<f32>::new();
+            let mut audio_output = MockAudioOutput::<f32>::new();
 
             audio_output
                 .write_sample(Sample::from_sample(0.123))
                 .unwrap();
 
-            let value = consumer.try_pop();
+            let value = audio_output.consumer().unwrap().try_pop();
             assert_eq!(value, Some(0.123))
         }
     }
@@ -26,9 +26,13 @@ mod test_audio_output {
 
         #[test]
         fn receive_audio() {
-            let (mut audio_input, mut producer) = MockAudioInput::<f32>::new();
+            let mut audio_input = MockAudioInput::<f32>::new();
 
-            producer.try_push(Sample::from_sample(0.123)).unwrap();
+            audio_input
+                .producer()
+                .unwrap()
+                .try_push(Sample::from_sample(0.123))
+                .unwrap();
 
             let value = audio_input.read_sample().unwrap();
 

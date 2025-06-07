@@ -28,4 +28,10 @@ impl<S: Sample> SystemAudioInput<S> for CpalAudioInput<S> {
 
         Ok(sample)
     }
+
+    #[cfg(feature = "mock")]
+    fn producer(&mut self) -> Option<<SharedRb<Heap<S>> as Split>::Prod> {
+        // only used in Mock implementation
+        None
+    }
 }

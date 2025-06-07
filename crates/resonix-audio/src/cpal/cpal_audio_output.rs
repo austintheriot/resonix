@@ -21,4 +21,13 @@ where
 
         Ok(())
     }
+
+    #[cfg(feature = "mock")]
+    fn consumer(
+        &mut self,
+    ) -> Option<<ringbuf::SharedRb<ringbuf::storage::Heap<S>> as ringbuf::traits::Split>::Cons>
+    {
+        // only used in Mock implementation
+        None
+    }
 }
