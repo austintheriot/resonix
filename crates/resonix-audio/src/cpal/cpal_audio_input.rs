@@ -1,6 +1,6 @@
 use alloc::boxed::Box;
 use cpal::Sample;
-use ringbuf::{HeapRb, SharedRb, storage::Heap, traits::Split};
+use ringbuf::{HeapRb, traits::Split};
 
 use crate::{Consumer, CpalAudioInputError, Producer, SystemAudioInput, SystemAudioInputError};
 
