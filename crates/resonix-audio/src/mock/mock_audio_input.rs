@@ -1,0 +1,31 @@
+use alloc::boxed::Box;
+use cpal::Sample;
+use ringbuf::{
+    HeapRb, SharedRb,
+    storage::Heap,
+    traits::{Consumer, Split},
+};
+
+use crate::{MockAudioInputError, SystemAudioInput, SystemAudioInputError};
+
+pub struct MockAudioInput<S: Sample> {
+    consumer: <SharedRb<Heap<S>> as Split>::Cons,
+}
+
+impl<S: Sample> MockAudioInput<S> {
+    pub fn new() -> (Self, <SharedRb<Heap<S>> as Split>::Prod) {
+        let buffer = HeapRb::new(1024);
+        let (producer, consumer) = buffer.split();
+        (Self { consumer }, producer)
+    }
+}
+
+impl<S: Sample> SystemAudioInput<S> for MockAudioInput<S> {
+    fn read_sample(&mut self) -> Result<S, SystemAudioInputError> {
+        let sample = self.consumer.try_pop().ok_or_else(|| {
+            SystemAudioInputError::ReadError(Box::new(MockAudioInputError::ReadError))
+        })?;
+
+        Ok(sample)
+    }
+}
