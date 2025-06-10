@@ -1,4 +1,3 @@
-
 use resonix_audio::{CpalAudioOutput, SystemAudioOutput};
 
 fn main() {
