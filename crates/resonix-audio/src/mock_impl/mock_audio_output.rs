@@ -1,15 +1,14 @@
 use alloc::boxed::Box;
 use cpal::Sample;
 use ringbuf::{
-    HeapRb, SharedRb,
-    storage::Heap,
-    traits::{Producer, Split},
+    HeapRb,
+    traits::{Observer, Producer as RingBufProducer, Split},
 };
 
-use crate::{Consumer, MockAudioOutputError, SystemAudioOutput, SystemAudioOutputError};
+use crate::{Consumer, MockAudioOutputError, Producer, SystemAudioOutput, SystemAudioOutputError};
 
 pub struct MockAudioOutput<S: Sample> {
-    producer: <SharedRb<Heap<S>> as Split>::Prod,
+    producer: Producer<S>,
     consumer: Option<Consumer<S>>,
 }
 
@@ -24,7 +23,7 @@ impl<S: Sample> Default for MockAudioOutput<S> {
         let buffer = HeapRb::new(1024);
         let (producer, consumer) = buffer.split();
         Self {
-            producer,
+            producer: Producer(producer),
             consumer: Some(Consumer(consumer)),
         }
     }
@@ -41,5 +40,9 @@ impl<S: Sample> SystemAudioOutput<S> for MockAudioOutput<S> {
 
     fn consumer(&mut self) -> Option<Consumer<S>> {
         self.consumer.take()
+    }
+
+    fn ready_for_sample(&self) -> bool {
+        !self.producer.is_full()
     }
 }

@@ -1,4 +1,3 @@
-use std::{thread::sleep, time::Duration};
 
 use resonix_audio::{CpalAudioOutput, SystemAudioOutput};
 
@@ -17,9 +16,9 @@ fn main() {
 
     // just fill the buffer on every loop
     loop {
-        let audio_frame_time = Duration::from_millis(16);
-        while audio_output.write_sample(next_value()).is_ok() {}
-        sleep(audio_frame_time);
+        while audio_output.ready_for_sample() {
+            audio_output.write_sample(next_value()).unwrap();
+        }
     }
 }
 

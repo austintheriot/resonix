@@ -1,3 +1,5 @@
+use core::ops::{Deref, DerefMut};
+
 use cpal::Sample;
 
 use ringbuf::{
@@ -20,5 +22,19 @@ impl<S: Sample> Producer<S> {
         self.0
             .try_push(sample)
             .map_err(|_| ProducerError::WriteFailure)
+    }
+}
+
+impl<S: Sample> Deref for Producer<S> {
+    type Target = <SharedRb<Heap<S>> as Split>::Prod;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<S: Sample> DerefMut for Producer<S> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }

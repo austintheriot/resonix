@@ -3,8 +3,8 @@ use cpal::{
     Sample, SizedSample, Stream, StreamConfig,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
-use ringbuf::HeapRb;
 use ringbuf::traits::Split;
+use ringbuf::{HeapRb, traits::Observer};
 
 use crate::{Consumer, CpalAudioOutputError, Producer, SystemAudioOutput, SystemAudioOutputError};
 
@@ -14,11 +14,16 @@ pub struct CpalAudioOutput<S: Sample> {
     #[allow(dead_code)]
     stream: Stream,
     config: StreamConfig,
+    ring_buffer_capacity: usize,
 }
 
 impl<S: Sample> CpalAudioOutput<S> {
     pub fn config(&self) -> &StreamConfig {
         &self.config
+    }
+
+    pub fn ring_buffer_capacity(&self) -> usize {
+        self.ring_buffer_capacity
     }
 }
 
@@ -31,9 +36,9 @@ impl<S: Sample + SizedSample + Send + 'static> CpalAudioOutput<S> {
         let supported_config = device.default_output_config().unwrap();
         let channels = supported_config.channels() as usize;
 
-        // TODO: consider a more thought-out buffer size
-        // --for now keep a 1-second audio buffer
-        let ring_buffer_capacity = supported_config.sample_rate().0 as usize;
+        // ~2.67ms of latency at 48kHz = ~128 samples--good enough for most needs
+        let ring_buffer_capacity = supported_config.sample_rate().0 as f32 * 0.00267;
+        let ring_buffer_capacity = ring_buffer_capacity.round() as usize;
         let buffer = HeapRb::new(ring_buffer_capacity);
 
         // setup ringbuffer to relay messages to the audio thread
@@ -59,6 +64,7 @@ impl<S: Sample + SizedSample + Send + 'static> CpalAudioOutput<S> {
             stream,
             config: supported_config.config(),
             producer: Producer(producer),
+            ring_buffer_capacity,
         }
     }
 }
@@ -90,5 +96,9 @@ where
     fn consumer(&mut self) -> Option<Consumer<S>> {
         // only used in Mock implementation
         None
+    }
+
+    fn ready_for_sample(&self) -> bool {
+        !self.producer.is_full()
     }
 }
