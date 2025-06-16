@@ -2,7 +2,9 @@ use core::ops::Deref;
 
 use crate::{
     errors::{GraphAddError, GraphConnectionError, GraphRunError},
-    primitives::{Connection, ConnectionId, Data, Id, Node, NodeHandle, NodeId, PortAddress},
+    primitives::{
+        Connection, ConnectionId, Data, DataBlock, Id, Node, NodeHandle, NodeId, PortAddress,
+    },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
 };
@@ -45,13 +47,7 @@ pub struct Graph {
     port_address_to_connection_id_map: HashMap<PortAddress, ConnectionId>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: IntSet<NodeId>,
-
-    // cached values to prevent allocations in the `run` loop
-    // TODO: figure out a way not to have to own/clone input data--would
-    // be great to hold `Vec<&Data>` and not clone within the `run` function
-    run_inputs: Vec<Data>,
-    run_outputs: Vec<Data>,
-    run_connections_data_map: IntMap<ConnectionId, Data>,
+    run_buffers: IntMap<ConnectionId, DataBlock>,
 }
 
 impl Graph {
@@ -68,10 +64,7 @@ impl Graph {
             leaf_nodes: IntSet::default(),
             petgraph_index_to_id_map: HashMap::new(),
             port_address_to_connection_id_map: HashMap::new(),
-
-            run_inputs: Vec::new(),
-            run_outputs: Vec::new(),
-            run_connections_data_map: IntMap::default(),
+            run_buffers: IntMap::default(),
         }
     }
 
@@ -387,11 +380,6 @@ impl crate::traits::Graph for Graph {
         let Some(visit_order) = self.visit_order.as_ref() else {
             return Ok(());
         };
-
-        // clear any cached values
-        self.run_connections_data_map.clear();
-        self.run_inputs.clear();
-        self.run_outputs.clear();
 
         for id in visit_order.iter() {
             let Some(GraphItem::Node(Node::AudioNode(node))) = self.graph_items.get_mut(id) else {

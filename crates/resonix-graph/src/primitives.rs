@@ -1,6 +1,7 @@
 mod connection;
 mod connection_id;
 mod data;
+mod data_block;
 mod id;
 mod node;
 mod node_handle;
@@ -14,6 +15,7 @@ mod priority;
 pub use connection::*;
 pub use connection_id::*;
 pub use data::*;
+pub use data_block::*;
 pub use id::*;
 pub use node::*;
 pub use node_handle::*;
