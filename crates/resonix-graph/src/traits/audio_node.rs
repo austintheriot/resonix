@@ -1,11 +1,15 @@
 use core::ops::Deref;
 
-use crate::{errors::AudioNodeRunError, primitives::Data, traits::GetNodeId};
+use crate::{errors::AudioNodeRunError, primitives::Sample, traits::GetNodeId};
 
 use super::{DescribePorts, GetPriority};
 
 pub trait AudioNode: GetNodeId + GetPriority + DescribePorts {
-    fn process(&mut self, inputs: &[Data], outputs: &mut [Data]) -> Result<(), AudioNodeRunError>;
+    fn process(
+        &mut self,
+        inputs: &[Sample],
+        outputs: &mut [Sample],
+    ) -> Result<(), AudioNodeRunError>;
 }
 
 // newtype wrapper due to Rust limitation: https://github.com/rust-lang/rust/issues/20400

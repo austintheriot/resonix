@@ -10,6 +10,7 @@ mod port_address_direction;
 mod port_address_with_direction;
 mod port_id;
 mod priority;
+mod sample;
 
 pub use connection::*;
 pub use connection_id::*;
@@ -22,3 +23,4 @@ pub use port_address::*;
 pub use port_address_direction::*;
 pub use port_id::*;
 pub use priority::*;
+pub use sample::*;

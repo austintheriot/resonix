@@ -2,7 +2,9 @@ use core::ops::Deref;
 
 use crate::{
     errors::{GraphAddError, GraphConnectionError, GraphRunError},
-    primitives::{Connection, ConnectionId, Data, Id, Node, NodeHandle, NodeId, PortAddress},
+    primitives::{
+        Connection, ConnectionId, Data, Id, Node, NodeHandle, NodeId, PortAddress, Sample,
+    },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
 };
@@ -49,9 +51,9 @@ pub struct Graph {
     // cached values to prevent allocations in the `run` loop
     // TODO: figure out a way not to have to own/clone input data--would
     // be great to hold `Vec<&Data>` and not clone within the `run` function
-    run_inputs: Vec<Data>,
-    run_outputs: Vec<Data>,
-    run_connections_data_map: IntMap<ConnectionId, Data>,
+    run_inputs: Vec<Sample>,
+    run_outputs: Vec<Sample>,
+    run_connections_sample_map: IntMap<ConnectionId, Sample>,
 }
 
 impl Graph {
@@ -71,7 +73,7 @@ impl Graph {
 
             run_inputs: Vec::new(),
             run_outputs: Vec::new(),
-            run_connections_data_map: IntMap::default(),
+            run_connections_sample_map: IntMap::default(),
         }
     }
 
@@ -381,15 +383,15 @@ impl crate::traits::Graph for Graph {
 
     fn run(
         &mut self,
-        _inputs: &HashMap<PortAddress, Data>,
-        outputs: &mut HashMap<PortAddress, Data>,
+        _inputs: &HashMap<PortAddress, Sample>,
+        outputs: &mut HashMap<PortAddress, Sample>,
     ) -> Result<(), GraphRunError> {
         let Some(visit_order) = self.visit_order.as_ref() else {
             return Ok(());
         };
 
         // clear any cached values
-        self.run_connections_data_map.clear();
+        self.run_connections_sample_map.clear();
         self.run_inputs.clear();
         self.run_outputs.clear();
 
@@ -403,8 +405,8 @@ impl crate::traits::Graph for Graph {
                     node.input_port_addresses(),
                     node.output_port_addresses(),
                 );
-                self.run_inputs.resize(inputs_length, Data::None);
-                self.run_inputs.fill(Data::None);
+                self.run_inputs.resize(inputs_length, Sample::default());
+                self.run_inputs.fill(Sample::default());
 
                 // assign inputs
                 for port_address in node
@@ -416,8 +418,8 @@ impl crate::traits::Graph for Graph {
                     if let Some(&connection_id) =
                         self.port_address_to_connection_id_map.get(port_address)
                     {
-                        if let Some(data) = self.run_connections_data_map.get(&connection_id) {
-                            self.run_inputs[**port_address.port_id()] = data.clone();
+                        if let Some(sample) = self.run_connections_sample_map.get(&connection_id) {
+                            self.run_inputs[**port_address.port_id()] = sample.clone();
                         }
                     }
                 }
@@ -426,8 +428,9 @@ impl crate::traits::Graph for Graph {
                     node.output_port_addresses(),
                     node.external_output_port_addresses(),
                 );
-                self.run_outputs.resize(new_output_length, Data::None);
-                self.run_outputs.fill(Data::None);
+                self.run_outputs
+                    .resize(new_output_length, Sample::default());
+                self.run_outputs.fill(Sample::default());
 
                 node.process(self.run_inputs.as_slice(), &mut self.run_outputs)?;
                 self.run_inputs.clear();
@@ -462,7 +465,7 @@ impl crate::traits::Graph for Graph {
                             .port_address_to_connection_id_map
                             .get(output_port_address)
                             .unwrap();
-                        self.run_connections_data_map
+                        self.run_connections_sample_map
                             .insert(*connection_id, (*output).clone());
                     }
                 }

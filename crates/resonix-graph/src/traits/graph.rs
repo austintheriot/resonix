@@ -5,11 +5,11 @@ use hashbrown::HashMap;
 use crate::errors::GraphAddError;
 use crate::errors::GraphConnectionError;
 use crate::errors::GraphRunError;
-use crate::primitives::Data;
 use crate::primitives::Node;
 use crate::primitives::NodeHandle;
 use crate::primitives::PortAddress;
 
+use crate::primitives::Sample;
 use crate::traits::{DescribePorts, GetPortDescriptors};
 
 pub trait Graph {
@@ -28,7 +28,7 @@ pub trait Graph {
 
     fn run(
         &mut self,
-        inputs: &HashMap<PortAddress, Data>,
-        outputs: &mut HashMap<PortAddress, Data>,
+        inputs: &HashMap<PortAddress, Sample>,
+        outputs: &mut HashMap<PortAddress, Sample>,
     ) -> Result<(), GraphRunError>;
 }
