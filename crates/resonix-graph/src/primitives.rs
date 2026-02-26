@@ -1,3 +1,4 @@
+mod buffer_id;
 mod connection;
 mod connection_id;
 mod data;
@@ -12,6 +13,7 @@ mod port_id;
 mod priority;
 mod sample;
 
+pub use buffer_id::*;
 pub use connection::*;
 pub use connection_id::*;
 pub use data::*;
