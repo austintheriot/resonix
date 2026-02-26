@@ -8,7 +8,6 @@ use crate::{
     },
 };
 
-
 pub struct ConstantNode {
     node_id: NodeId,
     constant_value: Option<Sample>,

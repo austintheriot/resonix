@@ -24,7 +24,6 @@ impl OutputNode {
         };
         Audio(output_node)
     }
-
 }
 
 impl GetPortDescriptors<OutputNodePortDescriptors> for OutputNode {

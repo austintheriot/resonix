@@ -38,7 +38,6 @@ impl MultiplyNode {
         };
         Audio(multiply_node)
     }
-
 }
 
 impl GetPortDescriptors<MultiplyNodePortDescriptors> for MultiplyNode {
@@ -80,8 +79,14 @@ impl AudioNode for MultiplyNode {
         let output_block = &mut outputs[output_port_id];
 
         for (i, out) in output_block.iter_mut().enumerate() {
-            let l = left_block.get(i).copied().unwrap_or(self.left_operand_value);
-            let r = right_block.get(i).copied().unwrap_or(self.right_operand_value);
+            let l = left_block
+                .get(i)
+                .copied()
+                .unwrap_or(self.left_operand_value);
+            let r = right_block
+                .get(i)
+                .copied()
+                .unwrap_or(self.right_operand_value);
             *out = Sample::new(*l * *r);
         }
 

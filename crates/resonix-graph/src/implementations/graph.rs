@@ -2,9 +2,7 @@ use core::ops::Deref;
 
 use crate::{
     errors::{GraphAddError, GraphConnectionError, GraphRunError},
-    primitives::{
-        Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress, Sample,
-    },
+    primitives::{Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress, Sample},
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
 };
@@ -426,11 +424,9 @@ impl crate::traits::Graph for Graph {
                     if let Some(&connection_id) =
                         self.port_address_to_connection_id_map.get(port_address)
                     {
-                        if let Some(src_block) =
-                            self.run_connections_sample_map.get(&connection_id)
+                        if let Some(src_block) = self.run_connections_sample_map.get(&connection_id)
                         {
-                            self.run_inputs[**port_address.port_id()]
-                                .copy_from_slice(src_block);
+                            self.run_inputs[**port_address.port_id()].copy_from_slice(src_block);
                         }
                     }
                 }
@@ -447,8 +443,11 @@ impl crate::traits::Graph for Graph {
 
                 let inputs_refs: Vec<&[Sample]> =
                     self.run_inputs.iter().map(|v| v.as_slice()).collect();
-                let mut outputs_refs: Vec<&mut [Sample]> =
-                    self.run_outputs.iter_mut().map(|v| v.as_mut_slice()).collect();
+                let mut outputs_refs: Vec<&mut [Sample]> = self
+                    .run_outputs
+                    .iter_mut()
+                    .map(|v| v.as_mut_slice())
+                    .collect();
 
                 node.process(&inputs_refs, &mut outputs_refs)?;
             }
