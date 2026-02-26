@@ -3,7 +3,7 @@ use core::ops::Deref;
 use crate::{
     errors::{GraphAddError, GraphConnectionError, GraphRunError},
     primitives::{
-        Connection, ConnectionId, Data, Id, Node, NodeHandle, NodeId, PortAddress, Sample,
+        Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress, Sample,
     },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
@@ -50,7 +50,7 @@ pub struct Graph {
 
     // cached values to prevent allocations in the `run` loop
     // TODO: figure out a way not to have to own/clone input data--would
-    // be great to hold `Vec<&Data>` and not clone within the `run` function
+    // be great to hold `Vec<&Sample>` and not clone within the `run` function
     run_inputs: Vec<Sample>,
     run_outputs: Vec<Sample>,
     run_connections_sample_map: IntMap<ConnectionId, Sample>,
@@ -1299,7 +1299,7 @@ mod graph_tests {
 
         use crate::{
             implementations::{ConstantNode, Graph, OutputNode},
-            primitives::Data,
+            primitives::Sample,
             traits::Graph as GraphTrait,
         };
 
@@ -1315,7 +1315,7 @@ mod graph_tests {
 
             assert_eq!(
                 outputs,
-                HashMap::from([(output_node.external_output_port_address(), Data::None)])
+                HashMap::from([(output_node.external_output_port_address(), Sample::default())])
             )
         }
 
@@ -1342,7 +1342,7 @@ mod graph_tests {
 
             assert_eq!(
                 outputs,
-                HashMap::from([(output_node.external_output_port_address(), Data::None)])
+                HashMap::from([(output_node.external_output_port_address(), Sample::default())])
             );
         }
 
@@ -1350,7 +1350,7 @@ mod graph_tests {
         fn constant_node_with_value_to_output_node() {
             let mut graph = Graph::new();
 
-            let constant_node = ConstantNode::new_with_value(&mut graph, Data::I32(5));
+            let constant_node = ConstantNode::new_with_value(&mut graph, Sample::from(5i32));
             let output_node = OutputNode::new(&mut graph);
 
             let constant_node = graph.add(constant_node).unwrap();
@@ -1369,7 +1369,7 @@ mod graph_tests {
 
             assert_eq!(
                 outputs,
-                HashMap::from([(output_node.external_output_port_address(), Data::I32(5))])
+                HashMap::from([(output_node.external_output_port_address(), Sample::from(5i32))])
             );
         }
     }

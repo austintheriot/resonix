@@ -2,7 +2,7 @@ use core::ops::Deref;
 
 use crate::{
     errors::AudioNodeRunError,
-    primitives::{Data, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority},
+    primitives::{Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample},
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
     },
@@ -10,7 +10,7 @@ use crate::{
 
 pub struct OutputNode {
     node_id: NodeId,
-    input_value: Data,
+    input_value: Option<Sample>,
     port_descriptors: OutputNodePortDescriptors,
 }
 
@@ -19,13 +19,13 @@ impl OutputNode {
         let node_id: NodeId = id_generator.generate_id().into();
         let output_node = Self {
             node_id,
-            input_value: Data::None,
+            input_value: None,
             port_descriptors: OutputNodePortDescriptors::new(node_id),
         };
         Audio(output_node)
     }
 
-    fn assign_inputs(&mut self, inputs: &[Data]) -> Result<(), AudioNodeRunError> {
+    fn assign_inputs(&mut self, inputs: &[Sample]) -> Result<(), AudioNodeRunError> {
         // TODO: return error?
         if inputs.len() <= **OutputNodePortDescriptors::INPUT_PORT_ID {
             return Ok(());
@@ -35,13 +35,8 @@ impl OutputNode {
             return Ok(());
         };
 
-        // TODO: should `None`s actually be ignored?
-        if *new_input_value == Data::None {
-            return Ok(());
-        }
-
         // TODO: return error if port doesn't match
-        self.input_value = new_input_value.clone();
+        self.input_value = Some(new_input_value.clone());
 
         Ok(())
     }
@@ -68,10 +63,17 @@ impl GetPriority for OutputNode {
 }
 
 impl AudioNode for OutputNode {
-    fn process(&mut self, inputs: &[Data], outputs: &mut [Data]) -> Result<(), AudioNodeRunError> {
+    fn process(
+        &mut self,
+        inputs: &[Sample],
+        outputs: &mut [Sample],
+    ) -> Result<(), AudioNodeRunError> {
         self.assign_inputs(inputs)?;
 
-        outputs[**self.external_output_port_address().port_id()] = self.input_value.clone();
+        outputs[**self.external_output_port_address().port_id()] = self
+            .input_value
+            .clone()
+            .unwrap_or_else(|| Sample::default());
 
         Ok(())
     }
