@@ -1,4 +1,4 @@
-mod buffer_id;
+mod buffer_pool;
 mod connection;
 mod connection_id;
 mod data;
@@ -12,8 +12,9 @@ mod port_address_with_direction;
 mod port_id;
 mod priority;
 mod sample;
+mod connection_adapter;
 
-pub use buffer_id::*;
+pub use buffer_pool::*;
 pub use connection::*;
 pub use connection_id::*;
 pub use data::*;
@@ -26,3 +27,4 @@ pub use port_address_direction::*;
 pub use port_id::*;
 pub use priority::*;
 pub use sample::*;
+pub use connection_adapter::*;

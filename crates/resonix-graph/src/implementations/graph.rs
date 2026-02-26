@@ -1,8 +1,10 @@
-use core::ops::Deref;
+use core::{default, ops::Deref};
 
 use crate::{
     errors::{GraphAddError, GraphConnectionError, GraphRunError},
-    primitives::{Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress, Sample},
+    primitives::{
+        BufferPool, Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress, Sample,
+    },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
 };
@@ -44,15 +46,11 @@ pub struct Graph {
     id_to_pegraph_index_map: HashMap<Id, petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>>,
     petgraph_index_to_id_map: HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, Id>,
     port_address_to_connection_id_map: HashMap<PortAddress, ConnectionId>,
+    graph_run_connection_id_set: IntSet<ConnectionId>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: IntSet<NodeId>,
-
     block_size: usize,
-
-    // cached values to prevent allocations in the `run` loop
-    run_inputs: Vec<Vec<Sample>>,
-    run_outputs: Vec<Vec<Sample>>,
-    run_connections_sample_map: IntMap<ConnectionId, Vec<Sample>>,
+    buffer_pool: BufferPool,
 }
 
 impl Graph {
@@ -69,9 +67,8 @@ impl Graph {
             petgraph_index_to_id_map: HashMap::new(),
             port_address_to_connection_id_map: HashMap::new(),
             block_size,
-            run_inputs: Vec::new(),
-            run_outputs: Vec::new(),
-            run_connections_sample_map: IntMap::default(),
+            buffer_pool: BufferPool::default(),
+            graph_run_connection_id_set: IntSet::default(),
         }
     }
 
@@ -393,100 +390,42 @@ impl crate::traits::Graph for Graph {
             return Ok(());
         };
 
-        // clear any cached values
-        self.run_connections_sample_map.clear();
-
-        let block_size = self.block_size;
+        self.graph_run_connection_id_set.clear();
 
         for id in visit_order.iter() {
             let Some(GraphItem::Node(Node::AudioNode(node))) = self.graph_items.get_mut(id) else {
                 return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
             };
 
-            {
-                let inputs_length = Self::calculate_input_output_len(
-                    node.input_port_addresses(),
-                    node.output_port_addresses(),
-                );
-                self.run_inputs
-                    .resize_with(inputs_length, || vec![Sample::default(); block_size]);
-                for block in self.run_inputs.iter_mut() {
-                    block.fill(Sample::default());
-                }
+            let buffer_ids_iter = node
+                .output_port_addresses()
+                .unwrap_or(&[])
+                .iter()
+                .chain(node.input_port_addresses().unwrap_or(&[]).iter())
+                .filter_map(|address| {
+                    let Some(connection_id) = self.port_address_to_connection_id_map.get(address)
+                    else {
+                        return None;
+                    };
 
-                // assign inputs
-                for port_address in node
-                    .input_port_addresses()
-                    .into_iter()
-                    .flatten()
-                    .chain(node.external_input_port_addresses().into_iter().flatten())
-                {
-                    if let Some(&connection_id) =
-                        self.port_address_to_connection_id_map.get(port_address)
-                    {
-                        if let Some(src_block) = self.run_connections_sample_map.get(&connection_id)
-                        {
-                            self.run_inputs[**port_address.port_id()].copy_from_slice(src_block);
-                        }
+                    if self.graph_run_connection_id_set.contains(connection_id) {
+                        return None;
                     }
-                }
 
-                let new_output_length = Self::calculate_input_output_len(
-                    node.output_port_addresses(),
-                    node.external_output_port_addresses(),
-                );
-                self.run_outputs
-                    .resize_with(new_output_length, || vec![Sample::default(); block_size]);
-                for block in self.run_outputs.iter_mut() {
-                    block.fill(Sample::default());
-                }
+                    self.graph_run_connection_id_set.insert(*connection_id);
 
-                let inputs_refs: Vec<&[Sample]> =
-                    self.run_inputs.iter().map(|v| v.as_slice()).collect();
-                let mut outputs_refs: Vec<&mut [Sample]> = self
-                    .run_outputs
-                    .iter_mut()
-                    .map(|v| v.as_mut_slice())
-                    .collect();
+                    Some(connection_id)
+                })
+                .map(|connection_id| self.buffer_pool.get(connection_id).unwrap())
+                .for_each(|buffer| {
+                    let buffer = buffer.borrow_mut();
+                });
 
-                node.process(&inputs_refs, &mut outputs_refs)?;
-            }
+            // TODO: actually gather real buffers
+            let inputs = [];
+            let mut outputs = [];
 
-            // these two blocks are split to prevent the `connections_data_map` borrows
-            // from extending longer than we'd like--not easy to convince the borrow checker
-            // that this is correct
-            {
-                if let Some(external_output_port_addresses) = node.external_output_port_addresses()
-                {
-                    for external_output_port_address in external_output_port_addresses {
-                        let Some(output_block) = self
-                            .run_outputs
-                            .get(**external_output_port_address.port_id())
-                        else {
-                            continue;
-                        };
-
-                        outputs.insert(*external_output_port_address, output_block.clone());
-                    }
-                }
-
-                if let Some(output_port_addresses) = node.output_port_addresses() {
-                    for output_port_address in output_port_addresses {
-                        let Some(output_block) =
-                            self.run_outputs.get(**output_port_address.port_id())
-                        else {
-                            continue;
-                        };
-
-                        let connection_id = self
-                            .port_address_to_connection_id_map
-                            .get(output_port_address)
-                            .unwrap();
-                        self.run_connections_sample_map
-                            .insert(*connection_id, output_block.clone());
-                    }
-                }
-            }
+            node.process(&inputs, &mut outputs)?;
         }
 
         Ok(())
