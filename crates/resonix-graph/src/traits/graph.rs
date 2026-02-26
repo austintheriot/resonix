@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use core::ops::Deref;
 
 use hashbrown::HashMap;
@@ -28,7 +29,7 @@ pub trait Graph {
 
     fn run(
         &mut self,
-        inputs: &HashMap<PortAddress, Sample>,
-        outputs: &mut HashMap<PortAddress, Sample>,
+        inputs: &HashMap<PortAddress, Vec<Sample>>,
+        outputs: &mut HashMap<PortAddress, Vec<Sample>>,
     ) -> Result<(), GraphRunError>;
 }

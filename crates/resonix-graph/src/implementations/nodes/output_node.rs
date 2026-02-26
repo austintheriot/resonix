@@ -25,21 +25,6 @@ impl OutputNode {
         Audio(output_node)
     }
 
-    fn assign_inputs(&mut self, inputs: &[Sample]) -> Result<(), AudioNodeRunError> {
-        // TODO: return error?
-        if inputs.len() <= **OutputNodePortDescriptors::INPUT_PORT_ID {
-            return Ok(());
-        }
-
-        let Some(new_input_value) = inputs.get(**OutputNodePortDescriptors::INPUT_PORT_ID) else {
-            return Ok(());
-        };
-
-        // TODO: return error if port doesn't match
-        self.input_value = Some(new_input_value.clone());
-
-        Ok(())
-    }
 }
 
 impl GetPortDescriptors<OutputNodePortDescriptors> for OutputNode {
@@ -65,15 +50,24 @@ impl GetPriority for OutputNode {
 impl AudioNode for OutputNode {
     fn process(
         &mut self,
-        inputs: &[Sample],
-        outputs: &mut [Sample],
+        inputs: &[&[Sample]],
+        outputs: &mut [&mut [Sample]],
     ) -> Result<(), AudioNodeRunError> {
-        self.assign_inputs(inputs)?;
+        let input_port_id = **OutputNodePortDescriptors::INPUT_PORT_ID;
+        let output_port_id = **self.external_output_port_address().port_id();
 
-        outputs[**self.external_output_port_address().port_id()] = self
-            .input_value
-            .clone()
-            .unwrap_or_else(|| Sample::default());
+        if inputs.len() <= input_port_id || outputs.len() <= output_port_id {
+            return Ok(());
+        }
+
+        let input_block = inputs[input_port_id];
+        let output_block = &mut outputs[output_port_id];
+
+        for (out, inp) in output_block.iter_mut().zip(input_block.iter()) {
+            *out = *inp;
+        }
+
+        self.input_value = input_block.last().copied();
 
         Ok(())
     }

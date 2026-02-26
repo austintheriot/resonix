@@ -39,21 +39,6 @@ impl MultiplyNode {
         Audio(multiply_node)
     }
 
-    fn assign_inputs(&mut self, inputs: &[Sample]) -> Result<(), AudioNodeRunError> {
-        // TODO: validate inputs
-        inputs.iter().enumerate().for_each(|(i, sample)| {
-            let left_port_index: usize = **self.left_operand_input_address().port_id();
-            let right_port_index: usize = **self.right_operand_input_address().port_id();
-
-            if i == left_port_index {
-                self.left_operand_value = sample.clone()
-            } else if i == right_port_index {
-                self.right_operand_value = sample.clone()
-            }
-        });
-
-        Ok(())
-    }
 }
 
 impl GetPortDescriptors<MultiplyNodePortDescriptors> for MultiplyNode {
@@ -79,13 +64,33 @@ impl GetPriority for MultiplyNode {
 impl AudioNode for MultiplyNode {
     fn process(
         &mut self,
-        inputs: &[Sample],
-        outputs: &mut [Sample],
+        inputs: &[&[Sample]],
+        outputs: &mut [&mut [Sample]],
     ) -> Result<(), AudioNodeRunError> {
-        self.assign_inputs(inputs)?;
+        let left_port_id = **MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID;
+        let right_port_id = **MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID;
+        let output_port_id = **MultiplyNodePortDescriptors::OUTPUT_PORT_ID;
 
-        outputs[**MultiplyNodePortDescriptors::OUTPUT_PORT_ID] =
-            Sample::new(*self.left_operand_value * *self.right_operand_value);
+        if outputs.len() <= output_port_id {
+            return Ok(());
+        }
+
+        let left_block = inputs.get(left_port_id).copied().unwrap_or(&[]);
+        let right_block = inputs.get(right_port_id).copied().unwrap_or(&[]);
+        let output_block = &mut outputs[output_port_id];
+
+        for (i, out) in output_block.iter_mut().enumerate() {
+            let l = left_block.get(i).copied().unwrap_or(self.left_operand_value);
+            let r = right_block.get(i).copied().unwrap_or(self.right_operand_value);
+            *out = Sample::new(*l * *r);
+        }
+
+        if let Some(last) = left_block.last() {
+            self.left_operand_value = *last;
+        }
+        if let Some(last) = right_block.last() {
+            self.right_operand_value = *last;
+        }
 
         Ok(())
     }

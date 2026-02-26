@@ -9,6 +9,7 @@ use crate::{
     utils::{IntMap, IntSet, compare_nodes_by_priority},
 };
 
+use alloc::vec;
 use alloc::vec::Vec;
 use hashbrown::{HashMap, HashSet};
 use petgraph::algo::tarjan_scc;
@@ -48,17 +49,16 @@ pub struct Graph {
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: IntSet<NodeId>,
 
+    block_size: usize,
+
     // cached values to prevent allocations in the `run` loop
-    // TODO: figure out a way not to have to own/clone input data--would
-    // be great to hold `Vec<&Sample>` and not clone within the `run` function
-    run_inputs: Vec<Sample>,
-    run_outputs: Vec<Sample>,
-    run_connections_sample_map: IntMap<ConnectionId, Sample>,
+    run_inputs: Vec<Vec<Sample>>,
+    run_outputs: Vec<Vec<Sample>>,
+    run_connections_sample_map: IntMap<ConnectionId, Vec<Sample>>,
 }
 
 impl Graph {
-    #[cfg(test)]
-    fn new() -> Self {
+    pub fn with_block_size(block_size: usize) -> Self {
         use crate::utils::IntMap;
 
         Graph {
@@ -70,11 +70,16 @@ impl Graph {
             leaf_nodes: IntSet::default(),
             petgraph_index_to_id_map: HashMap::new(),
             port_address_to_connection_id_map: HashMap::new(),
-
+            block_size,
             run_inputs: Vec::new(),
             run_outputs: Vec::new(),
             run_connections_sample_map: IntMap::default(),
         }
+    }
+
+    #[cfg(test)]
+    fn new() -> Self {
+        Self::with_block_size(1)
     }
 
     fn id_generator(&mut self) -> &mut impl GenerateId {
@@ -383,8 +388,8 @@ impl crate::traits::Graph for Graph {
 
     fn run(
         &mut self,
-        _inputs: &HashMap<PortAddress, Sample>,
-        outputs: &mut HashMap<PortAddress, Sample>,
+        _inputs: &HashMap<PortAddress, Vec<Sample>>,
+        outputs: &mut HashMap<PortAddress, Vec<Sample>>,
     ) -> Result<(), GraphRunError> {
         let Some(visit_order) = self.visit_order.as_ref() else {
             return Ok(());
@@ -392,8 +397,8 @@ impl crate::traits::Graph for Graph {
 
         // clear any cached values
         self.run_connections_sample_map.clear();
-        self.run_inputs.clear();
-        self.run_outputs.clear();
+
+        let block_size = self.block_size;
 
         for id in visit_order.iter() {
             let Some(GraphItem::Node(Node::AudioNode(node))) = self.graph_items.get_mut(id) else {
@@ -405,8 +410,11 @@ impl crate::traits::Graph for Graph {
                     node.input_port_addresses(),
                     node.output_port_addresses(),
                 );
-                self.run_inputs.resize(inputs_length, Sample::default());
-                self.run_inputs.fill(Sample::default());
+                self.run_inputs
+                    .resize_with(inputs_length, || vec![Sample::default(); block_size]);
+                for block in self.run_inputs.iter_mut() {
+                    block.fill(Sample::default());
+                }
 
                 // assign inputs
                 for port_address in node
@@ -418,8 +426,11 @@ impl crate::traits::Graph for Graph {
                     if let Some(&connection_id) =
                         self.port_address_to_connection_id_map.get(port_address)
                     {
-                        if let Some(sample) = self.run_connections_sample_map.get(&connection_id) {
-                            self.run_inputs[**port_address.port_id()] = sample.clone();
+                        if let Some(src_block) =
+                            self.run_connections_sample_map.get(&connection_id)
+                        {
+                            self.run_inputs[**port_address.port_id()]
+                                .copy_from_slice(src_block);
                         }
                     }
                 }
@@ -429,11 +440,17 @@ impl crate::traits::Graph for Graph {
                     node.external_output_port_addresses(),
                 );
                 self.run_outputs
-                    .resize(new_output_length, Sample::default());
-                self.run_outputs.fill(Sample::default());
+                    .resize_with(new_output_length, || vec![Sample::default(); block_size]);
+                for block in self.run_outputs.iter_mut() {
+                    block.fill(Sample::default());
+                }
 
-                node.process(self.run_inputs.as_slice(), &mut self.run_outputs)?;
-                self.run_inputs.clear();
+                let inputs_refs: Vec<&[Sample]> =
+                    self.run_inputs.iter().map(|v| v.as_slice()).collect();
+                let mut outputs_refs: Vec<&mut [Sample]> =
+                    self.run_outputs.iter_mut().map(|v| v.as_mut_slice()).collect();
+
+                node.process(&inputs_refs, &mut outputs_refs)?;
             }
 
             // these two blocks are split to prevent the `connections_data_map` borrows
@@ -443,20 +460,21 @@ impl crate::traits::Graph for Graph {
                 if let Some(external_output_port_addresses) = node.external_output_port_addresses()
                 {
                     for external_output_port_address in external_output_port_addresses {
-                        let Some(external_output) = self
+                        let Some(output_block) = self
                             .run_outputs
                             .get(**external_output_port_address.port_id())
                         else {
                             continue;
                         };
 
-                        outputs.insert(*external_output_port_address, (*external_output).clone());
+                        outputs.insert(*external_output_port_address, output_block.clone());
                     }
                 }
 
                 if let Some(output_port_addresses) = node.output_port_addresses() {
                     for output_port_address in output_port_addresses {
-                        let Some(output) = self.run_outputs.get(**output_port_address.port_id())
+                        let Some(output_block) =
+                            self.run_outputs.get(**output_port_address.port_id())
                         else {
                             continue;
                         };
@@ -466,7 +484,7 @@ impl crate::traits::Graph for Graph {
                             .get(output_port_address)
                             .unwrap();
                         self.run_connections_sample_map
-                            .insert(*connection_id, (*output).clone());
+                            .insert(*connection_id, output_block.clone());
                     }
                 }
             }
@@ -1315,7 +1333,10 @@ mod graph_tests {
 
             assert_eq!(
                 outputs,
-                HashMap::from([(output_node.external_output_port_address(), Sample::default())])
+                HashMap::from([(
+                    output_node.external_output_port_address(),
+                    vec![Sample::default()]
+                )])
             )
         }
 
@@ -1342,7 +1363,10 @@ mod graph_tests {
 
             assert_eq!(
                 outputs,
-                HashMap::from([(output_node.external_output_port_address(), Sample::default())])
+                HashMap::from([(
+                    output_node.external_output_port_address(),
+                    vec![Sample::default()]
+                )])
             );
         }
 
@@ -1369,7 +1393,10 @@ mod graph_tests {
 
             assert_eq!(
                 outputs,
-                HashMap::from([(output_node.external_output_port_address(), Sample::from(5i32))])
+                HashMap::from([(
+                    output_node.external_output_port_address(),
+                    vec![Sample::from(5i32)]
+                )])
             );
         }
     }

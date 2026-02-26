@@ -8,7 +8,6 @@ use crate::{
     },
 };
 
-use super::OutputNodePortDescriptors;
 
 pub struct ConstantNode {
     node_id: NodeId,
@@ -66,11 +65,19 @@ impl GetPriority for ConstantNode {
 impl AudioNode for ConstantNode {
     fn process(
         &mut self,
-        _inputs: &[Sample],
-        outputs: &mut [Sample],
+        _inputs: &[&[Sample]],
+        outputs: &mut [&mut [Sample]],
     ) -> Result<(), AudioNodeRunError> {
-        outputs[**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID] =
-            self.constant_value.unwrap_or_default();
+        let output_port_id = **ConstantNodePortDescriptors::OUTPUT_PORT_ID;
+
+        if outputs.len() <= output_port_id {
+            return Ok(());
+        }
+
+        let value = self.constant_value.unwrap_or_default();
+        for out in outputs[output_port_id].iter_mut() {
+            *out = value;
+        }
 
         Ok(())
     }
