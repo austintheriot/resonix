@@ -1,15 +1,15 @@
-use core::{default, ops::Deref};
+use core::ops::Deref;
 
 use crate::{
     errors::{GraphAddError, GraphConnectionError, GraphRunError},
     primitives::{
-        BufferPool, Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress, Sample,
+        BlockSize, BufferPool, Connection, ConnectionId, Id, Node, NodeHandle, NodeId,
+        NodeProcessContext, PortAddress, Sample,
     },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
 };
 
-use alloc::vec;
 use alloc::vec::Vec;
 use hashbrown::{HashMap, HashSet};
 use petgraph::algo::tarjan_scc;
@@ -49,12 +49,12 @@ pub struct Graph {
     graph_run_connection_id_set: IntSet<ConnectionId>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: IntSet<NodeId>,
-    block_size: usize,
+    block_size: BlockSize,
     buffer_pool: BufferPool,
 }
 
 impl Graph {
-    pub fn with_block_size(block_size: usize) -> Self {
+    pub fn with_block_size(block_size: impl Into<BlockSize>) -> Self {
         use crate::utils::IntMap;
 
         Graph {
@@ -66,7 +66,7 @@ impl Graph {
             leaf_nodes: IntSet::default(),
             petgraph_index_to_id_map: HashMap::new(),
             port_address_to_connection_id_map: HashMap::new(),
-            block_size,
+            block_size: block_size.into(),
             buffer_pool: BufferPool::default(),
             graph_run_connection_id_set: IntSet::default(),
         }
@@ -397,7 +397,9 @@ impl crate::traits::Graph for Graph {
                 return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
             };
 
-            let buffer_ids_iter = node
+            let mut node_process_context = NodeProcessContext::new(self.block_size);
+
+            let buffers = node
                 .output_port_addresses()
                 .unwrap_or(&[])
                 .iter()
@@ -416,10 +418,7 @@ impl crate::traits::Graph for Graph {
 
                     Some(connection_id)
                 })
-                .map(|connection_id| self.buffer_pool.get(connection_id).unwrap())
-                .for_each(|buffer| {
-                    let buffer = buffer.borrow_mut();
-                });
+                .map(|connection_id| self.buffer_pool.get(connection_id).unwrap());
 
             // TODO: actually gather real buffers
             let inputs = [];
