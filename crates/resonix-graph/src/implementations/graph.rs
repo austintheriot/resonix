@@ -1,4 +1,4 @@
-use core::{cell::RefCell, ops::Deref};
+use core::ops::Deref;
 
 use crate::{
     errors::{GraphAddError, GraphConnectionError, GraphRunError},
@@ -16,6 +16,14 @@ use petgraph::algo::tarjan_scc;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use wasm_bindgen::prelude::wasm_bindgen;
+
+/// Per-node storage of which `ConnectionId` backs each port slot.
+/// Allocated once at `add()` time; updated during `connect()`.
+/// A `None` entry means the port is unconnected.
+struct NodePortMap {
+    inputs: alloc::boxed::Box<[Option<ConnectionId>]>,
+    outputs: alloc::boxed::Box<[Option<ConnectionId>]>,
+}
 
 enum GraphItem {
     Node(Node),
@@ -42,13 +50,14 @@ impl GenerateId for GraphIdGenerator {
 pub struct Graph {
     id_generator: GraphIdGenerator,
     graph_items: IntMap<Id, GraphItem>,
-    /// Per-node pre-allocated processing contexts. Populated in `add()` and
-    /// updated in `connect()`. Used directly in `run()` with zero allocation.
-    node_contexts: IntMap<NodeId, NodeProcessContext>,
+    /// Per-node connection-ID index. Populated in `add()`, updated in
+    /// `connect()`. Used to build short-lived `NodeProcessContext`s in `run()`.
+    node_port_maps: IntMap<NodeId, NodePortMap>,
     visit_order: Option<Vec<Id>>,
     id_to_pegraph_index_map: HashMap<Id, petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>>,
     petgraph_index_to_id_map: HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, Id>,
     port_address_to_connection_id_map: HashMap<PortAddress, ConnectionId>,
+    #[allow(dead_code)]
     graph_run_connection_id_set: IntSet<ConnectionId>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: IntSet<NodeId>,
@@ -63,7 +72,7 @@ impl Graph {
         Graph {
             id_generator: GraphIdGenerator::default(),
             graph_items: IntMap::default(),
-            node_contexts: IntMap::default(),
+            node_port_maps: IntMap::default(),
             visit_order: None,
             id_to_pegraph_index_map: HashMap::new(),
             graph: petgraph::Graph::<NodeId, ConnectionId>::new(),
@@ -279,6 +288,7 @@ impl Graph {
         neighbor_ids.contains(&id)
     }
 
+    #[allow(dead_code)]
     fn calculate_input_output_len(
         ports_a: Option<&[PortAddress]>,
         ports_b: Option<&[PortAddress]>,
@@ -320,22 +330,13 @@ impl Graph {
             .unwrap_or(0)
     }
 
-    /// Allocate a zero-filled buffer of `block_size` samples, insert it into
-    /// `buffer_pool` under `conn_id`, and return a stable raw pointer to its data.
-    ///
-    /// The raw pointer remains valid for the lifetime of the `BufferPool` entry;
-    /// it is not invalidated by subsequent insertions into the pool because the
-    /// underlying data lives on the heap inside a `Box<[Sample]>`.
-    fn allocate_buffer(&mut self, conn_id: ConnectionId) -> *mut [Sample] {
+    /// Allocate a zero-filled buffer of `block_size` samples and insert it
+    /// into `buffer_pool` under `conn_id`.
+    fn allocate_buffer(&mut self, conn_id: ConnectionId) {
         let mut buf: Vec<Sample> = Vec::with_capacity(*self.block_size);
         buf.resize(*self.block_size, Sample::default());
-        let buffer: alloc::boxed::Box<[Sample]> = buf.into_boxed_slice();
-        let raw = core::ptr::slice_from_raw_parts_mut(
-            buffer.as_ptr() as *mut Sample,
-            buffer.len(),
-        );
-        self.buffer_pool.insert(conn_id, RefCell::new(buffer));
-        raw
+        self.buffer_pool
+            .insert(conn_id, core::cell::RefCell::new(buf.into_boxed_slice()));
     }
 }
 
@@ -358,9 +359,9 @@ impl crate::traits::Graph for Graph {
         let node = node.into();
         let node_id = NodeId::from(node.node_id());
 
-        // Build a pre-allocated NodeProcessContext sized to the node's actual port count
-        // BEFORE consuming port_descriptors into NodeHandle.
-        // Inputs cover internal input ports and external input ports.
+        // Build the NodePortMap sized to the node's actual port count BEFORE
+        // consuming port_descriptors into NodeHandle.
+        // Inputs cover internal input ports, external input ports, and param ports.
         // Outputs cover internal output ports and external output ports.
         let input_slots = Self::context_slot_count(&[
             port_descriptors.input_port_addresses(),
@@ -371,18 +372,24 @@ impl crate::traits::Graph for Graph {
             port_descriptors.output_port_addresses(),
             port_descriptors.external_output_port_addresses(),
         ]);
-        let mut context = NodeProcessContext::new(input_slots, output_slots, self.block_size);
+
+        let mut inputs: Vec<Option<ConnectionId>> = Vec::with_capacity(input_slots);
+        inputs.resize(input_slots, None);
+        let mut outputs: Vec<Option<ConnectionId>> = Vec::with_capacity(output_slots);
+        outputs.resize(output_slots, None);
 
         // External output ports are not connected via `connect()`, so we allocate
-        // their buffers here and wire them into the context immediately.
+        // their buffers here and record the connection ID in the port map.
         for ext_addr in port_descriptors
             .external_output_port_addresses()
             .unwrap_or(&[])
         {
             let conn_id = ConnectionId::from(self.id_generator.generate_id());
-            let raw = self.allocate_buffer(conn_id);
+            self.allocate_buffer(conn_id);
             self.port_address_to_connection_id_map.insert(*ext_addr, conn_id);
-            context.set_output_ptr(ext_addr.port_id(), raw);
+            if let Some(slot) = outputs.get_mut(**ext_addr.port_id()) {
+                *slot = Some(conn_id);
+            }
         }
 
         // External input ports follow the same pattern (written by the host, read
@@ -392,12 +399,20 @@ impl crate::traits::Graph for Graph {
             .unwrap_or(&[])
         {
             let conn_id = ConnectionId::from(self.id_generator.generate_id());
-            let raw = self.allocate_buffer(conn_id);
+            self.allocate_buffer(conn_id);
             self.port_address_to_connection_id_map.insert(*ext_addr, conn_id);
-            context.set_input_ptr(ext_addr.port_id(), raw as *const [Sample]);
+            if let Some(slot) = inputs.get_mut(**ext_addr.port_id()) {
+                *slot = Some(conn_id);
+            }
         }
 
-        self.node_contexts.insert(node_id, context);
+        self.node_port_maps.insert(
+            node_id,
+            NodePortMap {
+                inputs: inputs.into_boxed_slice(),
+                outputs: outputs.into_boxed_slice(),
+            },
+        );
 
         let node_handle = NodeHandle::new(node_id, port_descriptors);
 
@@ -446,55 +461,44 @@ impl crate::traits::Graph for Graph {
         // `buffer_owning_conn_id` is the ConnectionId whose entry in `buffer_pool`
         // holds the actual sample data.  For first connections this equals
         // `connection_id`; for fan-out it is the previously registered connection.
-        let (output_buffer_raw, buffer_owning_conn_id): (*mut [Sample], ConnectionId) =
-            if is_first_connection_for_output {
-                // First connection from this output port: allocate a fresh buffer.
-                let raw = self.allocate_buffer(connection_id);
-                // Register the output port so later fan-out connections can find it.
-                self.port_address_to_connection_id_map
-                    .insert(start_port_address, connection_id);
-                (raw, connection_id)
-            } else {
-                // Fan-out: reuse the buffer that was allocated for the first connection
-                // from this output port.
-                let existing_conn_id = *self
-                    .port_address_to_connection_id_map
-                    .get(&start_port_address)
-                    .unwrap();
-                let cell = self.buffer_pool.get(&existing_conn_id).unwrap();
-                let borrowed = cell.borrow();
-                // SAFETY: the Box<[Sample]> lives in the buffer pool and is never
-                // deallocated while the graph is alive, so this raw pointer is stable.
-                let raw = core::ptr::slice_from_raw_parts_mut(
-                    (*borrowed).as_ptr() as *mut Sample,
-                    borrowed.len(),
-                );
-                (raw, existing_conn_id)
-            };
+        let buffer_owning_conn_id: ConnectionId = if is_first_connection_for_output {
+            // First connection from this output port: allocate a fresh buffer.
+            self.allocate_buffer(connection_id);
+            // Register the output port so later fan-out connections can find it.
+            self.port_address_to_connection_id_map
+                .insert(start_port_address, connection_id);
+            connection_id
+        } else {
+            // Fan-out: reuse the buffer that was allocated for the first connection.
+            *self
+                .port_address_to_connection_id_map
+                .get(&start_port_address)
+                .unwrap()
+        };
 
         // Store the buffer-owning connection_id for the end port.  This is
-        // important for fan-out: if the end port is later used as a start port
-        // (output→output connections), the pool lookup must find a real buffer.
+        // important for fan-out: if the end port is later used as a start port,
+        // the pool lookup must find a real buffer.
         self.port_address_to_connection_id_map
             .insert(end_port_address, buffer_owning_conn_id);
 
-        // Update the source node's output context pointer on the first connection
-        // only.  For fan-out the pointer was already set (and all destinations
-        // write from the same buffer).
+        // Update the source node's output port map on the first connection only.
+        // For fan-out the connection ID was already recorded.
         if is_first_connection_for_output {
             let start_node_id = start_port_address.node_id();
-            if let Some(ctx) = self.node_contexts.get_mut(&start_node_id) {
-                ctx.set_output_ptr(start_port_address.port_id(), output_buffer_raw);
+            if let Some(port_map) = self.node_port_maps.get_mut(&start_node_id) {
+                if let Some(slot) = port_map.outputs.get_mut(**start_port_address.port_id()) {
+                    *slot = Some(buffer_owning_conn_id);
+                }
             }
         }
 
-        // Always update the destination node's input context pointer.
+        // Always update the destination node's input port map.
         let end_node_id = end_port_address.node_id();
-        if let Some(ctx) = self.node_contexts.get_mut(&end_node_id) {
-            ctx.set_input_ptr(
-                end_port_address.port_id(),
-                output_buffer_raw as *const [Sample],
-            );
+        if let Some(port_map) = self.node_port_maps.get_mut(&end_node_id) {
+            if let Some(slot) = port_map.inputs.get_mut(**end_port_address.port_id()) {
+                *slot = Some(buffer_owning_conn_id);
+            }
         }
 
         let start_node_id = start_port_address.node_id();
@@ -531,7 +535,9 @@ impl crate::traits::Graph for Graph {
         // from `visit_order` (which borrows `self.visit_order`).
         {
             let graph_items = &mut self.graph_items;
-            let node_contexts = &mut self.node_contexts;
+            let node_port_maps = &self.node_port_maps;
+            let buffer_pool = &self.buffer_pool;
+            let block_size = self.block_size;
 
             for &id in visit_order.iter() {
                 let node = match graph_items.get_mut(&id) {
@@ -541,15 +547,20 @@ impl crate::traits::Graph for Graph {
                     _ => return Err(GraphRunError::VisitOrderIncludedNonNodeValue),
                 };
 
-                // Every AudioNode added to the graph has a pre-allocated context;
-                // missing contexts indicate a programming error, not a user error.
-                let context = node_contexts
-                    .get_mut(&NodeId::from(id))
-                    .expect("every node in visit_order must have a NodeProcessContext");
+                let port_map = node_port_maps
+                    .get(&NodeId::from(id))
+                    .expect("every node in visit_order must have a NodePortMap");
 
-                node.process(context)?;
+                let ctx = NodeProcessContext::new(
+                    &port_map.inputs,
+                    &port_map.outputs,
+                    buffer_pool,
+                    block_size,
+                );
+
+                node.process(ctx)?;
             }
-        } // graph_items and node_contexts borrows released here
+        } // graph_items borrow released here
 
         // After all nodes have processed, collect the contents of every external
         // output buffer into the caller-provided `outputs` map.  This is the only

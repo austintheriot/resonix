@@ -61,17 +61,15 @@ impl GetPriority for MultiplyNode {
 }
 
 impl AudioNode for MultiplyNode {
-    fn process(&mut self, context: &mut NodeProcessContext) -> Result<(), AudioNodeRunError> {
-        let Some(out) = context.output(MultiplyNodePortDescriptors::OUTPUT_PORT_ID) else {
+    fn process(&mut self, context: NodeProcessContext<'_>) -> Result<(), AudioNodeRunError> {
+        let Some(mut out) = context.output(MultiplyNodePortDescriptors::OUTPUT_PORT_ID) else {
             return Ok(());
         };
 
-        let left_block = context
-            .input(MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID)
-            .unwrap_or(&[]);
-        let right_block = context
-            .input(MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID)
-            .unwrap_or(&[]);
+        let left_guard = context.input(MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID);
+        let right_guard = context.input(MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID);
+        let left_block: &[Sample] = left_guard.as_deref().unwrap_or(&[]);
+        let right_block: &[Sample] = right_guard.as_deref().unwrap_or(&[]);
 
         for (i, sample) in out.iter_mut().enumerate() {
             let l = left_block

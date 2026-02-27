@@ -62,8 +62,8 @@ impl GetPriority for ConstantNode {
 }
 
 impl AudioNode for ConstantNode {
-    fn process(&mut self, context: &mut NodeProcessContext) -> Result<(), AudioNodeRunError> {
-        let Some(out) = context.output(ConstantNodePortDescriptors::OUTPUT_PORT_ID) else {
+    fn process(&mut self, context: NodeProcessContext<'_>) -> Result<(), AudioNodeRunError> {
+        let Some(mut out) = context.output(ConstantNodePortDescriptors::OUTPUT_PORT_ID) else {
             return Ok(());
         };
 

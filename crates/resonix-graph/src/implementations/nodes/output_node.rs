@@ -47,14 +47,14 @@ impl GetPriority for OutputNode {
 }
 
 impl AudioNode for OutputNode {
-    fn process(&mut self, context: &mut NodeProcessContext) -> Result<(), AudioNodeRunError> {
-        let Some(out) = context.output(OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID) else {
+    fn process(&mut self, context: NodeProcessContext<'_>) -> Result<(), AudioNodeRunError> {
+        let Some(mut out) = context.output(OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
+        else {
             return Ok(());
         };
 
-        let input_block = context
-            .input(OutputNodePortDescriptors::INPUT_PORT_ID)
-            .unwrap_or(&[]);
+        let input_guard = context.input(OutputNodePortDescriptors::INPUT_PORT_ID);
+        let input_block: &[Sample] = input_guard.as_deref().unwrap_or(&[]);
 
         for (out_sample, in_sample) in out.iter_mut().zip(input_block.iter()) {
             *out_sample = *in_sample;

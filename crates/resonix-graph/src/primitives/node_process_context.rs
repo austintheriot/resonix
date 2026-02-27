@@ -1,109 +1,72 @@
-use alloc::{boxed::Box, vec::Vec};
+use core::cell::{Ref, RefMut};
 
-use crate::primitives::{BlockSize, PortId, Sample};
+use crate::primitives::{BlockSize, BufferPool, ConnectionId, PortId, Sample};
 
-/// Pre-allocated per-node context for zero-allocation DSP processing.
+/// Short-lived per-node context created during each `run()` call.
 ///
-/// The `Box`ed arrays are allocated once when a node is added to the graph and
-/// reused across every `run()` call. Raw pointers to the actual sample buffers
-/// are written into the arrays during `connect()` and `add()` (topology changes)
-/// and remain valid for the lifetime of the graph's [`BufferPool`].
+/// Holds borrowed references into the graph's buffer pool and the pre-computed
+/// connection-ID index for this node's ports.  Constructed once per node per
+/// `run()` invocation; never stored across frames.
 ///
-/// # Safety invariants
+/// ## Self-loop safety
 ///
-/// - Every raw pointer stored here either is null (unconnected port) or points
-///   to the heap-allocated interior of a `Box<[Sample]>` owned by `BufferPool`.
-/// - The graph processes nodes sequentially in topological order, so no two
-///   nodes ever access the same buffer simultaneously.
-/// - Callers of [`output`] must not invoke it with the same `port_id` more than
-///   once per `process` call; doing so would create aliased `&mut` references.
+/// If a node's output port is connected back to one of its own input ports,
+/// both `output()` and `input()` will attempt to borrow the *same* `RefCell`.
+/// `RefCell` will **panic** rather than produce undefined behaviour, making
+/// the bug immediately visible.
 ///
-/// [`BufferPool`]: crate::primitives::BufferPool
-/// [`output`]: NodeProcessContext::output
-pub struct NodeProcessContext {
-    /// Input buffer raw pointers indexed by port_id.
-    /// A null data pointer means the port is not connected.
-    inputs: Box<[*const [Sample]]>,
-    /// Output buffer raw pointers indexed by port_id.
-    /// A null data pointer means the port is not connected.
-    outputs: Box<[*mut [Sample]]>,
+/// ## Node removal safety
+///
+/// This type holds a `&'pool BufferPool` reference rather than raw pointers,
+/// so it is impossible for a buffer to be freed while a context is live.
+pub struct NodeProcessContext<'pool> {
+    /// Connection IDs for each input slot, indexed by port_id.
+    /// `None` means the port is not connected.
+    inputs: &'pool [Option<ConnectionId>],
+    /// Connection IDs for each output slot, indexed by port_id.
+    /// `None` means the port is not connected.
+    outputs: &'pool [Option<ConnectionId>],
+    pool: &'pool BufferPool,
     block_size: BlockSize,
 }
 
-// SAFETY: The raw pointers point into heap-allocated Boxes owned by the graph's
-// BufferPool. The graph guarantees exclusive access during processing.
-unsafe impl Send for NodeProcessContext {}
-unsafe impl Sync for NodeProcessContext {}
-
-impl NodeProcessContext {
-    /// Allocates the context arrays.  Called once per node when it is added to
-    /// the graph; never called during `run()`.
-    pub fn new(num_input_slots: usize, num_output_slots: usize, block_size: BlockSize) -> Self {
-        let null_in =
-            core::ptr::slice_from_raw_parts(core::ptr::null::<Sample>(), 0) as *const [Sample];
-        let null_out = core::ptr::slice_from_raw_parts_mut(core::ptr::null_mut::<Sample>(), 0)
-            as *mut [Sample];
-        let mut inputs_vec = Vec::with_capacity(num_input_slots);
-        inputs_vec.resize(num_input_slots, null_in);
-        let mut outputs_vec = Vec::with_capacity(num_output_slots);
-        outputs_vec.resize(num_output_slots, null_out);
+impl<'pool> NodeProcessContext<'pool> {
+    pub fn new(
+        inputs: &'pool [Option<ConnectionId>],
+        outputs: &'pool [Option<ConnectionId>],
+        pool: &'pool BufferPool,
+        block_size: BlockSize,
+    ) -> Self {
         Self {
-            inputs: inputs_vec.into_boxed_slice(),
-            outputs: outputs_vec.into_boxed_slice(),
+            inputs,
+            outputs,
+            pool,
             block_size,
         }
     }
 
-    /// Registers an input buffer pointer for `port_id`.
+    /// Returns a shared view of the input buffer for `port_id`, or `None` if
+    /// the port is not connected.
     ///
-    /// Called during graph topology changes (`connect` / `add`), not during `run`.
-    pub fn set_input_ptr(&mut self, port_id: PortId, ptr: *const [Sample]) {
-        if let Some(slot) = self.inputs.get_mut(**port_id) {
-            *slot = ptr;
-        }
-    }
-
-    /// Registers an output buffer pointer for `port_id`.
-    ///
-    /// Called during graph topology changes (`connect` / `add`), not during `run`.
-    pub fn set_output_ptr(&mut self, port_id: PortId, ptr: *mut [Sample]) {
-        if let Some(slot) = self.outputs.get_mut(**port_id) {
-            *slot = ptr;
-        }
-    }
-
-    /// Returns an immutable view of the input buffer for `port_id`, or `None`
-    /// if the port is unconnected.
-    pub fn input(&self, port_id: impl Into<PortId>) -> Option<&[Sample]> {
-        let ptr = *self.inputs.get(**port_id.into())?;
-        if ptr.is_null() {
-            None
-        } else {
-            // SAFETY: ptr was set from a valid heap-allocated Box<[Sample]> owned by
-            // the graph's BufferPool.  The graph guarantees no concurrent mutable access
-            // while we hold this shared reference.
-            Some(unsafe { &*ptr })
-        }
+    /// The returned `Ref` keeps the `RefCell` borrowed for its lifetime.
+    /// Calling `output()` with a port that shares a buffer with this input
+    /// (a self-loop) will panic.
+    pub fn input(&self, port_id: impl Into<PortId>) -> Option<Ref<'pool, [Sample]>> {
+        let conn_id = self.inputs.get(**port_id.into())?.as_ref()?;
+        let cell = self.pool.get(conn_id)?;
+        Some(Ref::map(cell.borrow(), |b| b.as_ref()))
     }
 
     /// Returns a mutable view of the output buffer for `port_id`, or `None`
-    /// if the port is unconnected.
+    /// if the port is not connected.
     ///
-    /// # Safety contract
-    ///
-    /// Do **not** call this with the same `port_id` more than once within a
-    /// single `process` invocation.  Doing so would produce aliased `&mut`
-    /// references pointing to the same memory, which is undefined behaviour.
-    pub fn output(&self, port_id: impl Into<PortId>) -> Option<&mut [Sample]> {
-        let ptr = *self.outputs.get(**port_id.into())?;
-        if ptr.is_null() {
-            None
-        } else {
-            // SAFETY: ptr was set from a valid heap-allocated Box<[Sample]> owned by
-            // the graph's BufferPool.  The graph processes nodes sequentially, so no
-            // other node holds a reference to this buffer at the same time.
-            Some(unsafe { &mut *ptr })
-        }
+    /// The returned `RefMut` keeps the `RefCell` mutably borrowed for its
+    /// lifetime.  Calling `input()` or `output()` with a port that shares
+    /// the same buffer (self-loop or double-output call) will panic.
+    pub fn output(&self, port_id: impl Into<PortId>) -> Option<RefMut<'pool, [Sample]>> {
+        let conn_id = self.outputs.get(**port_id.into())?.as_ref()?;
+        let cell = self.pool.get(conn_id)?;
+        Some(RefMut::map(cell.borrow_mut(), |b| b.as_mut()))
     }
 
     pub fn block_size(&self) -> BlockSize {

@@ -9,10 +9,7 @@ use crate::{
 use super::{DescribePorts, GetPriority};
 
 pub trait AudioNode: GetNodeId + GetPriority + DescribePorts {
-    fn process(
-        &mut self,
-        context: &mut NodeProcessContext,
-    ) -> Result<(), AudioNodeRunError>;
+    fn process(&mut self, context: NodeProcessContext<'_>) -> Result<(), AudioNodeRunError>;
 }
 
 // newtype wrapper due to Rust limitation: https://github.com/rust-lang/rust/issues/20400
