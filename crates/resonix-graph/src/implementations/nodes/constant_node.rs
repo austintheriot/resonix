@@ -2,7 +2,7 @@ use core::ops::Deref;
 
 use crate::{
     errors::AudioNodeRunError,
-    primitives::{Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample},
+    primitives::{Id, NodeId, NodeProcessContext, PortAddress, PortAddressDirection, PortId, Priority, Sample},
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
     },
@@ -62,20 +62,14 @@ impl GetPriority for ConstantNode {
 }
 
 impl AudioNode for ConstantNode {
-    fn process(
-        &mut self,
-        _inputs: &[&[Sample]],
-        outputs: &mut [&mut [Sample]],
-    ) -> Result<(), AudioNodeRunError> {
-        let output_port_id = **ConstantNodePortDescriptors::OUTPUT_PORT_ID;
-
-        if outputs.len() <= output_port_id {
+    fn process(&mut self, context: &mut NodeProcessContext) -> Result<(), AudioNodeRunError> {
+        let Some(out) = context.output(ConstantNodePortDescriptors::OUTPUT_PORT_ID) else {
             return Ok(());
-        }
+        };
 
         let value = self.constant_value.unwrap_or_default();
-        for out in outputs[output_port_id].iter_mut() {
-            *out = value;
+        for sample in out.iter_mut() {
+            *sample = value;
         }
 
         Ok(())

@@ -2,7 +2,7 @@ use core::ops::Deref;
 
 use crate::{
     errors::AudioNodeRunError,
-    primitives::{Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample},
+    primitives::{Id, NodeId, NodeProcessContext, PortAddress, PortAddressDirection, PortId, Priority, Sample},
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
     },
@@ -47,23 +47,17 @@ impl GetPriority for OutputNode {
 }
 
 impl AudioNode for OutputNode {
-    fn process(
-        &mut self,
-        inputs: &[&[Sample]],
-        outputs: &mut [&mut [Sample]],
-    ) -> Result<(), AudioNodeRunError> {
-        let input_port_id = **OutputNodePortDescriptors::INPUT_PORT_ID;
-        let output_port_id = **self.external_output_port_address().port_id();
-
-        if inputs.len() <= input_port_id || outputs.len() <= output_port_id {
+    fn process(&mut self, context: &mut NodeProcessContext) -> Result<(), AudioNodeRunError> {
+        let Some(out) = context.output(OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID) else {
             return Ok(());
-        }
+        };
 
-        let input_block = inputs[input_port_id];
-        let output_block = &mut outputs[output_port_id];
+        let input_block = context
+            .input(OutputNodePortDescriptors::INPUT_PORT_ID)
+            .unwrap_or(&[]);
 
-        for (out, inp) in output_block.iter_mut().zip(input_block.iter()) {
-            *out = *inp;
+        for (out_sample, in_sample) in out.iter_mut().zip(input_block.iter()) {
+            *out_sample = *in_sample;
         }
 
         self.input_value = input_block.last().copied();

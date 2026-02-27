@@ -5,10 +5,13 @@ use core::{
 
 use alloc::boxed::Box;
 
-use crate::{primitives::ConnectionId, utils::IntMap};
+use crate::{
+    primitives::{ConnectionId, Sample},
+    utils::IntMap,
+};
 
 // TODO: refactor into multichannel Buffer eventually
-pub type AudioBuffer = Box<[f32]>;
+pub type AudioBuffer = Box<[Sample]>;
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct BufferPool {

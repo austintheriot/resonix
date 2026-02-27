@@ -1,14 +1,17 @@
 use core::ops::Deref;
 
-use crate::{errors::AudioNodeRunError, primitives::Sample, traits::GetNodeId};
+use crate::{
+    errors::AudioNodeRunError,
+    primitives::NodeProcessContext,
+    traits::GetNodeId,
+};
 
 use super::{DescribePorts, GetPriority};
 
 pub trait AudioNode: GetNodeId + GetPriority + DescribePorts {
     fn process(
         &mut self,
-        inputs: &[&[Sample]],
-        outputs: &mut [&mut [Sample]],
+        context: &mut NodeProcessContext,
     ) -> Result<(), AudioNodeRunError>;
 }
 

@@ -2,7 +2,7 @@ use core::ops::Deref;
 
 use crate::{
     errors::AudioNodeRunError,
-    primitives::{Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample},
+    primitives::{Id, NodeId, NodeProcessContext, PortAddress, PortAddressDirection, PortId, Priority, Sample},
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
     },
@@ -61,24 +61,19 @@ impl GetPriority for MultiplyNode {
 }
 
 impl AudioNode for MultiplyNode {
-    fn process(
-        &mut self,
-        inputs: &[&[Sample]],
-        outputs: &mut [&mut [Sample]],
-    ) -> Result<(), AudioNodeRunError> {
-        let left_port_id = **MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID;
-        let right_port_id = **MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID;
-        let output_port_id = **MultiplyNodePortDescriptors::OUTPUT_PORT_ID;
-
-        if outputs.len() <= output_port_id {
+    fn process(&mut self, context: &mut NodeProcessContext) -> Result<(), AudioNodeRunError> {
+        let Some(out) = context.output(MultiplyNodePortDescriptors::OUTPUT_PORT_ID) else {
             return Ok(());
-        }
+        };
 
-        let left_block = inputs.get(left_port_id).copied().unwrap_or(&[]);
-        let right_block = inputs.get(right_port_id).copied().unwrap_or(&[]);
-        let output_block = &mut outputs[output_port_id];
+        let left_block = context
+            .input(MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID)
+            .unwrap_or(&[]);
+        let right_block = context
+            .input(MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID)
+            .unwrap_or(&[]);
 
-        for (i, out) in output_block.iter_mut().enumerate() {
+        for (i, sample) in out.iter_mut().enumerate() {
             let l = left_block
                 .get(i)
                 .copied()
@@ -87,7 +82,7 @@ impl AudioNode for MultiplyNode {
                 .get(i)
                 .copied()
                 .unwrap_or(self.right_operand_value);
-            *out = Sample::new(*l * *r);
+            *sample = Sample::new(*l * *r);
         }
 
         if let Some(last) = left_block.last() {
