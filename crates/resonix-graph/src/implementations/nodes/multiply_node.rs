@@ -2,7 +2,10 @@ use core::ops::Deref;
 
 use crate::{
     errors::AudioNodeRunError,
-    primitives::{Id, NodeId, NodeProcessContext, PortAddress, PortAddressDirection, PortId, Priority, Sample},
+    primitives::{
+        BlockSize, Id, NodeId, OutputBuffers, PortAddress, PortAddressDirection, PortId, Priority,
+        Sample,
+    },
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
     },
@@ -61,15 +64,26 @@ impl GetPriority for MultiplyNode {
 }
 
 impl AudioNode for MultiplyNode {
-    fn process(&mut self, context: NodeProcessContext<'_>) -> Result<(), AudioNodeRunError> {
-        let Some(mut out) = context.output(MultiplyNodePortDescriptors::OUTPUT_PORT_ID) else {
+    fn process(
+        &mut self,
+        inputs: &[Option<&[Sample]>],
+        outputs: &mut OutputBuffers<'_>,
+        _block_size: BlockSize,
+    ) -> Result<(), AudioNodeRunError> {
+        let left_block = inputs
+            .get(**MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID)
+            .copied()
+            .flatten()
+            .unwrap_or(&[]);
+        let right_block = inputs
+            .get(**MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID)
+            .copied()
+            .flatten()
+            .unwrap_or(&[]);
+
+        let Some(out) = outputs.get_mut(MultiplyNodePortDescriptors::OUTPUT_PORT_ID) else {
             return Ok(());
         };
-
-        let left_guard = context.input(MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID);
-        let right_guard = context.input(MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID);
-        let left_block: &[Sample] = left_guard.as_deref().unwrap_or(&[]);
-        let right_block: &[Sample] = right_guard.as_deref().unwrap_or(&[]);
 
         for (i, sample) in out.iter_mut().enumerate() {
             let l = left_block

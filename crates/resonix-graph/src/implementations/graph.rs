@@ -558,7 +558,7 @@ impl crate::traits::Graph for Graph {
                     block_size,
                 );
 
-                node.process(ctx)?;
+                ctx.call_process(&mut **node)?;
             }
         } // graph_items borrow released here
 
