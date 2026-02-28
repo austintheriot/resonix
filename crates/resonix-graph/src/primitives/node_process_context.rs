@@ -84,10 +84,9 @@ impl<'pool> NodeProcessContext<'pool> {
         // Step 2: Extract raw pointers from guards.
         // This decouples the &mut [Sample] lifetime from the per-guard borrow,
         // allowing the slice array to be built after the guard array is complete.
-        let output_ptrs: [Option<*mut [Sample]>; PortId::MAX_PORT_ID] =
-            core::array::from_fn(|i| {
-                output_guards[i].as_mut().map(|g| &mut **g as *mut [Sample])
-            });
+        let output_ptrs: [Option<*mut [Sample]>; PortId::MAX_PORT_ID] = core::array::from_fn(|i| {
+            output_guards[i].as_mut().map(|g| &mut **g as *mut [Sample])
+        });
 
         // Step 3: Acquire shared input borrows.
         // Self-loop buffers are already exclusively borrowed above → None here.

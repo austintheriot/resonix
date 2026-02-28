@@ -386,7 +386,8 @@ impl crate::traits::Graph for Graph {
         {
             let conn_id = ConnectionId::from(self.id_generator.generate_id());
             self.allocate_buffer(conn_id);
-            self.port_address_to_connection_id_map.insert(*ext_addr, conn_id);
+            self.port_address_to_connection_id_map
+                .insert(*ext_addr, conn_id);
             if let Some(slot) = outputs.get_mut(**ext_addr.port_id()) {
                 *slot = Some(conn_id);
             }
@@ -400,7 +401,8 @@ impl crate::traits::Graph for Graph {
         {
             let conn_id = ConnectionId::from(self.id_generator.generate_id());
             self.allocate_buffer(conn_id);
-            self.port_address_to_connection_id_map.insert(*ext_addr, conn_id);
+            self.port_address_to_connection_id_map
+                .insert(*ext_addr, conn_id);
             if let Some(slot) = inputs.get_mut(**ext_addr.port_id()) {
                 *slot = Some(conn_id);
             }
