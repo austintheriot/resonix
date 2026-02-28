@@ -2,7 +2,7 @@ use core::ops::Deref;
 
 use crate::{
     errors::AudioNodeRunError,
-    primitives::{BlockSize, OutputBuffers, Sample},
+    primitives::{BlockSize, Sample},
     traits::GetNodeId,
 };
 
@@ -12,7 +12,7 @@ pub trait AudioNode: GetNodeId + GetPriority + DescribePorts {
     fn process(
         &mut self,
         inputs: &[Option<&[Sample]>],
-        outputs: &mut OutputBuffers<'_>,
+        outputs: &mut [Option<&mut [Sample]>],
         block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError>;
 }

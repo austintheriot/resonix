@@ -3,8 +3,7 @@ use core::ops::Deref;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        BlockSize, Id, NodeId, OutputBuffers, PortAddress, PortAddressDirection, PortId, Priority,
-        Sample,
+        BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample,
     },
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
@@ -67,7 +66,7 @@ impl AudioNode for MultiplyNode {
     fn process(
         &mut self,
         inputs: &[Option<&[Sample]>],
-        outputs: &mut OutputBuffers<'_>,
+        outputs: &mut [Option<&mut [Sample]>],
         _block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
         let left_block = inputs
@@ -81,7 +80,10 @@ impl AudioNode for MultiplyNode {
             .flatten()
             .unwrap_or(&[]);
 
-        let Some(out) = outputs.get_mut(MultiplyNodePortDescriptors::OUTPUT_PORT_ID) else {
+        let Some(out) = outputs
+            .get_mut(**MultiplyNodePortDescriptors::OUTPUT_PORT_ID)
+            .and_then(|o| o.as_deref_mut())
+        else {
             return Ok(());
         };
 
