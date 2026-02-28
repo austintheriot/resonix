@@ -6,6 +6,7 @@ on:
       - master
       # TODO: remove this once v2 is merged to master
       - v2
+      - v2*
   pull_request:
 
 jobs:
