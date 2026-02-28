@@ -7,7 +7,7 @@ use super::{DescribePorts, GetPriority};
 pub trait AudioNode: GetNodeId + GetPriority + DescribePorts {
     fn process(
         &mut self,
-        inputs: &[&[Sample]],
+        inputs: &[Option<&[Sample]>],
         outputs: &mut [&mut [Sample]],
     ) -> Result<(), AudioNodeRunError>;
 }

@@ -49,9 +49,11 @@ impl GetPriority for OutputNode {
 impl AudioNode for OutputNode {
     fn process(
         &mut self,
-        inputs: &[&[Sample]],
+        inputs: &[Option<&[Sample]>],
         outputs: &mut [&mut [Sample]],
     ) -> Result<(), AudioNodeRunError> {
+        todo!();
+
         let input_port_id = **OutputNodePortDescriptors::INPUT_PORT_ID;
         let output_port_id = **self.external_output_port_address().port_id();
 

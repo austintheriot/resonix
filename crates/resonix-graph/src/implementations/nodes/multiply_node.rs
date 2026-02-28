@@ -63,7 +63,7 @@ impl GetPriority for MultiplyNode {
 impl AudioNode for MultiplyNode {
     fn process(
         &mut self,
-        inputs: &[&[Sample]],
+        inputs: &[Option<&[Sample]>],
         outputs: &mut [&mut [Sample]],
     ) -> Result<(), AudioNodeRunError> {
         let left_port_id = **MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID;
@@ -73,6 +73,8 @@ impl AudioNode for MultiplyNode {
         if outputs.len() <= output_port_id {
             return Ok(());
         }
+
+        todo!();
 
         let left_block = inputs.get(left_port_id).copied().unwrap_or(&[]);
         let right_block = inputs.get(right_port_id).copied().unwrap_or(&[]);
