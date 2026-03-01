@@ -572,13 +572,14 @@ impl crate::traits::Graph for Graph {
             node.process(ctx)?;
         }
 
-        // TODO: can this allocation be removed?
-        // Collect external output buffer contents into the external outputs map.
+        // copy external buffer data out (if a buffer was supplied)
         for (port_address, connection_id) in &self.port_address_to_connection_id_map {
             if port_address.port_address_direction() == PortAddressDirection::ExternalOutput {
                 if let Some(buffer) = self.buffer_pool.get(connection_id) {
                     let buffer = buffer.borrow();
-                    outputs.insert(*port_address, buffer.iter().copied().collect());
+                    if let Some(output_buffer) = outputs.get_mut(port_address) {
+                        output_buffer.copy_from_slice(&buffer);
+                    }
                 }
             }
         }
@@ -1421,7 +1422,10 @@ mod graph_tests {
             let output_node = graph.add(output_node).unwrap();
 
             let inputs = HashMap::new();
-            let mut outputs = HashMap::new();
+            let mut outputs = HashMap::from([(
+                output_node.external_output_port_address(),
+                vec![Sample::default()],
+            )]);
             graph.run(&inputs, &mut outputs).unwrap();
 
             assert_eq!(
@@ -1434,7 +1438,7 @@ mod graph_tests {
         }
 
         #[test]
-        fn constant_node_without_value_to_output_node() {
+        fn no_external_output_supplied_none_written() {
             let mut graph = Graph::new();
 
             let constant_node = ConstantNode::new(&mut graph);
@@ -1451,23 +1455,19 @@ mod graph_tests {
                 .unwrap();
 
             let inputs = HashMap::new();
-            let mut outputs = HashMap::new();
+            let mut outputs = HashMap::from([]);
             graph.run(&inputs, &mut outputs).unwrap();
 
-            assert_eq!(
-                outputs,
-                HashMap::from([(
-                    output_node.external_output_port_address(),
-                    vec![Sample::default()]
-                )])
-            );
+            assert_eq!(outputs, HashMap::from([]));
         }
 
         #[test]
         fn constant_node_with_value_to_output_node() {
             let mut graph = Graph::new();
 
-            let constant_node = ConstantNode::new_with_value(&mut graph, Sample::from(5i32));
+            let expected_sample_value = 5i32;
+            let constant_node =
+                ConstantNode::new_with_value(&mut graph, Sample::from(expected_sample_value));
             let output_node = OutputNode::new(&mut graph);
 
             let constant_node = graph.add(constant_node).unwrap();
@@ -1481,14 +1481,17 @@ mod graph_tests {
                 .unwrap();
 
             let inputs = HashMap::new();
-            let mut outputs = HashMap::new();
+            let mut outputs = HashMap::from([(
+                output_node.external_output_port_address(),
+                vec![Sample::default()],
+            )]);
             graph.run(&inputs, &mut outputs).unwrap();
 
             assert_eq!(
                 outputs,
                 HashMap::from([(
                     output_node.external_output_port_address(),
-                    vec![Sample::from(5i32)]
+                    vec![Sample::from(expected_sample_value)]
                 )])
             );
         }
