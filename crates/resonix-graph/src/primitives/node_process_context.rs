@@ -1,12 +1,12 @@
 use alloc::boxed::Box;
 
-use super::{AudioBuffer, BlockSize, PortId, Sample};
+use super::{BlockSize, PortId, Sample};
 
 /// Short-lived struct that eases passing data into the `AudioNode::process` call
 #[derive(Debug, PartialEq)]
 pub struct NodeProcessContext<'a> {
-    inputs: Box<[Option<&'a AudioBuffer>]>,
-    outputs: Box<[Option<&'a mut AudioBuffer>]>,
+    inputs: Box<[Option<&'a [Sample]>]>,
+    outputs: Box<[Option<&'a mut [Sample]>]>,
     block_size: BlockSize,
 }
 
@@ -19,19 +19,19 @@ impl<'a> NodeProcessContext<'a> {
         }
     }
 
-    pub fn input_buffer(&self, port_id: impl Into<PortId>) -> Option<&AudioBuffer> {
+    pub fn input_buffer(&self, port_id: impl Into<PortId>) -> Option<&[Sample]> {
         self.inputs
             .get(**port_id.into())
-            .and_then(|inner: &Option<&Box<[Sample]>>| inner.as_deref())
+            .and_then(|inner: &Option<&[Sample]>| inner.as_deref())
     }
 
-    pub fn output_buffer(&mut self, port_id: impl Into<PortId>) -> Option<&mut AudioBuffer> {
+    pub fn output_buffer(&mut self, port_id: impl Into<PortId>) -> Option<&mut [Sample]> {
         self.outputs
             .get_mut(**port_id.into())
-            .and_then(|inner: &mut Option<&mut Box<[Sample]>>| inner.as_deref_mut())
+            .and_then(|inner: &mut Option<&mut [Sample]>| inner.as_deref_mut())
     }
 
-    pub fn set_input_buffer<'b: 'a>(&mut self, port_id: PortId, input_buffer: &'b Box<[Sample]>) {
+    pub fn set_input_buffer<'b: 'a>(&mut self, port_id: PortId, input_buffer: &'b [Sample]) {
         self.inputs[**port_id] = Some(input_buffer);
     }
 
