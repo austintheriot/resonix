@@ -1,4 +1,3 @@
-
 use super::{BlockSize, PortId, Sample};
 
 /// Short-lived struct that eases passing data into the `AudioNode::process` call

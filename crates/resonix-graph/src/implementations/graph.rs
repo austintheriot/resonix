@@ -6,7 +6,8 @@ use core::{
 use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
     primitives::{
-        BlockSize, BufferPool, Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress, PortAddressDirection, PortId, Sample,
+        BlockSize, BufferPool, Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress,
+        PortAddressDirection, PortId, Sample,
     },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
