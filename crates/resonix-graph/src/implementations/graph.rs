@@ -7,7 +7,7 @@ use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
     primitives::{
         BlockSize, BufferPool, Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress,
-        PortId, Sample,
+        PortAddressDirection, PortId, Sample,
     },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
@@ -448,8 +448,22 @@ impl crate::traits::Graph for Graph {
         let start_node_id = start_port_address.node_id();
         let start_index = *self.id_to_pegraph_index_map.get(&*start_node_id).unwrap();
 
+        // map each start_node's port to its connection_id
+        if let Some(port_map) = self.node_connection_id_map.get_mut(&start_node_id) {
+            if let Some(slot) = port_map.outputs.get_mut(**start_port_address.port_id()) {
+                *slot = Some(connection_id);
+            }
+        }
+
         let end_node_id = end_port_address.node_id();
         let end_index = *self.id_to_pegraph_index_map.get(&*end_node_id).unwrap();
+
+        // map each end_node's port to its connection_id
+        if let Some(port_map) = self.node_connection_id_map.get_mut(&end_node_id) {
+            if let Some(slot) = port_map.inputs.get_mut(**end_port_address.port_id()) {
+                *slot = Some(connection_id);
+            }
+        }
 
         self.graph_items
             .insert(*connection_id, GraphItem::Connection(connection));
@@ -543,12 +557,17 @@ impl crate::traits::Graph for Graph {
                 core::array::from_fn(|i| output_ptrs[i].map(|p| unsafe { &mut *p }));
 
             node.process(&inputs, &mut output_slices)?;
+        }
 
-            // TODO: actually gather real buffers
-            let inputs = [];
-            let mut outputs = [];
-
-            node.process(&inputs, &mut outputs)?;
+        // TODO: can this allocation be removed?
+        // Collect external output buffer contents into the external outputs map.
+        for (port_address, connection_id) in &self.port_address_to_connection_id_map {
+            if port_address.port_address_direction() == PortAddressDirection::ExternalOutput {
+                if let Some(buffer) = self.buffer_pool.get(connection_id) {
+                    let buffer = buffer.borrow();
+                    outputs.insert(*port_address, buffer.iter().copied().collect());
+                }
+            }
         }
 
         Ok(())
