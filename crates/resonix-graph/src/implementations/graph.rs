@@ -61,7 +61,6 @@ pub struct Graph {
     id_to_pegraph_index_map: HashMap<Id, petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>>,
     petgraph_index_to_id_map: HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, Id>,
     port_address_to_connection_id_map: HashMap<PortAddress, ConnectionId>,
-    graph_run_connection_id_set: IntSet<ConnectionId>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: IntSet<NodeId>,
     block_size: BlockSize,
@@ -84,7 +83,6 @@ impl Graph {
             port_address_to_connection_id_map: HashMap::new(),
             block_size: block_size.into(),
             buffer_pool: BufferPool::default(),
-            graph_run_connection_id_set: IntSet::default(),
         }
     }
 
@@ -488,8 +486,6 @@ impl crate::traits::Graph for Graph {
             return Ok(());
         };
 
-        self.graph_run_connection_id_set.clear();
-
         for &id in visit_order.iter() {
             let Some(GraphItem::Node(Node::AudioNode(node))) = self.graph_items.get_mut(&id) else {
                 return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
@@ -504,59 +500,70 @@ impl crate::traits::Graph for Graph {
 
             let NodeConnectionIdMap { outputs, inputs } = port_map;
 
-            // Step 1: Acquire exclusive output borrows first.
-            // Self-loop buffers are claimed here; input try_borrow yields None for them.
+            const BUFFER_NOT_FOUND: &'static str = "Buffer not found for connection id. This likely means a buffer was not allocated when it should have been, or it was freed too soon.";
+
+            // Nodes that are connected directly to themselves will only receive
+            // a buffer for their OUTPUT, since we can't both acquire a read-only
+            // reference to the input buffer and a read-write reference to the output
+            // buffer, when it's the SAME buffer
             let mut output_guards: [Option<RefMut<'_, [Sample]>>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| {
                     outputs
+                        // expected to be None for any ports we're querying for that are not defined
                         .get(i)?
                         .as_ref()
-                        .and_then(|id| buffer_pool.get(id))
+                        .map(|connection_id| {
+                            // expected to be None for any ports not defined
+                            buffer_pool
+                                .get(connection_id)
+                                .expect(BUFFER_NOT_FOUND)
+                        })
                         .map(|c| {
                             c.try_borrow_mut()
-                                .expect("output buffers should never be borrowed multiple times")
+                                .expect("Output buffers should never be attempted to be borrowed multiple times.")
                         })
                         .map(|g| RefMut::map(g, |b| b.as_mut()))
                 });
 
-            // Step 2: Extract raw pointers from guards.
-            // This decouples the &mut [Sample] lifetime from the per-guard borrow,
-            // allowing the slice array to be built after the guard array is complete.
-            let output_ptrs: [Option<*mut [Sample]>; PortId::MAX_PORT_ID] =
+            let output_buffer_raw_ptrs: [Option<*mut [Sample]>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| {
                     output_guards[i].as_mut().map(|g| &mut **g as *mut [Sample])
                 });
 
-            // Step 3: Acquire shared input borrows.
-            // Self-loop buffers are already exclusively borrowed above → None here.
-            let input_guards: [Option<Ref<'_, [Sample]>>; PortId::MAX_PORT_ID] =
+            // Any buffers already borrowed as an output guard above will be present
+            // in this array as `None`--should only ever happen with self-connected Nodes
+            let input_buffer_guards: [Option<Ref<'_, [Sample]>>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| {
                     inputs
+                        // expected to be None for any ports we're querying for that are not defined
                         .get(i)?
                         .as_ref()
-                        .and_then(|id| buffer_pool.get(id))
+                        .map(|conneection_id| {
+                            buffer_pool.get(conneection_id).expect(BUFFER_NOT_FOUND)
+                        })
+                        // can be None if the Node connects to itself,
+                        // and we already borrowed the output buffer
                         .and_then(|c| c.try_borrow().ok())
                         .map(|g| Ref::map(g, |b| b.as_ref()))
                 });
 
-            let inputs: [Option<&[Sample]>; PortId::MAX_PORT_ID] =
-                core::array::from_fn(|i| input_guards[i].as_deref());
+            let input_buffers: [Option<&[Sample]>; PortId::MAX_PORT_ID] =
+                core::array::from_fn(|i| input_buffer_guards[i].as_deref());
 
-            // Step 4: Convert raw output pointers to &mut [Sample].
-            //
             // SAFETY:
-            // - output_guards[i] holds an exclusive borrow of buffer i for the
-            //   entire duration of this function; output_ptrs[i] points into that
-            //   buffer's allocation.
-            // - `output_slices` is declared after `output_guards` and is therefore
-            //   dropped first (Rust drops locals in reverse declaration order), so
-            //   the &mut [Sample] references never outlive their guards.
-            // - No two output slots share a ConnectionId (graph invariant), so no
-            //   two elements of output_slices alias the same memory.
-            let mut output_slices: [Option<&mut [Sample]>; PortId::MAX_PORT_ID] =
-                core::array::from_fn(|i| output_ptrs[i].map(|p| unsafe { &mut *p }));
+            // - These pointers reference the output audio buffers where audio nodes
+            // write their output audio data into.
+            // - The buffers that underly a connection and its audio data are NEVER
+            // modified during the course a DSP `run` call, so we can be certain that the
+            // lifetime of the output buffers these pointers reference will outlive
+            // this function call.
+            // - No 2 output ports share the same `ConnectionId`, so no risk of
+            // mutably aliasing the same memory
+            // - The safety of this call is verified in tests with `miri` in CI
+            let mut output_buffers: [Option<&mut [Sample]>; PortId::MAX_PORT_ID] =
+                core::array::from_fn(|i| output_buffer_raw_ptrs[i].map(|p| unsafe { &mut *p }));
 
-            node.process(&inputs, &mut output_slices)?;
+            node.process(&input_buffers, &mut output_buffers)?;
         }
 
         // TODO: can this allocation be removed?
