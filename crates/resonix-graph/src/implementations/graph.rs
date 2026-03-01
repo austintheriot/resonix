@@ -500,7 +500,7 @@ impl crate::traits::Graph for Graph {
 
             let NodeConnectionIdMap { outputs, inputs } = port_map;
 
-            const BUFFER_NOT_FOUND: &'static str = "Buffer not found for connection id. This likely means a buffer was not allocated when it should have been, or it was freed too soon.";
+            const BUFFER_NOT_FOUND: &str = "Buffer not found for connection id. This likely means a buffer was not allocated when it should have been, or it was freed too soon.";
 
             // Nodes that are connected directly to themselves will only receive
             // a buffer for their OUTPUT, since we can't both acquire a read-only
