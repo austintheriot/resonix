@@ -27,8 +27,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 /// A `None` entry means the port is unconnected.
 struct NodeConnectionIdMap {
     // TODO: replace with an IntMap?c
-    inputs: alloc::boxed::Box<[Option<ConnectionId>]>,
-    outputs: alloc::boxed::Box<[Option<ConnectionId>]>,
+    input_connection_ids: alloc::boxed::Box<[Option<ConnectionId>]>,
+    output_connection_ids: alloc::boxed::Box<[Option<ConnectionId>]>,
 }
 
 enum GraphItem {
@@ -356,6 +356,11 @@ impl crate::traits::Graph for Graph {
             Vec::with_capacity(num_output_ports);
         output_connection_ids.resize(num_output_ports, None);
 
+        // TODO: do not allocated buffer for this.
+        // Since it's passed in at `run` time, we can just look up the buffer
+        // pointer for this at `run` time, and we know it will
+        // be valid for the duration of the `run` call.
+        //
         // External output ports are not connected via `connect()`, so we allocate
         // their buffers here and record the connection ID in the port map.
         for external_output_port_addr in port_descriptors
@@ -393,8 +398,8 @@ impl crate::traits::Graph for Graph {
         self.node_connection_id_map.insert(
             node_id,
             NodeConnectionIdMap {
-                inputs: input_connection_ids.into_boxed_slice(),
-                outputs: output_connection_ids.into_boxed_slice(),
+                input_connection_ids: input_connection_ids.into_boxed_slice(),
+                output_connection_ids: output_connection_ids.into_boxed_slice(),
             },
         );
 
@@ -448,7 +453,10 @@ impl crate::traits::Graph for Graph {
 
         // map each start_node's port to its connection_id
         if let Some(port_map) = self.node_connection_id_map.get_mut(&start_node_id) {
-            if let Some(slot) = port_map.outputs.get_mut(**start_port_address.port_id()) {
+            if let Some(slot) = port_map
+                .output_connection_ids
+                .get_mut(**start_port_address.port_id())
+            {
                 *slot = Some(connection_id);
             }
         }
@@ -458,7 +466,10 @@ impl crate::traits::Graph for Graph {
 
         // map each end_node's port to its connection_id
         if let Some(port_map) = self.node_connection_id_map.get_mut(&end_node_id) {
-            if let Some(slot) = port_map.inputs.get_mut(**end_port_address.port_id()) {
+            if let Some(slot) = port_map
+                .input_connection_ids
+                .get_mut(**end_port_address.port_id())
+            {
                 *slot = Some(connection_id);
             }
         }
@@ -494,11 +505,12 @@ impl crate::traits::Graph for Graph {
             let node_connection_id_map = &self.node_connection_id_map;
             let buffer_pool = &self.buffer_pool;
 
-            let port_map = node_connection_id_map
+            let NodeConnectionIdMap {
+                output_connection_ids,
+                input_connection_ids,
+            } = node_connection_id_map
                 .get(&NodeId::from(id))
                 .expect("every node in visit_order must have a NodePortMap");
-
-            let NodeConnectionIdMap { outputs, inputs } = port_map;
 
             const BUFFER_NOT_FOUND: &str = "Buffer not found for connection id. This likely means a buffer was not allocated when it should have been, or it was freed too soon.";
 
@@ -508,7 +520,7 @@ impl crate::traits::Graph for Graph {
             // buffer, when it's the SAME buffer
             let mut output_guards: [Option<RefMut<'_, [Sample]>>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| {
-                    outputs
+                    output_connection_ids
                         // expected to be None for any ports we're querying for that are not defined
                         .get(i)?
                         .as_ref()
@@ -534,7 +546,7 @@ impl crate::traits::Graph for Graph {
             // in this array as `None`--should only ever happen with self-connected Nodes
             let input_buffer_guards: [Option<Ref<'_, [Sample]>>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| {
-                    inputs
+                    input_connection_ids
                         // expected to be None for any ports we're querying for that are not defined
                         .get(i)?
                         .as_ref()
