@@ -65,7 +65,7 @@ impl AudioNode for ConstantNode {
     fn process(
         &mut self,
         _inputs: &[Option<&[Sample]>],
-        outputs: &mut [&mut [Sample]],
+        outputs: &mut [Option<&mut [Sample]>],
     ) -> Result<(), AudioNodeRunError> {
         let output_port_id = **ConstantNodePortDescriptors::OUTPUT_PORT_ID;
 
@@ -74,7 +74,11 @@ impl AudioNode for ConstantNode {
         }
 
         let value = self.constant_value.unwrap_or_default();
-        for out in outputs[output_port_id].iter_mut() {
+        let Some(ref mut output_buffer) = outputs[output_port_id] else {
+            return Ok(());
+        };
+
+        for out in output_buffer.iter_mut() {
             *out = value;
         }
 

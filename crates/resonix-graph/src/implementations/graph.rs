@@ -6,8 +6,8 @@ use core::{
 use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
     primitives::{
-        BlockSize, BufferPool, Connection, ConnectionId, Id, Node, NodeHandle, NodeId,
-        NodeProcessContext, PortAddress, PortId, Sample,
+        BlockSize, BufferPool, Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress,
+        PortId, Sample,
     },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
@@ -291,34 +291,6 @@ impl Graph {
         neighbor_ids.contains(&id)
     }
 
-    fn calculate_input_output_len(
-        ports_a: Option<&[PortAddress]>,
-        ports_b: Option<&[PortAddress]>,
-    ) -> usize {
-        // make sure outputs is empty and matches length
-        const PORT_INDEX_OFFSET: usize = 1;
-        let max_a = ports_a.and_then(|output_addresses| {
-            output_addresses
-                .iter()
-                .map(|address| **address.port_id())
-                .max()
-        });
-
-        let max_b = ports_b.and_then(|output_addresses| {
-            output_addresses
-                .iter()
-                .map(|address| **address.port_id())
-                .max()
-        });
-
-        match (max_a, max_b) {
-            (None, None) => 0,
-            (None, Some(max)) => max + PORT_INDEX_OFFSET,
-            (Some(max), None) => max + PORT_INDEX_OFFSET,
-            (Some(max_a), Some(max_b)) => max_a.max(max_b) + PORT_INDEX_OFFSET,
-        }
-    }
-
     fn count_ports(slices: &[Option<&[PortAddress]>]) -> usize {
         slices
             .iter()
@@ -520,22 +492,26 @@ impl crate::traits::Graph for Graph {
 
             // Step 1: Acquire exclusive output borrows first.
             // Self-loop buffers are claimed here; input try_borrow yields None for them.
-            let mut output_guards: [RefMut<'_, [Sample]>; PortId::MAX_PORT_ID] =
+            let mut output_guards: [Option<RefMut<'_, [Sample]>>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| {
                     outputs
-                        .get(i)
+                        .get(i)?
                         .as_ref()
-                        .and_then(|id| buffer_pool.get(&id.unwrap()))
-                        .and_then(|c| c.try_borrow_mut().ok())
+                        .and_then(|id| buffer_pool.get(id))
+                        .map(|c| {
+                            c.try_borrow_mut()
+                                .expect("output buffers should never be borrowed multiple times")
+                        })
                         .map(|g| RefMut::map(g, |b| b.as_mut()))
-                        .expect("output buffer should always be present")
                 });
 
             // Step 2: Extract raw pointers from guards.
             // This decouples the &mut [Sample] lifetime from the per-guard borrow,
             // allowing the slice array to be built after the guard array is complete.
-            let output_ptrs: [*mut [Sample]; PortId::MAX_PORT_ID] =
-                core::array::from_fn(|i| &mut *output_guards[i].as_mut() as *mut [Sample]);
+            let output_ptrs: [Option<*mut [Sample]>; PortId::MAX_PORT_ID] =
+                core::array::from_fn(|i| {
+                    output_guards[i].as_mut().map(|g| &mut **g as *mut [Sample])
+                });
 
             // Step 3: Acquire shared input borrows.
             // Self-loop buffers are already exclusively borrowed above → None here.
@@ -563,10 +539,10 @@ impl crate::traits::Graph for Graph {
             //   the &mut [Sample] references never outlive their guards.
             // - No two output slots share a ConnectionId (graph invariant), so no
             //   two elements of output_slices alias the same memory.
-            let mut output_slices: [&mut [Sample]; PortId::MAX_PORT_ID] =
-                core::array::from_fn(|i| unsafe { &mut *output_ptrs[i] });
+            let mut output_slices: [Option<&mut [Sample]>; PortId::MAX_PORT_ID] =
+                core::array::from_fn(|i| output_ptrs[i].map(|p| unsafe { &mut *p }));
 
-            node.process(&inputs, &mut output_slices);
+            node.process(&inputs, &mut output_slices)?;
 
             // TODO: actually gather real buffers
             let inputs = [];

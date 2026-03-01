@@ -50,10 +50,8 @@ impl AudioNode for OutputNode {
     fn process(
         &mut self,
         inputs: &[Option<&[Sample]>],
-        outputs: &mut [&mut [Sample]],
+        outputs: &mut [Option<&mut [Sample]>],
     ) -> Result<(), AudioNodeRunError> {
-        todo!();
-
         let input_port_id = **OutputNodePortDescriptors::INPUT_PORT_ID;
         let output_port_id = **self.external_output_port_address().port_id();
 
@@ -61,8 +59,12 @@ impl AudioNode for OutputNode {
             return Ok(());
         }
 
-        let input_block = inputs[input_port_id];
-        let output_block = &mut outputs[output_port_id];
+        let Some(output_block) = &mut outputs[output_port_id] else {
+            return Ok(());
+        };
+
+        // TODO: handle None case (self-reference)
+        let input_block = inputs.get(input_port_id).copied().flatten().unwrap_or(&[]);
 
         for (out, inp) in output_block.iter_mut().zip(input_block.iter()) {
             *out = *inp;

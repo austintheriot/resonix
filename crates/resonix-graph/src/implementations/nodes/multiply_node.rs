@@ -64,7 +64,7 @@ impl AudioNode for MultiplyNode {
     fn process(
         &mut self,
         inputs: &[Option<&[Sample]>],
-        outputs: &mut [&mut [Sample]],
+        outputs: &mut [Option<&mut [Sample]>],
     ) -> Result<(), AudioNodeRunError> {
         let left_port_id = **MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID;
         let right_port_id = **MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID;
@@ -74,11 +74,13 @@ impl AudioNode for MultiplyNode {
             return Ok(());
         }
 
-        todo!();
+        let Some(output_block) = &mut outputs[output_port_id] else {
+            return Ok(());
+        };
 
-        let left_block = inputs.get(left_port_id).copied().unwrap_or(&[]);
-        let right_block = inputs.get(right_port_id).copied().unwrap_or(&[]);
-        let output_block = &mut outputs[output_port_id];
+        // TODO: handle None case (self-reference)
+        let left_block = inputs.get(left_port_id).copied().flatten().unwrap_or(&[]);
+        let right_block = inputs.get(right_port_id).copied().flatten().unwrap_or(&[]);
 
         for (i, out) in output_block.iter_mut().enumerate() {
             let l = left_block
