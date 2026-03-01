@@ -6,8 +6,8 @@ use core::{
 use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
     primitives::{
-        BlockSize, BufferPool, Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress,
-        PortAddressDirection, PortId, Sample,
+        AudioNodeContext, BlockSize, BufferPool, Connection, ConnectionId, Id, Node, NodeHandle,
+        NodeId, PortAddress, PortAddressDirection, PortId, Sample,
     },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
@@ -560,10 +560,16 @@ impl crate::traits::Graph for Graph {
             // - No 2 output ports share the same `ConnectionId`, so no risk of
             // mutably aliasing the same memory
             // - The safety of this call is verified in tests with `miri` in CI
-            let mut output_buffers: [Option<&mut [Sample]>; PortId::MAX_PORT_ID] =
+            let output_buffers: [Option<&mut [Sample]>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| output_buffer_raw_ptrs[i].map(|p| unsafe { &mut *p }));
 
-            node.process(&input_buffers, &mut output_buffers)?;
+            let ctx = AudioNodeContext {
+                inputs: input_buffers,
+                outputs: output_buffers,
+                block_size: self.block_size,
+            };
+
+            node.process(ctx)?;
         }
 
         // TODO: can this allocation be removed?

@@ -2,7 +2,9 @@ use core::ops::Deref;
 
 use crate::{
     errors::AudioNodeRunError,
-    primitives::{Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample},
+    primitives::{
+        AudioNodeContext, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample,
+    },
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
     },
@@ -63,22 +65,21 @@ impl GetPriority for MultiplyNode {
 impl AudioNode for MultiplyNode {
     fn process(
         &mut self,
-        inputs: &[Option<&[Sample]>],
-        outputs: &mut [Option<&mut [Sample]>],
+        AudioNodeContext {
+            inputs,
+            mut outputs,
+            ..
+        }: AudioNodeContext<'_>,
     ) -> Result<(), AudioNodeRunError> {
         let left_port_id = **MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID;
         let right_port_id = **MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID;
         let output_port_id = **MultiplyNodePortDescriptors::OUTPUT_PORT_ID;
 
-        if outputs.len() <= output_port_id {
-            return Ok(());
-        }
-
         let Some(output_block) = &mut outputs[output_port_id] else {
             return Ok(());
         };
 
-        // TODO: handle None case (self-reference)
+        // TODO: handle None case (self-reference or not connected)
         let left_block = inputs.get(left_port_id).copied().flatten().unwrap_or(&[]);
         let right_block = inputs.get(right_port_id).copied().flatten().unwrap_or(&[]);
 

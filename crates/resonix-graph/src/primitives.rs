@@ -1,3 +1,4 @@
+mod audio_node_context;
 mod block_size;
 mod buffer_pool;
 mod connection;
@@ -7,7 +8,6 @@ mod id;
 mod node;
 mod node_handle;
 mod node_id;
-mod node_process_context;
 mod port_address;
 mod port_address_direction;
 mod port_address_with_direction;
@@ -15,6 +15,7 @@ mod port_id;
 mod priority;
 mod sample;
 
+pub use audio_node_context::*;
 pub use block_size::*;
 pub use buffer_pool::*;
 pub use connection::*;
@@ -24,7 +25,6 @@ pub use id::*;
 pub use node::*;
 pub use node_handle::*;
 pub use node_id::*;
-pub use node_process_context::*;
 pub use port_address::*;
 pub use port_address_direction::*;
 pub use port_id::*;
