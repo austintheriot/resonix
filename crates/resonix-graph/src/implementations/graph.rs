@@ -497,6 +497,8 @@ impl crate::traits::Graph for Graph {
         //
         // If the caller didn't provide a buffer for that port, then we just leave it as `None`.
         // External output ports write directly into the caller's buffer, bypassing the buffer pool.
+        //
+        // TODO: remove this allocation / cache it and clear it per-run
         let external_output_ptrs: IntMap<ConnectionId, Option<*mut [Sample]>> = self
             .port_address_to_connection_id_map
             .iter()
