@@ -490,8 +490,8 @@ impl crate::traits::Graph for Graph {
 
     fn run(
         &mut self,
-        _inputs: &HashMap<PortAddress, Vec<Sample>>,
-        outputs: &mut HashMap<PortAddress, Vec<Sample>>,
+        _inputs: &HashMap<PortAddress, &[Sample]>,
+        outputs: &mut HashMap<PortAddress, &mut [Sample]>,
     ) -> Result<(), GraphRunError> {
         let Some(visit_order) = self.visit_order.as_ref() else {
             return Ok(());
@@ -576,8 +576,8 @@ impl crate::traits::Graph for Graph {
                 core::array::from_fn(|i| output_buffer_raw_ptrs[i].map(|p| unsafe { &mut *p }));
 
             let ctx = AudioNodeContext {
-                inputs: input_buffers,
-                outputs: output_buffers,
+                input_buffers,
+                output_buffers,
                 block_size: self.block_size,
             };
 
@@ -1434,9 +1434,10 @@ mod graph_tests {
             let output_node = graph.add(output_node).unwrap();
 
             let inputs = HashMap::new();
+            let mut output_buffer = vec![Sample::default()];
             let mut outputs = HashMap::from([(
                 output_node.external_output_port_address(),
-                vec![Sample::default()],
+                output_buffer.as_mut_slice(),
             )]);
             graph.run(&inputs, &mut outputs).unwrap();
 
@@ -1444,7 +1445,7 @@ mod graph_tests {
                 outputs,
                 HashMap::from([(
                     output_node.external_output_port_address(),
-                    vec![Sample::default()]
+                    vec![Sample::default()].as_mut_slice(),
                 )])
             )
         }
@@ -1493,9 +1494,10 @@ mod graph_tests {
                 .unwrap();
 
             let inputs = HashMap::new();
+            let mut output_buffer = vec![Sample::default()];
             let mut outputs = HashMap::from([(
                 output_node.external_output_port_address(),
-                vec![Sample::default()],
+                output_buffer.as_mut_slice(),
             )]);
             graph.run(&inputs, &mut outputs).unwrap();
 
@@ -1503,7 +1505,7 @@ mod graph_tests {
                 outputs,
                 HashMap::from([(
                     output_node.external_output_port_address(),
-                    vec![Sample::from(expected_sample_value)]
+                    vec![Sample::from(expected_sample_value)].as_mut_slice(),
                 )])
             );
         }

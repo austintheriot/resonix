@@ -52,24 +52,28 @@ impl AudioNode for OutputNode {
     fn process(
         &mut self,
         AudioNodeContext {
-            inputs,
-            mut outputs,
+            input_buffers,
+            mut output_buffers,
             ..
         }: AudioNodeContext<'_>,
     ) -> Result<(), AudioNodeRunError> {
         let input_port_id = **OutputNodePortDescriptors::INPUT_PORT_ID;
         let output_port_id = **self.external_output_port_address().port_id();
 
-        if inputs.len() <= input_port_id || outputs.len() <= output_port_id {
+        if input_buffers.len() <= input_port_id || output_buffers.len() <= output_port_id {
             return Ok(());
         }
 
-        let Some(output_block) = &mut outputs[output_port_id] else {
+        let Some(output_block) = &mut output_buffers[output_port_id] else {
             return Ok(());
         };
 
         // TODO: handle None case (self-reference)
-        let input_block = inputs.get(input_port_id).copied().flatten().unwrap_or(&[]);
+        let input_block = input_buffers
+            .get(input_port_id)
+            .copied()
+            .flatten()
+            .unwrap_or(&[]);
 
         for (out, inp) in output_block.iter_mut().zip(input_block.iter()) {
             *out = *inp;

@@ -5,10 +5,10 @@ use super::{BlockSize, PortId, Sample};
 pub struct AudioNodeContext<'a> {
     /// Each slot in the input array represents the data block for that port.
     /// Each array is the audio data for the audio block current being processed.
-    pub inputs: [Option<&'a [Sample]>; PortId::MAX_PORT_ID],
+    pub input_buffers: [Option<&'a [Sample]>; PortId::MAX_PORT_ID],
     /// Each slot in the output array represents the data block for that port
     /// Each array is the audio data for the audio block current being processed.
-    pub outputs: [Option<&'a mut [Sample]>; PortId::MAX_PORT_ID],
+    pub output_buffers: [Option<&'a mut [Sample]>; PortId::MAX_PORT_ID],
     pub block_size: BlockSize,
 }
 
@@ -18,7 +18,7 @@ impl<'a> AudioNodeContext<'a> {
         port_id: impl Into<PortId>,
         output: Option<&'a mut [Sample]>,
     ) -> &mut Self {
-        self.outputs[**port_id.into()] = output;
+        self.output_buffers[**port_id.into()] = output;
         self
     }
 
@@ -27,7 +27,7 @@ impl<'a> AudioNodeContext<'a> {
         port_id: impl Into<PortId>,
         input: Option<&'a [Sample]>,
     ) -> &mut Self {
-        self.inputs[**port_id.into()] = input;
+        self.input_buffers[**port_id.into()] = input;
         self
     }
 
@@ -35,7 +35,7 @@ impl<'a> AudioNodeContext<'a> {
         &mut self,
         outputs: [Option<&'a mut [Sample]>; PortId::MAX_PORT_ID],
     ) -> &mut Self {
-        self.outputs = outputs;
+        self.output_buffers = outputs;
         self
     }
 
@@ -43,18 +43,18 @@ impl<'a> AudioNodeContext<'a> {
         &mut self,
         inputs: [Option<&'a [Sample]>; PortId::MAX_PORT_ID],
     ) -> &mut Self {
-        self.inputs = inputs;
+        self.input_buffers = inputs;
         self
     }
 
     pub fn input_buffer(&self, port_id: impl Into<PortId>) -> Option<&[Sample]> {
-        self.inputs
+        self.input_buffers
             .get(**port_id.into())
             .and_then(|inner: &Option<&[Sample]>| inner.as_deref())
     }
 
     pub fn output_buffer(&mut self, port_id: impl Into<PortId>) -> Option<&mut [Sample]> {
-        self.outputs
+        self.output_buffers
             .get_mut(**port_id.into())
             .and_then(|inner: &mut Option<&mut [Sample]>| inner.as_deref_mut())
     }
