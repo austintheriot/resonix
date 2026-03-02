@@ -536,25 +536,33 @@ impl crate::traits::Graph for Graph {
             // and there is no risk of double aliasing mutable pointers.
             let mut output_guards: [Option<RefMut<'_, [Sample]>>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| {
-                    let conn_id = output_connection_ids.get(i)?.as_ref()?;
-                    if external_output_ptrs.contains_key(conn_id) {
+                    let output_connection_id = output_connection_ids.get(i)?.as_ref()?;
+                    if external_output_ptrs.contains_key(output_connection_id) {
+                        // we'll acquire the pointer directly in a later step
                         return None;
                     }
-                    let cell = buffer_pool.get(conn_id).expect(BUFFER_NOT_FOUND);
-                    let guard = cell.try_borrow_mut().expect(
+
+                    let output_buffer_ref_cell = buffer_pool
+                        .get(output_connection_id)
+                        .expect(BUFFER_NOT_FOUND);
+
+                    let output_buffer_guard = output_buffer_ref_cell.try_borrow_mut().expect(
                         "Output buffers should never be attempted to be borrowed multiple times.",
                     );
-                    Some(RefMut::map(guard, |b| b.as_mut()))
+                    Some(RefMut::map(output_buffer_guard, |b| b.as_mut()))
                 });
 
             // For external output ports: use the caller-supplied pointer (or None).
             // For internal ports: derive the pointer from the RefMut guard.
             let output_buffer_raw_ptrs: [Option<*mut [Sample]>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| {
-                    let conn_id = output_connection_ids.get(i)?.as_ref()?;
-                    if let Some(opt_ptr) = external_output_ptrs.get(conn_id) {
-                        return *opt_ptr;
+                    let output_connection_id = output_connection_ids.get(i)?.as_ref()?;
+                    if let Some(external_output_buffer_ptr) =
+                        external_output_ptrs.get(output_connection_id)
+                    {
+                        return *external_output_buffer_ptr;
                     }
+
                     output_guards[i].as_mut().map(|g| &mut **g as *mut [Sample])
                 });
 
@@ -567,6 +575,8 @@ impl crate::traits::Graph for Graph {
                         .get(i)?
                         .as_ref()
                         .map(|conneection_id| {
+                            // TODO: read inputs directly from caller-supplied input buffers
+                            // eventually (like we do for outputs)
                             buffer_pool.get(conneection_id).expect(BUFFER_NOT_FOUND)
                         })
                         // can be None if the Node connects to itself,
