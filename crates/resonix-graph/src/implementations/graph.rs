@@ -356,26 +356,21 @@ impl crate::traits::Graph for Graph {
             Vec::with_capacity(num_output_ports);
         output_connection_ids.resize(num_output_ports, None);
 
-        // TODO: do not allocated buffer for this.
-        // Since it's passed in at `run` time, we can just look up the buffer
-        // pointer for this at `run` time, and we know it will
-        // be valid for the duration of the `run` call.
-        //
-        // External output ports are not connected via `connect()`, so we allocate
-        // their buffers here and record the connection ID in the port map.
+        // External output ports are not connected via `connect()`, so we only need
+        // a ConnectionId for bookkeeping. The actual buffer that is read from/written
+        // to during the dsp run cycle is provided by the caller.
         for external_output_port_addr in port_descriptors
             .external_output_port_addresses()
             .unwrap_or(&[])
         {
-            let conection_id = ConnectionId::from(self.id_generator.generate_id());
-            self.allocate_empty_buffer_for_connection(conection_id)?;
+            let connection_id = ConnectionId::from(self.id_generator.generate_id());
             self.port_address_to_connection_id_map
-                .insert(*external_output_port_addr, conection_id);
+                .insert(*external_output_port_addr, connection_id);
 
             if let Some(connection_id_slot) =
                 output_connection_ids.get_mut(**external_output_port_addr.port_id())
             {
-                *connection_id_slot = Some(conection_id);
+                *connection_id_slot = Some(connection_id);
             }
         }
 
@@ -497,6 +492,24 @@ impl crate::traits::Graph for Graph {
             return Ok(());
         };
 
+        // Build a one-time map from external-output ConnectionIds to raw pointer into
+        // the caller-supplied output slice.
+        //
+        // If the caller didn't provide a buffer for that port, then we just leave it as `None`.
+        // External output ports write directly into the caller's buffer, bypassing the buffer pool.
+        let external_output_ptrs: IntMap<ConnectionId, Option<*mut [Sample]>> = self
+            .port_address_to_connection_id_map
+            .iter()
+            .filter(|(addr, _)| {
+                addr.port_address_direction() == PortAddressDirection::ExternalOutput
+            })
+            .map(|(addr, &conn_id)| {
+                let external_output_buffer_ptr =
+                    outputs.get_mut(addr).map(|s| *s as *mut [Sample]);
+                (conn_id, external_output_buffer_ptr)
+            })
+            .collect();
+
         for &id in visit_order.iter() {
             let Some(GraphItem::Node(Node::AudioNode(node))) = self.graph_items.get_mut(&id) else {
                 return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
@@ -515,30 +528,33 @@ impl crate::traits::Graph for Graph {
             const BUFFER_NOT_FOUND: &str = "Buffer not found for connection id. This likely means a buffer was not allocated when it should have been, or it was freed too soon.";
 
             // Nodes that are connected directly to themselves will only receive
-            // a buffer for their OUTPUT, since we can't both acquire a read-only
-            // reference to the input buffer and a read-write reference to the output
-            // buffer, when it's the SAME buffer
+            // a buffer for their OUTPUT ports (and not their input ports),
+            // since we can't both acquire a read-only reference to the input buffer
+            // and a read-write reference to the output buffer, when it's the SAME buffer.
+            //
+            // External output ports bypass the pool entirely, so no guard is needed,
+            // and there is no risk of double aliasing mutable pointers.
             let mut output_guards: [Option<RefMut<'_, [Sample]>>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| {
-                    output_connection_ids
-                        // expected to be None for any ports we're querying for that are not defined
-                        .get(i)?
-                        .as_ref()
-                        .map(|connection_id| {
-                            // expected to be None for any ports not defined
-                            buffer_pool
-                                .get(connection_id)
-                                .expect(BUFFER_NOT_FOUND)
-                        })
-                        .map(|c| {
-                            c.try_borrow_mut()
-                                .expect("Output buffers should never be attempted to be borrowed multiple times.")
-                        })
-                        .map(|g| RefMut::map(g, |b| b.as_mut()))
+                    let conn_id = output_connection_ids.get(i)?.as_ref()?;
+                    if external_output_ptrs.contains_key(conn_id) {
+                        return None;
+                    }
+                    let cell = buffer_pool.get(conn_id).expect(BUFFER_NOT_FOUND);
+                    let guard = cell.try_borrow_mut().expect(
+                        "Output buffers should never be attempted to be borrowed multiple times.",
+                    );
+                    Some(RefMut::map(guard, |b| b.as_mut()))
                 });
 
+            // For external output ports: use the caller-supplied pointer (or None).
+            // For internal ports: derive the pointer from the RefMut guard.
             let output_buffer_raw_ptrs: [Option<*mut [Sample]>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| {
+                    let conn_id = output_connection_ids.get(i)?.as_ref()?;
+                    if let Some(opt_ptr) = external_output_ptrs.get(conn_id) {
+                        return *opt_ptr;
+                    }
                     output_guards[i].as_mut().map(|g| &mut **g as *mut [Sample])
                 });
 
@@ -571,6 +587,8 @@ impl crate::traits::Graph for Graph {
             // this function call.
             // - No 2 output ports share the same `ConnectionId`, so no risk of
             // mutably aliasing the same memory
+            // - For external output ports, the pointer comes directly from the
+            // caller-supplied `outputs` slice, which is valid for the duration of `run`.
             // - The safety of this call is verified in tests with `miri` in CI
             let output_buffers: [Option<&mut [Sample]>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| output_buffer_raw_ptrs[i].map(|p| unsafe { &mut *p }));
@@ -582,18 +600,6 @@ impl crate::traits::Graph for Graph {
             };
 
             node.process(ctx)?;
-        }
-
-        // copy external buffer data out (if a buffer was supplied)
-        for (port_address, connection_id) in &self.port_address_to_connection_id_map {
-            if port_address.port_address_direction() == PortAddressDirection::ExternalOutput {
-                if let Some(buffer) = self.buffer_pool.get(connection_id) {
-                    let buffer = buffer.borrow();
-                    if let Some(output_buffer) = outputs.get_mut(port_address) {
-                        output_buffer.copy_from_slice(&buffer);
-                    }
-                }
-            }
         }
 
         Ok(())
