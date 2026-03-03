@@ -77,7 +77,6 @@ impl GenerateId for GraphIdGenerator {
 pub struct Graph {
     id_generator: GraphIdGenerator,
     graph_items: IntMap<Id, GraphItem>,
-    visit_order: Option<Vec<Id>>,
     node_connection_id_map: IntMap<NodeId, NodeConnectionIdMap>,
     id_to_pegraph_index_map: HashMap<Id, petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>>,
     petgraph_index_to_id_map: HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, Id>,
@@ -99,7 +98,6 @@ impl Graph {
             id_generator: GraphIdGenerator::default(),
             graph_items: IntMap::default(),
             node_connection_id_map: IntMap::default(),
-            visit_order: None,
             id_to_pegraph_index_map: HashMap::new(),
             graph: petgraph::Graph::<NodeId, ConnectionId>::new(),
             leaf_nodes: IntSet::default(),
@@ -359,10 +357,7 @@ impl Graph {
     /// in the pool. These pointers are stable until the next topology change
     /// (add/connect/disconnect/remove), which invalidates the plan.
     fn compile(&mut self) -> Vec<CompiledStep> {
-        let visit_order: Vec<Id> = match self.visit_order.as_ref() {
-            Some(order) => order.clone(),
-            None => return Vec::new(),
-        };
+        let visit_order = self.compute_new_visit_order();
 
         let block_size = self.block_size;
 
@@ -434,6 +429,12 @@ impl Graph {
             .collect()
     }
 
+    fn ensure_compiled_plan(&mut self) {
+        if self.compiled_plan.is_none() {
+            self.compiled_plan = Some(self.compile());
+        }
+    }
+
     fn allocate_empty_buffer_for_connection(
         &mut self,
         connection_id: ConnectionId,
@@ -470,10 +471,7 @@ impl crate::traits::Graph for Graph {
         let port_descriptors: P = node.get_port_descriptors();
 
         // Enforce dense per-direction port IDs so that slice lengths equal actual port counts.
-        Self::validate_dense_port_ids(&[
-            port_descriptors.input_port_addresses(),
-            port_descriptors.param_port_addresses(),
-        ])?;
+        Self::validate_dense_port_ids(&[port_descriptors.input_port_addresses()])?;
         Self::validate_dense_port_ids(&[
             port_descriptors.output_port_addresses(),
             port_descriptors.external_output_port_addresses(),
@@ -483,10 +481,7 @@ impl crate::traits::Graph for Graph {
         let node_id = NodeId::from(node.node_id());
 
         // Tracking port information here prevents unnecessary allocation at `run` time.
-        let num_input_ports = Self::count_ports(&[
-            port_descriptors.input_port_addresses(),
-            port_descriptors.param_port_addresses(),
-        ]);
+        let num_input_ports = Self::count_ports(&[port_descriptors.input_port_addresses()]);
         let num_output_ports = Self::count_ports(&[
             port_descriptors.output_port_addresses(),
             port_descriptors.external_output_port_addresses(),
@@ -557,9 +552,7 @@ impl crate::traits::Graph for Graph {
         // until a node has an outgoing connection, it is a leaf node
         self.leaf_nodes.insert(node_id);
 
-        // must be recomputed on every modification
-        // TODO: do incremental updates in the future?
-        self.visit_order = Some(self.compute_new_visit_order());
+        // Invalidate cached execution plan; it is recomputed on the next `run()` call.
         self.compiled_plan = None;
 
         Ok(node_handle)
@@ -619,8 +612,7 @@ impl crate::traits::Graph for Graph {
         // if it has a connection going out now, it is no longer a leaf node
         self.leaf_nodes.remove(&start_node_id);
 
-        // must be recomputed on every modification
-        self.visit_order = Some(self.compute_new_visit_order());
+        // Invalidate cached execution plan; it is recomputed on the next `run()` call.
         self.compiled_plan = None;
 
         Ok(self)
@@ -631,9 +623,7 @@ impl crate::traits::Graph for Graph {
         _inputs: &HashMap<ConnectionId, &[Sample]>,
         outputs: &mut HashMap<ConnectionId, &mut [Sample]>,
     ) -> Result<(), GraphRunError> {
-        if self.compiled_plan.is_none() {
-            self.compiled_plan = Some(self.compile());
-        }
+        self.ensure_compiled_plan();
 
         let compiled_plan = self.compiled_plan.as_mut().unwrap();
 
@@ -689,7 +679,7 @@ mod graph_tests {
 
         #[track_caller]
         fn assert_visit_order_matches_handles(
-            visit_order: &Option<&[Id]>,
+            visit_order: &[Id],
             node_handles: &[Box<dyn GetNodeId>],
         ) {
             let node_handles_as_node_ids: Vec<Id> = node_handles
@@ -697,7 +687,7 @@ mod graph_tests {
                 .map(|node_handle| node_handle.node_id())
                 .collect();
             assert_eq!(
-                visit_order.unwrap(),
+                visit_order,
                 node_handles_as_node_ids.as_slice(),
                 "Visit order is not equal"
             )
@@ -731,8 +721,9 @@ mod graph_tests {
                 let constant_node_handle_1 = graph.add(constant_node_1).unwrap();
                 let constant_node_handle_2 = graph.add(constant_node_2).unwrap();
 
+                let visit_order = graph.compute_new_visit_order();
                 assert_visit_order_matches_handles(
-                    &graph.visit_order.as_deref(),
+                    visit_order.as_slice(),
                     &[
                         Box::new(constant_node_handle_1),
                         Box::new(constant_node_handle_2),
@@ -776,8 +767,9 @@ mod graph_tests {
                     )
                     .unwrap();
 
+                let visit_order = graph.compute_new_visit_order();
                 assert_visit_order_matches_handles(
-                    &graph.visit_order.as_deref(),
+                    visit_order.as_slice(),
                     &[
                         Box::new(constant_node_handle),
                         Box::new(multiply_node_handle),
@@ -834,8 +826,9 @@ mod graph_tests {
                     )
                     .unwrap();
 
+                let visit_order = graph.compute_new_visit_order();
                 assert_visit_order_matches_handles(
-                    &graph.visit_order.as_deref(),
+                    visit_order.as_slice(),
                     &[
                         Box::new(node_0_handle),
                         Box::new(node_1_handle),
@@ -894,8 +887,9 @@ mod graph_tests {
                     )
                     .unwrap();
 
+                let visit_order = graph.compute_new_visit_order();
                 assert_visit_order_matches_handles(
-                    &graph.visit_order.as_deref(),
+                    visit_order.as_slice(),
                     &[
                         Box::new(node_0_handle),
                         Box::new(node_1_handle),
@@ -936,8 +930,9 @@ mod graph_tests {
                     )
                     .unwrap();
 
+                let visit_order = graph.compute_new_visit_order();
                 assert_visit_order_matches_handles(
-                    &graph.visit_order.as_deref(),
+                    visit_order.as_slice(),
                     &[Box::new(constant_node_1_handle)],
                 );
             }
@@ -973,8 +968,9 @@ mod graph_tests {
                     )
                     .unwrap();
 
+                let visit_order = graph.compute_new_visit_order();
                 assert_visit_order_matches_handles(
-                    &graph.visit_order.as_deref(),
+                    visit_order.as_slice(),
                     &[
                         Box::new(constant_node_1_handle),
                         Box::new(constant_node_2_handle),
@@ -1024,8 +1020,9 @@ mod graph_tests {
                     )
                     .unwrap();
 
+                let visit_order = graph.compute_new_visit_order();
                 assert_visit_order_matches_handles(
-                    &graph.visit_order.as_deref(),
+                    visit_order.as_slice(),
                     &[
                         Box::new(constant_node_0_handle),
                         Box::new(constant_node_1_handle),
@@ -1065,8 +1062,9 @@ mod graph_tests {
                     )
                     .unwrap();
 
+                let visit_order = graph.compute_new_visit_order();
                 assert_visit_order_matches_handles(
-                    &graph.visit_order.as_deref(),
+                    visit_order.as_slice(),
                     &[
                         Box::new(constant_node_0_handle),
                         Box::new(constant_node_1_handle),
@@ -1113,8 +1111,9 @@ mod graph_tests {
                     )
                     .unwrap();
 
+                let visit_order = graph.compute_new_visit_order();
                 assert_visit_order_matches_handles(
-                    &graph.visit_order.as_deref(),
+                    visit_order.as_slice(),
                     &[
                         Box::new(constant_node_0_handle),
                         Box::new(constant_node_1_handle),
@@ -1169,8 +1168,9 @@ mod graph_tests {
                     )
                     .unwrap();
 
+                let visit_order = graph.compute_new_visit_order();
                 assert_visit_order_matches_handles(
-                    &graph.visit_order.as_deref(),
+                    visit_order.as_slice(),
                     &[
                         Box::new(constant_node_0_handle),
                         Box::new(constant_node_1_handle),
@@ -1261,8 +1261,9 @@ mod graph_tests {
                     )
                     .unwrap();
 
+                let visit_order = graph.compute_new_visit_order();
                 assert_visit_order_matches_handles(
-                    &graph.visit_order.as_deref(),
+                    visit_order.as_slice(),
                     &[
                         Box::new(node_0_handle),
                         Box::new(node_1_handle),
@@ -1407,8 +1408,9 @@ mod graph_tests {
                     )
                     .unwrap();
 
+                let visit_order = graph.compute_new_visit_order();
                 assert_visit_order_matches_handles(
-                    &graph.visit_order.as_deref(),
+                    visit_order.as_slice(),
                     &[
                         Box::new(node_2_handle),
                         Box::new(node_5_handle),
@@ -1517,8 +1519,9 @@ mod graph_tests {
                     )
                     .unwrap();
 
+                let visit_order = graph.compute_new_visit_order();
                 assert_visit_order_matches_handles(
-                    &graph.visit_order.as_deref(),
+                    visit_order.as_slice(),
                     &[
                         Box::new(node_2_handle),
                         Box::new(node_7_handle),

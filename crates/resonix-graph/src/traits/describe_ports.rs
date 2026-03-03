@@ -24,10 +24,6 @@ pub trait DescribePorts {
     fn external_input_port_addresses(&self) -> Option<&[PortAddress]> {
         None
     }
-
-    fn param_port_addresses(&self) -> Option<&[PortAddress]> {
-        None
-    }
 }
 
 // Implement this trait automatically for any traits that Deref
@@ -46,10 +42,6 @@ where
 
     fn output_port_addresses(&self) -> Option<&[PortAddress]> {
         (**self).output_port_addresses()
-    }
-
-    fn param_port_addresses(&self) -> Option<&[PortAddress]> {
-        (**self).param_port_addresses()
     }
 
     fn external_output_port_addresses(&self) -> Option<&[PortAddress]> {
