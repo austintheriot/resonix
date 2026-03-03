@@ -18,10 +18,18 @@ pub enum ProducerError {
 pub struct Producer<S: Sample>(pub(crate) <SharedRb<Heap<S>> as Split>::Prod);
 
 impl<S: Sample> Producer<S> {
-    pub fn write(&mut self, sample: S) -> Result<(), ProducerError> {
+    pub fn try_write(&mut self, sample: S) -> Result<(), ProducerError> {
         self.0
             .try_push(sample)
             .map_err(|_| ProducerError::WriteFailure)
+    }
+
+    pub fn try_write_block(&mut self, samples: &[S]) -> Result<(), ProducerError> {
+        for &sample in samples.iter() {
+            self.try_write(sample)?;
+        }
+
+        Ok(())
     }
 }
 

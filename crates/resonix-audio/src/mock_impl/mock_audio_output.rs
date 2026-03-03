@@ -30,7 +30,15 @@ impl<S: Sample> Default for MockAudioOutput<S> {
 }
 
 impl<S: Sample> SystemAudioOutput<S> for MockAudioOutput<S> {
-    fn write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError> {
+    fn try_write_block(&mut self, samples: &[S]) -> Result<(), SystemAudioOutputError> {
+        self.producer.try_write_block(samples).map_err(|_e| {
+            SystemAudioOutputError::WriteError(Box::new(MockAudioOutputError::WriteError))
+        })?;
+
+        Ok(())
+    }
+
+    fn try_write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError> {
         self.producer.try_push(sample).map_err(|_sample| {
             SystemAudioOutputError::WriteError(Box::new(MockAudioOutputError::WriteError))
         })?;

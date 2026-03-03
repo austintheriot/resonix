@@ -16,7 +16,7 @@ fn main() {
     // just fill the buffer on every loop
     loop {
         while audio_output.ready_for_sample() {
-            audio_output.write_sample(next_value()).unwrap();
+            audio_output.try_write_sample(next_value()).unwrap();
         }
     }
 }
@@ -31,10 +31,10 @@ mod test_mock {
         let mut audio_output = MockAudioOutput::<f32>::default();
 
         audio_output
-            .write_sample(Sample::from_sample(0.123))
+            .try_write_sample(Sample::from_sample(0.123))
             .unwrap();
 
-        let value = audio_output.consumer().unwrap().read().unwrap();
+        let value = audio_output.consumer().unwrap().try_read().unwrap();
 
         assert_eq!(value, 0.123)
     }

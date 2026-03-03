@@ -46,7 +46,7 @@ impl<S: Sample + SizedSample + Send + 'static> CpalAudioOutput<S> {
         let mut consumer = Consumer::<S>(consumer);
 
         // just output whatever is read from the ring buffer
-        let mut next_value = move || consumer.read().unwrap();
+        let mut next_value = move || consumer.try_read().unwrap();
         let err_fn = |_err| unimplemented!();
 
         let stream = device
@@ -84,8 +84,16 @@ impl<S> SystemAudioOutput<S> for CpalAudioOutput<S>
 where
     S: Sample,
 {
-    fn write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError> {
-        self.producer.write(sample).map_err(|_sample| {
+    fn try_write_block(&mut self, samples: &[S]) -> Result<(), SystemAudioOutputError> {
+        self.producer.try_write_block(samples).map_err(|_e| {
+            SystemAudioOutputError::WriteError(Box::new(CpalAudioOutputError::WriteError))
+        })?;
+
+        Ok(())
+    }
+
+    fn try_write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError> {
+        self.producer.try_write(sample).map_err(|_e| {
             SystemAudioOutputError::WriteError(Box::new(CpalAudioOutputError::WriteError))
         })?;
 

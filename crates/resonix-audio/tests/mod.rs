@@ -6,16 +6,34 @@ mod test_audio_output {
         use resonix_audio::{MockAudioOutput, SystemAudioOutput};
 
         #[test]
-        fn send_audio() {
+        fn send_audio_sample() {
             let mut audio_output = MockAudioOutput::<f32>::new();
+            let expected_output_sample: f32 = 0.123;
 
             audio_output
-                .write_sample(Sample::from_sample(0.123))
+                .try_write_sample(Sample::from_sample(expected_output_sample))
                 .unwrap();
 
-            let value = audio_output.consumer().unwrap().read().unwrap();
+            let output_sample = audio_output.consumer().unwrap().try_read().unwrap();
 
-            assert_eq!(value, 0.123)
+            assert_eq!(output_sample, expected_output_sample)
+        }
+
+        #[test]
+        fn send_audio_block() {
+            let mut audio_output = MockAudioOutput::<f32>::new();
+            let expected_output_block: [f32; 3] = [
+                Sample::from_sample(0.0),
+                Sample::from_sample(1.0),
+                Sample::from_sample(2.0),
+            ];
+
+            audio_output
+                .try_write_block(&expected_output_block)
+                .unwrap();
+
+            let output_block = audio_output.consumer().unwrap().drain();
+            assert_eq!(output_block.as_slice(), expected_output_block)
         }
     }
 
@@ -24,18 +42,37 @@ mod test_audio_output {
         use resonix_audio::{MockAudioInput, SystemAudioInput};
 
         #[test]
-        fn receive_audio() {
+        fn receive_audio_sample() {
             let mut audio_input = MockAudioInput::<f32>::new();
+            let expected_input_sample: f32 = 0.123;
 
             audio_input
                 .producer()
                 .unwrap()
-                .write(Sample::from_sample(0.123))
+                .try_write(Sample::from_sample(expected_input_sample))
                 .unwrap();
 
-            let value = audio_input.read_sample().unwrap();
+            let input_sample = audio_input.try_read_sample().unwrap();
+            assert_eq!(input_sample, expected_input_sample)
+        }
 
-            assert_eq!(value, 0.123)
+        #[test]
+        fn receive_audio_block() {
+            let mut audio_input = MockAudioInput::<f32>::new();
+            let expected_input_block: [f32; 3] = [
+                Sample::from_sample(0.0),
+                Sample::from_sample(1.0),
+                Sample::from_sample(2.0),
+            ];
+
+            audio_input
+                .producer()
+                .unwrap()
+                .try_write_block(&expected_input_block)
+                .unwrap();
+
+            let input_block = audio_input.drain().unwrap();
+            assert_eq!(input_block, expected_input_block)
         }
     }
 }
