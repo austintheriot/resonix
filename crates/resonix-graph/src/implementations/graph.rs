@@ -590,6 +590,8 @@ impl crate::traits::Graph for Graph {
         // - must be compatible data-types
         // - must be the correct number of connections for both nodes
         // - must be correct node relationship node->node, param->node, etc.
+        // - start port address must be the output of one node and end
+        //   address must be the input of another
 
         let connection = Connection::new(self, start_port_address, end_port_address);
         let connection_id = connection.connection_id;
