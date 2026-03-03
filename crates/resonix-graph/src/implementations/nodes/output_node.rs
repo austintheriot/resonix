@@ -88,7 +88,10 @@ mod tests {
     use alloc::vec::Vec;
 
     use super::*;
-    use crate::{primitives::{BlockSize, Sample}, test_utils::TestIdGenerator};
+    use crate::{
+        primitives::{BlockSize, Sample},
+        test_utils::TestIdGenerator,
+    };
 
     /// Runs `node.process()` with the given input and returns the output buffer contents.
     fn process_output(node: &mut OutputNode, input: &[Sample], block_size: usize) -> Vec<Sample> {
@@ -96,8 +99,12 @@ mod tests {
         let inputs: Vec<Option<&[Sample]>> = vec![Some(input)];
         {
             let mut outputs: Vec<Option<&mut [Sample]>> = vec![Some(out_buf.as_mut_slice())];
-            node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(block_size))
-                .expect("process should not fail");
+            node.process(
+                inputs.as_slice(),
+                outputs.as_mut_slice(),
+                BlockSize::new(block_size),
+            )
+            .expect("process should not fail");
         }
         out_buf
     }

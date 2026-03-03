@@ -183,7 +183,10 @@ mod tests {
     use alloc::vec::Vec;
 
     use super::*;
-    use crate::{primitives::{BlockSize, Sample}, test_utils::TestIdGenerator};
+    use crate::{
+        primitives::{BlockSize, Sample},
+        test_utils::TestIdGenerator,
+    };
 
     /// Runs `node.process()` and returns the output buffer contents.
     /// `left` and `right` are the two input slots; `None` means unconnected.
@@ -197,8 +200,12 @@ mod tests {
         let inputs: Vec<Option<&[Sample]>> = vec![left, right];
         {
             let mut outputs: Vec<Option<&mut [Sample]>> = vec![Some(out_buf.as_mut_slice())];
-            node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(block_size))
-                .expect("process should not fail");
+            node.process(
+                inputs.as_slice(),
+                outputs.as_mut_slice(),
+                BlockSize::new(block_size),
+            )
+            .expect("process should not fail");
         }
         out_buf
     }
@@ -255,8 +262,16 @@ mod tests {
     fn multiplies_block_element_wise() {
         let mut id_gen = TestIdGenerator(0);
         let mut node = MultiplyNode::new(&mut id_gen).into_inner();
-        let left = [Sample::from(1.0f32), Sample::from(2.0f32), Sample::from(3.0f32)];
-        let right = [Sample::from(4.0f32), Sample::from(5.0f32), Sample::from(6.0f32)];
+        let left = [
+            Sample::from(1.0f32),
+            Sample::from(2.0f32),
+            Sample::from(3.0f32),
+        ];
+        let right = [
+            Sample::from(4.0f32),
+            Sample::from(5.0f32),
+            Sample::from(6.0f32),
+        ];
         let result = process_multiply(&mut node, Some(&left), Some(&right), 3);
         assert_eq!(
             result,

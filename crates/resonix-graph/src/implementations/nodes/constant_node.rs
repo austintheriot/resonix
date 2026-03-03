@@ -98,7 +98,10 @@ mod tests {
     use alloc::vec::Vec;
 
     use super::*;
-    use crate::{primitives::{BlockSize, Sample}, test_utils::TestIdGenerator};
+    use crate::{
+        primitives::{BlockSize, Sample},
+        test_utils::TestIdGenerator,
+    };
 
     /// Runs `node.process()` with no inputs and returns the output buffer contents.
     fn process_constant(node: &mut ConstantNode, block_size: usize) -> Vec<Sample> {
