@@ -446,26 +446,24 @@ impl crate::traits::Graph for Graph {
         let start_index = *self.id_to_pegraph_index_map.get(&*start_node_id).unwrap();
 
         // map each start_node's port to its connection_id
-        if let Some(port_map) = self.node_connection_id_map.get_mut(&start_node_id) {
-            if let Some(slot) = port_map
+        if let Some(port_map) = self.node_connection_id_map.get_mut(&start_node_id)
+            && let Some(slot) = port_map
                 .output_connection_ids
                 .get_mut(**start_port_address.port_id())
-            {
-                *slot = Some(connection_id);
-            }
+        {
+            *slot = Some(connection_id);
         }
 
         let end_node_id = end_port_address.node_id();
         let end_index = *self.id_to_pegraph_index_map.get(&*end_node_id).unwrap();
 
         // map each end_node's port to its connection_id
-        if let Some(port_map) = self.node_connection_id_map.get_mut(&end_node_id) {
-            if let Some(slot) = port_map
+        if let Some(port_map) = self.node_connection_id_map.get_mut(&end_node_id)
+            && let Some(slot) = port_map
                 .input_connection_ids
                 .get_mut(**end_port_address.port_id())
-            {
-                *slot = Some(connection_id);
-            }
+        {
+            *slot = Some(connection_id);
         }
 
         self.graph_items
