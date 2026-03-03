@@ -593,32 +593,51 @@ impl crate::traits::Graph for Graph {
         // - start port address must be the output of one node and end
         //   address must be the input of another
 
-        let connection = Connection::new(self, start_port_address, end_port_address);
-        let connection_id = connection.connection_id;
+        // Fan-out detection: if this output port already has a ConnectionId, reuse the
+        // existing pool buffer so all input ports downstream from this port that
+        // consume its audio data.
+        //
+        // This seems sus at first when
+        let existing_connection_id = self
+            .port_address_to_connection_id_map
+            .get(&start_port_address)
+            .copied();
 
-        self.allocate_empty_buffer_for_connection(connection_id)?;
+        let connection_id = if let Some(existing_id) = existing_connection_id {
+            // Fan-out: source port already has a buffer; hook up the new consumer only.
+            existing_id
+        } else {
+            // First connection from this port: allocate a buffer and record the source slot.
+            let connection = Connection::new(self, start_port_address, end_port_address);
+            let connection_id = connection.connection_id;
 
-        self.port_address_to_connection_id_map
-            .insert(start_port_address, connection_id);
+            self.allocate_empty_buffer_for_connection(connection_id)?;
+
+            self.port_address_to_connection_id_map
+                .insert(start_port_address, connection_id);
+
+            let start_node_id = start_port_address.node_id();
+            if let Some(port_map) = self.node_connection_id_map.get_mut(&start_node_id)
+                && let Some(slot) = port_map
+                    .output_connection_ids
+                    .get_mut(**start_port_address.port_id())
+            {
+                *slot = Some(connection_id);
+            }
+
+            self.graph_items
+                .insert(*connection_id, GraphItem::Connection(connection));
+
+            connection_id
+        };
+
+        // Destination node's input slot always gets updated, even when the buffer already exists
         self.port_address_to_connection_id_map
             .insert(end_port_address, connection_id);
-
-        let start_node_id = start_port_address.node_id();
-        let start_index = *self.id_to_pegraph_index_map.get(&*start_node_id).unwrap();
-
-        // map each start_node's port to its connection_id
-        if let Some(port_map) = self.node_connection_id_map.get_mut(&start_node_id)
-            && let Some(slot) = port_map
-                .output_connection_ids
-                .get_mut(**start_port_address.port_id())
-        {
-            *slot = Some(connection_id);
-        }
 
         let end_node_id = end_port_address.node_id();
         let end_index = *self.id_to_pegraph_index_map.get(&*end_node_id).unwrap();
 
-        // map each end_node's port to its connection_id
         if let Some(port_map) = self.node_connection_id_map.get_mut(&end_node_id)
             && let Some(slot) = port_map
                 .input_connection_ids
@@ -627,8 +646,8 @@ impl crate::traits::Graph for Graph {
             *slot = Some(connection_id);
         }
 
-        self.graph_items
-            .insert(*connection_id, GraphItem::Connection(connection));
+        let start_node_id = start_port_address.node_id();
+        let start_index = *self.id_to_pegraph_index_map.get(&*start_node_id).unwrap();
 
         self.graph.add_edge(start_index, end_index, connection_id);
 
@@ -1737,27 +1756,24 @@ mod graph_tests {
             assert_eq!(outputs[&ext_id], samples(&[6.0]).as_slice());
         }
 
-        // TODO: fan-out is not yet implemented.
-        //
-        // Each `connect()` call overwrites the source node's `output_connection_ids` slot
-        // with the newest `ConnectionId`, so only the most-recently-connected consumer's buffer
-        // is ever written.  The fix is to detect fan-out in `connect()` and reuse the first
-        // buffer's `ConnectionId` for all subsequent consumers (sharing the pool buffer).
         #[test]
-        #[ignore = "fan-out not yet implemented: only the last-connected consumer receives audio"]
         fn fan_out_one_constant_to_multiple_outputs() {
             // const(5.0) ─── output_1
             //            └── output_2
+            //            └── output_3
             let mut graph = Graph::new();
             let constant = ConstantNode::new_with_value(&mut graph, 5.0f32);
             let output_1 = OutputNode::new(&mut graph);
             let output_2 = OutputNode::new(&mut graph);
+            let output_3 = OutputNode::new(&mut graph);
 
             let constant_handle = graph.add(constant).unwrap();
             let output_1_handle = graph.add(output_1).unwrap();
             let output_2_handle = graph.add(output_2).unwrap();
+            let output_3_handle = graph.add(output_3).unwrap();
             let ext_id_1 = ext_output_id!(output_1_handle);
             let ext_id_2 = ext_output_id!(output_2_handle);
+            let ext_id_3 = ext_output_id!(output_3_handle);
 
             graph
                 .connect(
@@ -1769,19 +1785,28 @@ mod graph_tests {
                     constant_handle.output_port_address(),
                     output_2_handle.input_port_address(),
                 )
+                .unwrap()
+                .connect(
+                    constant_handle.output_port_address(),
+                    output_3_handle.input_port_address(),
+                )
                 .unwrap();
 
             let inputs = HashMap::new();
             let mut out_buf_1 = vec![Sample::default()];
             let mut out_buf_2 = vec![Sample::default()];
+            let mut out_buf_3 = vec![Sample::default()];
             let mut outputs = HashMap::from([
                 (ext_id_1, out_buf_1.as_mut_slice()),
                 (ext_id_2, out_buf_2.as_mut_slice()),
+                (ext_id_3, out_buf_3.as_mut_slice()),
             ]);
+
             graph.run(&inputs, &mut outputs).unwrap();
 
             assert_eq!(outputs[&ext_id_1], samples(&[5.0]).as_slice());
             assert_eq!(outputs[&ext_id_2], samples(&[5.0]).as_slice());
+            assert_eq!(outputs[&ext_id_3], samples(&[5.0]).as_slice());
         }
 
         #[test]
