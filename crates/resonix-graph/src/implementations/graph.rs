@@ -397,13 +397,7 @@ impl crate::traits::Graph for Graph {
             },
         );
 
-        let external_conection_ids = if !external_connection_ids.is_empty() {
-            Some(external_connection_ids)
-        } else {
-            None
-        };
-
-        let node_handle = NodeHandle::new(node_id, port_descriptors, external_conection_ids);
+        let node_handle = NodeHandle::new(node_id, port_descriptors, external_connection_ids);
 
         // bookkeeping
         let index = self.graph.add_node(node_id);
@@ -1432,21 +1426,21 @@ mod graph_tests {
             let mut graph = Graph::new();
             let output_node = OutputNode::new(&mut graph);
             let output_node = graph.add(output_node).unwrap();
-            let external_connection_ids = output_node.external_connection_ids().unwrap();
-            let external_output_connection_id = external_connection_ids
+            let &external_output_connection_id = output_node
+                .external_connection_ids()
                 .get(&OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
                 .unwrap();
 
             let inputs = HashMap::new();
             let mut output_buffer = vec![Sample::default()];
             let mut outputs =
-                HashMap::from([(*external_output_connection_id, output_buffer.as_mut_slice())]);
+                HashMap::from([(external_output_connection_id, output_buffer.as_mut_slice())]);
             graph.run(&inputs, &mut outputs).unwrap();
 
             assert_eq!(
                 outputs,
                 HashMap::from([(
-                    *external_output_connection_id,
+                    external_output_connection_id,
                     vec![Sample::default()].as_mut_slice(),
                 )])
             )
@@ -1487,8 +1481,8 @@ mod graph_tests {
 
             let constant_node = graph.add(constant_node).unwrap();
             let output_node = graph.add(output_node).unwrap();
-            let external_connection_ids = output_node.external_connection_ids().unwrap();
-            let external_output_connection_id = external_connection_ids
+            let &external_output_connection_id = output_node
+                .external_connection_ids()
                 .get(&OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
                 .unwrap();
 
@@ -1502,13 +1496,13 @@ mod graph_tests {
             let inputs = HashMap::new();
             let mut output_buffer = vec![Sample::default()];
             let mut outputs =
-                HashMap::from([(*external_output_connection_id, output_buffer.as_mut_slice())]);
+                HashMap::from([(external_output_connection_id, output_buffer.as_mut_slice())]);
             graph.run(&inputs, &mut outputs).unwrap();
 
             assert_eq!(
                 outputs,
                 HashMap::from([(
-                    *external_output_connection_id,
+                    external_output_connection_id,
                     vec![Sample::from(expected_sample_value)].as_mut_slice(),
                 )])
             );

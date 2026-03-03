@@ -12,14 +12,14 @@ use super::{ConnectionId, NodeId, PortId};
 pub struct NodeHandle<PortDescriptor> {
     pub(crate) node_id: NodeId,
     pub(crate) port_descriptors: PortDescriptor,
-    pub(crate) external_connection_ids: Option<IntMap<PortId, ConnectionId>>,
+    pub(crate) external_connection_ids: IntMap<PortId, ConnectionId>,
 }
 
 impl<PortDescriptors> NodeHandle<PortDescriptors> {
     pub fn new(
         node_id: NodeId,
         port_descriptors: PortDescriptors,
-        external_connection_ids: Option<IntMap<PortId, ConnectionId>>,
+        external_connection_ids: IntMap<PortId, ConnectionId>,
     ) -> Self {
         Self {
             node_id,
@@ -28,8 +28,8 @@ impl<PortDescriptors> NodeHandle<PortDescriptors> {
         }
     }
 
-    pub fn external_connection_ids(&self) -> Option<&IntMap<PortId, ConnectionId>> {
-        self.external_connection_ids.as_ref()
+    pub fn external_connection_ids(&self) -> &IntMap<PortId, ConnectionId> {
+        &self.external_connection_ids
     }
 }
 
