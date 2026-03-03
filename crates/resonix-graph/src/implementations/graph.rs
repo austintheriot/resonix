@@ -23,9 +23,9 @@ use wasm_bindgen::prelude::wasm_bindgen;
 /// Allocated once at `add()` time; updated during `connect()`.
 /// A `None` entry means the port is unconnected.
 struct NodeConnectionIdMap {
-    // TODO: replace with an IntMap?c
-    input_connection_ids: Box<[Option<ConnectionId>]>,
-    output_connection_ids: Box<[Option<ConnectionId>]>,
+    // TODO: replace with an IntMap?
+    input_port_slots: Box<[Option<ConnectionId>]>,
+    output_port_slots: Box<[Option<ConnectionId>]>,
 }
 
 /// One entry in the compiled execution plan produced by `Graph::compile`.
@@ -77,8 +77,8 @@ pub struct Graph {
     id_generator: GraphIdGenerator,
     graph_items: IntMap<Id, GraphItem>,
     node_connection_id_map: IntMap<NodeId, NodeConnectionIdMap>,
-    id_to_pegraph_index_map: HashMap<Id, petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>>,
-    petgraph_index_to_id_map: HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, Id>,
+    node_id_to_petgraph_index: HashMap<Id, petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>>,
+    petgraph_index_to_node_id: HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, Id>,
     port_address_to_connection_id_map: HashMap<PortAddress, ConnectionId>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: IntSet<NodeId>,
@@ -97,10 +97,10 @@ impl Graph {
             id_generator: GraphIdGenerator::default(),
             graph_items: IntMap::default(),
             node_connection_id_map: IntMap::default(),
-            id_to_pegraph_index_map: HashMap::new(),
+            node_id_to_petgraph_index: HashMap::new(),
             graph: petgraph::Graph::<NodeId, ConnectionId>::new(),
             leaf_nodes: IntSet::default(),
-            petgraph_index_to_id_map: HashMap::new(),
+            petgraph_index_to_node_id: HashMap::new(),
             port_address_to_connection_id_map: HashMap::new(),
             block_size: block_size.into(),
             buffer_pool: BufferPool::default(),
@@ -117,6 +117,125 @@ impl Graph {
         &mut self.id_generator
     }
 
+    fn invalidate_compiled_plan(&mut self) {
+        self.compiled_plan = None;
+    }
+
+    /// Adds a node to the internal petgraph and keeps both index lookup maps in sync.
+    fn register_node_in_petgraph(&mut self, node_id: NodeId) {
+        let petgraph_index = self.graph.add_node(node_id);
+        self.node_id_to_petgraph_index.insert(*node_id, petgraph_index);
+        self.petgraph_index_to_node_id.insert(petgraph_index, *node_id);
+    }
+
+    /// Assigns `ConnectionId`s to external ports for one direction (input or output).
+    ///
+    /// For each port address, generates a fresh `ConnectionId`, records it in
+    /// `port_address_to_connection_id_map`, fills the corresponding slot in
+    /// `connection_id_slots`, and returns an `IntMap` from `PortId` to `ConnectionId`
+    /// for use in the `NodeHandle`.
+    fn register_external_port_addresses(
+        &mut self,
+        port_addresses: &[PortAddress],
+        connection_id_slots: &mut [Option<ConnectionId>],
+    ) -> IntMap<PortId, ConnectionId> {
+        let mut external_connection_ids: IntMap<PortId, ConnectionId> = IntMap::default();
+
+        for port_address in port_addresses {
+            let port_id = port_address.port_id();
+            let connection_id = ConnectionId::from(self.id_generator.generate_id());
+
+            external_connection_ids.insert(port_id, connection_id);
+            self.port_address_to_connection_id_map
+                .insert(*port_address, connection_id);
+
+            if let Some(slot) = connection_id_slots.get_mut(**port_id) {
+                *slot = Some(connection_id);
+            }
+        }
+
+        external_connection_ids
+    }
+
+    /// Returns the `ConnectionId` to use for a new edge leaving `start_port_address`.
+    ///
+    /// If the port already has an entry in `port_address_to_connection_id_map`, this is a
+    /// fan-out: the existing `ConnectionId` (and its pool buffer) is reused so all downstream
+    /// consumers share the same audio data.
+    ///
+    /// If the port has no entry yet, a fresh buffer is allocated, the source node's output
+    /// slot is updated, and the connection is recorded in `graph_items`.
+    fn resolve_connection_for_output_port(
+        &mut self,
+        start_port_address: PortAddress,
+        end_port_address: PortAddress,
+    ) -> Result<ConnectionId, GraphConnectionError> {
+        if let Some(&existing_connection_id) = self
+            .port_address_to_connection_id_map
+            .get(&start_port_address)
+        {
+            // Fan-out: the source port already has a buffer — reuse it for the new consumer.
+            return Ok(existing_connection_id);
+        }
+
+        // First connection from this port: allocate a buffer and record the source slot.
+        let connection = Connection::new(self, start_port_address, end_port_address);
+        let connection_id = connection.connection_id;
+
+        self.allocate_empty_buffer_for_connection(connection_id)?;
+        self.port_address_to_connection_id_map
+            .insert(start_port_address, connection_id);
+
+        let start_node_id = start_port_address.node_id();
+        if let Some(port_map) = self.node_connection_id_map.get_mut(&start_node_id)
+            && let Some(slot) = port_map
+                .output_port_slots
+                .get_mut(**start_port_address.port_id())
+        {
+            *slot = Some(connection_id);
+        }
+
+        self.graph_items
+            .insert(*connection_id, GraphItem::Connection(connection));
+
+        Ok(connection_id)
+    }
+
+    /// Extracts raw buffer pointers for a single direction (inputs or outputs) of one node.
+    ///
+    /// Each slot in `connection_ids` maps to one port. For ports backed by pool buffers,
+    /// this extracts the `UnsafeCell`-derived pointer (SRW provenance). For external ports
+    /// with no pool entry, the slot index and `ConnectionId` are recorded in `external_slots`
+    /// and the return value for that slot is `None` — these are patched per `run` call.
+    ///
+    /// SAFETY: All returned pointers are derived from `UnsafeCell::get()` on pool buffers,
+    /// giving them SRW (SharedReadWrite) provenance. See `run()` for the full safety argument.
+    unsafe fn resolve_audio_buffer_pointers(
+        buffer_pool: &BufferPool,
+        connection_ids: &[Option<ConnectionId>],
+        external_slots: &mut Vec<(usize, ConnectionId)>,
+    ) -> Box<[Option<NonNull<[Sample]>>]> {
+        connection_ids
+            .iter()
+            .enumerate()
+            .map(|(slot_index, connection_id_opt)| {
+                let connection_id = connection_id_opt.as_ref()?;
+
+                if !buffer_pool.contains_key(connection_id) {
+                    external_slots.push((slot_index, *connection_id));
+                    return None;
+                }
+
+                // SAFETY: UnsafeCell::get() yields *mut Sample with SRW
+                // (SharedReadWrite) provenance, which lives at the base of the
+                // Stacked Borrows borrow stack and is never invalidated by Unique
+                // retags from mutable accesses in other nodes' process() calls.
+                let raw_ptr: *mut [Sample] = buffer_pool.get(connection_id)?.get();
+                Some(unsafe { NonNull::new_unchecked(raw_ptr) })
+            })
+            .collect()
+    }
+
     // If we track the leaf nodes, and then iterate UP/backwards through the tree,
     // rather than DOWN, and we do a POST-order traversal, where
     // all starting nodes/dependencies are guaranteed to be visited before
@@ -131,7 +250,7 @@ impl Graph {
             .map(|node_index_vec| {
                 node_index_vec
                     .into_iter()
-                    .map(|node_index| *self.petgraph_index_to_id_map.get(&node_index).unwrap())
+                    .map(|node_index| *self.petgraph_index_to_node_id.get(&node_index).unwrap())
                     .collect()
             })
             .collect();
@@ -158,8 +277,12 @@ impl Graph {
     // Then we iterate through all non-visited Nodes. Any non-visited Nodes
     // at this stage are, by definition, cyclical because they were not visited
     // from a a path that includes a leaf Node.
-    fn traverse_graph<F>(&self, sccs: &[Vec<Id>], visited_set: &mut HashSet<Id>, cb: &mut F)
-    where
+    fn traverse_graph<F>(
+        &self,
+        sccs: &[Vec<Id>],
+        visited_set: &mut HashSet<Id>,
+        callback: &mut F,
+    ) where
         F: FnMut(Id),
     {
         let mut leaf_nodes: Vec<NodeId> = self.leaf_nodes.iter().copied().collect();
@@ -176,39 +299,37 @@ impl Graph {
                 continue;
             }
             visited_set.insert(*leaf_node_id);
-            self.visit_node(*leaf_node_id, sccs, visited_set, cb);
+            self.visit_node(*leaf_node_id, sccs, visited_set, callback);
         }
 
-        let mut cyclical_ids: Vec<Id> = self
+        // Collect all nodes that were not reachable from any leaf node.
+        // These are, by definition, part of cycles.
+        let mut unvisited_node_ids: Vec<Id> = self
             .graph_items
             .iter()
             .filter_map(|(node_id, graph_item)| {
-                // ignore all Connections
                 if let GraphItem::Node(_node) = graph_item {
-                    // ignore all nodes already visited
-                    if visited_set.get(node_id).is_some() {
-                        return None;
+                    if visited_set.get(node_id).is_none() {
+                        return Some(*node_id);
                     }
-
-                    return Some(*node_id);
                 }
-
                 None
             })
             .collect();
 
-        // the cyclical node with the least-high priority id becomes a stand-in leaf-node
-        cyclical_ids.sort_by(|id_a, id_b| {
+        // Sort cyclical nodes so the lowest-priority one acts as a stand-in leaf node,
+        // giving the cycle a deterministic entry point.
+        unvisited_node_ids.sort_by(|id_a, id_b| {
             compare_nodes_by_priority(self.get_node(id_a).unwrap(), self.get_node(id_b).unwrap())
         });
-        cyclical_ids.reverse();
+        unvisited_node_ids.reverse();
 
-        for cyclical_id in cyclical_ids {
-            if visited_set.get(&cyclical_id).is_some() {
+        for unvisited_node_id in unvisited_node_ids {
+            if visited_set.get(&unvisited_node_id).is_some() {
                 continue;
             }
-            visited_set.insert(cyclical_id);
-            self.visit_node(cyclical_id, sccs, visited_set, cb);
+            visited_set.insert(unvisited_node_id);
+            self.visit_node(unvisited_node_id, sccs, visited_set, callback);
         }
     }
 
@@ -227,62 +348,56 @@ impl Graph {
         current_id: Id,
         sccs: &[Vec<Id>],
         visited_set: &mut HashSet<Id>,
-        cb: &mut F,
+        callback: &mut F,
     ) where
         F: FnMut(Id),
     {
-        let petgraph_index = self.id_to_pegraph_index_map.get(&current_id).unwrap();
+        let petgraph_index = self.node_id_to_petgraph_index.get(&current_id).unwrap();
         let mut neighbor_ids: Vec<Id> = self
             .graph
-            // traverse backwards/UP the graph from the bottom/leaf nodes
+            // Traverse backwards/upwards from leaf nodes toward source nodes.
             .neighbors_directed(*petgraph_index, petgraph::Direction::Incoming)
-            //convert petgraph index to node id
             .map(|neighbor_petgraph_index| {
                 *self
-                    .petgraph_index_to_id_map
+                    .petgraph_index_to_node_id
                     .get(&neighbor_petgraph_index)
                     .unwrap()
             })
-            // ignore the current node we're visiting
-            .filter(|&node_id| node_id != current_id)
+            // Exclude self-loops — they are handled by the SCC detection.
+            .filter(|&neighbor_id| neighbor_id != current_id)
             .collect();
 
         neighbor_ids.sort_by(|id_a, id_b| {
             compare_nodes_by_priority(self.get_node(id_a).unwrap(), self.get_node(id_b).unwrap())
         });
 
-        let cyclical_neighbor_ids = neighbor_ids
-            .iter()
-            .filter(|neighbor_id| self.is_cyclical_node(**neighbor_id, sccs));
+        // Partition neighbors in one pass: cycles are visited first to isolate their
+        // run order before the acyclic portion of the graph is processed.
+        let (cyclical_neighbor_ids, acyclical_neighbor_ids): (Vec<Id>, Vec<Id>) = neighbor_ids
+            .into_iter()
+            .partition(|&neighbor_id| self.is_cyclical_node(neighbor_id, sccs));
 
-        let acyclical_neighbor_ids = neighbor_ids
-            .iter()
-            .filter(|neighbor_id| !self.is_cyclical_node(**neighbor_id, sccs));
-
-        // cycles are treated with priority to isolate their weird run order
-        // before moving onto acyclic parts of the graph
         for cyclical_neighbor_id in cyclical_neighbor_ids {
-            if visited_set.get(cyclical_neighbor_id).is_some() {
+            if visited_set.get(&cyclical_neighbor_id).is_some() {
                 continue;
             }
-            visited_set.insert(*cyclical_neighbor_id);
-            self.visit_node(*cyclical_neighbor_id, sccs, visited_set, cb);
+            visited_set.insert(cyclical_neighbor_id);
+            self.visit_node(cyclical_neighbor_id, sccs, visited_set, callback);
         }
 
         for acyclical_neighbor_id in acyclical_neighbor_ids {
-            if visited_set.get(acyclical_neighbor_id).is_some() {
+            if visited_set.get(&acyclical_neighbor_id).is_some() {
                 continue;
             }
-            visited_set.insert(*acyclical_neighbor_id);
-            self.visit_node(*acyclical_neighbor_id, sccs, visited_set, cb);
+            visited_set.insert(acyclical_neighbor_id);
+            self.visit_node(acyclical_neighbor_id, sccs, visited_set, callback);
         }
 
-        // now visit the leaf node last
-        cb(current_id);
+        // Visit the current node last (post-order).
+        callback(current_id);
     }
 
-    /// a node is cyclical if the new node to visit is in a SCC of length > 1
-    /// OR if it's directly connected to itself
+    /// A node is cyclical if it belongs to an SCC of length > 1 or has a direct self-loop.
     fn is_cyclical_node(&self, id: Id, sccs: &[Vec<Id>]) -> bool {
         let scc = sccs
             .iter()
@@ -293,16 +408,13 @@ impl Graph {
             return true;
         }
 
-        let petgraph_index = self.id_to_pegraph_index_map.get(&id).unwrap();
-        let neighbor_indexes: Vec<_> = self
+        let petgraph_index = self.node_id_to_petgraph_index.get(&id).unwrap();
+        let neighbor_ids: Vec<Id> = self
             .graph
             .neighbors_directed(*petgraph_index, petgraph::Direction::Incoming)
-            .collect();
-        let neighbor_ids: Vec<Id> = neighbor_indexes
-            .into_iter()
             .map(|neighbor_petgraph_index| {
                 *self
-                    .petgraph_index_to_id_map
+                    .petgraph_index_to_node_id
                     .get(&neighbor_petgraph_index)
                     .unwrap()
             })
@@ -357,7 +469,6 @@ impl Graph {
     /// (add/connect/disconnect/remove), which invalidates the plan.
     fn compile(&mut self) -> Vec<CompiledStep> {
         let visit_order = self.compute_new_visit_order();
-
         let block_size = self.block_size;
 
         visit_order
@@ -377,51 +488,23 @@ impl Graph {
                 let connection_id_map = self.node_connection_id_map.get(&NodeId::from(id))?;
 
                 let mut external_input_slots: Vec<(usize, ConnectionId)> = Vec::new();
-
-                let input_ptrs: Box<[Option<NonNull<[Sample]>>]> = connection_id_map
-                    .input_connection_ids
-                    .iter()
-                    .enumerate()
-                    .map(|(slot, connection_id_opt)| {
-                        let connection_id = connection_id_opt.as_ref()?;
-
-                        // External input ports have no pool entry; buffers are provided by the
-                        // caller at run time.
-                        if !self.buffer_pool.contains_key(connection_id) {
-                            external_input_slots.push((slot, *connection_id));
-                            return None;
-                        }
-
-                        // SAFETY: UnsafeCell::get() yields *mut Sample with SRW
-                        // (SharedReadWrite) provenance, which lives at the base of the
-                        // Stacked Borrows borrow stack and is never invalidated by Unique
-                        // retags from mutable accesses in other nodes' process() calls.
-                        let raw_ptr: *mut [Sample] = self.buffer_pool.get(connection_id)?.get();
-                        Some(unsafe { NonNull::new_unchecked(raw_ptr) })
-                    })
-                    .collect();
-
                 let mut external_output_slots: Vec<(usize, ConnectionId)> = Vec::new();
 
-                let output_ptrs: Box<[Option<NonNull<[Sample]>>]> = connection_id_map
-                    .output_connection_ids
-                    .iter()
-                    .enumerate()
-                    .map(|(slot, connection_id_opt)| {
-                        let connection_id = connection_id_opt.as_ref()?;
-
-                        // External output ports are registered in `add()` but have no pool
-                        // entry; their buffers are provided by the caller at run time.
-                        if !self.buffer_pool.contains_key(connection_id) {
-                            external_output_slots.push((slot, *connection_id));
-                            return None;
-                        }
-
-                        // SAFETY: same SRW provenance argument as input_ptrs above.
-                        let raw_ptr: *mut [Sample] = self.buffer_pool.get(connection_id)?.get();
-                        Some(unsafe { NonNull::new_unchecked(raw_ptr) })
-                    })
-                    .collect();
+                // SAFETY: see run() for the full provenance and aliasing argument.
+                let input_ptrs = unsafe {
+                    Self::resolve_audio_buffer_pointers(
+                        &self.buffer_pool,
+                        &connection_id_map.input_port_slots,
+                        &mut external_input_slots,
+                    )
+                };
+                let output_ptrs = unsafe {
+                    Self::resolve_audio_buffer_pointers(
+                        &self.buffer_pool,
+                        &connection_id_map.output_port_slots,
+                        &mut external_output_slots,
+                    )
+                };
 
                 Some(CompiledStep {
                     node: node_ptr,
@@ -497,7 +580,7 @@ impl crate::traits::Graph for Graph {
         let node = node.into();
         let node_id = NodeId::from(node.node_id());
 
-        // Tracking port information here prevents unnecessary allocation at `run` time.
+        // Pre-allocate slot arrays; external port registration fills them in below.
         let num_input_ports = Self::count_ports(&[
             port_descriptors.input_port_addresses(),
             port_descriptors.external_input_port_addresses(),
@@ -507,53 +590,28 @@ impl crate::traits::Graph for Graph {
             port_descriptors.external_output_port_addresses(),
         ]);
 
-        let mut input_buffer_connection_ids: Vec<Option<ConnectionId>> =
-            Vec::with_capacity(num_input_ports);
-        input_buffer_connection_ids.resize(num_input_ports, None);
-        let mut output_buffer_connection_ids: Vec<Option<ConnectionId>> =
+        let mut input_port_slots: Vec<Option<ConnectionId>> = Vec::with_capacity(num_input_ports);
+        input_port_slots.resize(num_input_ports, None);
+        let mut output_port_slots: Vec<Option<ConnectionId>> =
             Vec::with_capacity(num_output_ports);
-        output_buffer_connection_ids.resize(num_output_ports, None);
+        output_port_slots.resize(num_output_ports, None);
 
-        let mut external_input_connection_ids: IntMap<PortId, ConnectionId> = IntMap::default();
-        let mut external_output_connection_ids: IntMap<PortId, ConnectionId> = IntMap::default();
-
-        // External output ports are not connected via `connect()`, so we only need
-        // a ConnectionId for bookkeeping. The actual buffer is provided by the caller at run time.
-        for external_output_port_addr in port_descriptors
-            .external_output_port_addresses()
-            .unwrap_or(&[])
-        {
-            let port_id = external_output_port_addr.port_id();
-            let connection_id = ConnectionId::from(self.id_generator.generate_id());
-            external_output_connection_ids.insert(port_id, connection_id);
-            self.port_address_to_connection_id_map
-                .insert(*external_output_port_addr, connection_id);
-            if let Some(connection_id_slot) = output_buffer_connection_ids.get_mut(**port_id) {
-                *connection_id_slot = Some(connection_id);
-            }
-        }
-
-        // External input ports are not connected via `connect()`, so we only need
-        // a ConnectionId for bookkeeping. The actual buffer is provided by the caller at run time.
-        for external_input_port_addr in port_descriptors
-            .external_input_port_addresses()
-            .unwrap_or(&[])
-        {
-            let port_id = external_input_port_addr.port_id();
-            let connection_id = ConnectionId::from(self.id_generator.generate_id());
-            external_input_connection_ids.insert(port_id, connection_id);
-            self.port_address_to_connection_id_map
-                .insert(*external_input_port_addr, connection_id);
-            if let Some(connection_id_slot) = input_buffer_connection_ids.get_mut(**port_id) {
-                *connection_id_slot = Some(connection_id);
-            }
-        }
+        // External ports are not wired via `connect()`, so their ConnectionIds are assigned here.
+        // The actual buffers are provided by the caller at run time.
+        let external_output_connection_ids = self.register_external_port_addresses(
+            port_descriptors.external_output_port_addresses().unwrap_or(&[]),
+            &mut output_port_slots,
+        );
+        let external_input_connection_ids = self.register_external_port_addresses(
+            port_descriptors.external_input_port_addresses().unwrap_or(&[]),
+            &mut input_port_slots,
+        );
 
         self.node_connection_id_map.insert(
             node_id,
             NodeConnectionIdMap {
-                input_connection_ids: input_buffer_connection_ids.into_boxed_slice(),
-                output_connection_ids: output_buffer_connection_ids.into_boxed_slice(),
+                input_port_slots: input_port_slots.into_boxed_slice(),
+                output_port_slots: output_port_slots.into_boxed_slice(),
             },
         );
 
@@ -564,17 +622,14 @@ impl crate::traits::Graph for Graph {
             external_output_connection_ids,
         );
 
-        // bookkeeping
-        let index = self.graph.add_node(node_id);
-        self.id_to_pegraph_index_map.insert(*node_id, index);
-        self.petgraph_index_to_id_map.insert(index, *node_id);
-        // petgraph only keeps ids--we keep the real values for easier bookkeeping
         self.graph_items.insert(*node_id, GraphItem::Node(node));
-        // until a node has an outgoing connection, it is a leaf node
+        
+        self.register_node_in_petgraph(node_id);
+
+        // Every new node starts as a leaf; it loses this status when it gains an outgoing edge.
         self.leaf_nodes.insert(node_id);
 
-        // Invalidate cached execution plan; it is recomputed on the next `run()` call.
-        self.compiled_plan = None;
+        self.invalidate_compiled_plan();
 
         Ok(node_handle)
     }
@@ -593,69 +648,31 @@ impl crate::traits::Graph for Graph {
         // - start port address must be the output of one node and end
         //   address must be the input of another
 
-        // Fan-out detection: if this output port already has a ConnectionId, reuse the
-        // existing pool buffer so all input ports downstream from this port that
-        // consume its audio data.
-        //
-        // This seems sus at first when
-        let existing_connection_id = self
-            .port_address_to_connection_id_map
-            .get(&start_port_address)
-            .copied();
+        let connection_id =
+            self.resolve_connection_for_output_port(start_port_address, end_port_address)?;
 
-        let connection_id = if let Some(existing_id) = existing_connection_id {
-            // Fan-out: source port already has a buffer; hook up the new consumer only.
-            existing_id
-        } else {
-            // First connection from this port: allocate a buffer and record the source slot.
-            let connection = Connection::new(self, start_port_address, end_port_address);
-            let connection_id = connection.connection_id;
-
-            self.allocate_empty_buffer_for_connection(connection_id)?;
-
-            self.port_address_to_connection_id_map
-                .insert(start_port_address, connection_id);
-
-            let start_node_id = start_port_address.node_id();
-            if let Some(port_map) = self.node_connection_id_map.get_mut(&start_node_id)
-                && let Some(slot) = port_map
-                    .output_connection_ids
-                    .get_mut(**start_port_address.port_id())
-            {
-                *slot = Some(connection_id);
-            }
-
-            self.graph_items
-                .insert(*connection_id, GraphItem::Connection(connection));
-
-            connection_id
-        };
-
-        // Destination node's input slot always gets updated, even when the buffer already exists
+        // The destination node's input slot always gets updated, even for fan-out connections.
         self.port_address_to_connection_id_map
             .insert(end_port_address, connection_id);
 
         let end_node_id = end_port_address.node_id();
-        let end_index = *self.id_to_pegraph_index_map.get(&*end_node_id).unwrap();
-
         if let Some(port_map) = self.node_connection_id_map.get_mut(&end_node_id)
             && let Some(slot) = port_map
-                .input_connection_ids
+                .input_port_slots
                 .get_mut(**end_port_address.port_id())
         {
             *slot = Some(connection_id);
         }
 
         let start_node_id = start_port_address.node_id();
-        let start_index = *self.id_to_pegraph_index_map.get(&*start_node_id).unwrap();
-
+        let start_index = *self.node_id_to_petgraph_index.get(&*start_node_id).unwrap();
+        let end_index = *self.node_id_to_petgraph_index.get(&*end_node_id).unwrap();
         self.graph.add_edge(start_index, end_index, connection_id);
 
-        // if it has a connection going out now, it is no longer a leaf node
+        // A node with an outgoing edge is no longer a leaf.
         self.leaf_nodes.remove(&start_node_id);
 
-        // Invalidate cached execution plan; it is recomputed on the next `run()` call.
-        self.compiled_plan = None;
+        self.invalidate_compiled_plan();
 
         Ok(self)
     }
@@ -696,9 +713,10 @@ impl crate::traits::Graph for Graph {
             // 3. Visit order enforces exclusive access: by the time a node reads a buffer as
             //    input, the upstream node that writes it has already completed its `process` call.
             // 4. Stacked Borrows / pointer provenance: all pool buffer pointers are derived from
-            //    `UnsafeCell::get()` (see `buf_as_raw_slice`), giving them SRW provenance that
-            //    is never invalidated by the Unique retags created inside `process()` calls.
-            //    see: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/stacked-borrows.md for more info.
+            //    `UnsafeCell::get()` (see `resolve_port_buffer_pointers`), giving them SRW
+            //    provenance that is never invalidated by the Unique retags created inside
+            //    `process()` calls.
+            //    see: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/stacked-borrows.md
             let input_buffers: &[Option<&[Sample]>] =
                 unsafe { transmute(step.input_ptrs.as_ref()) };
             let output_buffers: &mut [Option<&mut [Sample]>] =
