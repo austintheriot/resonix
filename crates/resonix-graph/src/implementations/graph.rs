@@ -45,6 +45,9 @@ struct CompiledStep {
     /// Which output slots are external (caller-supplied) and their `ConnectionId`
     /// so they can be looked up in the caller's output map each `run` call.
     external_output_slots: Box<[(usize, ConnectionId)]>,
+    /// Which input slots are external (caller-supplied) and their `ConnectionId`
+    /// so they can be looked up in the caller's input map each `run` call.
+    external_input_slots: Box<[(usize, ConnectionId)]>,
     block_size: BlockSize,
 }
 
@@ -377,11 +380,22 @@ impl Graph {
 
                 let connection_id_map = self.node_connection_id_map.get(&NodeId::from(id))?;
 
+                let mut external_input_slots: Vec<(usize, ConnectionId)> = Vec::new();
+
                 let input_ptrs: Box<[Option<NonNull<[Sample]>>]> = connection_id_map
                     .input_connection_ids
                     .iter()
-                    .map(|connection_id_opt| {
+                    .enumerate()
+                    .map(|(slot, connection_id_opt)| {
                         let connection_id = connection_id_opt.as_ref()?;
+
+                        // External input ports have no pool entry; buffers are provided by the
+                        // caller at run time.
+                        if !self.buffer_pool.contains_key(connection_id) {
+                            external_input_slots.push((slot, *connection_id));
+                            return None;
+                        }
+
                         let raw_ptr: *const [Sample] = {
                             // Borrow the RefCell just long enough to extract the pointer.
                             // The Box<[Sample]> heap allocation outlives the Ref guard.
@@ -423,6 +437,7 @@ impl Graph {
                     input_ptrs,
                     output_ptrs,
                     external_output_slots: external_output_slots.into_boxed_slice(),
+                    external_input_slots: external_input_slots.into_boxed_slice(),
                     block_size,
                 })
             })
@@ -471,7 +486,11 @@ impl crate::traits::Graph for Graph {
         let port_descriptors: P = node.get_port_descriptors();
 
         // Enforce dense per-direction port IDs so that slice lengths equal actual port counts.
-        Self::validate_dense_port_ids(&[port_descriptors.input_port_addresses()])?;
+        // Regular and external ports share the same slot namespace within each direction.
+        Self::validate_dense_port_ids(&[
+            port_descriptors.input_port_addresses(),
+            port_descriptors.external_input_port_addresses(),
+        ])?;
         Self::validate_dense_port_ids(&[
             port_descriptors.output_port_addresses(),
             port_descriptors.external_output_port_addresses(),
@@ -481,7 +500,10 @@ impl crate::traits::Graph for Graph {
         let node_id = NodeId::from(node.node_id());
 
         // Tracking port information here prevents unnecessary allocation at `run` time.
-        let num_input_ports = Self::count_ports(&[port_descriptors.input_port_addresses()]);
+        let num_input_ports = Self::count_ports(&[
+            port_descriptors.input_port_addresses(),
+            port_descriptors.external_input_port_addresses(),
+        ]);
         let num_output_ports = Self::count_ports(&[
             port_descriptors.output_port_addresses(),
             port_descriptors.external_output_port_addresses(),
@@ -513,6 +535,8 @@ impl crate::traits::Graph for Graph {
             }
         }
 
+        // External input ports are not connected via `connect()`, so we only need
+        // a ConnectionId for bookkeeping. The actual buffer is provided by the caller at run time.
         for external_input_port_addr in port_descriptors
             .external_input_port_addresses()
             .unwrap_or(&[])
@@ -520,7 +544,6 @@ impl crate::traits::Graph for Graph {
             let port_id = external_input_port_addr.port_id();
             let connection_id = ConnectionId::from(self.id_generator.generate_id());
             external_input_connection_ids.insert(port_id, connection_id);
-            self.allocate_empty_buffer_for_connection(connection_id)?;
             self.port_address_to_connection_id_map
                 .insert(*external_input_port_addr, connection_id);
             if let Some(connection_id_slot) = input_buffer_connection_ids.get_mut(**port_id) {
@@ -620,7 +643,7 @@ impl crate::traits::Graph for Graph {
 
     fn run(
         &mut self,
-        _inputs: &HashMap<ConnectionId, &[Sample]>,
+        inputs: &HashMap<ConnectionId, &[Sample]>,
         outputs: &mut HashMap<ConnectionId, &mut [Sample]>,
     ) -> Result<(), GraphRunError> {
         self.ensure_compiled_plan();
@@ -628,7 +651,7 @@ impl crate::traits::Graph for Graph {
         let compiled_plan = self.compiled_plan.as_mut().unwrap();
 
         for step in compiled_plan.iter_mut() {
-            // Patch slots whose buffers are supplied by the caller for this block.
+            // Patch output slots whose buffers are supplied by the caller for this block.
             for &(slot, connection_id) in step.external_output_slots.iter() {
                 step.output_ptrs[slot] = outputs
                     .get_mut(&connection_id)
@@ -636,10 +659,19 @@ impl crate::traits::Graph for Graph {
                     .map(|buffer| NonNull::from(&mut **buffer));
             }
 
+            // Patch input slots whose buffers are supplied by the caller for this block.
+            for &(slot, connection_id) in step.external_input_slots.iter() {
+                step.input_ptrs[slot] = inputs.get(&connection_id).map(|&buffer| {
+                    // SAFETY: pointer came from a shared reference so it is non-null.
+                    unsafe { NonNull::new_unchecked(buffer as *const [Sample] as *mut [Sample]) }
+                });
+            }
+
             // SAFETY:
             // 1. Buffer addresses are stable: `allocate_empty_buffer_for_connection` is only
             //    called from `connect()`, never during `run()`, so no `Box<[Sample]>` heap
-            //    allocation moves while `compiled_plan` is in use.
+            //    allocation moves while `compiled_plan` is in use. External input/output pointers
+            //    come from the caller's slices, which are valid for the duration of `run()`.
             // 2. No mutable aliasing on outputs: each output slot has a unique `ConnectionId`,
             //    so no two `*mut [Sample]` pointers in `output_ptrs` alias the same memory.
             // 3. Visit order enforces exclusive access: by the time a node reads a buffer as
@@ -1631,6 +1663,157 @@ mod graph_tests {
                     vec![Sample::from(expected_sample_value)].as_mut_slice(),
                 )])
             );
+        }
+
+        mod external_inputs {
+            use core::ops::Deref;
+
+            use hashbrown::HashMap;
+
+            use crate::traits::Graph as GraphTrait;
+            use crate::{
+                errors::AudioNodeRunError,
+                implementations::Graph,
+                primitives::{
+                    BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority,
+                    Sample,
+                },
+                traits::{
+                    Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors,
+                    GetPriority,
+                },
+            };
+
+            /// A node with one external input and one external output that copies
+            /// the caller-supplied input buffer to the caller-supplied output buffer.
+            struct PassthroughNode {
+                node_id: NodeId,
+                port_descriptors: PassthroughPortDescriptors,
+            }
+
+            impl PassthroughNode {
+                fn new<G: GenerateId>(id_gen: &mut G) -> Audio<Self> {
+                    let node_id = NodeId::from(id_gen.generate_id());
+                    Audio(Self {
+                        node_id,
+                        port_descriptors: PassthroughPortDescriptors::new(node_id),
+                    })
+                }
+            }
+
+            impl GetNodeId for PassthroughNode {
+                fn node_id(&self) -> Id {
+                    *self.node_id
+                }
+            }
+
+            impl GetPriority for PassthroughNode {
+                fn get_priority(&self) -> Priority {
+                    (**self.node_id).into()
+                }
+            }
+
+            impl Deref for PassthroughNode {
+                type Target = PassthroughPortDescriptors;
+                fn deref(&self) -> &Self::Target {
+                    &self.port_descriptors
+                }
+            }
+
+            impl AudioNode for PassthroughNode {
+                fn process(
+                    &mut self,
+                    inputs: &[Option<&[Sample]>],
+                    outputs: &mut [Option<&mut [Sample]>],
+                    _block_size: BlockSize,
+                ) -> Result<(), AudioNodeRunError> {
+                    let Some(out) = outputs[0].as_deref_mut() else {
+                        return Ok(());
+                    };
+                    let input = inputs[0].unwrap_or(&[]);
+                    for (o, &i) in out.iter_mut().zip(input.iter()) {
+                        *o = i;
+                    }
+                    Ok(())
+                }
+            }
+
+            #[derive(Copy, Clone)]
+            struct PassthroughPortDescriptors {
+                external_input: [PortAddress; 1],
+                external_output: [PortAddress; 1],
+            }
+
+            impl PassthroughPortDescriptors {
+                const EXTERNAL_INPUT_PORT_ID: PortId = PortId::new(0);
+                const EXTERNAL_OUTPUT_PORT_ID: PortId = PortId::new(0);
+
+                fn new(node_id: NodeId) -> Self {
+                    Self {
+                        external_input: [PortAddress::new(
+                            node_id,
+                            Self::EXTERNAL_INPUT_PORT_ID,
+                            PortAddressDirection::ExternalInput,
+                        )],
+                        external_output: [PortAddress::new(
+                            node_id,
+                            Self::EXTERNAL_OUTPUT_PORT_ID,
+                            PortAddressDirection::ExternalOutput,
+                        )],
+                    }
+                }
+            }
+
+            impl DescribePorts for PassthroughPortDescriptors {
+                fn external_input_port_addresses(&self) -> Option<&[PortAddress]> {
+                    Some(&self.external_input)
+                }
+
+                fn external_output_port_addresses(&self) -> Option<&[PortAddress]> {
+                    Some(&self.external_output)
+                }
+            }
+
+            impl GetPortDescriptors<PassthroughPortDescriptors> for PassthroughNode {
+                fn get_port_descriptors(&self) -> PassthroughPortDescriptors {
+                    self.port_descriptors
+                }
+            }
+
+            // ┌─────────────┐
+            // │ Passthrough │  (external in → external out)
+            // └─────────────┘
+            #[test]
+            fn caller_input_is_passed_through_to_output() {
+                let block_size = 4usize;
+                let mut graph = Graph::with_block_size(block_size);
+                let node = PassthroughNode::new(&mut graph);
+                let handle = graph.add(node).unwrap();
+
+                let &ext_input_conn_id = handle
+                    .external_input_connection_ids()
+                    .get(&PassthroughPortDescriptors::EXTERNAL_INPUT_PORT_ID)
+                    .unwrap();
+                let &ext_output_conn_id = handle
+                    .external_output_connection_ids()
+                    .get(&PassthroughPortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
+                    .unwrap();
+
+                let input_data = [
+                    Sample::from(1.0f32),
+                    Sample::from(2.0f32),
+                    Sample::from(3.0f32),
+                    Sample::from(4.0f32),
+                ];
+                let inputs = HashMap::from([(ext_input_conn_id, input_data.as_slice())]);
+                let mut output_buffer = vec![Sample::default(); block_size];
+                let mut outputs =
+                    HashMap::from([(ext_output_conn_id, output_buffer.as_mut_slice())]);
+
+                graph.run(&inputs, &mut outputs).unwrap();
+
+                assert_eq!(outputs[&ext_output_conn_id], input_data.as_slice());
+            }
         }
     }
 }
