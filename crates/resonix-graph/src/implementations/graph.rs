@@ -1,4 +1,4 @@
-use core::{cell::RefCell, mem::transmute, ops::Deref, ptr::NonNull};
+use core::{cell::UnsafeCell, mem::transmute, ops::Deref, ptr::NonNull};
 
 use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
@@ -50,10 +50,6 @@ struct CompiledStep {
     external_input_slots: Box<[(usize, ConnectionId)]>,
     block_size: BlockSize,
 }
-
-// SAFETY: `CompiledStep` contains a raw pointer but is only used from a single thread
-// (Graph is not Sync due to RefCell in BufferPool).
-unsafe impl Send for CompiledStep {}
 
 enum GraphItem {
     Node(Node),
@@ -396,14 +392,12 @@ impl Graph {
                             return None;
                         }
 
-                        let raw_ptr: *const [Sample] = {
-                            // Borrow the RefCell just long enough to extract the pointer.
-                            // The Box<[Sample]> heap allocation outlives the Ref guard.
-                            let guard = self.buffer_pool.get(connection_id)?.borrow();
-                            &**guard as *const [Sample]
-                        };
-                        // SAFETY: pointer came from a reference so it is non-null.
-                        Some(unsafe { NonNull::new_unchecked(raw_ptr as *mut [Sample]) })
+                        // SAFETY: UnsafeCell::get() yields *mut Sample with SRW
+                        // (SharedReadWrite) provenance, which lives at the base of the
+                        // Stacked Borrows borrow stack and is never invalidated by Unique
+                        // retags from mutable accesses in other nodes' process() calls.
+                        let raw_ptr: *mut [Sample] = self.buffer_pool.get(connection_id)?.get();
+                        Some(unsafe { NonNull::new_unchecked(raw_ptr) })
                     })
                     .collect();
 
@@ -423,11 +417,8 @@ impl Graph {
                             return None;
                         }
 
-                        let raw_ptr: *mut [Sample] = {
-                            let mut guard = self.buffer_pool.get(connection_id)?.borrow_mut();
-                            &mut **guard as *mut [Sample]
-                        };
-                        // SAFETY: pointer came from a mutable reference so it is non-null.
+                        // SAFETY: same SRW provenance argument as input_ptrs above.
+                        let raw_ptr: *mut [Sample] = self.buffer_pool.get(connection_id)?.get();
                         Some(unsafe { NonNull::new_unchecked(raw_ptr) })
                     })
                     .collect();
@@ -461,8 +452,15 @@ impl Graph {
         let mut buf: Vec<Sample> = Vec::with_capacity(*self.block_size);
         buf.resize(*self.block_size, Sample::default());
 
-        self.buffer_pool
-            .insert(connection_id, RefCell::new(buf.into_boxed_slice()));
+        // SAFETY: `UnsafeCell<[Sample]>` is `#[repr(transparent)]` over `[Sample]`,
+        // so `Box<[Sample]>` and `Box<UnsafeCell<[Sample]>>` have identical layouts.
+        let cell_box = unsafe {
+            alloc::boxed::Box::from_raw(
+                alloc::boxed::Box::into_raw(buf.into_boxed_slice()) as *mut UnsafeCell<[Sample]>
+            )
+        };
+
+        self.buffer_pool.insert(connection_id, cell_box);
 
         Ok(())
     }
@@ -669,13 +667,17 @@ impl crate::traits::Graph for Graph {
 
             // SAFETY:
             // 1. Buffer addresses are stable: `allocate_empty_buffer_for_connection` is only
-            //    called from `connect()`, never during `run()`, so no `Box<[Sample]>` heap
-            //    allocation moves while `compiled_plan` is in use. External input/output pointers
-            //    come from the caller's slices, which are valid for the duration of `run()`.
+            //    called from `connect()`, never during `run()`, so no heap allocation moves
+            //    while `compiled_plan` is in use.  External input/output pointers come from
+            //    the caller's slices, which are valid for the duration of `run()`.
             // 2. No mutable aliasing on outputs: each output slot has a unique `ConnectionId`,
             //    so no two `*mut [Sample]` pointers in `output_ptrs` alias the same memory.
             // 3. Visit order enforces exclusive access: by the time a node reads a buffer as
             //    input, the upstream node that writes it has already completed its `process` call.
+            // 4. Stacked Borrows / pointer provenance: all pool buffer pointers are derived from
+            //    `UnsafeCell::get()` (see `buf_as_raw_slice`), giving them SRW provenance that
+            //    is never invalidated by the Unique retags created inside `process()` calls.
+            //    see: https://github.com/rust-lang/unsafe-code-guidelines/blob/master/wip/stacked-borrows.md for more info.
             let input_buffers: &[Option<&[Sample]>] =
                 unsafe { transmute(step.input_ptrs.as_ref()) };
             let output_buffers: &mut [Option<&mut [Sample]>] =
