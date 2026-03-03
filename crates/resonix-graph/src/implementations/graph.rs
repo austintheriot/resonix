@@ -689,19 +689,22 @@ mod graph_tests {
                 let constant_node = ConstantNode::new(&mut graph);
                 let multiply_node = MultiplyNode::new(&mut graph);
 
-                let constant_node = graph.add(constant_node).unwrap();
-                let multiply_node = graph.add(multiply_node).unwrap();
+                let constant_node_handle = graph.add(constant_node).unwrap();
+                let multiply_node_handle = graph.add(multiply_node).unwrap();
 
                 graph
                     .connect(
-                        constant_node.output_port_address(),
-                        multiply_node.left_operand_input_address(),
+                        constant_node_handle.output_port_address(),
+                        multiply_node_handle.left_operand_input_address(),
                     )
                     .unwrap();
 
                 assert_visit_order_matches_handles(
                     &graph.visit_order.as_deref(),
-                    &[Box::new(constant_node), Box::new(multiply_node)],
+                    &[
+                        Box::new(constant_node_handle),
+                        Box::new(multiply_node_handle),
+                    ],
                 );
             }
 
@@ -726,42 +729,42 @@ mod graph_tests {
                 let node_3 = ConstantNode::new_with_value(&mut graph, 3);
                 let node_4 = MultiplyNode::new(&mut graph);
 
-                let node_0 = graph.add(node_0).unwrap();
-                let node_1 = graph.add(node_1).unwrap();
-                let node_2 = graph.add(node_2).unwrap();
-                let node_3 = graph.add(node_3).unwrap();
-                let node_4 = graph.add(node_4).unwrap();
+                let node_0_handle = graph.add(node_0).unwrap();
+                let node_1_handle = graph.add(node_1).unwrap();
+                let node_2_handle = graph.add(node_2).unwrap();
+                let node_3_handle = graph.add(node_3).unwrap();
+                let node_4_handle = graph.add(node_4).unwrap();
 
                 graph
                     .connect(
-                        node_0.output_port_address(),
-                        node_2.left_operand_input_address(),
+                        node_0_handle.output_port_address(),
+                        node_2_handle.left_operand_input_address(),
                     )
                     .unwrap()
                     .connect(
-                        node_1.output_port_address(),
-                        node_2.right_operand_input_address(),
+                        node_1_handle.output_port_address(),
+                        node_2_handle.right_operand_input_address(),
                     )
                     .unwrap()
                     .connect(
-                        node_2.output_port_address(),
-                        node_4.left_operand_input_address(),
+                        node_2_handle.output_port_address(),
+                        node_4_handle.left_operand_input_address(),
                     )
                     .unwrap()
                     .connect(
-                        node_3.output_port_address(),
-                        node_4.right_operand_input_address(),
+                        node_3_handle.output_port_address(),
+                        node_4_handle.right_operand_input_address(),
                     )
                     .unwrap();
 
                 assert_visit_order_matches_handles(
                     &graph.visit_order.as_deref(),
                     &[
-                        Box::new(node_0),
-                        Box::new(node_1),
-                        Box::new(node_2),
-                        Box::new(node_3),
-                        Box::new(node_4),
+                        Box::new(node_0_handle),
+                        Box::new(node_1_handle),
+                        Box::new(node_2_handle),
+                        Box::new(node_3_handle),
+                        Box::new(node_4_handle),
                     ],
                 );
             }
@@ -786,30 +789,42 @@ mod graph_tests {
                 let node_3 = OutputNode::new(&mut graph);
                 let node_4 = OutputNode::new(&mut graph);
 
-                let node_0 = graph.add(node_0).unwrap();
-                let node_1 = graph.add(node_1).unwrap();
-                let node_2 = graph.add(node_2).unwrap();
-                let node_3 = graph.add(node_3).unwrap();
-                let node_4 = graph.add(node_4).unwrap();
+                let node_0_handle = graph.add(node_0).unwrap();
+                let node_1_handle = graph.add(node_1).unwrap();
+                let node_2_handle = graph.add(node_2).unwrap();
+                let node_3_handle = graph.add(node_3).unwrap();
+                let node_4_handle = graph.add(node_4).unwrap();
 
                 graph
-                    .connect(node_0.output_port_address(), node_1.input_port_address())
+                    .connect(
+                        node_0_handle.output_port_address(),
+                        node_1_handle.input_port_address(),
+                    )
                     .unwrap()
-                    .connect(node_0.output_port_address(), node_2.input_port_address())
+                    .connect(
+                        node_0_handle.output_port_address(),
+                        node_2_handle.input_port_address(),
+                    )
                     .unwrap()
-                    .connect(node_0.output_port_address(), node_3.input_port_address())
+                    .connect(
+                        node_0_handle.output_port_address(),
+                        node_3_handle.input_port_address(),
+                    )
                     .unwrap()
-                    .connect(node_0.output_port_address(), node_4.input_port_address())
+                    .connect(
+                        node_0_handle.output_port_address(),
+                        node_4_handle.input_port_address(),
+                    )
                     .unwrap();
 
                 assert_visit_order_matches_handles(
                     &graph.visit_order.as_deref(),
                     &[
-                        Box::new(node_0),
-                        Box::new(node_1),
-                        Box::new(node_2),
-                        Box::new(node_3),
-                        Box::new(node_4),
+                        Box::new(node_0_handle),
+                        Box::new(node_1_handle),
+                        Box::new(node_2_handle),
+                        Box::new(node_3_handle),
+                        Box::new(node_4_handle),
                     ],
                 );
             }
@@ -835,18 +850,18 @@ mod graph_tests {
                 let mut graph = Graph::new();
 
                 let constant_node_1 = ConstantNode::new_with_value(&mut graph, 2);
-                let constant_node_1 = graph.add(constant_node_1).unwrap();
+                let constant_node_1_handle = graph.add(constant_node_1).unwrap();
 
                 graph
                     .connect(
-                        constant_node_1.output_port_address(),
-                        constant_node_1.set_constant_value_port_address(),
+                        constant_node_1_handle.output_port_address(),
+                        constant_node_1_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
 
                 assert_visit_order_matches_handles(
                     &graph.visit_order.as_deref(),
-                    &[Box::new(constant_node_1)],
+                    &[Box::new(constant_node_1_handle)],
                 );
             }
 
@@ -865,25 +880,28 @@ mod graph_tests {
                 let constant_node_1 = ConstantNode::new_with_value(&mut graph, 2);
                 let constant_node_2 = ConstantNode::new_with_value(&mut graph, 3);
 
-                let constant_node_1 = graph.add(constant_node_1).unwrap();
-                let constant_node_2 = graph.add(constant_node_2).unwrap();
+                let constant_node_1_handle = graph.add(constant_node_1).unwrap();
+                let constant_node_2_handle = graph.add(constant_node_2).unwrap();
 
                 graph
                     .connect(
-                        constant_node_1.output_port_address(),
-                        constant_node_2.set_constant_value_port_address(),
+                        constant_node_1_handle.output_port_address(),
+                        constant_node_2_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        constant_node_2.output_port_address(),
-                        constant_node_1.set_constant_value_port_address(),
+                        constant_node_2_handle.output_port_address(),
+                        constant_node_1_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
 
                 assert_visit_order_matches_handles(
                     &graph.visit_order.as_deref(),
-                    &[Box::new(constant_node_1), Box::new(constant_node_2)],
+                    &[
+                        Box::new(constant_node_1_handle),
+                        Box::new(constant_node_2_handle),
+                    ],
                 );
             }
 
@@ -906,35 +924,35 @@ mod graph_tests {
                 let constant_node_1 = ConstantNode::new_with_value(&mut graph, 1);
                 let constant_node_2 = ConstantNode::new_with_value(&mut graph, 2);
 
-                let constant_node_0 = graph.add(constant_node_0).unwrap();
-                let constant_node_1 = graph.add(constant_node_1).unwrap();
-                let constant_node_2 = graph.add(constant_node_2).unwrap();
+                let constant_node_0_handle = graph.add(constant_node_0).unwrap();
+                let constant_node_1_handle = graph.add(constant_node_1).unwrap();
+                let constant_node_2_handle = graph.add(constant_node_2).unwrap();
 
                 graph
                     .connect(
-                        constant_node_0.output_port_address(),
-                        constant_node_1.set_constant_value_port_address(),
+                        constant_node_0_handle.output_port_address(),
+                        constant_node_1_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        constant_node_1.output_port_address(),
-                        constant_node_2.set_constant_value_port_address(),
+                        constant_node_1_handle.output_port_address(),
+                        constant_node_2_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        constant_node_2.output_port_address(),
-                        constant_node_0.set_constant_value_port_address(),
+                        constant_node_2_handle.output_port_address(),
+                        constant_node_0_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
 
                 assert_visit_order_matches_handles(
                     &graph.visit_order.as_deref(),
                     &[
-                        Box::new(constant_node_0),
-                        Box::new(constant_node_1),
-                        Box::new(constant_node_2),
+                        Box::new(constant_node_0_handle),
+                        Box::new(constant_node_1_handle),
+                        Box::new(constant_node_2_handle),
                     ],
                 );
             }
@@ -954,25 +972,28 @@ mod graph_tests {
                 let constant_node_0 = ConstantNode::new_with_value(&mut graph, 0);
                 let constant_node_1 = ConstantNode::new_with_value(&mut graph, 1);
 
-                let constant_node_0 = graph.add(constant_node_0).unwrap();
-                let constant_node_1 = graph.add(constant_node_1).unwrap();
+                let constant_node_0_handle = graph.add(constant_node_0).unwrap();
+                let constant_node_1_handle = graph.add(constant_node_1).unwrap();
 
                 graph
                     .connect(
-                        constant_node_0.output_port_address(),
-                        constant_node_1.set_constant_value_port_address(),
+                        constant_node_0_handle.output_port_address(),
+                        constant_node_1_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        constant_node_1.output_port_address(),
-                        constant_node_1.set_constant_value_port_address(),
+                        constant_node_1_handle.output_port_address(),
+                        constant_node_1_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
 
                 assert_visit_order_matches_handles(
                     &graph.visit_order.as_deref(),
-                    &[Box::new(constant_node_0), Box::new(constant_node_1)],
+                    &[
+                        Box::new(constant_node_0_handle),
+                        Box::new(constant_node_1_handle),
+                    ],
                 );
             }
 
@@ -993,31 +1014,34 @@ mod graph_tests {
                 let constant_node_0 = ConstantNode::new_with_value(&mut graph, 0);
                 let constant_node_1 = ConstantNode::new_with_value(&mut graph, 1);
 
-                let constant_node_0 = graph.add(constant_node_0).unwrap();
-                let constant_node_1 = graph.add(constant_node_1).unwrap();
+                let constant_node_0_handle = graph.add(constant_node_0).unwrap();
+                let constant_node_1_handle = graph.add(constant_node_1).unwrap();
 
                 graph
                     .connect(
-                        constant_node_0.output_port_address(),
-                        constant_node_0.set_constant_value_port_address(),
+                        constant_node_0_handle.output_port_address(),
+                        constant_node_0_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        constant_node_0.output_port_address(),
-                        constant_node_1.set_constant_value_port_address(),
+                        constant_node_0_handle.output_port_address(),
+                        constant_node_1_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        constant_node_1.output_port_address(),
-                        constant_node_1.set_constant_value_port_address(),
+                        constant_node_1_handle.output_port_address(),
+                        constant_node_1_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
 
                 assert_visit_order_matches_handles(
                     &graph.visit_order.as_deref(),
-                    &[Box::new(constant_node_0), Box::new(constant_node_1)],
+                    &[
+                        Box::new(constant_node_0_handle),
+                        Box::new(constant_node_1_handle),
+                    ],
                 );
             }
 
@@ -1040,37 +1064,40 @@ mod graph_tests {
                 let constant_node_0 = ConstantNode::new_with_value(&mut graph, 0);
                 let constant_node_1 = ConstantNode::new_with_value(&mut graph, 1);
 
-                let constant_node_0 = graph.add(constant_node_0).unwrap();
-                let constant_node_1 = graph.add(constant_node_1).unwrap();
+                let constant_node_0_handle = graph.add(constant_node_0).unwrap();
+                let constant_node_1_handle = graph.add(constant_node_1).unwrap();
 
                 graph
                     .connect(
-                        constant_node_0.output_port_address(),
-                        constant_node_0.set_constant_value_port_address(),
+                        constant_node_0_handle.output_port_address(),
+                        constant_node_0_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        constant_node_0.output_port_address(),
-                        constant_node_1.set_constant_value_port_address(),
+                        constant_node_0_handle.output_port_address(),
+                        constant_node_1_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        constant_node_1.output_port_address(),
-                        constant_node_1.set_constant_value_port_address(),
+                        constant_node_1_handle.output_port_address(),
+                        constant_node_1_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        constant_node_1.output_port_address(),
-                        constant_node_0.set_constant_value_port_address(),
+                        constant_node_1_handle.output_port_address(),
+                        constant_node_0_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
 
                 assert_visit_order_matches_handles(
                     &graph.visit_order.as_deref(),
-                    &[Box::new(constant_node_0), Box::new(constant_node_1)],
+                    &[
+                        Box::new(constant_node_0_handle),
+                        Box::new(constant_node_1_handle),
+                    ],
                 );
             }
         }
@@ -1116,52 +1143,58 @@ mod graph_tests {
                 let node_6 = OutputNode::new(&mut graph);
                 let node_7 = OutputNode::new(&mut graph);
 
-                let node_0 = graph.add(node_0).unwrap();
-                let node_1 = graph.add(node_1).unwrap();
-                let node_2 = graph.add(node_2).unwrap();
-                let node_3 = graph.add(node_3).unwrap();
-                let node_4 = graph.add(node_4).unwrap();
-                let node_5 = graph.add(node_5).unwrap();
-                let node_6 = graph.add(node_6).unwrap();
-                let node_7 = graph.add(node_7).unwrap();
+                let node_0_handle = graph.add(node_0).unwrap();
+                let node_1_handle = graph.add(node_1).unwrap();
+                let node_2_handle = graph.add(node_2).unwrap();
+                let node_3_handle = graph.add(node_3).unwrap();
+                let node_4_handle = graph.add(node_4).unwrap();
+                let node_5_handle = graph.add(node_5).unwrap();
+                let node_6_handle = graph.add(node_6).unwrap();
+                let node_7_handle = graph.add(node_7).unwrap();
 
                 graph
-                    .connect(node_1.output_port_address(), node_2.input_port_address())
-                    .unwrap()
                     .connect(
-                        node_3.output_port_address(),
-                        node_5.left_operand_input_address(),
+                        node_1_handle.output_port_address(),
+                        node_2_handle.input_port_address(),
                     )
                     .unwrap()
                     .connect(
-                        node_4.output_port_address(),
-                        node_5.right_operand_input_address(),
+                        node_3_handle.output_port_address(),
+                        node_5_handle.left_operand_input_address(),
                     )
                     .unwrap()
                     .connect(
-                        node_5.output_port_address(),
-                        node_3.set_constant_value_port_address(),
+                        node_4_handle.output_port_address(),
+                        node_5_handle.right_operand_input_address(),
                     )
                     .unwrap()
                     .connect(
-                        node_4.output_port_address(),
-                        node_4.set_constant_value_port_address(),
+                        node_5_handle.output_port_address(),
+                        node_3_handle.set_constant_value_port_address(),
                     )
                     .unwrap()
-                    .connect(node_5.output_port_address(), node_6.input_port_address())
+                    .connect(
+                        node_4_handle.output_port_address(),
+                        node_4_handle.set_constant_value_port_address(),
+                    )
+                    .unwrap()
+                    .connect(
+                        node_5_handle.output_port_address(),
+                        node_6_handle.input_port_address(),
+                    )
                     .unwrap();
 
                 assert_visit_order_matches_handles(
                     &graph.visit_order.as_deref(),
                     &[
-                        Box::new(node_0),
-                        Box::new(node_1),
-                        Box::new(node_2),
-                        Box::new(node_3),
-                        Box::new(node_4),
-                        Box::new(node_5),
-                        Box::new(node_6),
-                        Box::new(node_7),
+                        Box::new(node_0_handle),
+                        Box::new(node_1_handle),
+                        Box::new(node_2_handle),
+                        Box::new(node_3_handle),
+                        Box::new(node_4_handle),
+                        Box::new(node_5_handle),
+                        Box::new(node_6_handle),
+                        Box::new(node_7_handle),
                     ],
                 );
             }
@@ -1215,93 +1248,99 @@ mod graph_tests {
                 let node_6 = MultiplyNode::new(&mut graph);
                 let node_7 = OutputNode::new(&mut graph);
 
-                let node_0 = graph.add(node_0).unwrap();
-                let node_1 = graph.add(node_1).unwrap();
-                let node_2 = graph.add(node_2).unwrap();
-                let node_3 = graph.add(node_3).unwrap();
-                let node_4 = graph.add(node_4).unwrap();
-                let node_5 = graph.add(node_5).unwrap();
-                let node_6 = graph.add(node_6).unwrap();
-                let node_7 = graph.add(node_7).unwrap();
+                let node_0_handle = graph.add(node_0).unwrap();
+                let node_1_handle = graph.add(node_1).unwrap();
+                let node_2_handle = graph.add(node_2).unwrap();
+                let node_3_handle = graph.add(node_3).unwrap();
+                let node_4_handle = graph.add(node_4).unwrap();
+                let node_5_handle = graph.add(node_5).unwrap();
+                let node_6_handle = graph.add(node_6).unwrap();
+                let node_7_handle = graph.add(node_7).unwrap();
 
                 graph
                     .connect(
-                        node_0.output_port_address(),
-                        node_6.right_operand_input_address(),
+                        node_0_handle.output_port_address(),
+                        node_6_handle.right_operand_input_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        node_1.output_port_address(),
-                        node_3.left_operand_input_address(),
+                        node_1_handle.output_port_address(),
+                        node_3_handle.left_operand_input_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        node_2.output_port_address(),
-                        node_3.right_operand_input_address(),
+                        node_2_handle.output_port_address(),
+                        node_3_handle.right_operand_input_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        node_2.output_port_address(),
-                        node_5.right_operand_input_address(),
+                        node_2_handle.output_port_address(),
+                        node_5_handle.right_operand_input_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        node_3.output_port_address(),
-                        node_0.left_operand_input_address(),
+                        node_3_handle.output_port_address(),
+                        node_0_handle.left_operand_input_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        node_3.output_port_address(),
-                        node_0.right_operand_input_address(),
+                        node_3_handle.output_port_address(),
+                        node_0_handle.right_operand_input_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        node_3.output_port_address(),
-                        node_5.left_operand_input_address(),
+                        node_3_handle.output_port_address(),
+                        node_5_handle.left_operand_input_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        node_4.output_port_address(),
-                        node_4.set_constant_value_port_address(),
-                    )
-                    .unwrap();
-                graph
-                    .connect(node_4.output_port_address(), node_6.output_port_address())
-                    .unwrap();
-                graph
-                    .connect(
-                        node_5.output_port_address(),
-                        node_1.set_constant_value_port_address(),
+                        node_4_handle.output_port_address(),
+                        node_4_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        node_6.output_port_address(),
-                        node_2.set_constant_value_port_address(),
+                        node_4_handle.output_port_address(),
+                        node_6_handle.output_port_address(),
                     )
                     .unwrap();
                 graph
-                    .connect(node_6.output_port_address(), node_7.input_port_address())
+                    .connect(
+                        node_5_handle.output_port_address(),
+                        node_1_handle.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_6_handle.output_port_address(),
+                        node_2_handle.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_6_handle.output_port_address(),
+                        node_7_handle.input_port_address(),
+                    )
                     .unwrap();
 
                 assert_visit_order_matches_handles(
                     &graph.visit_order.as_deref(),
                     &[
-                        Box::new(node_2),
-                        Box::new(node_5),
-                        Box::new(node_1),
-                        Box::new(node_3),
-                        Box::new(node_0),
-                        Box::new(node_4),
-                        Box::new(node_6),
-                        Box::new(node_7),
+                        Box::new(node_2_handle),
+                        Box::new(node_5_handle),
+                        Box::new(node_1_handle),
+                        Box::new(node_3_handle),
+                        Box::new(node_0_handle),
+                        Box::new(node_4_handle),
+                        Box::new(node_6_handle),
+                        Box::new(node_7_handle),
                     ],
                 );
             }
@@ -1354,58 +1393,64 @@ mod graph_tests {
                 let node_7 = ConstantNode::new(&mut graph);
 
                 // add them out of order
-                let node_2 = graph.add(node_2).unwrap();
-                let node_6 = graph.add(node_6).unwrap();
-                let node_4 = graph.add(node_4).unwrap();
-                let node_5 = graph.add(node_5).unwrap();
-                let node_3 = graph.add(node_3).unwrap();
-                let node_0 = graph.add(node_0).unwrap();
-                let node_7 = graph.add(node_7).unwrap();
-                let node_1 = graph.add(node_1).unwrap();
+                let node_2_handle = graph.add(node_2).unwrap();
+                let node_6_handle = graph.add(node_6).unwrap();
+                let node_4_handle = graph.add(node_4).unwrap();
+                let node_5_handle = graph.add(node_5).unwrap();
+                let node_3_handle = graph.add(node_3).unwrap();
+                let node_0_handle = graph.add(node_0).unwrap();
+                let node_7_handle = graph.add(node_7).unwrap();
+                let node_1_handle = graph.add(node_1).unwrap();
 
                 // connect them in weird order
                 graph
-                    .connect(node_5.output_port_address(), node_4.input_port_address())
-                    .unwrap();
-                graph
                     .connect(
-                        node_2.output_port_address(),
-                        node_6.left_operand_input_address(),
-                    )
-                    .unwrap();
-                graph
-                    .connect(node_6.output_port_address(), node_0.input_port_address())
-                    .unwrap();
-                graph
-                    .connect(
-                        node_7.output_port_address(),
-                        node_6.right_operand_input_address(),
+                        node_5_handle.output_port_address(),
+                        node_4_handle.input_port_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        node_7.output_port_address(),
-                        node_7.set_constant_value_port_address(),
+                        node_2_handle.output_port_address(),
+                        node_6_handle.left_operand_input_address(),
                     )
                     .unwrap();
                 graph
                     .connect(
-                        node_6.output_port_address(),
-                        node_2.set_constant_value_port_address(),
+                        node_6_handle.output_port_address(),
+                        node_0_handle.input_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_7_handle.output_port_address(),
+                        node_6_handle.right_operand_input_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_7_handle.output_port_address(),
+                        node_7_handle.set_constant_value_port_address(),
+                    )
+                    .unwrap();
+                graph
+                    .connect(
+                        node_6_handle.output_port_address(),
+                        node_2_handle.set_constant_value_port_address(),
                     )
                     .unwrap();
 
                 assert_visit_order_matches_handles(
                     &graph.visit_order.as_deref(),
                     &[
-                        Box::new(node_2),
-                        Box::new(node_7),
-                        Box::new(node_6),
-                        Box::new(node_0),
-                        Box::new(node_1),
-                        Box::new(node_3),
-                        Box::new(node_5),
-                        Box::new(node_4),
+                        Box::new(node_2_handle),
+                        Box::new(node_7_handle),
+                        Box::new(node_6_handle),
+                        Box::new(node_0_handle),
+                        Box::new(node_1_handle),
+                        Box::new(node_3_handle),
+                        Box::new(node_5_handle),
+                        Box::new(node_4_handle),
                     ],
                 );
             }
@@ -1425,8 +1470,8 @@ mod graph_tests {
         fn only_output_node() {
             let mut graph = Graph::new();
             let output_node = OutputNode::new(&mut graph);
-            let output_node = graph.add(output_node).unwrap();
-            let &external_output_connection_id = output_node
+            let output_node_handle = graph.add(output_node).unwrap();
+            let &external_output_connection_id = output_node_handle
                 .external_connection_ids()
                 .get(&OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
                 .unwrap();
@@ -1453,13 +1498,13 @@ mod graph_tests {
             let constant_node = ConstantNode::new(&mut graph);
             let output_node = OutputNode::new(&mut graph);
 
-            let constant_node = graph.add(constant_node).unwrap();
-            let output_node = graph.add(output_node).unwrap();
+            let constant_node_handle = graph.add(constant_node).unwrap();
+            let output_node_handle = graph.add(output_node).unwrap();
 
             graph
                 .connect(
-                    constant_node.output_port_address(),
-                    output_node.input_port_address(),
+                    constant_node_handle.output_port_address(),
+                    output_node_handle.input_port_address(),
                 )
                 .unwrap();
 
@@ -1479,17 +1524,17 @@ mod graph_tests {
                 ConstantNode::new_with_value(&mut graph, Sample::from(expected_sample_value));
             let output_node = OutputNode::new(&mut graph);
 
-            let constant_node = graph.add(constant_node).unwrap();
-            let output_node = graph.add(output_node).unwrap();
-            let &external_output_connection_id = output_node
+            let constant_node_handle = graph.add(constant_node).unwrap();
+            let output_node_handle = graph.add(output_node).unwrap();
+            let &external_output_connection_id = output_node_handle
                 .external_connection_ids()
                 .get(&OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
                 .unwrap();
 
             graph
                 .connect(
-                    constant_node.output_port_address(),
-                    output_node.input_port_address(),
+                    constant_node_handle.output_port_address(),
+                    output_node_handle.input_port_address(),
                 )
                 .unwrap();
 
