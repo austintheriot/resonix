@@ -7,13 +7,13 @@ use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
     primitives::{
         AudioNodeContext, BlockSize, BufferPool, Connection, ConnectionId, Id, Node, NodeHandle,
-        NodeId, PortAddress, PortAddressDirection, PortId, Sample,
+        NodeId, PortAddress, PortId, Sample,
     },
     traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
 };
 
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use hashbrown::{HashMap, HashSet};
 use petgraph::algo::tarjan_scc;
 
@@ -27,8 +27,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 /// A `None` entry means the port is unconnected.
 struct NodeConnectionIdMap {
     // TODO: replace with an IntMap?c
-    input_connection_ids: alloc::boxed::Box<[Option<ConnectionId>]>,
-    output_connection_ids: alloc::boxed::Box<[Option<ConnectionId>]>,
+    input_connection_ids: Box<[Option<ConnectionId>]>,
+    output_connection_ids: Box<[Option<ConnectionId>]>,
 }
 
 enum GraphItem {
@@ -341,7 +341,6 @@ impl crate::traits::Graph for Graph {
         // allocation/computation at `run` time
         let num_input_ports = Self::count_ports(&[
             port_descriptors.input_port_addresses(),
-            port_descriptors.external_input_port_addresses(),
             port_descriptors.param_port_addresses(),
         ]);
         let num_output_ports = Self::count_ports(&[
@@ -349,12 +348,33 @@ impl crate::traits::Graph for Graph {
             port_descriptors.external_output_port_addresses(),
         ]);
 
-        let mut input_connection_ids: Vec<Option<ConnectionId>> =
+        let mut input_buffer_connection_ids: Vec<Option<ConnectionId>> =
             Vec::with_capacity(num_input_ports);
-        input_connection_ids.resize(num_input_ports, None);
-        let mut output_connection_ids: Vec<Option<ConnectionId>> =
+        input_buffer_connection_ids.resize(num_input_ports, None);
+        let mut output_buffer_connection_ids: Vec<Option<ConnectionId>> =
             Vec::with_capacity(num_output_ports);
-        output_connection_ids.resize(num_output_ports, None);
+        output_buffer_connection_ids.resize(num_output_ports, None);
+
+        // collect connection ids for external ports
+        let mut external_connection_ids: IntMap<PortId, ConnectionId> = IntMap::default();
+        if let Some(external_input_port_addresses) =
+            port_descriptors.external_input_port_addresses()
+        {
+            for external_input_port_addresses in external_input_port_addresses {
+                let port_id = external_input_port_addresses.port_id();
+                let connection_id = ConnectionId::from(self.id_generator.generate_id());
+                external_connection_ids.insert(port_id, connection_id);
+            }
+        }
+        if let Some(external_output_port_addresses) =
+            port_descriptors.external_output_port_addresses()
+        {
+            for external_output_port_addresses in external_output_port_addresses {
+                let port_id = external_output_port_addresses.port_id();
+                let connection_id = ConnectionId::from(self.id_generator.generate_id());
+                external_connection_ids.insert(port_id, connection_id);
+            }
+        }
 
         // External output ports are not connected via `connect()`, so we only need
         // a ConnectionId for bookkeeping. The actual buffer that is read from/written
@@ -363,13 +383,14 @@ impl crate::traits::Graph for Graph {
             .external_output_port_addresses()
             .unwrap_or(&[])
         {
-            let connection_id = ConnectionId::from(self.id_generator.generate_id());
+            let port_id = external_output_port_addr.port_id();
+            let connection_id = *external_connection_ids
+                .get(&port_id)
+                .expect("external output connection id must have been generated");
             self.port_address_to_connection_id_map
                 .insert(*external_output_port_addr, connection_id);
 
-            if let Some(connection_id_slot) =
-                output_connection_ids.get_mut(**external_output_port_addr.port_id())
-            {
+            if let Some(connection_id_slot) = output_buffer_connection_ids.get_mut(**port_id) {
                 *connection_id_slot = Some(connection_id);
             }
         }
@@ -378,27 +399,33 @@ impl crate::traits::Graph for Graph {
             .external_input_port_addresses()
             .unwrap_or(&[])
         {
-            let conection_id = ConnectionId::from(self.id_generator.generate_id());
-            self.allocate_empty_buffer_for_connection(conection_id)?;
+            let connection_id = ConnectionId::from(self.id_generator.generate_id());
+            self.allocate_empty_buffer_for_connection(connection_id)?;
 
             self.port_address_to_connection_id_map
-                .insert(*external_input_port_addr, conection_id);
-            if let Some(connection_id_slot) =
-                input_connection_ids.get_mut(**external_input_port_addr.port_id())
-            {
-                *connection_id_slot = Some(conection_id);
+                .insert(*external_input_port_addr, connection_id);
+
+            let port_id = external_input_port_addr.port_id();
+            if let Some(connection_id_slot) = input_buffer_connection_ids.get_mut(**port_id) {
+                *connection_id_slot = Some(connection_id);
             }
         }
 
         self.node_connection_id_map.insert(
             node_id,
             NodeConnectionIdMap {
-                input_connection_ids: input_connection_ids.into_boxed_slice(),
-                output_connection_ids: output_connection_ids.into_boxed_slice(),
+                input_connection_ids: input_buffer_connection_ids.into_boxed_slice(),
+                output_connection_ids: output_buffer_connection_ids.into_boxed_slice(),
             },
         );
 
-        let node_handle = NodeHandle::new(node_id, port_descriptors);
+        let external_conection_ids = if !external_connection_ids.is_empty() {
+            Some(external_connection_ids)
+        } else {
+            None
+        };
+
+        let node_handle = NodeHandle::new(node_id, port_descriptors, external_conection_ids);
 
         // bookkeeping
         let index = self.graph.add_node(node_id);
@@ -485,32 +512,12 @@ impl crate::traits::Graph for Graph {
 
     fn run(
         &mut self,
-        _inputs: &HashMap<PortAddress, &[Sample]>,
-        outputs: &mut HashMap<PortAddress, &mut [Sample]>,
+        _inputs: &HashMap<ConnectionId, &[Sample]>,
+        outputs: &mut HashMap<ConnectionId, &mut [Sample]>,
     ) -> Result<(), GraphRunError> {
         let Some(visit_order) = self.visit_order.as_ref() else {
             return Ok(());
         };
-
-        // Build a one-time map from external-output ConnectionIds to raw pointer into
-        // the caller-supplied output slice.
-        //
-        // If the caller didn't provide a buffer for that port, then we just leave it as `None`.
-        // External output ports write directly into the caller's buffer, bypassing the buffer pool.
-        //
-        // TODO: remove this allocation / cache it and clear it per-run
-        let external_output_ptrs: IntMap<ConnectionId, Option<*mut [Sample]>> = self
-            .port_address_to_connection_id_map
-            .iter()
-            .filter(|(addr, _)| {
-                addr.port_address_direction() == PortAddressDirection::ExternalOutput
-            })
-            .map(|(addr, &conn_id)| {
-                let external_output_buffer_ptr =
-                    outputs.get_mut(addr).map(|s| *s as *mut [Sample]);
-                (conn_id, external_output_buffer_ptr)
-            })
-            .collect();
 
         for &id in visit_order.iter() {
             let Some(GraphItem::Node(Node::AudioNode(node))) = self.graph_items.get_mut(&id) else {
@@ -539,15 +546,13 @@ impl crate::traits::Graph for Graph {
             let mut output_guards: [Option<RefMut<'_, [Sample]>>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| {
                     let output_connection_id = output_connection_ids.get(i)?.as_ref()?;
-                    if external_output_ptrs.contains_key(output_connection_id) {
+                    if outputs.contains_key(output_connection_id) {
                         // we'll acquire the pointer directly in a later step
                         return None;
                     }
 
-                    let output_buffer_ref_cell = buffer_pool
-                        .get(output_connection_id)
-                        .expect(BUFFER_NOT_FOUND);
-
+                    // expected to be None if it's an external port
+                    let output_buffer_ref_cell = buffer_pool.get(output_connection_id)?;
                     let output_buffer_guard = output_buffer_ref_cell.try_borrow_mut().expect(
                         "Output buffers should never be attempted to be borrowed multiple times.",
                     );
@@ -559,10 +564,9 @@ impl crate::traits::Graph for Graph {
             let output_buffer_raw_ptrs: [Option<*mut [Sample]>; PortId::MAX_PORT_ID] =
                 core::array::from_fn(|i| {
                     let output_connection_id = output_connection_ids.get(i)?.as_ref()?;
-                    if let Some(external_output_buffer_ptr) =
-                        external_output_ptrs.get(output_connection_id)
+                    if let Some(external_output_buffer_ptr) = outputs.get_mut(output_connection_id)
                     {
-                        return *external_output_buffer_ptr;
+                        return Some(*external_output_buffer_ptr as *mut [Sample]);
                     }
 
                     output_guards[i].as_mut().map(|g| &mut **g as *mut [Sample])
@@ -1440,7 +1444,7 @@ mod graph_tests {
         use hashbrown::HashMap;
 
         use crate::{
-            implementations::{ConstantNode, Graph, OutputNode},
+            implementations::{ConstantNode, Graph, OutputNode, OutputNodePortDescriptors},
             primitives::Sample,
             traits::Graph as GraphTrait,
         };
@@ -1450,19 +1454,21 @@ mod graph_tests {
             let mut graph = Graph::new();
             let output_node = OutputNode::new(&mut graph);
             let output_node = graph.add(output_node).unwrap();
+            let external_connection_ids = output_node.external_connection_ids().unwrap();
+            let external_output_connection_id = external_connection_ids
+                .get(&OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
+                .unwrap();
 
             let inputs = HashMap::new();
             let mut output_buffer = vec![Sample::default()];
-            let mut outputs = HashMap::from([(
-                output_node.external_output_port_address(),
-                output_buffer.as_mut_slice(),
-            )]);
+            let mut outputs =
+                HashMap::from([(*external_output_connection_id, output_buffer.as_mut_slice())]);
             graph.run(&inputs, &mut outputs).unwrap();
 
             assert_eq!(
                 outputs,
                 HashMap::from([(
-                    output_node.external_output_port_address(),
+                    *external_output_connection_id,
                     vec![Sample::default()].as_mut_slice(),
                 )])
             )
@@ -1503,6 +1509,10 @@ mod graph_tests {
 
             let constant_node = graph.add(constant_node).unwrap();
             let output_node = graph.add(output_node).unwrap();
+            let external_connection_ids = output_node.external_connection_ids().unwrap();
+            let external_output_connection_id = external_connection_ids
+                .get(&OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
+                .unwrap();
 
             graph
                 .connect(
@@ -1513,16 +1523,14 @@ mod graph_tests {
 
             let inputs = HashMap::new();
             let mut output_buffer = vec![Sample::default()];
-            let mut outputs = HashMap::from([(
-                output_node.external_output_port_address(),
-                output_buffer.as_mut_slice(),
-            )]);
+            let mut outputs =
+                HashMap::from([(*external_output_connection_id, output_buffer.as_mut_slice())]);
             graph.run(&inputs, &mut outputs).unwrap();
 
             assert_eq!(
                 outputs,
                 HashMap::from([(
-                    output_node.external_output_port_address(),
+                    *external_output_connection_id,
                     vec![Sample::from(expected_sample_value)].as_mut_slice(),
                 )])
             );

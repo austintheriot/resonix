@@ -1,10 +1,14 @@
 use core::ops::Deref;
 
+use nohash_hasher::IsEnabled;
+
 use crate::primitives::Id;
 
 /// Strongly typed wrapper around the Id primitive for strong type-checking
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PortId(Id);
+
+impl IsEnabled for PortId {}
 
 impl PortId {
     pub const fn new(id: usize) -> Self {

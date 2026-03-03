@@ -1,25 +1,35 @@
 use core::ops::Deref;
 
-use crate::primitives::Id;
 use crate::traits::GetNodeId;
+use crate::{primitives::Id, utils::IntMap};
 
-use super::NodeId;
+use super::{ConnectionId, NodeId, PortId};
 
 /// Indicates the presence of a Node in the Graph
 /// Derefs to the Node's PortDescriptors to allow making
 /// connections easier after Nodes have already been added to the Graph.
-#[derive(Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq)]
 pub struct NodeHandle<PortDescriptor> {
-    node_id: NodeId,
-    port_descriptors: PortDescriptor,
+    pub(crate) node_id: NodeId,
+    pub(crate) port_descriptors: PortDescriptor,
+    pub(crate) external_connection_ids: Option<IntMap<PortId, ConnectionId>>,
 }
 
 impl<PortDescriptors> NodeHandle<PortDescriptors> {
-    pub fn new(node_id: NodeId, port_descriptors: PortDescriptors) -> Self {
+    pub fn new(
+        node_id: NodeId,
+        port_descriptors: PortDescriptors,
+        external_connection_ids: Option<IntMap<PortId, ConnectionId>>,
+    ) -> Self {
         Self {
             node_id,
             port_descriptors,
+            external_connection_ids,
         }
+    }
+
+    pub fn external_connection_ids(&self) -> Option<&IntMap<PortId, ConnectionId>> {
+        self.external_connection_ids.as_ref()
     }
 }
 
