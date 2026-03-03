@@ -4,6 +4,9 @@
 #[macro_use]
 extern crate std;
 
+#[cfg(test)]
+pub mod test_utils;
+
 extern crate alloc;
 
 pub mod errors;

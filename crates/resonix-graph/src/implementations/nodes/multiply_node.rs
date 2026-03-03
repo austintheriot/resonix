@@ -177,3 +177,119 @@ impl DescribePorts for MultiplyNodePortDescriptors {
         Some(&self.output_port_addresses)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use alloc::vec::Vec;
+
+    use super::*;
+    use crate::{primitives::{BlockSize, Sample}, test_utils::TestIdGenerator};
+
+    /// Runs `node.process()` and returns the output buffer contents.
+    /// `left` and `right` are the two input slots; `None` means unconnected.
+    fn process_multiply(
+        node: &mut MultiplyNode,
+        left: Option<&[Sample]>,
+        right: Option<&[Sample]>,
+        block_size: usize,
+    ) -> Vec<Sample> {
+        let mut out_buf = vec![Sample::default(); block_size];
+        let inputs: Vec<Option<&[Sample]>> = vec![left, right];
+        {
+            let mut outputs: Vec<Option<&mut [Sample]>> = vec![Some(out_buf.as_mut_slice())];
+            node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(block_size))
+                .expect("process should not fail");
+        }
+        out_buf
+    }
+
+    #[test]
+    fn multiplies_two_input_signals() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = MultiplyNode::new(&mut id_gen).into_inner();
+        let left = [Sample::from(2.0f32)];
+        let right = [Sample::from(3.0f32)];
+        let result = process_multiply(&mut node, Some(&left), Some(&right), 1);
+        assert_eq!(result, vec![Sample::from(6.0f32)]);
+    }
+
+    #[test]
+    fn defaults_to_zero_when_no_inputs_connected() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = MultiplyNode::new(&mut id_gen).into_inner();
+        // Both held values default to 0.0, so 0.0 * 0.0 = 0.0
+        let result = process_multiply(&mut node, None, None, 1);
+        assert_eq!(result, vec![Sample::from(0.0f32)]);
+    }
+
+    #[test]
+    fn uses_initial_values_when_inputs_absent() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = MultiplyNode::new_with_values(&mut id_gen, 4.0f32, 5.0f32).into_inner();
+        // No live inputs — falls back to the initial held values: 4.0 * 5.0 = 20.0
+        let result = process_multiply(&mut node, None, None, 1);
+        assert_eq!(result, vec![Sample::from(20.0f32)]);
+    }
+
+    #[test]
+    fn uses_held_value_for_missing_right_input() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = MultiplyNode::new_with_values(&mut id_gen, 1.0f32, 3.0f32).into_inner();
+        let left = [Sample::from(5.0f32)];
+        // right not connected — uses held initial value of 3.0; result = 5.0 * 3.0 = 15.0
+        let result = process_multiply(&mut node, Some(&left), None, 1);
+        assert_eq!(result, vec![Sample::from(15.0f32)]);
+    }
+
+    #[test]
+    fn uses_held_value_for_missing_left_input() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = MultiplyNode::new_with_values(&mut id_gen, 3.0f32, 1.0f32).into_inner();
+        let right = [Sample::from(5.0f32)];
+        // left not connected — uses held initial value of 3.0; result = 3.0 * 5.0 = 15.0
+        let result = process_multiply(&mut node, None, Some(&right), 1);
+        assert_eq!(result, vec![Sample::from(15.0f32)]);
+    }
+
+    #[test]
+    fn multiplies_block_element_wise() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = MultiplyNode::new(&mut id_gen).into_inner();
+        let left = [Sample::from(1.0f32), Sample::from(2.0f32), Sample::from(3.0f32)];
+        let right = [Sample::from(4.0f32), Sample::from(5.0f32), Sample::from(6.0f32)];
+        let result = process_multiply(&mut node, Some(&left), Some(&right), 3);
+        assert_eq!(
+            result,
+            vec![
+                Sample::from(4.0f32),
+                Sample::from(10.0f32),
+                Sample::from(18.0f32),
+            ]
+        );
+    }
+
+    #[test]
+    fn updates_held_values_after_block() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = MultiplyNode::new(&mut id_gen).into_inner();
+        // First block sets last-seen values to 5.0 and 7.0
+        let first_left = [Sample::from(5.0f32)];
+        let first_right = [Sample::from(7.0f32)];
+        process_multiply(&mut node, Some(&first_left), Some(&first_right), 1);
+        // Second block with no live inputs uses held values: 5.0 * 7.0 = 35.0
+        let result = process_multiply(&mut node, None, None, 1);
+        assert_eq!(result, vec![Sample::from(35.0f32)]);
+    }
+
+    #[test]
+    fn does_nothing_when_output_slot_is_not_connected() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = MultiplyNode::new(&mut id_gen).into_inner();
+        let left = [Sample::from(5.0f32)];
+        let right = [Sample::from(5.0f32)];
+        let inputs: Vec<Option<&[Sample]>> = vec![Some(&left), Some(&right)];
+        let mut outputs: Vec<Option<&mut [Sample]>> = vec![None];
+        let result = node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(1));
+        assert!(result.is_ok());
+    }
+}

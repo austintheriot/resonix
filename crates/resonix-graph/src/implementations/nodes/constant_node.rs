@@ -93,6 +93,66 @@ impl Deref for ConstantNode {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use alloc::vec::Vec;
+
+    use super::*;
+    use crate::{primitives::{BlockSize, Sample}, test_utils::TestIdGenerator};
+
+    /// Runs `node.process()` with no inputs and returns the output buffer contents.
+    fn process_constant(node: &mut ConstantNode, block_size: usize) -> Vec<Sample> {
+        let mut buf = vec![Sample::default(); block_size];
+        {
+            let mut outputs: Vec<Option<&mut [Sample]>> = vec![Some(buf.as_mut_slice())];
+            node.process(&[], outputs.as_mut_slice(), BlockSize::new(block_size))
+                .expect("process should not fail");
+        }
+        buf
+    }
+
+    #[test]
+    fn outputs_zero_when_no_value_set() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = ConstantNode::new(&mut id_gen).into_inner();
+        let result = process_constant(&mut node, 1);
+        assert_eq!(result, vec![Sample::from(0.0f32)]);
+    }
+
+    #[test]
+    fn outputs_constant_value_for_single_sample() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = ConstantNode::new_with_value(&mut id_gen, 5.0f32).into_inner();
+        let result = process_constant(&mut node, 1);
+        assert_eq!(result, vec![Sample::from(5.0f32)]);
+    }
+
+    #[test]
+    fn fills_entire_block_with_constant_value() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = ConstantNode::new_with_value(&mut id_gen, 3.0f32).into_inner();
+        let result = process_constant(&mut node, 4);
+        assert_eq!(
+            result,
+            vec![
+                Sample::from(3.0f32),
+                Sample::from(3.0f32),
+                Sample::from(3.0f32),
+                Sample::from(3.0f32),
+            ]
+        );
+    }
+
+    #[test]
+    fn does_nothing_when_output_slot_is_not_connected() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = ConstantNode::new_with_value(&mut id_gen, 5.0f32).into_inner();
+        let mut outputs: Vec<Option<&mut [Sample]>> = vec![None];
+        let result = node.process(&[], outputs.as_mut_slice(), BlockSize::new(1));
+        assert!(result.is_ok());
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct ConstantNodePortDescriptors {
     node_id: NodeId,

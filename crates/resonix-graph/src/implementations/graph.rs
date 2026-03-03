@@ -1572,13 +1572,31 @@ mod graph_tests {
     }
 
     mod audio_processing {
+        use alloc::vec::Vec;
         use hashbrown::HashMap;
 
         use crate::{
-            implementations::{ConstantNode, Graph, OutputNode, OutputNodePortDescriptors},
+            implementations::{
+                ConstantNode, Graph, MultiplyNode, OutputNode, OutputNodePortDescriptors,
+            },
             primitives::Sample,
             traits::Graph as GraphTrait,
         };
+
+        /// Converts a slice of `f32` literals into `Vec<Sample>` for concise assertions.
+        fn samples(values: &[f32]) -> Vec<Sample> {
+            values.iter().map(|&v| Sample::from(v)).collect()
+        }
+
+        /// Returns the single external output `ConnectionId` from an `OutputNode` handle.
+        macro_rules! ext_output_id {
+            ($handle:expr) => {
+                *$handle
+                    .external_output_connection_ids()
+                    .get(&OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
+                    .unwrap()
+            };
+        }
 
         #[test]
         fn only_output_node() {
@@ -1665,6 +1683,239 @@ mod graph_tests {
                     vec![Sample::from(expected_sample_value)].as_mut_slice(),
                 )])
             );
+        }
+
+        #[test]
+        fn empty_graph_run_succeeds() {
+            let mut graph = Graph::new();
+            let inputs = HashMap::new();
+            let mut outputs = HashMap::new();
+            assert!(graph.run(&inputs, &mut outputs).is_ok());
+        }
+
+        #[test]
+        fn multiply_node_produces_product_of_two_constants() {
+            // const(2.0) ─left─┐
+            //                  ├─ multiply ─── output
+            // const(3.0) ─right┘
+            let mut graph = Graph::new();
+            let const_2 = ConstantNode::new_with_value(&mut graph, 2.0f32);
+            let const_3 = ConstantNode::new_with_value(&mut graph, 3.0f32);
+            let multiply = MultiplyNode::new(&mut graph);
+            let output = OutputNode::new(&mut graph);
+
+            let const_2_handle = graph.add(const_2).unwrap();
+            let const_3_handle = graph.add(const_3).unwrap();
+            let multiply_handle = graph.add(multiply).unwrap();
+            let output_handle = graph.add(output).unwrap();
+            let ext_id = ext_output_id!(output_handle);
+
+            graph
+                .connect(
+                    const_2_handle.output_port_address(),
+                    multiply_handle.left_operand_input_address(),
+                )
+                .unwrap()
+                .connect(
+                    const_3_handle.output_port_address(),
+                    multiply_handle.right_operand_input_address(),
+                )
+                .unwrap()
+                .connect(
+                    multiply_handle.output_port_address(),
+                    output_handle.input_port_address(),
+                )
+                .unwrap();
+
+            let inputs = HashMap::new();
+            let mut out_buf = vec![Sample::default()];
+            let mut outputs = HashMap::from([(ext_id, out_buf.as_mut_slice())]);
+            graph.run(&inputs, &mut outputs).unwrap();
+
+            assert_eq!(outputs[&ext_id], samples(&[6.0]).as_slice());
+        }
+
+        // TODO: fan-out is not yet implemented.
+        //
+        // Each `connect()` call overwrites the source node's `output_connection_ids` slot
+        // with the newest `ConnectionId`, so only the most-recently-connected consumer's buffer
+        // is ever written.  The fix is to detect fan-out in `connect()` and reuse the first
+        // buffer's `ConnectionId` for all subsequent consumers (sharing the pool buffer).
+        #[test]
+        #[ignore = "fan-out not yet implemented: only the last-connected consumer receives audio"]
+        fn fan_out_one_constant_to_multiple_outputs() {
+            // const(5.0) ─── output_1
+            //            └── output_2
+            let mut graph = Graph::new();
+            let constant = ConstantNode::new_with_value(&mut graph, 5.0f32);
+            let output_1 = OutputNode::new(&mut graph);
+            let output_2 = OutputNode::new(&mut graph);
+
+            let constant_handle = graph.add(constant).unwrap();
+            let output_1_handle = graph.add(output_1).unwrap();
+            let output_2_handle = graph.add(output_2).unwrap();
+            let ext_id_1 = ext_output_id!(output_1_handle);
+            let ext_id_2 = ext_output_id!(output_2_handle);
+
+            graph
+                .connect(
+                    constant_handle.output_port_address(),
+                    output_1_handle.input_port_address(),
+                )
+                .unwrap()
+                .connect(
+                    constant_handle.output_port_address(),
+                    output_2_handle.input_port_address(),
+                )
+                .unwrap();
+
+            let inputs = HashMap::new();
+            let mut out_buf_1 = vec![Sample::default()];
+            let mut out_buf_2 = vec![Sample::default()];
+            let mut outputs = HashMap::from([
+                (ext_id_1, out_buf_1.as_mut_slice()),
+                (ext_id_2, out_buf_2.as_mut_slice()),
+            ]);
+            graph.run(&inputs, &mut outputs).unwrap();
+
+            assert_eq!(outputs[&ext_id_1], samples(&[5.0]).as_slice());
+            assert_eq!(outputs[&ext_id_2], samples(&[5.0]).as_slice());
+        }
+
+        #[test]
+        fn larger_block_size_fills_all_samples() {
+            let block_size = 4usize;
+            let mut graph = Graph::with_block_size(block_size);
+            let constant = ConstantNode::new_with_value(&mut graph, 9.0f32);
+            let output = OutputNode::new(&mut graph);
+
+            let constant_handle = graph.add(constant).unwrap();
+            let output_handle = graph.add(output).unwrap();
+            let ext_id = ext_output_id!(output_handle);
+
+            graph
+                .connect(
+                    constant_handle.output_port_address(),
+                    output_handle.input_port_address(),
+                )
+                .unwrap();
+
+            let inputs = HashMap::new();
+            let mut out_buf = vec![Sample::default(); block_size];
+            let mut outputs = HashMap::from([(ext_id, out_buf.as_mut_slice())]);
+            graph.run(&inputs, &mut outputs).unwrap();
+
+            assert_eq!(outputs[&ext_id], samples(&[9.0, 9.0, 9.0, 9.0]).as_slice());
+        }
+
+        #[test]
+        fn multiple_run_calls_produce_consistent_results() {
+            let mut graph = Graph::new();
+            let constant = ConstantNode::new_with_value(&mut graph, 3.0f32);
+            let output = OutputNode::new(&mut graph);
+
+            let constant_handle = graph.add(constant).unwrap();
+            let output_handle = graph.add(output).unwrap();
+            let ext_id = ext_output_id!(output_handle);
+
+            graph
+                .connect(
+                    constant_handle.output_port_address(),
+                    output_handle.input_port_address(),
+                )
+                .unwrap();
+
+            for _ in 0..3 {
+                let inputs = HashMap::new();
+                let mut out_buf = vec![Sample::default()];
+                let mut outputs = HashMap::from([(ext_id, out_buf.as_mut_slice())]);
+                graph.run(&inputs, &mut outputs).unwrap();
+                assert_eq!(outputs[&ext_id], samples(&[3.0]).as_slice());
+            }
+        }
+
+        #[test]
+        fn chained_multiply_nodes() {
+            // const(2) ─left─┐
+            //                ├─ multiply_1 ─left─┐
+            // const(3) ─right┘                   ├─ multiply_2 ─── output
+            //                         const(4) ─right┘
+            // Expected: (2 * 3) * 4 = 24
+            let mut graph = Graph::new();
+            let const_2 = ConstantNode::new_with_value(&mut graph, 2.0f32);
+            let const_3 = ConstantNode::new_with_value(&mut graph, 3.0f32);
+            let const_4 = ConstantNode::new_with_value(&mut graph, 4.0f32);
+            let multiply_1 = MultiplyNode::new(&mut graph);
+            let multiply_2 = MultiplyNode::new(&mut graph);
+            let output = OutputNode::new(&mut graph);
+
+            let const_2_handle = graph.add(const_2).unwrap();
+            let const_3_handle = graph.add(const_3).unwrap();
+            let const_4_handle = graph.add(const_4).unwrap();
+            let multiply_1_handle = graph.add(multiply_1).unwrap();
+            let multiply_2_handle = graph.add(multiply_2).unwrap();
+            let output_handle = graph.add(output).unwrap();
+            let ext_id = ext_output_id!(output_handle);
+
+            graph
+                .connect(
+                    const_2_handle.output_port_address(),
+                    multiply_1_handle.left_operand_input_address(),
+                )
+                .unwrap()
+                .connect(
+                    const_3_handle.output_port_address(),
+                    multiply_1_handle.right_operand_input_address(),
+                )
+                .unwrap()
+                .connect(
+                    multiply_1_handle.output_port_address(),
+                    multiply_2_handle.left_operand_input_address(),
+                )
+                .unwrap()
+                .connect(
+                    const_4_handle.output_port_address(),
+                    multiply_2_handle.right_operand_input_address(),
+                )
+                .unwrap()
+                .connect(
+                    multiply_2_handle.output_port_address(),
+                    output_handle.input_port_address(),
+                )
+                .unwrap();
+
+            let inputs = HashMap::new();
+            let mut out_buf = vec![Sample::default()];
+            let mut outputs = HashMap::from([(ext_id, out_buf.as_mut_slice())]);
+            graph.run(&inputs, &mut outputs).unwrap();
+
+            assert_eq!(outputs[&ext_id], samples(&[24.0]).as_slice());
+        }
+
+        #[test]
+        fn multiply_node_with_unconnected_inputs_outputs_zero() {
+            // A multiply node with no connections defaults to 0.0 * 0.0 = 0.0
+            let mut graph = Graph::new();
+            let multiply = MultiplyNode::new(&mut graph);
+            let output = OutputNode::new(&mut graph);
+
+            let multiply_handle = graph.add(multiply).unwrap();
+            let output_handle = graph.add(output).unwrap();
+            let ext_id = ext_output_id!(output_handle);
+
+            graph
+                .connect(
+                    multiply_handle.output_port_address(),
+                    output_handle.input_port_address(),
+                )
+                .unwrap();
+
+            let inputs = HashMap::new();
+            let mut out_buf = vec![Sample::default()];
+            let mut outputs = HashMap::from([(ext_id, out_buf.as_mut_slice())]);
+            graph.run(&inputs, &mut outputs).unwrap();
+
+            assert_eq!(outputs[&ext_id], samples(&[0.0]).as_slice());
         }
 
         mod external_inputs {

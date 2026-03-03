@@ -83,6 +83,86 @@ impl Deref for OutputNode {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use alloc::vec::Vec;
+
+    use super::*;
+    use crate::{primitives::{BlockSize, Sample}, test_utils::TestIdGenerator};
+
+    /// Runs `node.process()` with the given input and returns the output buffer contents.
+    fn process_output(node: &mut OutputNode, input: &[Sample], block_size: usize) -> Vec<Sample> {
+        let mut out_buf = vec![Sample::default(); block_size];
+        let inputs: Vec<Option<&[Sample]>> = vec![Some(input)];
+        {
+            let mut outputs: Vec<Option<&mut [Sample]>> = vec![Some(out_buf.as_mut_slice())];
+            node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(block_size))
+                .expect("process should not fail");
+        }
+        out_buf
+    }
+
+    #[test]
+    fn copies_input_to_output() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = OutputNode::new(&mut id_gen).into_inner();
+        let input = [Sample::from(7.0f32)];
+        let result = process_output(&mut node, &input, 1);
+        assert_eq!(result, vec![Sample::from(7.0f32)]);
+    }
+
+    #[test]
+    fn copies_multi_sample_block() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = OutputNode::new(&mut id_gen).into_inner();
+        let input = [
+            Sample::from(1.0f32),
+            Sample::from(2.0f32),
+            Sample::from(3.0f32),
+            Sample::from(4.0f32),
+        ];
+        let result = process_output(&mut node, &input, 4);
+        assert_eq!(
+            result,
+            vec![
+                Sample::from(1.0f32),
+                Sample::from(2.0f32),
+                Sample::from(3.0f32),
+                Sample::from(4.0f32),
+            ]
+        );
+    }
+
+    #[test]
+    fn does_nothing_when_external_output_slot_is_not_connected() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = OutputNode::new(&mut id_gen).into_inner();
+        let input = [Sample::from(5.0f32)];
+        let inputs: Vec<Option<&[Sample]>> = vec![Some(input.as_slice())];
+        let mut outputs: Vec<Option<&mut [Sample]>> = vec![None];
+        let result = node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(1));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn partial_input_only_writes_available_samples() {
+        let mut id_gen = TestIdGenerator(0);
+        let mut node = OutputNode::new(&mut id_gen).into_inner();
+        // input shorter than output — zip stops at input length, rest remains default (0.0)
+        let input = [Sample::from(1.0f32), Sample::from(2.0f32)];
+        let result = process_output(&mut node, &input, 4);
+        assert_eq!(
+            result,
+            vec![
+                Sample::from(1.0f32),
+                Sample::from(2.0f32),
+                Sample::from(0.0f32),
+                Sample::from(0.0f32),
+            ]
+        );
+    }
+}
+
 #[derive(Copy, Clone)]
 pub struct OutputNodePortDescriptors {
     node_id: NodeId,
