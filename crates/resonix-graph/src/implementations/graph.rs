@@ -355,26 +355,7 @@ impl crate::traits::Graph for Graph {
             Vec::with_capacity(num_output_ports);
         output_buffer_connection_ids.resize(num_output_ports, None);
 
-        // collect connection ids for external ports
         let mut external_connection_ids: IntMap<PortId, ConnectionId> = IntMap::default();
-        if let Some(external_input_port_addresses) =
-            port_descriptors.external_input_port_addresses()
-        {
-            for external_input_port_addresses in external_input_port_addresses {
-                let port_id = external_input_port_addresses.port_id();
-                let connection_id = ConnectionId::from(self.id_generator.generate_id());
-                external_connection_ids.insert(port_id, connection_id);
-            }
-        }
-        if let Some(external_output_port_addresses) =
-            port_descriptors.external_output_port_addresses()
-        {
-            for external_output_port_addresses in external_output_port_addresses {
-                let port_id = external_output_port_addresses.port_id();
-                let connection_id = ConnectionId::from(self.id_generator.generate_id());
-                external_connection_ids.insert(port_id, connection_id);
-            }
-        }
 
         // External output ports are not connected via `connect()`, so we only need
         // a ConnectionId for bookkeeping. The actual buffer that is read from/written
@@ -384,12 +365,10 @@ impl crate::traits::Graph for Graph {
             .unwrap_or(&[])
         {
             let port_id = external_output_port_addr.port_id();
-            let connection_id = *external_connection_ids
-                .get(&port_id)
-                .expect("external output connection id must have been generated");
+            let connection_id = ConnectionId::from(self.id_generator.generate_id());
+            external_connection_ids.insert(port_id, connection_id);
             self.port_address_to_connection_id_map
                 .insert(*external_output_port_addr, connection_id);
-
             if let Some(connection_id_slot) = output_buffer_connection_ids.get_mut(**port_id) {
                 *connection_id_slot = Some(connection_id);
             }
@@ -399,13 +378,12 @@ impl crate::traits::Graph for Graph {
             .external_input_port_addresses()
             .unwrap_or(&[])
         {
+            let port_id = external_input_port_addr.port_id();
             let connection_id = ConnectionId::from(self.id_generator.generate_id());
+            external_connection_ids.insert(port_id, connection_id);
             self.allocate_empty_buffer_for_connection(connection_id)?;
-
             self.port_address_to_connection_id_map
                 .insert(*external_input_port_addr, connection_id);
-
-            let port_id = external_input_port_addr.port_id();
             if let Some(connection_id_slot) = input_buffer_connection_ids.get_mut(**port_id) {
                 *connection_id_slot = Some(connection_id);
             }
