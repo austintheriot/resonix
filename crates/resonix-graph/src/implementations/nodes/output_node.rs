@@ -3,7 +3,7 @@ use core::ops::Deref;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        AudioNodeContext, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample,
+        BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample,
     },
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
@@ -51,32 +51,22 @@ impl GetPriority for OutputNode {
 impl AudioNode for OutputNode {
     fn process(
         &mut self,
-        AudioNodeContext {
-            input_buffers,
-            mut output_buffers,
-            ..
-        }: AudioNodeContext<'_>,
+        inputs: &[Option<&[Sample]>],
+        outputs: &mut [Option<&mut [Sample]>],
+        _block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
-        let input_port_id = **OutputNodePortDescriptors::INPUT_PORT_ID;
-        let output_port_id = **self.external_output_port_address().port_id();
+        let input_port_slot = **OutputNodePortDescriptors::INPUT_PORT_ID;
+        let output_port_slot = **OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID;
 
-        if input_buffers.len() <= input_port_id || output_buffers.len() <= output_port_id {
-            return Ok(());
-        }
-
-        let Some(output_block) = &mut output_buffers[output_port_id] else {
+        let Some(output_block) = outputs[output_port_slot].as_deref_mut() else {
             return Ok(());
         };
 
         // TODO: handle None case (self-reference)
-        let input_block = input_buffers
-            .get(input_port_id)
-            .copied()
-            .flatten()
-            .unwrap_or(&[]);
+        let input_block = inputs[input_port_slot].unwrap_or(&[]);
 
-        for (out, inp) in output_block.iter_mut().zip(input_block.iter()) {
-            *out = *inp;
+        for (out, &inp) in output_block.iter_mut().zip(input_block.iter()) {
+            *out = inp;
         }
 
         self.input_value = input_block.last().copied();
@@ -112,7 +102,7 @@ impl DescribePorts for OutputNodePortDescriptors {
 
 impl OutputNodePortDescriptors {
     pub const INPUT_PORT_ID: PortId = PortId::new(0usize);
-    pub const EXTERNAL_OUTPUT_PORT_ID: PortId = PortId::new(1usize);
+    pub const EXTERNAL_OUTPUT_PORT_ID: PortId = PortId::new(0usize);
 
     pub fn new(node_id: NodeId) -> Self {
         Self {

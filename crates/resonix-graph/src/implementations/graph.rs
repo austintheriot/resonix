@@ -1,15 +1,12 @@
-use core::{
-    cell::{Ref, RefCell, RefMut},
-    ops::Deref,
-};
+use core::{cell::RefCell, mem::transmute, ops::Deref, ptr::NonNull};
 
 use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
     primitives::{
-        AudioNodeContext, BlockSize, BufferPool, Connection, ConnectionId, Id, Node, NodeHandle,
-        NodeId, PortAddress, PortId, Sample,
+        BlockSize, BufferPool, Connection, ConnectionId, Id, Node, NodeHandle, NodeId, PortAddress,
+        PortId, Sample,
     },
-    traits::{DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
+    traits::{AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
 };
 
@@ -30,6 +27,30 @@ struct NodeConnectionIdMap {
     input_connection_ids: Box<[Option<ConnectionId>]>,
     output_connection_ids: Box<[Option<ConnectionId>]>,
 }
+
+/// One entry in the compiled execution plan produced by `Graph::compile`.
+///
+/// All buffer pointers are extracted once at compile time and reused across `run` calls.
+/// External output slots are re-patched from the caller's buffer map each call.
+struct CompiledStep {
+    /// Raw fat pointer into the `Box<dyn AudioNode>` heap allocation.
+    /// Stable because moving a `Box` does not move the heap data it points to.
+    node: *mut dyn AudioNode,
+    /// Input buffer pointers, one per input port, sized to actual port count.
+    /// `None` means the port is unconnected or is a self-loop.
+    input_ptrs: Box<[Option<NonNull<[Sample]>>]>,
+    /// Output buffer pointers, one per output port, sized to actual port count.
+    /// Slots for external ports start as `None` and are patched per `run` call.
+    output_ptrs: Box<[Option<NonNull<[Sample]>>]>,
+    /// Which output slots are external (caller-supplied) and their `ConnectionId`
+    /// so they can be looked up in the caller's output map each `run` call.
+    external_output_slots: Box<[(usize, ConnectionId)]>,
+    block_size: BlockSize,
+}
+
+// SAFETY: `CompiledStep` contains a raw pointer but is only used from a single thread
+// (Graph is not Sync due to RefCell in BufferPool).
+unsafe impl Send for CompiledStep {}
 
 enum GraphItem {
     Node(Node),
@@ -65,6 +86,9 @@ pub struct Graph {
     leaf_nodes: IntSet<NodeId>,
     block_size: BlockSize,
     buffer_pool: BufferPool,
+    /// Lazily compiled flat execution plan. Set to `None` whenever the graph topology changes
+    /// (add/connect/disconnect/remove), recompiled on the next `run` call.
+    compiled_plan: Option<Vec<CompiledStep>>,
 }
 
 impl Graph {
@@ -83,6 +107,7 @@ impl Graph {
             port_address_to_connection_id_map: HashMap::new(),
             block_size: block_size.into(),
             buffer_pool: BufferPool::default(),
+            compiled_plan: None,
         }
     }
 
@@ -289,15 +314,124 @@ impl Graph {
         neighbor_ids.contains(&id)
     }
 
-    fn count_ports(slices: &[Option<&[PortAddress]>]) -> usize {
-        slices
+    /// Returns the number of port slots needed to hold all ports in the given groups.
+    /// With dense port IDs this equals the actual port count; with sparse IDs it overallocates.
+    fn count_ports(port_address_groups: &[Option<&[PortAddress]>]) -> usize {
+        port_address_groups
             .iter()
-            .filter_map(|opt| *opt)
-            .flat_map(|addrs| addrs.iter())
-            .map(|addr| **addr.port_id())
+            .filter_map(|group| *group)
+            .flat_map(|addresses| addresses.iter())
+            .map(|address| **address.port_id())
             .max()
             .map(|max_id| max_id + 1)
             .unwrap_or(0)
+    }
+
+    /// Checks that all port IDs across the given groups form a dense 0..n sequence.
+    /// Called separately for the input group and the output group during `add()`.
+    fn validate_dense_port_ids(
+        port_address_groups: &[Option<&[PortAddress]>],
+    ) -> Result<(), GraphAddError> {
+        let mut port_ids: Vec<usize> = port_address_groups
+            .iter()
+            .filter_map(|group| *group)
+            .flat_map(|addresses| addresses.iter())
+            .map(|address| **address.port_id())
+            .collect();
+
+        port_ids.sort_unstable();
+
+        for (expected_id, &actual_id) in port_ids.iter().enumerate() {
+            if actual_id != expected_id {
+                return Err(GraphAddError::SparsePortIds {
+                    expected: expected_id,
+                    actual: actual_id,
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Builds the flat execution plan from the current visit order.
+    ///
+    /// Extracts raw pointers to each node's heap allocation and to each buffer
+    /// in the pool. These pointers are stable until the next topology change
+    /// (add/connect/disconnect/remove), which invalidates the plan.
+    fn compile(&mut self) -> Vec<CompiledStep> {
+        let visit_order: Vec<Id> = match self.visit_order.as_ref() {
+            Some(order) => order.clone(),
+            None => return Vec::new(),
+        };
+
+        let block_size = self.block_size;
+
+        visit_order
+            .iter()
+            .filter_map(|&id| {
+                let node_ptr: *mut dyn AudioNode = {
+                    let Some(GraphItem::Node(crate::primitives::Node::AudioNode(node_box))) =
+                        self.graph_items.get_mut(&id)
+                    else {
+                        return None;
+                    };
+                    // SAFETY: Box heap allocation is stable; moving the Box (e.g. on IntMap
+                    // rehash) does not move the heap data the Box points to.
+                    &mut **node_box as *mut dyn AudioNode
+                };
+
+                let connection_id_map = self.node_connection_id_map.get(&NodeId::from(id))?;
+
+                let input_ptrs: Box<[Option<NonNull<[Sample]>>]> = connection_id_map
+                    .input_connection_ids
+                    .iter()
+                    .map(|connection_id_opt| {
+                        let connection_id = connection_id_opt.as_ref()?;
+                        let raw_ptr: *const [Sample] = {
+                            // Borrow the RefCell just long enough to extract the pointer.
+                            // The Box<[Sample]> heap allocation outlives the Ref guard.
+                            let guard = self.buffer_pool.get(connection_id)?.borrow();
+                            &**guard as *const [Sample]
+                        };
+                        // SAFETY: pointer came from a reference so it is non-null.
+                        Some(unsafe { NonNull::new_unchecked(raw_ptr as *mut [Sample]) })
+                    })
+                    .collect();
+
+                let mut external_output_slots: Vec<(usize, ConnectionId)> = Vec::new();
+
+                let output_ptrs: Box<[Option<NonNull<[Sample]>>]> = connection_id_map
+                    .output_connection_ids
+                    .iter()
+                    .enumerate()
+                    .map(|(slot, connection_id_opt)| {
+                        let connection_id = connection_id_opt.as_ref()?;
+
+                        // External output ports are registered in `add()` but have no pool
+                        // entry; their buffers are provided by the caller at run time.
+                        if !self.buffer_pool.contains_key(connection_id) {
+                            external_output_slots.push((slot, *connection_id));
+                            return None;
+                        }
+
+                        let raw_ptr: *mut [Sample] = {
+                            let mut guard = self.buffer_pool.get(connection_id)?.borrow_mut();
+                            &mut **guard as *mut [Sample]
+                        };
+                        // SAFETY: pointer came from a mutable reference so it is non-null.
+                        Some(unsafe { NonNull::new_unchecked(raw_ptr) })
+                    })
+                    .collect();
+
+                Some(CompiledStep {
+                    node: node_ptr,
+                    input_ptrs,
+                    output_ptrs,
+                    external_output_slots: external_output_slots.into_boxed_slice(),
+                    block_size,
+                })
+            })
+            .collect()
     }
 
     fn allocate_empty_buffer_for_connection(
@@ -334,11 +468,21 @@ impl crate::traits::Graph for Graph {
         // - node id should not be weirdly higher than the rest
 
         let port_descriptors: P = node.get_port_descriptors();
+
+        // Enforce dense per-direction port IDs so that slice lengths equal actual port counts.
+        Self::validate_dense_port_ids(&[
+            port_descriptors.input_port_addresses(),
+            port_descriptors.param_port_addresses(),
+        ])?;
+        Self::validate_dense_port_ids(&[
+            port_descriptors.output_port_addresses(),
+            port_descriptors.external_output_port_addresses(),
+        ])?;
+
         let node = node.into();
         let node_id = NodeId::from(node.node_id());
 
-        // tracking port information here prevents unnecessary
-        // allocation/computation at `run` time
+        // Tracking port information here prevents unnecessary allocation at `run` time.
         let num_input_ports = Self::count_ports(&[
             port_descriptors.input_port_addresses(),
             port_descriptors.param_port_addresses(),
@@ -355,18 +499,18 @@ impl crate::traits::Graph for Graph {
             Vec::with_capacity(num_output_ports);
         output_buffer_connection_ids.resize(num_output_ports, None);
 
-        let mut external_connection_ids: IntMap<PortId, ConnectionId> = IntMap::default();
+        let mut external_input_connection_ids: IntMap<PortId, ConnectionId> = IntMap::default();
+        let mut external_output_connection_ids: IntMap<PortId, ConnectionId> = IntMap::default();
 
         // External output ports are not connected via `connect()`, so we only need
-        // a ConnectionId for bookkeeping. The actual buffer that is read from/written
-        // to during the dsp run cycle is provided by the caller.
+        // a ConnectionId for bookkeeping. The actual buffer is provided by the caller at run time.
         for external_output_port_addr in port_descriptors
             .external_output_port_addresses()
             .unwrap_or(&[])
         {
             let port_id = external_output_port_addr.port_id();
             let connection_id = ConnectionId::from(self.id_generator.generate_id());
-            external_connection_ids.insert(port_id, connection_id);
+            external_output_connection_ids.insert(port_id, connection_id);
             self.port_address_to_connection_id_map
                 .insert(*external_output_port_addr, connection_id);
             if let Some(connection_id_slot) = output_buffer_connection_ids.get_mut(**port_id) {
@@ -380,7 +524,7 @@ impl crate::traits::Graph for Graph {
         {
             let port_id = external_input_port_addr.port_id();
             let connection_id = ConnectionId::from(self.id_generator.generate_id());
-            external_connection_ids.insert(port_id, connection_id);
+            external_input_connection_ids.insert(port_id, connection_id);
             self.allocate_empty_buffer_for_connection(connection_id)?;
             self.port_address_to_connection_id_map
                 .insert(*external_input_port_addr, connection_id);
@@ -397,7 +541,12 @@ impl crate::traits::Graph for Graph {
             },
         );
 
-        let node_handle = NodeHandle::new(node_id, port_descriptors, external_connection_ids);
+        let node_handle = NodeHandle::new(
+            node_id,
+            port_descriptors,
+            external_input_connection_ids,
+            external_output_connection_ids,
+        );
 
         // bookkeeping
         let index = self.graph.add_node(node_id);
@@ -405,17 +554,13 @@ impl crate::traits::Graph for Graph {
         self.petgraph_index_to_id_map.insert(index, *node_id);
         // petgraph only keeps ids--we keep the real values for easier bookkeeping
         self.graph_items.insert(*node_id, GraphItem::Node(node));
-        // until a node as an outgoing connection, it is a leaf node
+        // until a node has an outgoing connection, it is a leaf node
         self.leaf_nodes.insert(node_id);
 
         // must be recomputed on every modification
         // TODO: do incremental updates in the future?
-        // TODO: allow caller to optimize order OR just mark visit_order dirtly
-        // here & then call compile before the first run if caller hasn't?
-        //
-        // May not be necessary, since it can be computed in O(n) time,
-        // where n is the number of nodes
         self.visit_order = Some(self.compute_new_visit_order());
+        self.compiled_plan = None;
 
         Ok(node_handle)
     }
@@ -476,6 +621,7 @@ impl crate::traits::Graph for Graph {
 
         // must be recomputed on every modification
         self.visit_order = Some(self.compute_new_visit_order());
+        self.compiled_plan = None;
 
         Ok(self)
     }
@@ -485,107 +631,40 @@ impl crate::traits::Graph for Graph {
         _inputs: &HashMap<ConnectionId, &[Sample]>,
         outputs: &mut HashMap<ConnectionId, &mut [Sample]>,
     ) -> Result<(), GraphRunError> {
-        let Some(visit_order) = self.visit_order.as_ref() else {
-            return Ok(());
-        };
+        if self.compiled_plan.is_none() {
+            self.compiled_plan = Some(self.compile());
+        }
 
-        for &id in visit_order.iter() {
-            let Some(GraphItem::Node(Node::AudioNode(node))) = self.graph_items.get_mut(&id) else {
-                return Err(GraphRunError::VisitOrderIncludedNonNodeValue);
-            };
+        let compiled_plan = self.compiled_plan.as_mut().unwrap();
 
-            let node_connection_id_map = &self.node_connection_id_map;
-            let buffer_pool = &self.buffer_pool;
-
-            let NodeConnectionIdMap {
-                output_connection_ids,
-                input_connection_ids,
-            } = node_connection_id_map
-                .get(&NodeId::from(id))
-                .expect("every node in visit_order must have a NodePortMap");
-
-            const BUFFER_NOT_FOUND: &str = "Buffer not found for connection id. This likely means a buffer was not allocated when it should have been, or it was freed too soon.";
-
-            // Nodes that are connected directly to themselves will only receive
-            // a buffer for their OUTPUT ports (and not their input ports),
-            // since we can't both acquire a read-only reference to the input buffer
-            // and a read-write reference to the output buffer, when it's the SAME buffer.
-            //
-            // External output ports bypass the pool entirely, so no guard is needed,
-            // and there is no risk of double aliasing mutable pointers.
-            let mut output_guards: [Option<RefMut<'_, [Sample]>>; PortId::MAX_PORT_ID] =
-                core::array::from_fn(|i| {
-                    let output_connection_id = output_connection_ids.get(i)?.as_ref()?;
-                    if outputs.contains_key(output_connection_id) {
-                        // we'll acquire the pointer directly in a later step
-                        return None;
-                    }
-
-                    // expected to be None if it's an external port
-                    let output_buffer_ref_cell = buffer_pool.get(output_connection_id)?;
-                    let output_buffer_guard = output_buffer_ref_cell.try_borrow_mut().expect(
-                        "Output buffers should never be attempted to be borrowed multiple times.",
-                    );
-                    Some(RefMut::map(output_buffer_guard, |b| b.as_mut()))
-                });
-
-            // For external output ports: use the caller-supplied pointer (or None).
-            // For internal ports: derive the pointer from the RefMut guard.
-            let output_buffer_raw_ptrs: [Option<*mut [Sample]>; PortId::MAX_PORT_ID] =
-                core::array::from_fn(|i| {
-                    let output_connection_id = output_connection_ids.get(i)?.as_ref()?;
-                    if let Some(external_output_buffer_ptr) = outputs.get_mut(output_connection_id)
-                    {
-                        return Some(*external_output_buffer_ptr as *mut [Sample]);
-                    }
-
-                    output_guards[i].as_mut().map(|g| &mut **g as *mut [Sample])
-                });
-
-            // Any buffers already borrowed as an output guard above will be present
-            // in this array as `None`--should only ever happen with self-connected Nodes
-            let input_buffer_guards: [Option<Ref<'_, [Sample]>>; PortId::MAX_PORT_ID] =
-                core::array::from_fn(|i| {
-                    input_connection_ids
-                        // expected to be None for any ports we're querying for that are not defined
-                        .get(i)?
-                        .as_ref()
-                        .map(|conneection_id| {
-                            // TODO: read inputs directly from caller-supplied input buffers
-                            // eventually (like we do for outputs)
-                            buffer_pool.get(conneection_id).expect(BUFFER_NOT_FOUND)
-                        })
-                        // can be None if the Node connects to itself,
-                        // and we already borrowed the output buffer
-                        .and_then(|c| c.try_borrow().ok())
-                        .map(|g| Ref::map(g, |b| b.as_ref()))
-                });
-
-            let input_buffers: [Option<&[Sample]>; PortId::MAX_PORT_ID] =
-                core::array::from_fn(|i| input_buffer_guards[i].as_deref());
+        for step in compiled_plan.iter_mut() {
+            // Patch slots whose buffers are supplied by the caller for this block.
+            for &(slot, connection_id) in step.external_output_slots.iter() {
+                step.output_ptrs[slot] = outputs
+                    .get_mut(&connection_id)
+                    // buffer: &mut &mut [Sample]; &mut **buffer reborrows without moving
+                    .map(|buffer| NonNull::from(&mut **buffer));
+            }
 
             // SAFETY:
-            // - These pointers reference the output audio buffers where audio nodes
-            // write their output audio data into.
-            // - The buffers that underly a connection and its audio data are NEVER
-            // modified during the course a DSP `run` call, so we can be certain that the
-            // lifetime of the output buffers these pointers reference will outlive
-            // this function call.
-            // - No 2 output ports share the same `ConnectionId`, so no risk of
-            // mutably aliasing the same memory
-            // - For external output ports, the pointer comes directly from the
-            // caller-supplied `outputs` slice, which is valid for the duration of `run`.
-            // - The safety of this call is verified in tests with `miri` in CI
-            let output_buffers: [Option<&mut [Sample]>; PortId::MAX_PORT_ID] =
-                core::array::from_fn(|i| output_buffer_raw_ptrs[i].map(|p| unsafe { &mut *p }));
+            // 1. Buffer addresses are stable: `allocate_empty_buffer_for_connection` is only
+            //    called from `connect()`, never during `run()`, so no `Box<[Sample]>` heap
+            //    allocation moves while `compiled_plan` is in use.
+            // 2. No mutable aliasing on outputs: each output slot has a unique `ConnectionId`,
+            //    so no two `*mut [Sample]` pointers in `output_ptrs` alias the same memory.
+            // 3. Visit order enforces exclusive access: by the time a node reads a buffer as
+            //    input, the upstream node that writes it has already completed its `process` call.
+            let input_buffers: &[Option<&[Sample]>] =
+                unsafe { transmute(step.input_ptrs.as_ref()) };
+            let output_buffers: &mut [Option<&mut [Sample]>] =
+                unsafe { transmute(step.output_ptrs.as_mut()) };
 
-            let ctx = AudioNodeContext {
-                input_buffers,
-                output_buffers,
-                block_size: self.block_size,
-            };
-
-            node.process(ctx)?;
+            // SAFETY: `step.node` points into the heap allocation of a `Box<dyn AudioNode>`
+            // stored in `self.graph_items`. Moving the `Box` (e.g. on IntMap rehash) does not
+            // move the heap data, so the pointer remains valid. No topology modification
+            // (add/connect/disconnect/remove) can occur concurrently with `run()`.
+            unsafe { (&mut *step.node).process(input_buffers, output_buffers, step.block_size) }
+                .map_err(GraphRunError::AudioNodeRunError)?;
         }
 
         Ok(())
@@ -1470,7 +1549,7 @@ mod graph_tests {
             let output_node = OutputNode::new(&mut graph);
             let output_node_handle = graph.add(output_node).unwrap();
             let &external_output_connection_id = output_node_handle
-                .external_connection_ids()
+                .external_output_connection_ids()
                 .get(&OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
                 .unwrap();
 
@@ -1525,7 +1604,7 @@ mod graph_tests {
             let constant_node_handle = graph.add(constant_node).unwrap();
             let output_node_handle = graph.add(output_node).unwrap();
             let &external_output_connection_id = output_node_handle
-                .external_connection_ids()
+                .external_output_connection_ids()
                 .get(&OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
                 .unwrap();
 

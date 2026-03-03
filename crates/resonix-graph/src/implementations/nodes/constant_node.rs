@@ -3,7 +3,7 @@ use core::ops::Deref;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        AudioNodeContext, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample,
+        BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample,
     },
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
@@ -64,16 +64,21 @@ impl GetPriority for ConstantNode {
 }
 
 impl AudioNode for ConstantNode {
-    fn process(&mut self, mut ctx: AudioNodeContext<'_>) -> Result<(), AudioNodeRunError> {
-        let output_port_id = **ConstantNodePortDescriptors::OUTPUT_PORT_ID;
-
+    fn process(
+        &mut self,
+        _inputs: &[Option<&[Sample]>],
+        outputs: &mut [Option<&mut [Sample]>],
+        _block_size: BlockSize,
+    ) -> Result<(), AudioNodeRunError> {
+        let output_port_slot = **ConstantNodePortDescriptors::OUTPUT_PORT_ID;
         let value = self.constant_value.unwrap_or_default();
-        let Some(ref mut output_buffer) = ctx.output_buffer(output_port_id) else {
+
+        let Some(output_buffer) = outputs[output_port_slot].as_deref_mut() else {
             return Ok(());
         };
 
-        for out in output_buffer.iter_mut() {
-            *out = value;
+        for sample in output_buffer.iter_mut() {
+            *sample = value;
         }
 
         Ok(())
@@ -117,7 +122,7 @@ impl DescribePorts for ConstantNodePortDescriptors {
 
 impl ConstantNodePortDescriptors {
     pub const SET_CONSTANT_VALUE_PORT_ID: PortId = PortId::new(0usize);
-    pub const OUTPUT_PORT_ID: PortId = PortId::new(1usize);
+    pub const OUTPUT_PORT_ID: PortId = PortId::new(0usize);
 
     fn gen_set_constant_value_port_address(node_id: NodeId) -> PortAddress {
         PortAddress::new(

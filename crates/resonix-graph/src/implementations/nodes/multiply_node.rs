@@ -3,7 +3,7 @@ use core::ops::Deref;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        AudioNodeContext, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample,
+        BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample,
     },
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
@@ -65,42 +65,32 @@ impl GetPriority for MultiplyNode {
 impl AudioNode for MultiplyNode {
     fn process(
         &mut self,
-        AudioNodeContext {
-            input_buffers,
-            mut output_buffers,
-            ..
-        }: AudioNodeContext<'_>,
+        inputs: &[Option<&[Sample]>],
+        outputs: &mut [Option<&mut [Sample]>],
+        _block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
-        let left_port_id = **MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID;
-        let right_port_id = **MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID;
-        let output_port_id = **MultiplyNodePortDescriptors::OUTPUT_PORT_ID;
+        let left_port_slot = **MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID;
+        let right_port_slot = **MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID;
+        let output_port_slot = **MultiplyNodePortDescriptors::OUTPUT_PORT_ID;
 
-        let Some(output_block) = &mut output_buffers[output_port_id] else {
+        let Some(output_block) = outputs[output_port_slot].as_deref_mut() else {
             return Ok(());
         };
 
         // TODO: handle None case (self-reference or not connected)
-        let left_block = input_buffers
-            .get(left_port_id)
-            .copied()
-            .flatten()
-            .unwrap_or(&[]);
-        let right_block = input_buffers
-            .get(right_port_id)
-            .copied()
-            .flatten()
-            .unwrap_or(&[]);
+        let left_block = inputs[left_port_slot].unwrap_or(&[]);
+        let right_block = inputs[right_port_slot].unwrap_or(&[]);
 
         for (i, out) in output_block.iter_mut().enumerate() {
-            let l = left_block
+            let left = left_block
                 .get(i)
                 .copied()
                 .unwrap_or(self.left_operand_value);
-            let r = right_block
+            let right = right_block
                 .get(i)
                 .copied()
                 .unwrap_or(self.right_operand_value);
-            *out = Sample::new(*l * *r);
+            *out = Sample::new(*left * *right);
         }
 
         if let Some(last) = left_block.last() {
@@ -132,7 +122,7 @@ pub struct MultiplyNodePortDescriptors {
 impl MultiplyNodePortDescriptors {
     pub const LEFT_OPERAND_INPUT_PORT_ID: PortId = PortId::new(0usize);
     pub const RIGHT_OPERAND_INPUT_PORT_ID: PortId = PortId::new(1usize);
-    pub const OUTPUT_PORT_ID: PortId = PortId::new(2usize);
+    pub const OUTPUT_PORT_ID: PortId = PortId::new(0usize);
 
     pub fn new(node_id: NodeId) -> Self {
         Self {
