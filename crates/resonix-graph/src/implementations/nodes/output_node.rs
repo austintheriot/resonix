@@ -11,6 +11,7 @@ use crate::{
     },
 };
 
+// TODO: update to support multi-channel audio
 pub struct OutputNode {
     node_id: NodeId,
     input_value: Option<Sample>,
@@ -68,9 +69,10 @@ impl AudioNode for OutputNode {
             .get(input_port_slot)
             .and_then(|o| o.as_ref())
             .map(|b| b.mono())
+            .transpose()?
             .unwrap_or(&[]);
 
-        let output_block = output_buf.mono_mut();
+        let output_block = output_buf.mono_mut()?;
 
         for (out, &inp) in output_block.iter_mut().zip(input_block.iter()) {
             *out = inp;
@@ -103,9 +105,9 @@ mod tests {
     /// Runs `node.process()` with the given input and returns the output buffer contents.
     fn process_output(node: &mut OutputNode, input: &[Sample], block_size: usize) -> Vec<Sample> {
         let mut out_buf = vec![Sample::default(); block_size];
-        let inputs: Vec<Option<AudioBuffer<'_>>> = vec![Some(AudioBuffer::new(input, 1))];
+        let inputs: Vec<Option<AudioBuffer<'_>>> = vec![Some(AudioBuffer::new(input, 1).unwrap())];
         {
-            let audio_buf_mut = AudioBufferMut::new(out_buf.as_mut_slice(), 1);
+            let audio_buf_mut = AudioBufferMut::new(out_buf.as_mut_slice(), 1).unwrap();
             let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![Some(audio_buf_mut)];
             node.process(
                 inputs.as_slice(),
@@ -154,7 +156,7 @@ mod tests {
         let mut node = OutputNode::new(&mut id_gen).into_inner();
         let input = [Sample::from(5.0f32)];
         let inputs: Vec<Option<AudioBuffer<'_>>> =
-            vec![Some(AudioBuffer::new(input.as_slice(), 1))];
+            vec![Some(AudioBuffer::new(input.as_slice(), 1).unwrap())];
         let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![None];
         let result = node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(1));
         assert!(result.is_ok());

@@ -11,6 +11,7 @@ use crate::{
     },
 };
 
+// TODO: update to support multi-channel audio
 pub struct ConstantNode {
     node_id: NodeId,
     constant_value: Option<Sample>,
@@ -78,7 +79,7 @@ impl AudioNode for ConstantNode {
             return Ok(());
         };
 
-        for sample in output_buf.mono_mut().iter_mut() {
+        for sample in output_buf.mono_mut()?.iter_mut() {
             *sample = value;
         }
 
@@ -108,7 +109,7 @@ mod tests {
     fn process_constant(node: &mut ConstantNode, block_size: usize) -> Vec<Sample> {
         let mut buf = vec![Sample::default(); block_size];
         {
-            let audio_buf_mut = AudioBufferMut::new(buf.as_mut_slice(), 1);
+            let audio_buf_mut = AudioBufferMut::new(buf.as_mut_slice(), 1).unwrap();
             let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![Some(audio_buf_mut)];
             node.process(&[], outputs.as_mut_slice(), BlockSize::new(block_size))
                 .expect("process should not fail");

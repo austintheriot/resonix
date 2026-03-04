@@ -11,6 +11,7 @@ use crate::{
     },
 };
 
+// TODO: update to support multi-channel audio
 pub struct MultiplyNode {
     node_id: NodeId,
     left_operand_value: Sample,
@@ -83,14 +84,16 @@ impl AudioNode for MultiplyNode {
             .get(left_port_slot)
             .and_then(|o| o.as_ref())
             .map(|b| b.mono())
+            .transpose()?
             .unwrap_or(&[]);
         let right_block: &[Sample] = inputs
             .get(right_port_slot)
             .and_then(|o| o.as_ref())
             .map(|b| b.mono())
+            .transpose()?
             .unwrap_or(&[]);
 
-        let output_block = output_buf.mono_mut();
+        let output_block = output_buf.mono_mut()?;
 
         for (i, out) in output_block.iter_mut().enumerate() {
             let left = left_block
@@ -218,11 +221,11 @@ mod tests {
     ) -> Vec<Sample> {
         let mut out_buf = vec![Sample::default(); block_size];
         let inputs: Vec<Option<AudioBuffer<'_>>> = vec![
-            left.map(|s| AudioBuffer::new(s, 1)),
-            right.map(|s| AudioBuffer::new(s, 1)),
+            left.map(|s| AudioBuffer::new(s, 1).unwrap()),
+            right.map(|s| AudioBuffer::new(s, 1).unwrap()),
         ];
         {
-            let audio_buf_mut = AudioBufferMut::new(out_buf.as_mut_slice(), 1);
+            let audio_buf_mut = AudioBufferMut::new(out_buf.as_mut_slice(), 1).unwrap();
             let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![Some(audio_buf_mut)];
             node.process(
                 inputs.as_slice(),
@@ -327,8 +330,8 @@ mod tests {
         let left = [Sample::from(5.0f32)];
         let right = [Sample::from(5.0f32)];
         let inputs: Vec<Option<AudioBuffer<'_>>> = vec![
-            Some(AudioBuffer::new(&left, 1)),
-            Some(AudioBuffer::new(&right, 1)),
+            Some(AudioBuffer::new(&left, 1).unwrap()),
+            Some(AudioBuffer::new(&right, 1).unwrap()),
         ];
         let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![None];
         let result = node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(1));

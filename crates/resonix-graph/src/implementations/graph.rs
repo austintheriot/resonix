@@ -1562,12 +1562,12 @@ mod graph_tests {
             let mut output_buffer = vec![Sample::default()];
             let mut outputs = HashMap::from([(
                 external_output_connection_id,
-                AudioBufferMut::new(&mut output_buffer, 1),
+                AudioBufferMut::new(&mut output_buffer, 1).unwrap(),
             )]);
             graph.run(&inputs, &mut outputs).unwrap();
 
             assert_eq!(
-                outputs[&external_output_connection_id].mono(),
+                outputs[&external_output_connection_id].mono().unwrap(),
                 &[Sample::default()]
             );
         }
@@ -1623,12 +1623,12 @@ mod graph_tests {
             let mut output_buffer = vec![Sample::default()];
             let mut outputs = HashMap::from([(
                 external_output_connection_id,
-                AudioBufferMut::new(&mut output_buffer, 1),
+                AudioBufferMut::new(&mut output_buffer, 1).unwrap(),
             )]);
             graph.run(&inputs, &mut outputs).unwrap();
 
             assert_eq!(
-                outputs[&external_output_connection_id].mono(),
+                outputs[&external_output_connection_id].mono().unwrap(),
                 &[Sample::from(expected_sample_value)]
             );
         }
@@ -1677,10 +1677,11 @@ mod graph_tests {
 
             let inputs = HashMap::new();
             let mut out_buf = vec![Sample::default()];
-            let mut outputs = HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1))]);
+            let mut outputs =
+                HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
             graph.run(&inputs, &mut outputs).unwrap();
 
-            assert_eq!(outputs[&ext_id].mono(), samples(&[6.0]).as_slice());
+            assert_eq!(outputs[&ext_id].mono().unwrap(), samples(&[6.0]).as_slice());
         }
 
         #[test]
@@ -1724,16 +1725,25 @@ mod graph_tests {
             let mut out_buf_2 = vec![Sample::default()];
             let mut out_buf_3 = vec![Sample::default()];
             let mut outputs = HashMap::from([
-                (ext_id_1, AudioBufferMut::new(&mut out_buf_1, 1)),
-                (ext_id_2, AudioBufferMut::new(&mut out_buf_2, 1)),
-                (ext_id_3, AudioBufferMut::new(&mut out_buf_3, 1)),
+                (ext_id_1, AudioBufferMut::new(&mut out_buf_1, 1).unwrap()),
+                (ext_id_2, AudioBufferMut::new(&mut out_buf_2, 1).unwrap()),
+                (ext_id_3, AudioBufferMut::new(&mut out_buf_3, 1).unwrap()),
             ]);
 
             graph.run(&inputs, &mut outputs).unwrap();
 
-            assert_eq!(outputs[&ext_id_1].mono(), samples(&[5.0]).as_slice());
-            assert_eq!(outputs[&ext_id_2].mono(), samples(&[5.0]).as_slice());
-            assert_eq!(outputs[&ext_id_3].mono(), samples(&[5.0]).as_slice());
+            assert_eq!(
+                outputs[&ext_id_1].mono().unwrap(),
+                samples(&[5.0]).as_slice()
+            );
+            assert_eq!(
+                outputs[&ext_id_2].mono().unwrap(),
+                samples(&[5.0]).as_slice()
+            );
+            assert_eq!(
+                outputs[&ext_id_3].mono().unwrap(),
+                samples(&[5.0]).as_slice()
+            );
         }
 
         #[test]
@@ -1756,11 +1766,12 @@ mod graph_tests {
 
             let inputs = HashMap::new();
             let mut out_buf = vec![Sample::default(); block_size];
-            let mut outputs = HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1))]);
+            let mut outputs =
+                HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
             graph.run(&inputs, &mut outputs).unwrap();
 
             assert_eq!(
-                outputs[&ext_id].mono(),
+                outputs[&ext_id].mono().unwrap(),
                 samples(&[9.0, 9.0, 9.0, 9.0]).as_slice()
             );
         }
@@ -1785,9 +1796,10 @@ mod graph_tests {
             for _ in 0..3 {
                 let inputs = HashMap::new();
                 let mut out_buf = vec![Sample::default()];
-                let mut outputs = HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1))]);
+                let mut outputs =
+                    HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
                 graph.run(&inputs, &mut outputs).unwrap();
-                assert_eq!(outputs[&ext_id].mono(), samples(&[3.0]).as_slice());
+                assert_eq!(outputs[&ext_id].mono().unwrap(), samples(&[3.0]).as_slice());
             }
         }
 
@@ -1843,10 +1855,14 @@ mod graph_tests {
 
             let inputs = HashMap::new();
             let mut out_buf = vec![Sample::default()];
-            let mut outputs = HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1))]);
+            let mut outputs =
+                HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
             graph.run(&inputs, &mut outputs).unwrap();
 
-            assert_eq!(outputs[&ext_id].mono(), samples(&[24.0]).as_slice());
+            assert_eq!(
+                outputs[&ext_id].mono().unwrap(),
+                samples(&[24.0]).as_slice()
+            );
         }
 
         #[test]
@@ -1869,10 +1885,11 @@ mod graph_tests {
 
             let inputs = HashMap::new();
             let mut out_buf = vec![Sample::default()];
-            let mut outputs = HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1))]);
+            let mut outputs =
+                HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
             graph.run(&inputs, &mut outputs).unwrap();
 
-            assert_eq!(outputs[&ext_id].mono(), samples(&[0.0]).as_slice());
+            assert_eq!(outputs[&ext_id].mono().unwrap(), samples(&[0.0]).as_slice());
         }
 
         mod channel_count_validation {
@@ -2147,8 +2164,9 @@ mod graph_tests {
                         .first()
                         .and_then(|o| o.as_ref())
                         .map(|b| b.mono())
+                        .transpose()?
                         .unwrap_or(&[]);
-                    let output_block = out_buf.mono_mut();
+                    let output_block = out_buf.mono_mut()?;
                     for (o, &i) in output_block.iter_mut().zip(input_block.iter()) {
                         *o = i;
                     }
@@ -2229,14 +2247,14 @@ mod graph_tests {
                     Sample::from(3.0f32),
                     Sample::from(4.0f32),
                 ];
-                let input_audio = AudioBuffer::new(input_data.as_slice(), 1);
+                let input_audio = AudioBuffer::new(input_data.as_slice(), 1).unwrap();
                 let inputs = HashMap::from([(ext_input_conn_id, input_audio)]);
 
                 let mut output_buffer = vec![Sample::default(); block_size];
                 {
                     let mut outputs = HashMap::from([(
                         ext_output_conn_id,
-                        AudioBufferMut::new(output_buffer.as_mut_slice(), 1),
+                        AudioBufferMut::new(output_buffer.as_mut_slice(), 1).unwrap(),
                     )]);
                     graph.run(&inputs, &mut outputs).unwrap();
                 }
