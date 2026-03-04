@@ -130,6 +130,8 @@ impl<'a> AudioBuffer<'a> {
     }
 }
 
+// TODO: implement iterator methods for channels on both Mut and non-Mut
+
 impl<'a> AudioBufferMut<'a> {
     /// Construct an `AudioBufferMut` from a mutable slice and channel count.
     ///
