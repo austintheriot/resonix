@@ -5,12 +5,13 @@ use hashbrown::HashMap;
 use crate::errors::GraphAddError;
 use crate::errors::GraphConnectionError;
 use crate::errors::GraphRunError;
+use crate::primitives::AudioBuffer;
+use crate::primitives::AudioBufferMut;
 use crate::primitives::ConnectionId;
 use crate::primitives::Node;
 use crate::primitives::NodeHandle;
 use crate::primitives::PortAddress;
 
-use crate::primitives::Sample;
 use crate::traits::{DescribePorts, GetPortDescriptors};
 
 pub trait Graph {
@@ -29,7 +30,7 @@ pub trait Graph {
 
     fn run(
         &mut self,
-        inputs: &HashMap<ConnectionId, &[Sample]>,
-        outputs: &mut HashMap<ConnectionId, &mut [Sample]>,
+        inputs: &HashMap<ConnectionId, AudioBuffer<'_>>,
+        outputs: &mut HashMap<ConnectionId, AudioBufferMut<'_>>,
     ) -> Result<(), GraphRunError>;
 }

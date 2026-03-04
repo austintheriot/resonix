@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-use crate::primitives::PortAddress;
+use crate::primitives::PortDescriptor;
 
 /// Having a separate trait/inner object on a node for describing a node's ports
 /// allows that functionality to move into the node handle itself
@@ -9,19 +9,19 @@ use crate::primitives::PortAddress;
 /// This makes connecting Node ports after they have already been
 /// added to the Graph (the primary user flow) much simpler/ergonomic.
 pub trait DescribePorts {
-    fn input_port_addresses(&self) -> Option<&[PortAddress]> {
+    fn input_ports(&self) -> Option<&[PortDescriptor]> {
         None
     }
 
-    fn output_port_addresses(&self) -> Option<&[PortAddress]> {
+    fn output_ports(&self) -> Option<&[PortDescriptor]> {
         None
     }
 
-    fn external_output_port_addresses(&self) -> Option<&[PortAddress]> {
+    fn external_output_ports(&self) -> Option<&[PortDescriptor]> {
         None
     }
 
-    fn external_input_port_addresses(&self) -> Option<&[PortAddress]> {
+    fn external_input_ports(&self) -> Option<&[PortDescriptor]> {
         None
     }
 }
@@ -36,19 +36,19 @@ impl<D: DescribePorts + ?Sized, T: Deref<Target = D>> DescribePorts for T
 where
     for<'x> D: 'x,
 {
-    fn input_port_addresses(&self) -> Option<&[PortAddress]> {
-        (**self).input_port_addresses()
+    fn input_ports(&self) -> Option<&[PortDescriptor]> {
+        (**self).input_ports()
     }
 
-    fn output_port_addresses(&self) -> Option<&[PortAddress]> {
-        (**self).output_port_addresses()
+    fn output_ports(&self) -> Option<&[PortDescriptor]> {
+        (**self).output_ports()
     }
 
-    fn external_output_port_addresses(&self) -> Option<&[PortAddress]> {
-        (**self).external_output_port_addresses()
+    fn external_output_ports(&self) -> Option<&[PortDescriptor]> {
+        (**self).external_output_ports()
     }
 
-    fn external_input_port_addresses(&self) -> Option<&[PortAddress]> {
-        (**self).external_input_port_addresses()
+    fn external_input_ports(&self) -> Option<&[PortDescriptor]> {
+        (**self).external_input_ports()
     }
 }

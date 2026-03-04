@@ -3,7 +3,8 @@ use core::ops::Deref;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample,
+        AudioBuffer, AudioBufferMut, BlockSize, Id, NodeId, PortAddress, PortAddressDirection,
+        PortDescriptor, PortId, Priority, Sample,
     },
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
@@ -65,21 +66,31 @@ impl GetPriority for MultiplyNode {
 impl AudioNode for MultiplyNode {
     fn process(
         &mut self,
-        inputs: &[Option<&[Sample]>],
-        outputs: &mut [Option<&mut [Sample]>],
+        inputs: &[Option<AudioBuffer<'_>>],
+        outputs: &mut [Option<AudioBufferMut<'_>>],
         _block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
         let left_port_slot = **MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID;
         let right_port_slot = **MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID;
         let output_port_slot = **MultiplyNodePortDescriptors::OUTPUT_PORT_ID;
 
-        let Some(output_block) = outputs[output_port_slot].as_deref_mut() else {
+        let Some(output_buf) = outputs.get_mut(output_port_slot).and_then(|o| o.as_mut()) else {
             return Ok(());
         };
 
         // TODO: handle None case (self-reference or not connected)
-        let left_block = inputs[left_port_slot].unwrap_or(&[]);
-        let right_block = inputs[right_port_slot].unwrap_or(&[]);
+        let left_block: &[Sample] = inputs
+            .get(left_port_slot)
+            .and_then(|o| o.as_ref())
+            .map(|b| b.mono())
+            .unwrap_or(&[]);
+        let right_block: &[Sample] = inputs
+            .get(right_port_slot)
+            .and_then(|o| o.as_ref())
+            .map(|b| b.mono())
+            .unwrap_or(&[]);
+
+        let output_block = output_buf.mono_mut();
 
         for (i, out) in output_block.iter_mut().enumerate() {
             let left = left_block
@@ -115,8 +126,8 @@ impl Deref for MultiplyNode {
 #[derive(Copy, Clone)]
 pub struct MultiplyNodePortDescriptors {
     node_id: NodeId,
-    input_port_addresses: [PortAddress; 2],
-    output_port_addresses: [PortAddress; 1],
+    input_port_descriptors: [PortDescriptor; 2],
+    output_port_descriptors: [PortDescriptor; 1],
 }
 
 impl MultiplyNodePortDescriptors {
@@ -127,11 +138,20 @@ impl MultiplyNodePortDescriptors {
     pub fn new(node_id: NodeId) -> Self {
         Self {
             node_id,
-            input_port_addresses: [
-                Self::gen_left_operand_input_address(node_id),
-                Self::gen_right_operand_input_address(node_id),
+            input_port_descriptors: [
+                PortDescriptor {
+                    address: Self::gen_left_operand_input_address(node_id),
+                    channels: 1,
+                },
+                PortDescriptor {
+                    address: Self::gen_right_operand_input_address(node_id),
+                    channels: 1,
+                },
             ],
-            output_port_addresses: [Self::gen_output_port_address(node_id)],
+            output_port_descriptors: [PortDescriptor {
+                address: Self::gen_output_port_address(node_id),
+                channels: 1,
+            }],
         }
     }
 
@@ -169,18 +189,19 @@ impl MultiplyNodePortDescriptors {
 }
 
 impl DescribePorts for MultiplyNodePortDescriptors {
-    fn input_port_addresses(&self) -> Option<&[PortAddress]> {
-        Some(&self.input_port_addresses)
+    fn input_ports(&self) -> Option<&[PortDescriptor]> {
+        Some(&self.input_port_descriptors)
     }
 
-    fn output_port_addresses(&self) -> Option<&[PortAddress]> {
-        Some(&self.output_port_addresses)
+    fn output_ports(&self) -> Option<&[PortDescriptor]> {
+        Some(&self.output_port_descriptors)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
+    use core::ptr::NonNull;
 
     use super::*;
     use crate::{
@@ -197,9 +218,17 @@ mod tests {
         block_size: usize,
     ) -> Vec<Sample> {
         let mut out_buf = vec![Sample::default(); block_size];
-        let inputs: Vec<Option<&[Sample]>> = vec![left, right];
+        let make_input = |s: &[Sample]| {
+            let ptr =
+                unsafe { NonNull::new_unchecked(s as *const [Sample] as *mut [Sample]) };
+            unsafe { AudioBuffer::from_raw(ptr, 1) }
+        };
+        let inputs: Vec<Option<AudioBuffer<'_>>> =
+            vec![left.map(make_input), right.map(make_input)];
         {
-            let mut outputs: Vec<Option<&mut [Sample]>> = vec![Some(out_buf.as_mut_slice())];
+            let ptr = NonNull::from(out_buf.as_mut_slice());
+            let audio_buf_mut = unsafe { AudioBufferMut::from_raw(ptr, 1) };
+            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![Some(audio_buf_mut)];
             node.process(
                 inputs.as_slice(),
                 outputs.as_mut_slice(),
@@ -302,8 +331,14 @@ mod tests {
         let mut node = MultiplyNode::new(&mut id_gen).into_inner();
         let left = [Sample::from(5.0f32)];
         let right = [Sample::from(5.0f32)];
-        let inputs: Vec<Option<&[Sample]>> = vec![Some(&left), Some(&right)];
-        let mut outputs: Vec<Option<&mut [Sample]>> = vec![None];
+        let make_input = |s: &[Sample]| {
+            let ptr =
+                unsafe { NonNull::new_unchecked(s as *const [Sample] as *mut [Sample]) };
+            unsafe { AudioBuffer::from_raw(ptr, 1) }
+        };
+        let inputs: Vec<Option<AudioBuffer<'_>>> =
+            vec![Some(make_input(&left)), Some(make_input(&right))];
+        let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![None];
         let result = node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(1));
         assert!(result.is_ok());
     }

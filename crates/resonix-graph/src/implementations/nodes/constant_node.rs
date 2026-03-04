@@ -3,7 +3,8 @@ use core::ops::Deref;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample,
+        AudioBuffer, AudioBufferMut, BlockSize, Id, NodeId, PortAddress, PortAddressDirection,
+        PortDescriptor, PortId, Priority, Sample,
     },
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
@@ -66,18 +67,18 @@ impl GetPriority for ConstantNode {
 impl AudioNode for ConstantNode {
     fn process(
         &mut self,
-        _inputs: &[Option<&[Sample]>],
-        outputs: &mut [Option<&mut [Sample]>],
+        _inputs: &[Option<AudioBuffer<'_>>],
+        outputs: &mut [Option<AudioBufferMut<'_>>],
         _block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
         let output_port_slot = **ConstantNodePortDescriptors::OUTPUT_PORT_ID;
         let value = self.constant_value.unwrap_or_default();
 
-        let Some(output_buffer) = outputs[output_port_slot].as_deref_mut() else {
+        let Some(output_buf) = outputs.get_mut(output_port_slot).and_then(|o| o.as_mut()) else {
             return Ok(());
         };
 
-        for sample in output_buffer.iter_mut() {
+        for sample in output_buf.mono_mut().iter_mut() {
             *sample = value;
         }
 
@@ -96,6 +97,7 @@ impl Deref for ConstantNode {
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
+    use core::ptr::NonNull;
 
     use super::*;
     use crate::{
@@ -107,7 +109,9 @@ mod tests {
     fn process_constant(node: &mut ConstantNode, block_size: usize) -> Vec<Sample> {
         let mut buf = vec![Sample::default(); block_size];
         {
-            let mut outputs: Vec<Option<&mut [Sample]>> = vec![Some(buf.as_mut_slice())];
+            let ptr = NonNull::from(buf.as_mut_slice());
+            let audio_buf_mut = unsafe { AudioBufferMut::from_raw(ptr, 1) };
+            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![Some(audio_buf_mut)];
             node.process(&[], outputs.as_mut_slice(), BlockSize::new(block_size))
                 .expect("process should not fail");
         }
@@ -150,7 +154,7 @@ mod tests {
     fn does_nothing_when_output_slot_is_not_connected() {
         let mut id_gen = TestIdGenerator(0);
         let mut node = ConstantNode::new_with_value(&mut id_gen, 5.0f32).into_inner();
-        let mut outputs: Vec<Option<&mut [Sample]>> = vec![None];
+        let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![None];
         let result = node.process(&[], outputs.as_mut_slice(), BlockSize::new(1));
         assert!(result.is_ok());
     }
@@ -159,27 +163,33 @@ mod tests {
 #[derive(Copy, Clone)]
 pub struct ConstantNodePortDescriptors {
     node_id: NodeId,
-    input_port_addresses: [PortAddress; 1],
-    output_port_addresses: [PortAddress; 1],
+    input_port_descriptors: [PortDescriptor; 1],
+    output_port_descriptors: [PortDescriptor; 1],
 }
 
 impl ConstantNodePortDescriptors {
     pub fn new(node_id: NodeId) -> Self {
         Self {
             node_id,
-            input_port_addresses: [Self::gen_set_constant_value_port_address(node_id)],
-            output_port_addresses: [Self::gen_output_port_address(node_id)],
+            input_port_descriptors: [PortDescriptor {
+                address: Self::gen_set_constant_value_port_address(node_id),
+                channels: 1,
+            }],
+            output_port_descriptors: [PortDescriptor {
+                address: Self::gen_output_port_address(node_id),
+                channels: 1,
+            }],
         }
     }
 }
 
 impl DescribePorts for ConstantNodePortDescriptors {
-    fn input_port_addresses(&self) -> Option<&[PortAddress]> {
-        Some(&self.input_port_addresses)
+    fn input_ports(&self) -> Option<&[PortDescriptor]> {
+        Some(&self.input_port_descriptors)
     }
 
-    fn output_port_addresses(&self) -> Option<&[PortAddress]> {
-        Some(&self.output_port_addresses)
+    fn output_ports(&self) -> Option<&[PortDescriptor]> {
+        Some(&self.output_port_descriptors)
     }
 }
 

@@ -3,7 +3,8 @@ use core::ops::Deref;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortId, Priority, Sample,
+        AudioBuffer, AudioBufferMut, BlockSize, Id, NodeId, PortAddress, PortAddressDirection,
+        PortDescriptor, PortId, Priority, Sample,
     },
     traits::{
         Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
@@ -51,19 +52,25 @@ impl GetPriority for OutputNode {
 impl AudioNode for OutputNode {
     fn process(
         &mut self,
-        inputs: &[Option<&[Sample]>],
-        outputs: &mut [Option<&mut [Sample]>],
+        inputs: &[Option<AudioBuffer<'_>>],
+        outputs: &mut [Option<AudioBufferMut<'_>>],
         _block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
         let input_port_slot = **OutputNodePortDescriptors::INPUT_PORT_ID;
         let output_port_slot = **OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID;
 
-        let Some(output_block) = outputs[output_port_slot].as_deref_mut() else {
+        let Some(output_buf) = outputs.get_mut(output_port_slot).and_then(|o| o.as_mut()) else {
             return Ok(());
         };
 
         // TODO: handle None case (self-reference)
-        let input_block = inputs[input_port_slot].unwrap_or(&[]);
+        let input_block: &[Sample] = inputs
+            .get(input_port_slot)
+            .and_then(|o| o.as_ref())
+            .map(|b| b.mono())
+            .unwrap_or(&[]);
+
+        let output_block = output_buf.mono_mut();
 
         for (out, &inp) in output_block.iter_mut().zip(input_block.iter()) {
             *out = inp;
@@ -86,6 +93,7 @@ impl Deref for OutputNode {
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
+    use core::ptr::NonNull;
 
     use super::*;
     use crate::{
@@ -96,9 +104,14 @@ mod tests {
     /// Runs `node.process()` with the given input and returns the output buffer contents.
     fn process_output(node: &mut OutputNode, input: &[Sample], block_size: usize) -> Vec<Sample> {
         let mut out_buf = vec![Sample::default(); block_size];
-        let inputs: Vec<Option<&[Sample]>> = vec![Some(input)];
+        let input_ptr =
+            unsafe { NonNull::new_unchecked(input as *const [Sample] as *mut [Sample]) };
+        let input_audio_buf = unsafe { AudioBuffer::from_raw(input_ptr, 1) };
+        let inputs: Vec<Option<AudioBuffer<'_>>> = vec![Some(input_audio_buf)];
         {
-            let mut outputs: Vec<Option<&mut [Sample]>> = vec![Some(out_buf.as_mut_slice())];
+            let ptr = NonNull::from(out_buf.as_mut_slice());
+            let audio_buf_mut = unsafe { AudioBufferMut::from_raw(ptr, 1) };
+            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![Some(audio_buf_mut)];
             node.process(
                 inputs.as_slice(),
                 outputs.as_mut_slice(),
@@ -145,8 +158,11 @@ mod tests {
         let mut id_gen = TestIdGenerator(0);
         let mut node = OutputNode::new(&mut id_gen).into_inner();
         let input = [Sample::from(5.0f32)];
-        let inputs: Vec<Option<&[Sample]>> = vec![Some(input.as_slice())];
-        let mut outputs: Vec<Option<&mut [Sample]>> = vec![None];
+        let input_ptr =
+            unsafe { NonNull::new_unchecked(input.as_slice() as *const [Sample] as *mut [Sample]) };
+        let input_audio_buf = unsafe { AudioBuffer::from_raw(input_ptr, 1) };
+        let inputs: Vec<Option<AudioBuffer<'_>>> = vec![Some(input_audio_buf)];
+        let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![None];
         let result = node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(1));
         assert!(result.is_ok());
     }
@@ -173,17 +189,17 @@ mod tests {
 #[derive(Copy, Clone)]
 pub struct OutputNodePortDescriptors {
     node_id: NodeId,
-    input_port_addresses: [PortAddress; 1],
-    external_port_address: [PortAddress; 1],
+    input_port_descriptors: [PortDescriptor; 1],
+    external_port_descriptors: [PortDescriptor; 1],
 }
 
 impl DescribePorts for OutputNodePortDescriptors {
-    fn input_port_addresses(&self) -> Option<&[PortAddress]> {
-        Some(&self.input_port_addresses)
+    fn input_ports(&self) -> Option<&[PortDescriptor]> {
+        Some(&self.input_port_descriptors)
     }
 
-    fn external_output_port_addresses(&self) -> Option<&[PortAddress]> {
-        Some(&self.external_port_address)
+    fn external_output_ports(&self) -> Option<&[PortDescriptor]> {
+        Some(&self.external_port_descriptors)
     }
 }
 
@@ -194,8 +210,14 @@ impl OutputNodePortDescriptors {
     pub fn new(node_id: NodeId) -> Self {
         Self {
             node_id,
-            input_port_addresses: [Self::gen_input_port_address(node_id)],
-            external_port_address: [Self::gen_external_output_port_address(node_id)],
+            input_port_descriptors: [PortDescriptor {
+                address: Self::gen_input_port_address(node_id),
+                channels: 1,
+            }],
+            external_port_descriptors: [PortDescriptor {
+                address: Self::gen_external_output_port_address(node_id),
+                channels: 1,
+            }],
         }
     }
 

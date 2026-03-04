@@ -1,3 +1,4 @@
+mod audio_buffer;
 mod block_size;
 mod buffer_pool;
 mod connection;
@@ -10,10 +11,12 @@ mod node_id;
 mod port_address;
 mod port_address_direction;
 mod port_address_with_direction;
+mod port_descriptor;
 mod port_id;
 mod priority;
 mod sample;
 
+pub use audio_buffer::*;
 pub use block_size::*;
 pub use buffer_pool::*;
 pub use connection::*;
@@ -25,6 +28,7 @@ pub use node_handle::*;
 pub use node_id::*;
 pub use port_address::*;
 pub use port_address_direction::*;
+pub use port_descriptor::*;
 pub use port_id::*;
 pub use priority::*;
 pub use sample::*;
