@@ -34,11 +34,24 @@ pub struct AudioBufferMut<'a> {
 }
 
 impl<'a> AudioBuffer<'a> {
+    /// Construct an `AudioBuffer` from a slice and channel count.
+    ///
+    /// `buffer.len()` must equal `block_size * channels`.
+    /// TODO: verify this at runtime with a `Result<>` type
+    pub fn new(buffer: &'a [Sample], channels: usize) -> Self {
+        Self {
+            ptr: NonNull::from(buffer),
+            channels,
+            _phantom: PhantomData,
+        }
+    }
+
     /// Construct an `AudioBuffer` from a raw pointer and channel count.
     ///
     /// # Safety
     /// `ptr` must be valid and point to at least `ptr.len()` samples that
     /// live for at least `'a`. `ptr.len()` must equal `block_size * channels`.
+    /// TODO: verify this at runtime with a `Result<>` type
     pub unsafe fn from_raw(ptr: NonNull<[Sample]>, channels: usize) -> Self {
         Self {
             ptr,
@@ -62,6 +75,8 @@ impl<'a> AudioBuffer<'a> {
         }
     }
 
+    /// TODO: create utilities for iterators over multiple channels at once/maybe even SIMD implementations?
+
     /// Returns the single channel's samples. Panics if `channels != 1`.
     pub fn mono(&self) -> &[Sample] {
         assert_eq!(
@@ -74,11 +89,24 @@ impl<'a> AudioBuffer<'a> {
 }
 
 impl<'a> AudioBufferMut<'a> {
+    /// Construct an `AudioBufferMut` from a mutable slice and channel count.
+    ///
+    /// `buffer.len()` must equal `block_size * channels`.
+    /// TODO: verify this at runtime with a `Result<>` type
+    pub fn new(buffer: &'a mut [Sample], channels: usize) -> Self {
+        Self {
+            ptr: NonNull::from(buffer),
+            channels,
+            _phantom: PhantomData,
+        }
+    }
+
     /// Construct an `AudioBufferMut` from a raw pointer and channel count.
     ///
     /// # Safety
     /// `ptr` must be valid and point to at least `ptr.len()` samples that
     /// live for at least `'a`. `ptr.len()` must equal `block_size * channels`.
+    /// TODO: verify this at runtime with a `Result<>` type
     pub unsafe fn from_raw(ptr: NonNull<[Sample]>, channels: usize) -> Self {
         Self {
             ptr,
@@ -116,7 +144,10 @@ impl<'a> AudioBufferMut<'a> {
         }
     }
 
-    /// Returns the single channel's samples. Panics if `channels != 1`.
+    /// Returns the single channel's samples.
+    ///
+    /// Panics if `channels != 1`.
+    /// TODO: verify this at runtime with a `Result<>` type
     pub fn mono(&self) -> &[Sample] {
         assert_eq!(
             self.channels, 1,
@@ -128,6 +159,8 @@ impl<'a> AudioBufferMut<'a> {
 
     /// Returns mutable access to the single channel's samples.
     /// Panics if `channels != 1`.
+    ///
+    /// TODO: verify this at runtime with a `Result<>` type
     pub fn mono_mut(&mut self) -> &mut [Sample] {
         assert_eq!(
             self.channels, 1,
@@ -148,4 +181,6 @@ mod tests {
     fn option_raw_audio_buffer_is_three_words() {
         assert_eq!(size_of::<Option<RawAudioBuffer>>(), 3 * size_of::<usize>());
     }
+
+    // TODO: add tests here for error handling and retrieving channels
 }

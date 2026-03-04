@@ -97,7 +97,6 @@ impl Deref for ConstantNode {
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
-    use core::ptr::NonNull;
 
     use super::*;
     use crate::{
@@ -109,8 +108,7 @@ mod tests {
     fn process_constant(node: &mut ConstantNode, block_size: usize) -> Vec<Sample> {
         let mut buf = vec![Sample::default(); block_size];
         {
-            let ptr = NonNull::from(buf.as_mut_slice());
-            let audio_buf_mut = unsafe { AudioBufferMut::from_raw(ptr, 1) };
+            let audio_buf_mut = AudioBufferMut::new(buf.as_mut_slice(), 1);
             let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![Some(audio_buf_mut)];
             node.process(&[], outputs.as_mut_slice(), BlockSize::new(block_size))
                 .expect("process should not fail");

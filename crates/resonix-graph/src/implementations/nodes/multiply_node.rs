@@ -201,7 +201,6 @@ impl DescribePorts for MultiplyNodePortDescriptors {
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
-    use core::ptr::NonNull;
 
     use super::*;
     use crate::{
@@ -218,15 +217,12 @@ mod tests {
         block_size: usize,
     ) -> Vec<Sample> {
         let mut out_buf = vec![Sample::default(); block_size];
-        let make_input = |s: &[Sample]| {
-            let ptr = unsafe { NonNull::new_unchecked(s as *const [Sample] as *mut [Sample]) };
-            unsafe { AudioBuffer::from_raw(ptr, 1) }
-        };
-        let inputs: Vec<Option<AudioBuffer<'_>>> =
-            vec![left.map(make_input), right.map(make_input)];
+        let inputs: Vec<Option<AudioBuffer<'_>>> = vec![
+            left.map(|s| AudioBuffer::new(s, 1)),
+            right.map(|s| AudioBuffer::new(s, 1)),
+        ];
         {
-            let ptr = NonNull::from(out_buf.as_mut_slice());
-            let audio_buf_mut = unsafe { AudioBufferMut::from_raw(ptr, 1) };
+            let audio_buf_mut = AudioBufferMut::new(out_buf.as_mut_slice(), 1);
             let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![Some(audio_buf_mut)];
             node.process(
                 inputs.as_slice(),
@@ -330,12 +326,10 @@ mod tests {
         let mut node = MultiplyNode::new(&mut id_gen).into_inner();
         let left = [Sample::from(5.0f32)];
         let right = [Sample::from(5.0f32)];
-        let make_input = |s: &[Sample]| {
-            let ptr = unsafe { NonNull::new_unchecked(s as *const [Sample] as *mut [Sample]) };
-            unsafe { AudioBuffer::from_raw(ptr, 1) }
-        };
-        let inputs: Vec<Option<AudioBuffer<'_>>> =
-            vec![Some(make_input(&left)), Some(make_input(&right))];
+        let inputs: Vec<Option<AudioBuffer<'_>>> = vec![
+            Some(AudioBuffer::new(&left, 1)),
+            Some(AudioBuffer::new(&right, 1)),
+        ];
         let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![None];
         let result = node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(1));
         assert!(result.is_ok());
