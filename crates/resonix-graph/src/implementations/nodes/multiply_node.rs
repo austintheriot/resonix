@@ -219,8 +219,7 @@ mod tests {
     ) -> Vec<Sample> {
         let mut out_buf = vec![Sample::default(); block_size];
         let make_input = |s: &[Sample]| {
-            let ptr =
-                unsafe { NonNull::new_unchecked(s as *const [Sample] as *mut [Sample]) };
+            let ptr = unsafe { NonNull::new_unchecked(s as *const [Sample] as *mut [Sample]) };
             unsafe { AudioBuffer::from_raw(ptr, 1) }
         };
         let inputs: Vec<Option<AudioBuffer<'_>>> =
@@ -332,8 +331,7 @@ mod tests {
         let left = [Sample::from(5.0f32)];
         let right = [Sample::from(5.0f32)];
         let make_input = |s: &[Sample]| {
-            let ptr =
-                unsafe { NonNull::new_unchecked(s as *const [Sample] as *mut [Sample]) };
+            let ptr = unsafe { NonNull::new_unchecked(s as *const [Sample] as *mut [Sample]) };
             unsafe { AudioBuffer::from_raw(ptr, 1) }
         };
         let inputs: Vec<Option<AudioBuffer<'_>>> =

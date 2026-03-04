@@ -58,10 +58,7 @@ impl<'a> AudioBuffer<'a> {
         let start = c * block_size;
         // SAFETY: ptr is valid for total_len samples; start..start+block_size is in range.
         unsafe {
-            core::slice::from_raw_parts(
-                (self.ptr.as_ptr() as *const Sample).add(start),
-                block_size,
-            )
+            core::slice::from_raw_parts((self.ptr.as_ptr() as *const Sample).add(start), block_size)
         }
     }
 
@@ -101,10 +98,7 @@ impl<'a> AudioBufferMut<'a> {
         let start = c * block_size;
         // SAFETY: ptr is valid for total_len samples; start..start+block_size is in range.
         unsafe {
-            core::slice::from_raw_parts(
-                (self.ptr.as_ptr() as *const Sample).add(start),
-                block_size,
-            )
+            core::slice::from_raw_parts((self.ptr.as_ptr() as *const Sample).add(start), block_size)
         }
     }
 
@@ -152,9 +146,6 @@ mod tests {
 
     #[test]
     fn option_raw_audio_buffer_is_three_words() {
-        assert_eq!(
-            size_of::<Option<RawAudioBuffer>>(),
-            3 * size_of::<usize>()
-        );
+        assert_eq!(size_of::<Option<RawAudioBuffer>>(), 3 * size_of::<usize>());
     }
 }

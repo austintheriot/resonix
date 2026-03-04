@@ -127,8 +127,10 @@ impl Graph {
     /// Adds a node to the internal petgraph and keeps both index lookup maps in sync.
     fn register_node_in_petgraph(&mut self, node_id: NodeId) {
         let petgraph_index = self.graph.add_node(node_id);
-        self.node_id_to_petgraph_index.insert(*node_id, petgraph_index);
-        self.petgraph_index_to_node_id.insert(petgraph_index, *node_id);
+        self.node_id_to_petgraph_index
+            .insert(*node_id, petgraph_index);
+        self.petgraph_index_to_node_id
+            .insert(petgraph_index, *node_id);
     }
 
     /// Assigns `ConnectionId`s to external ports for one direction (input or output).
@@ -228,25 +230,27 @@ impl Graph {
         connection_ids
             .iter()
             .enumerate()
-            .map(|(slot_index, connection_id_opt): (usize, &Option<ConnectionId>)| {
-                let connection_id = connection_id_opt.as_ref()?;
+            .map(
+                |(slot_index, connection_id_opt): (usize, &Option<ConnectionId>)| {
+                    let connection_id = connection_id_opt.as_ref()?;
 
-                if !buffer_pool.contains_key(connection_id) {
-                    external_slots.push((slot_index, *connection_id));
-                    return None;
-                }
+                    if !buffer_pool.contains_key(connection_id) {
+                        external_slots.push((slot_index, *connection_id));
+                        return None;
+                    }
 
-                let cb: &ChannelledBuffer = buffer_pool.get(connection_id)?;
-                // SAFETY: UnsafeCell::get() yields *mut [Sample] with SRW
-                // (SharedReadWrite) provenance, which lives at the base of the
-                // Stacked Borrows borrow stack and is never invalidated by Unique
-                // retags from mutable accesses in other nodes' process() calls.
-                let raw_ptr: *mut [Sample] = cb.data.get();
-                Some(RawAudioBuffer {
-                    ptr: unsafe { NonNull::new_unchecked(raw_ptr) },
-                    channels: cb.channels,
-                })
-            })
+                    let cb: &ChannelledBuffer = buffer_pool.get(connection_id)?;
+                    // SAFETY: UnsafeCell::get() yields *mut [Sample] with SRW
+                    // (SharedReadWrite) provenance, which lives at the base of the
+                    // Stacked Borrows borrow stack and is never invalidated by Unique
+                    // retags from mutable accesses in other nodes' process() calls.
+                    let raw_ptr: *mut [Sample] = cb.data.get();
+                    Some(RawAudioBuffer {
+                        ptr: unsafe { NonNull::new_unchecked(raw_ptr) },
+                        channels: cb.channels,
+                    })
+                },
+            )
             .collect()
     }
 
@@ -291,12 +295,8 @@ impl Graph {
     // Then we iterate through all non-visited Nodes. Any non-visited Nodes
     // at this stage are, by definition, cyclical because they were not visited
     // from a a path that includes a leaf Node.
-    fn traverse_graph<F>(
-        &self,
-        sccs: &[Vec<Id>],
-        visited_set: &mut HashSet<Id>,
-        callback: &mut F,
-    ) where
+    fn traverse_graph<F>(&self, sccs: &[Vec<Id>], visited_set: &mut HashSet<Id>, callback: &mut F)
+    where
         F: FnMut(Id),
     {
         let mut leaf_nodes: Vec<NodeId> = self.leaf_nodes.iter().copied().collect();
@@ -322,10 +322,10 @@ impl Graph {
             .graph_items
             .iter()
             .filter_map(|(node_id, graph_item)| {
-                if let GraphItem::Node(_node) = graph_item {
-                    if visited_set.get(node_id).is_none() {
-                        return Some(*node_id);
-                    }
+                if let GraphItem::Node(_node) = graph_item
+                    && visited_set.get(node_id).is_none()
+                {
+                    return Some(*node_id);
                 }
                 None
             })
@@ -559,8 +559,13 @@ impl Graph {
             )
         };
 
-        self.buffer_pool
-            .insert(connection_id, ChannelledBuffer { channels, data: cell_box });
+        self.buffer_pool.insert(
+            connection_id,
+            ChannelledBuffer {
+                channels,
+                data: cell_box,
+            },
+        );
 
         Ok(())
     }
@@ -609,8 +614,7 @@ impl crate::traits::Graph for Graph {
 
         let mut input_port_slots: Vec<Option<ConnectionId>> = Vec::with_capacity(num_input_ports);
         input_port_slots.resize(num_input_ports, None);
-        let mut output_port_slots: Vec<Option<ConnectionId>> =
-            Vec::with_capacity(num_output_ports);
+        let mut output_port_slots: Vec<Option<ConnectionId>> = Vec::with_capacity(num_output_ports);
         output_port_slots.resize(num_output_ports, None);
 
         // External ports are not wired via `connect()`, so their ConnectionIds are assigned here.
@@ -627,17 +631,18 @@ impl crate::traits::Graph for Graph {
         // Register channel counts for all port addresses so that `connect()` can validate
         // matching channel counts and `resolve_connection_for_output_port` can allocate
         // correctly-sized pool buffers.
-        for group in [
+        for descriptors in [
             port_descriptors.input_ports(),
             port_descriptors.output_ports(),
             port_descriptors.external_output_ports(),
             port_descriptors.external_input_ports(),
-        ] {
-            if let Some(descriptors) = group {
-                for descriptor in descriptors {
-                    self.port_address_to_channel_count
-                        .insert(descriptor.address, descriptor.channels);
-                }
+        ]
+        .into_iter()
+        .flatten()
+        {
+            for descriptor in descriptors {
+                self.port_address_to_channel_count
+                    .insert(descriptor.address, descriptor.channels);
             }
         }
 
@@ -741,10 +746,11 @@ impl crate::traits::Graph for Graph {
         for step in compiled_plan.iter_mut() {
             // Patch output slots whose buffers are supplied by the caller for this block.
             for &(slot, connection_id) in step.external_output_slots.iter() {
-                step.output_ptrs[slot] = outputs.get_mut(&connection_id).map(|buf| RawAudioBuffer {
-                    ptr: buf.ptr,
-                    channels: buf.channels,
-                });
+                step.output_ptrs[slot] =
+                    outputs.get_mut(&connection_id).map(|buf| RawAudioBuffer {
+                        ptr: buf.ptr,
+                        channels: buf.channels,
+                    });
             }
 
             // Patch input slots whose buffers are supplied by the caller for this block.
@@ -1762,7 +1768,10 @@ mod graph_tests {
             let mut outputs = HashMap::from([(ext_id, audio_out)]);
             graph.run(&inputs, &mut outputs).unwrap();
 
-            assert_eq!(outputs[&ext_id].mono(), samples(&[9.0, 9.0, 9.0, 9.0]).as_slice());
+            assert_eq!(
+                outputs[&ext_id].mono(),
+                samples(&[9.0, 9.0, 9.0, 9.0]).as_slice()
+            );
         }
 
         #[test]
@@ -1879,6 +1888,9 @@ mod graph_tests {
         }
 
         mod channel_count_validation {
+            use crate::errors::AudioNodeRunError;
+            use crate::primitives::{AudioBuffer, AudioBufferMut, BlockSize, Id, Priority};
+            use crate::traits::Graph as GraphTrait;
             use crate::{
                 errors::GraphConnectionError,
                 implementations::{ConstantNode, Graph, OutputNode},
@@ -1888,9 +1900,6 @@ mod graph_tests {
                     GetPriority,
                 },
             };
-            use crate::errors::AudioNodeRunError;
-            use crate::primitives::{AudioBuffer, AudioBufferMut, BlockSize, Id, Priority};
-            use crate::traits::Graph as GraphTrait;
             use core::ops::Deref;
 
             // A mono-output node (channels = 1)
@@ -1921,14 +1930,17 @@ mod graph_tests {
                         },
                     })
                 }
-
             }
 
             impl GetNodeId for MonoOutputNode {
-                fn node_id(&self) -> Id { *self.node_id }
+                fn node_id(&self) -> Id {
+                    *self.node_id
+                }
             }
             impl GetPriority for MonoOutputNode {
-                fn get_priority(&self) -> Priority { (**self.node_id).into() }
+                fn get_priority(&self) -> Priority {
+                    (**self.node_id).into()
+                }
             }
             impl MonoOutputDescriptors {
                 fn output_port_address(&self) -> PortAddress {
@@ -1936,14 +1948,20 @@ mod graph_tests {
                 }
             }
             impl DescribePorts for MonoOutputDescriptors {
-                fn output_ports(&self) -> Option<&[PortDescriptor]> { Some(&self.output) }
+                fn output_ports(&self) -> Option<&[PortDescriptor]> {
+                    Some(&self.output)
+                }
             }
             impl Deref for MonoOutputNode {
                 type Target = MonoOutputDescriptors;
-                fn deref(&self) -> &Self::Target { &self.descriptors }
+                fn deref(&self) -> &Self::Target {
+                    &self.descriptors
+                }
             }
             impl GetPortDescriptors<MonoOutputDescriptors> for MonoOutputNode {
-                fn get_port_descriptors(&self) -> MonoOutputDescriptors { self.descriptors }
+                fn get_port_descriptors(&self) -> MonoOutputDescriptors {
+                    self.descriptors
+                }
             }
             impl AudioNode for MonoOutputNode {
                 fn process(
@@ -1951,7 +1969,9 @@ mod graph_tests {
                     _inputs: &[Option<AudioBuffer<'_>>],
                     _outputs: &mut [Option<AudioBufferMut<'_>>],
                     _block_size: BlockSize,
-                ) -> Result<(), AudioNodeRunError> { Ok(()) }
+                ) -> Result<(), AudioNodeRunError> {
+                    Ok(())
+                }
             }
 
             // A stereo-input node (channels = 2)
@@ -1982,14 +2002,17 @@ mod graph_tests {
                         },
                     })
                 }
-
             }
 
             impl GetNodeId for StereoInputNode {
-                fn node_id(&self) -> Id { *self.node_id }
+                fn node_id(&self) -> Id {
+                    *self.node_id
+                }
             }
             impl GetPriority for StereoInputNode {
-                fn get_priority(&self) -> Priority { (**self.node_id).into() }
+                fn get_priority(&self) -> Priority {
+                    (**self.node_id).into()
+                }
             }
             impl StereoInputDescriptors {
                 fn input_port_address(&self) -> PortAddress {
@@ -1997,14 +2020,20 @@ mod graph_tests {
                 }
             }
             impl DescribePorts for StereoInputDescriptors {
-                fn input_ports(&self) -> Option<&[PortDescriptor]> { Some(&self.input) }
+                fn input_ports(&self) -> Option<&[PortDescriptor]> {
+                    Some(&self.input)
+                }
             }
             impl Deref for StereoInputNode {
                 type Target = StereoInputDescriptors;
-                fn deref(&self) -> &Self::Target { &self.descriptors }
+                fn deref(&self) -> &Self::Target {
+                    &self.descriptors
+                }
             }
             impl GetPortDescriptors<StereoInputDescriptors> for StereoInputNode {
-                fn get_port_descriptors(&self) -> StereoInputDescriptors { self.descriptors }
+                fn get_port_descriptors(&self) -> StereoInputDescriptors {
+                    self.descriptors
+                }
             }
             impl AudioNode for StereoInputNode {
                 fn process(
@@ -2012,7 +2041,9 @@ mod graph_tests {
                     _inputs: &[Option<AudioBuffer<'_>>],
                     _outputs: &mut [Option<AudioBufferMut<'_>>],
                     _block_size: BlockSize,
-                ) -> Result<(), AudioNodeRunError> { Ok(()) }
+                ) -> Result<(), AudioNodeRunError> {
+                    Ok(())
+                }
             }
 
             #[test]
@@ -2048,12 +2079,14 @@ mod graph_tests {
                 let output_handle = graph.add(output).unwrap();
 
                 // Both are mono (channels = 1), so this should succeed.
-                assert!(graph
-                    .connect(
-                        constant_handle.output_port_address(),
-                        output_handle.input_port_address(),
-                    )
-                    .is_ok());
+                assert!(
+                    graph
+                        .connect(
+                            constant_handle.output_port_address(),
+                            output_handle.input_port_address(),
+                        )
+                        .is_ok()
+                );
             }
         }
 
@@ -2124,7 +2157,7 @@ mod graph_tests {
                         return Ok(());
                     };
                     let input_block: &[Sample] = inputs
-                        .get(0)
+                        .first()
                         .and_then(|o| o.as_ref())
                         .map(|b| b.mono())
                         .unwrap_or(&[]);
@@ -2211,7 +2244,7 @@ mod graph_tests {
                 ];
                 let input_audio = unsafe {
                     let ptr = NonNull::new_unchecked(
-                        input_data.as_slice() as *const [Sample] as *mut [Sample],
+                        input_data.as_slice() as *const [Sample] as *mut [Sample]
                     );
                     AudioBuffer::from_raw(ptr, 1)
                 };
