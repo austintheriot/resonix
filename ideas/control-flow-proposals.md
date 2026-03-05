@@ -25,9 +25,50 @@ A key design choice for Resonix: **keep these distinct**. Pd's loose atom typing
 
 ---
 
+## Control Value Shape: Scalar vs. List, and Why Not Multi-Channel
+
+### No multi-channel control
+
+Audio multi-channel is justified because channels are parallel, *homogeneous* streams — left and right in a stereo signal are structurally identical; the same operation applies to both. Control values are almost never like this. `cutoff` and `resonance` are semantically distinct parameters; they should be separate connections, not two "channels" of the same one.
+
+The scenario that makes multi-channel control seem appealing — "drive N identical things simultaneously" — is better handled two other ways:
+- **Fan-out**: one control output connected to N control inputs. Already supported by the graph's fan-out mechanism.
+- **Lists** (see below): if the N values truly belong together as a compound value (e.g. a 3D position), that's a list, not channels.
+
+Removing `channels` from control port descriptors keeps the model simple: every control connection is either a scalar or a fixed-arity list, and the arity is declared by the port, not the connection.
+
+### Lists via fixed-arity connections
+
+Variable-length lists (like Pd's `t_atom[]`) require heap allocation, which is banned during `run()`. The solution mirrors exactly how audio handles channel count: **declare the arity at `connect()` time**, pre-allocate N f32 values in the buffer pool, and pass `&[f32]` of known length to `process()`. Zero cost, no new infrastructure.
+
+```rust
+pub enum ControlArity {
+    Scalar,        // exactly 1 f32
+    List(usize),   // exactly N f32s, fixed for the connection's lifetime
+}
+```
+
+An arity mismatch between connected ports is caught at `connect()` — same as a channel count mismatch for audio today. Examples of types that map cleanly to fixed-arity lists:
+
+| Value type               | Arity |
+|--------------------------|-------|
+| Gain / frequency / etc.  | 1     |
+| Vec2 (e.g. pan position) | 2     |
+| Vec3 (3D position)       | 3     |
+| RGBA color               | 4     |
+| ADSR envelope params     | 4     |
+
+The arity is fixed for the lifetime of a connection. Changing the "shape" of a control signal is a structural patch change — it requires a `disconnect()`/`reconnect()`, just like changing channel count on an audio connection would. This is not a meaningful limitation in practice.
+
+**What about strings/symbols?** Pd's `A_SYMBOL` is one of its messiest features, requiring a global interned string table. Resonix should not support string control values initially. If needed, a fixed-capacity `[u8; N]` byte slice pre-allocated at connect time would work, but most musical control is numeric. Skip it until there's a concrete use case.
+
+**What about bang (trigger, no value)?** Model as `ControlArity::Scalar` with a `bool`, or as `Event<()>` in the event queue model (Proposal B) for sub-block timing. No special type needed.
+
+---
+
 ## Proposal A: Block-Rate Control Buffers
 
-**Model:** Control connections work exactly like audio connections but at block granularity — a "control buffer" holds one value per control cycle (possibly per-channel). The compiled plan runs control nodes first, then audio nodes.
+**Model:** Control connections work exactly like audio connections but at block granularity — a "control buffer" holds one f32 (or a fixed-arity list of f32s) updated once per `run()` cycle. The compiled plan runs control nodes first, then audio nodes.
 
 ```rust
 pub trait ControlNode: GetNodeId + GetPriority + DescribePorts {
@@ -38,8 +79,10 @@ pub trait ControlNode: GetNodeId + GetPriority + DescribePorts {
     ) -> Result<(), ControlNodeRunError>;
 }
 
-// ControlBuffer holds exactly `channels` values (not `block_size * channels`)
-pub struct ControlBuffer<'a>(&'a [f32]); // one value per channel
+// A scalar control connection: &[f32] of length 1
+// A list control connection: &[f32] of length N (arity fixed at connect() time)
+// Same buffer pool infrastructure as audio — just no block_size multiplier
+pub struct ControlBuffer<'a>(&'a [f32]);
 ```
 
 The compiled plan becomes two phases:
@@ -98,15 +141,15 @@ Pre-allocated at `connect()` time, just like audio buffers. The pool holds `Box<
 
 ```rust
 pub enum PortRate {
-    Audio,              // block_size samples per run()
-    Block,              // 1 value per run()
-    Event { cap: u8 }, // up to cap timestamped events per run()
+    Audio,                      // block_size * channels samples per run()
+    Block { arity: usize },     // arity f32 values per run() (1 = scalar, N = list)
+    Event { cap: u8 },          // up to cap timestamped events per run()
 }
 
 pub struct PortDescriptor {
     pub address: PortAddress,
-    pub channels: usize,
-    pub rate: PortRate,  // NEW
+    pub channels: usize,        // meaningful for Audio only; ignored for Block/Event
+    pub rate: PortRate,         // NEW
 }
 ```
 
