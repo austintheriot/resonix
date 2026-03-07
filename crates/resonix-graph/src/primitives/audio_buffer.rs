@@ -1,4 +1,4 @@
-use core::{marker::PhantomData, ptr::NonNull};
+use core::{marker::PhantomData, ptr::NonNull, slice::ChunksExact};
 
 use crate::primitives::Sample;
 
@@ -50,12 +50,14 @@ impl<'a> AudioBuffer<'a> {
         if channels == 0 {
             return Err(AudioBufferError::ZeroChannels);
         }
+
         if !buffer.len().is_multiple_of(channels) {
             return Err(AudioBufferError::LengthChannelMismatch {
                 len: buffer.len(),
                 channels,
             });
         }
+
         Ok(Self {
             ptr: NonNull::from(buffer),
             channels,
@@ -78,12 +80,14 @@ impl<'a> AudioBuffer<'a> {
         if channels == 0 {
             return Err(AudioBufferError::ZeroChannels);
         }
+
         if !ptr.len().is_multiple_of(channels) {
             return Err(AudioBufferError::LengthChannelMismatch {
                 len: ptr.len(),
                 channels,
             });
         }
+
         Ok(Self {
             ptr,
             channels,
@@ -114,6 +118,22 @@ impl<'a> AudioBuffer<'a> {
         })
     }
 
+    /// SAFETY:
+    /// - self.ptr must point to a valid [Sample] slice
+    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
+    /// - The memory is properly aligned and initialized
+    fn as_slice(&self) -> &[Sample] {
+        unsafe { self.ptr.as_ref() }
+    }
+
+    pub fn channels_iter(&self) -> Result<ChunksExact<'_, Sample>, AudioBufferError> {
+        if self.channels == 0 {
+            return Err(AudioBufferError::ZeroChannels);
+        }
+
+        Ok(self.as_slice().chunks_exact(self.ptr.len() / self.channels))
+    }
+
     /// Returns the single channel's samples.
     ///
     /// Returns `Err(NotMono)` if `channels != 1`.
@@ -129,8 +149,6 @@ impl<'a> AudioBuffer<'a> {
         })
     }
 }
-
-// TODO: implement iterator methods for channels on both Mut and non-Mut
 
 impl<'a> AudioBufferMut<'a> {
     /// Construct an `AudioBufferMut` from a mutable slice and channel count.
@@ -313,6 +331,48 @@ mod tests {
     fn new_empty_slice_with_one_channel_succeeds() {
         let data: Vec<Sample> = Vec::new();
         assert!(AudioBuffer::new(&data, 1).is_ok());
+    }
+
+    // --- AudioBuffer::channels_iter ---
+
+    #[test]
+    fn single_channel() {
+        let expected_slice = [0.0, 1.0, 2.0, 3.0];
+        let samples = samples(&expected_slice);
+        let audio_buffer = AudioBuffer::new(&samples, 1).unwrap();
+
+        let mut channels_iter = audio_buffer.channels_iter().unwrap();
+
+        assert_eq!(channels_iter.len(), 1);
+        assert_eq!(channels_iter.next().unwrap(), samples);
+    }
+
+    #[test]
+    fn four_channels() {
+        let expected_slice = [0.0, 1.0, 2.0, 3.0];
+        let samples = samples(&expected_slice);
+        let audio_buffer = AudioBuffer::new(&samples, 4).unwrap();
+
+        let mut channels_iter = audio_buffer.channels_iter().unwrap();
+        let mut samples_iter = samples.iter();
+
+        assert_eq!(channels_iter.len(), 4);
+        assert_eq!(
+            channels_iter.next().unwrap(),
+            [*samples_iter.next().unwrap()]
+        );
+        assert_eq!(
+            channels_iter.next().unwrap(),
+            [*samples_iter.next().unwrap()]
+        );
+        assert_eq!(
+            channels_iter.next().unwrap(),
+            [*samples_iter.next().unwrap()]
+        );
+        assert_eq!(
+            channels_iter.next().unwrap(),
+            [*samples_iter.next().unwrap()]
+        );
     }
 
     // --- AudioBufferMut::new ---
