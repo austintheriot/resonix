@@ -33,6 +33,23 @@ pub struct AudioBuffer<'a> {
     _phantom: PhantomData<&'a [Sample]>,
 }
 
+// validate transmute safety at compile time for `AudioBuffer`
+const _: () = assert!(
+    core::mem::size_of::<Option<RawAudioBuffer>>()
+        == core::mem::size_of::<Option<AudioBuffer<'_>>>()
+);
+const _: () = assert!(
+    core::mem::size_of::<Option<RawAudioBuffer>>()
+        == core::mem::size_of::<Option<AudioBufferMut<'_>>>()
+);
+const _: () = assert!(
+    core::mem::offset_of!(RawAudioBuffer, ptr) == core::mem::offset_of!(AudioBuffer<'_>, ptr)
+);
+const _: () = assert!(
+    core::mem::offset_of!(RawAudioBuffer, channels)
+        == core::mem::offset_of!(AudioBuffer<'_>, channels)
+);
+
 /// Mutable multi-channel audio buffer view, repr(C)-compatible with
 /// `RawAudioBuffer` so it can be obtained via a zero-cost transmute.
 #[repr(C)]
@@ -42,6 +59,23 @@ pub struct AudioBufferMut<'a> {
     // DO NOT ADD MORE FIELDS HERE WITHOUT CHECKING TRANSMUTE COMPATIBILITY
     _phantom: PhantomData<&'a mut [Sample]>,
 }
+
+// validate transmute safety at compile time for `AudioBuffer`
+const _: () = assert!(
+    core::mem::size_of::<Option<RawAudioBuffer>>()
+        == core::mem::size_of::<Option<AudioBufferMut<'_>>>()
+);
+const _: () = assert!(
+    core::mem::size_of::<Option<RawAudioBuffer>>()
+        == core::mem::size_of::<Option<AudioBufferMut<'_>>>()
+);
+const _: () = assert!(
+    core::mem::offset_of!(RawAudioBuffer, ptr) == core::mem::offset_of!(AudioBufferMut<'_>, ptr)
+);
+const _: () = assert!(
+    core::mem::offset_of!(RawAudioBuffer, channels)
+        == core::mem::offset_of!(AudioBufferMut<'_>, channels)
+);
 
 impl<'a> AudioBuffer<'a> {
     /// Construct an `AudioBuffer` from a slice and channel count.
