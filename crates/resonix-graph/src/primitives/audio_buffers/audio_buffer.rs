@@ -1,6 +1,6 @@
 use core::{marker::PhantomData, ptr::NonNull};
 
-use crate::primitives::Sample;
+use crate::primitives::{Channel, Sample};
 
 use super::{AudioBufferError, RawAudioBuffer};
 
@@ -90,15 +90,17 @@ impl<'a> AudioBuffer<'a> {
     /// Returns the samples for channel `c` (0-indexed).
     ///
     /// Returns `Err(ChannelOutOfRange)` if `c >= self.channels()`.
-    pub fn channel(&self, c: usize) -> Result<&[Sample], AudioBufferError> {
-        if c >= self.channels {
+    pub fn channel(&self, channel: impl Into<Channel>) -> Result<&[Sample], AudioBufferError> {
+        let channel = *channel.into();
+        if channel >= self.channels {
             return Err(AudioBufferError::ChannelOutOfRange {
-                index: c,
+                index: channel,
                 channels: self.channels,
             });
         }
+
         let block_size = self.block_size();
-        let start = c * block_size;
+        let start = channel * block_size;
         // SAFETY: ptr is valid for total_len samples; start..start+block_size is in range.
         Ok(unsafe {
             core::slice::from_raw_parts((self.ptr.as_ptr() as *const Sample).add(start), block_size)
