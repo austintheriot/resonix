@@ -1,4 +1,4 @@
-mod audio_buffer;
+mod audio_buffers;
 mod block_size;
 mod buffer_pool;
 mod connection;
@@ -16,7 +16,7 @@ mod port_id;
 mod priority;
 mod sample;
 
-pub use audio_buffer::*;
+pub use audio_buffers::*;
 pub use block_size::*;
 pub use buffer_pool::*;
 pub use connection::*;
