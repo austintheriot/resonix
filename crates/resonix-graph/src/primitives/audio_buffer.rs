@@ -1,4 +1,4 @@
-use core::{marker::PhantomData, ptr::NonNull, slice::ChunksExact};
+use core::{marker::PhantomData, ptr::NonNull};
 
 use crate::primitives::Sample;
 
@@ -126,7 +126,7 @@ impl<'a> AudioBuffer<'a> {
         unsafe { self.ptr.as_ref() }
     }
 
-    pub fn channels_iter(&self) -> Result<ChunksExact<'_, Sample>, AudioBufferError> {
+    pub fn channels_iter(&self) -> Result<impl Iterator<Item = &[Sample]>, AudioBufferError> {
         if self.channels == 0 {
             return Err(AudioBufferError::ZeroChannels);
         }
@@ -274,6 +274,48 @@ impl<'a> AudioBufferMut<'a> {
             core::slice::from_raw_parts_mut(self.ptr.as_ptr() as *mut Sample, self.ptr.len())
         })
     }
+
+    /// SAFETY:
+    /// - self.ptr must point to a valid [Sample] slice
+    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
+    /// - The memory is properly aligned and initialized
+    fn as_slice(&self) -> &[Sample] {
+        unsafe { self.ptr.as_ref() }
+    }
+
+    /// SAFETY:
+    /// - self.ptr must point to a valid [Sample] slice
+    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
+    /// - The memory is properly aligned and initialized
+    fn as_slice_mut(&mut self) -> &mut [Sample] {
+        unsafe { self.ptr.as_mut() }
+    }
+
+    pub fn channels_iter(&self) -> Result<impl Iterator<Item = &[Sample]>, AudioBufferError> {
+        if self.channels == 0 {
+            return Err(AudioBufferError::ZeroChannels);
+        }
+
+        let len = self.ptr.len();
+        let channels = self.channels;
+        let chunks_len = len / channels;
+
+        Ok(self.as_slice().chunks_exact(chunks_len))
+    }
+
+    pub fn channels_iter_mut(
+        &mut self,
+    ) -> Result<impl Iterator<Item = &mut [Sample]>, AudioBufferError> {
+        if self.channels == 0 {
+            return Err(AudioBufferError::ZeroChannels);
+        }
+
+        let len = self.ptr.len();
+        let channels = self.channels;
+        let chunks_len = len / channels;
+
+        Ok(self.as_slice_mut().chunks_exact_mut(chunks_len))
+    }
 }
 
 #[cfg(test)]
@@ -343,8 +385,8 @@ mod tests {
 
         let mut channels_iter = audio_buffer.channels_iter().unwrap();
 
-        assert_eq!(channels_iter.len(), 1);
         assert_eq!(channels_iter.next().unwrap(), samples);
+        assert_eq!(channels_iter.next(), None);
     }
 
     #[test]
@@ -354,143 +396,200 @@ mod tests {
         let audio_buffer = AudioBuffer::new(&samples, 4).unwrap();
 
         let mut channels_iter = audio_buffer.channels_iter().unwrap();
-        let mut samples_iter = samples.iter();
 
-        assert_eq!(channels_iter.len(), 4);
-        assert_eq!(
-            channels_iter.next().unwrap(),
-            [*samples_iter.next().unwrap()]
-        );
-        assert_eq!(
-            channels_iter.next().unwrap(),
-            [*samples_iter.next().unwrap()]
-        );
-        assert_eq!(
-            channels_iter.next().unwrap(),
-            [*samples_iter.next().unwrap()]
-        );
-        assert_eq!(
-            channels_iter.next().unwrap(),
-            [*samples_iter.next().unwrap()]
-        );
+        assert_eq!(channels_iter.next().unwrap(), [samples[0]]);
+        assert_eq!(channels_iter.next().unwrap(), [samples[1]]);
+        assert_eq!(channels_iter.next().unwrap(), [samples[2]]);
+        assert_eq!(channels_iter.next().unwrap(), [samples[3]]);
+        assert_eq!(channels_iter.next(), None);
     }
 
-    // --- AudioBufferMut::new ---
+    mod audio_buffer_mut {
+        // --- AudioBufferMut::new ---
 
-    #[test]
-    fn new_mut_mono_succeeds() {
-        let mut data = samples(&[1.0, 2.0]);
-        assert!(AudioBufferMut::new(&mut data, 1).is_ok());
-    }
+        use crate::primitives::{
+            AudioBuffer, AudioBufferError, AudioBufferMut, Sample, audio_buffer::tests::samples,
+        };
 
-    #[test]
-    fn new_mut_zero_channels_returns_error() {
-        let mut data = samples(&[1.0]);
-        assert_eq!(
-            AudioBufferMut::new(&mut data, 0).err().unwrap(),
-            AudioBufferError::ZeroChannels
-        );
-    }
+        use alloc::vec::Vec;
 
-    #[test]
-    fn new_mut_length_not_divisible_by_channels_returns_error() {
-        let mut data = samples(&[1.0, 2.0, 3.0]);
-        assert_eq!(
-            AudioBufferMut::new(&mut data, 2).err().unwrap(),
-            AudioBufferError::LengthChannelMismatch {
-                len: 3,
-                channels: 2
-            }
-        );
-    }
-
-    // --- mono / mono_mut ---
-
-    #[test]
-    fn mono_on_single_channel_buffer_returns_all_samples() {
-        let data = samples(&[1.0, 2.0, 3.0]);
-        let buf = AudioBuffer::new(&data, 1).unwrap();
-        assert_eq!(buf.mono().unwrap(), data.as_slice());
-    }
-
-    #[test]
-    fn mono_on_multi_channel_buffer_returns_error() {
-        let data = samples(&[1.0, 2.0, 3.0, 4.0]);
-        let buf = AudioBuffer::new(&data, 2).unwrap();
-        assert_eq!(
-            buf.mono().err().unwrap(),
-            AudioBufferError::NotMono { channels: 2 }
-        );
-    }
-
-    #[test]
-    fn mono_mut_on_single_channel_buffer_allows_writing() {
-        let mut data = samples(&[0.0, 0.0]);
-        {
-            let mut buf = AudioBufferMut::new(&mut data, 1).unwrap();
-            for s in buf.mono_mut().unwrap().iter_mut() {
-                *s = Sample::from(7.0f32);
-            }
+        #[test]
+        fn new_mut_mono_succeeds() {
+            let mut data = samples(&[1.0, 2.0]);
+            assert!(AudioBufferMut::new(&mut data, 1).is_ok());
         }
-        assert_eq!(data, samples(&[7.0, 7.0]));
-    }
 
-    #[test]
-    fn mono_mut_on_multi_channel_buffer_returns_error() {
-        let mut data = samples(&[1.0, 2.0, 3.0, 4.0]);
-        let mut buf = AudioBufferMut::new(&mut data, 2).unwrap();
-        assert_eq!(
-            buf.mono_mut().err().unwrap(),
-            AudioBufferError::NotMono { channels: 2 }
-        );
-    }
+        #[test]
+        fn new_mut_zero_channels_returns_error() {
+            let mut data = samples(&[1.0]);
+            assert_eq!(
+                AudioBufferMut::new(&mut data, 0).err().unwrap(),
+                AudioBufferError::ZeroChannels
+            );
+        }
 
-    // --- channel / channel_mut ---
+        #[test]
+        fn new_mut_length_not_divisible_by_channels_returns_error() {
+            let mut data = samples(&[1.0, 2.0, 3.0]);
+            assert_eq!(
+                AudioBufferMut::new(&mut data, 2).err().unwrap(),
+                AudioBufferError::LengthChannelMismatch {
+                    len: 3,
+                    channels: 2
+                }
+            );
+        }
 
-    #[test]
-    fn channel_returns_correct_planar_slice() {
-        // Stereo, block_size=2: [L0, L1, R0, R1]
-        let data = samples(&[1.0, 2.0, 3.0, 4.0]);
-        let buf = AudioBuffer::new(&data, 2).unwrap();
-        assert_eq!(buf.channel(0).unwrap(), samples(&[1.0, 2.0]).as_slice());
-        assert_eq!(buf.channel(1).unwrap(), samples(&[3.0, 4.0]).as_slice());
-    }
+        // --- mono / mono_mut ---
 
-    #[test]
-    fn channel_out_of_range_returns_error() {
-        let data = samples(&[1.0, 2.0]);
-        let buf = AudioBuffer::new(&data, 1).unwrap();
-        assert_eq!(
-            buf.channel(1).err().unwrap(),
-            AudioBufferError::ChannelOutOfRange {
-                index: 1,
-                channels: 1
+        #[test]
+        fn mono_on_single_channel_buffer_returns_all_samples() {
+            let data = samples(&[1.0, 2.0, 3.0]);
+            let buf = AudioBuffer::new(&data, 1).unwrap();
+            assert_eq!(buf.mono().unwrap(), data.as_slice());
+        }
+
+        #[test]
+        fn mono_on_multi_channel_buffer_returns_error() {
+            let data = samples(&[1.0, 2.0, 3.0, 4.0]);
+            let buf = AudioBuffer::new(&data, 2).unwrap();
+            assert_eq!(
+                buf.mono().err().unwrap(),
+                AudioBufferError::NotMono { channels: 2 }
+            );
+        }
+
+        #[test]
+        fn mono_mut_on_single_channel_buffer_allows_writing() {
+            let mut data = samples(&[0.0, 0.0]);
+            {
+                let mut buf = AudioBufferMut::new(&mut data, 1).unwrap();
+                for s in buf.mono_mut().unwrap().iter_mut() {
+                    *s = Sample::from(7.0f32);
+                }
             }
-        );
-    }
+            assert_eq!(data, samples(&[7.0, 7.0]));
+        }
 
-    #[test]
-    fn channel_mut_writes_correct_planar_slice() {
-        let mut data = samples(&[0.0, 0.0, 0.0, 0.0]);
-        {
+        #[test]
+        fn mono_mut_on_multi_channel_buffer_returns_error() {
+            let mut data = samples(&[1.0, 2.0, 3.0, 4.0]);
             let mut buf = AudioBufferMut::new(&mut data, 2).unwrap();
-            for s in buf.channel_mut(1).unwrap().iter_mut() {
-                *s = Sample::from(9.0f32);
-            }
+            assert_eq!(
+                buf.mono_mut().err().unwrap(),
+                AudioBufferError::NotMono { channels: 2 }
+            );
         }
-        assert_eq!(data, samples(&[0.0, 0.0, 9.0, 9.0]));
-    }
 
-    #[test]
-    fn channel_mut_out_of_range_returns_error() {
-        let mut data = samples(&[1.0, 2.0]);
-        let mut buf = AudioBufferMut::new(&mut data, 1).unwrap();
-        assert_eq!(
-            buf.channel_mut(1).err().unwrap(),
-            AudioBufferError::ChannelOutOfRange {
-                index: 1,
-                channels: 1
+        // --- channel / channel_mut ---
+
+        #[test]
+        fn channel_returns_correct_planar_slice() {
+            // Stereo, block_size=2: [L0, L1, R0, R1]
+            let data = samples(&[1.0, 2.0, 3.0, 4.0]);
+            let buf = AudioBuffer::new(&data, 2).unwrap();
+            assert_eq!(buf.channel(0).unwrap(), samples(&[1.0, 2.0]).as_slice());
+            assert_eq!(buf.channel(1).unwrap(), samples(&[3.0, 4.0]).as_slice());
+        }
+
+        #[test]
+        fn channel_out_of_range_returns_error() {
+            let data = samples(&[1.0, 2.0]);
+            let buf = AudioBuffer::new(&data, 1).unwrap();
+            assert_eq!(
+                buf.channel(1).err().unwrap(),
+                AudioBufferError::ChannelOutOfRange {
+                    index: 1,
+                    channels: 1
+                }
+            );
+        }
+
+        #[test]
+        fn channel_mut_writes_correct_planar_slice() {
+            let mut data = samples(&[0.0, 0.0, 0.0, 0.0]);
+            {
+                let mut buf = AudioBufferMut::new(&mut data, 2).unwrap();
+                for s in buf.channel_mut(1).unwrap().iter_mut() {
+                    *s = Sample::from(9.0f32);
+                }
             }
-        );
+            assert_eq!(data, samples(&[0.0, 0.0, 9.0, 9.0]));
+        }
+
+        #[test]
+        fn channel_mut_out_of_range_returns_error() {
+            let mut data = samples(&[1.0, 2.0]);
+            let mut buf = AudioBufferMut::new(&mut data, 1).unwrap();
+            assert_eq!(
+                buf.channel_mut(1).err().unwrap(),
+                AudioBufferError::ChannelOutOfRange {
+                    index: 1,
+                    channels: 1
+                }
+            );
+        }
+
+        // --- AudioBufferMut::channels_iter ---
+
+        #[test]
+        fn single_channel() {
+            let expected_slice = [0.0, 1.0, 2.0, 3.0];
+            let mut samples = samples(&expected_slice);
+            let expected_samples: Vec<Sample> = samples.to_vec();
+            let audio_buffer_mut = AudioBufferMut::new(&mut samples, 1).unwrap();
+
+            let mut channels_iter = audio_buffer_mut.channels_iter().unwrap();
+
+            assert_eq!(channels_iter.next().unwrap(), expected_samples);
+            assert_eq!(channels_iter.next(), None);
+        }
+
+        #[test]
+        fn four_channels() {
+            let expected_slice = [0.0, 1.0, 2.0, 3.0];
+            let mut samples = samples(&expected_slice);
+            let expected_samples: Vec<Sample> = samples.to_vec();
+            let audio_buffer_mut = AudioBufferMut::new(&mut samples, 4).unwrap();
+
+            let mut channels_iter = audio_buffer_mut.channels_iter().unwrap();
+
+            assert_eq!(channels_iter.next().unwrap(), [expected_samples[0]]);
+            assert_eq!(channels_iter.next().unwrap(), [expected_samples[1]]);
+            assert_eq!(channels_iter.next().unwrap(), [expected_samples[2]]);
+            assert_eq!(channels_iter.next().unwrap(), [expected_samples[3]]);
+            assert_eq!(channels_iter.next(), None);
+        }
+
+        // --- AudioBufferMut::channels_iter_mut ---
+
+        #[test]
+        fn single_channel_mut() {
+            let expected_slice = [0.0, 1.0, 2.0, 3.0];
+            let mut samples = samples(&expected_slice);
+            let expected_samples: Vec<Sample> = samples.clone().into_iter().collect();
+            let mut audio_buffer_mut = AudioBufferMut::new(&mut samples, 1).unwrap();
+
+            let mut channels_iter = audio_buffer_mut.channels_iter_mut().unwrap();
+
+            assert_eq!(channels_iter.next().unwrap(), expected_samples);
+            assert_eq!(channels_iter.next(), None);
+        }
+
+        #[test]
+        fn four_channels_mut() {
+            let expected_slice = [0.0, 1.0, 2.0, 3.0];
+            let mut samples = samples(&expected_slice);
+            let expected_samples: Vec<Sample> = samples.to_vec();
+            let mut audio_buffer_mut = AudioBufferMut::new(&mut samples, 4).unwrap();
+
+            let mut channels_iter = audio_buffer_mut.channels_iter_mut().unwrap();
+
+            assert_eq!(channels_iter.next().unwrap(), [expected_samples[0]]);
+            assert_eq!(channels_iter.next().unwrap(), [expected_samples[1]]);
+            assert_eq!(channels_iter.next().unwrap(), [expected_samples[2]]);
+            assert_eq!(channels_iter.next().unwrap(), [expected_samples[3]]);
+            assert_eq!(channels_iter.next(), None);
+        }
     }
 }
