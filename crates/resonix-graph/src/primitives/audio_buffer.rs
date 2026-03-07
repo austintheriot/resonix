@@ -29,6 +29,7 @@ pub(crate) struct RawAudioBuffer {
 pub struct AudioBuffer<'a> {
     pub(crate) ptr: NonNull<[Sample]>,
     pub(crate) channels: usize,
+    // DO NOT ADD MORE FIELDS HERE WITHOUT CHECKING TRANSMUTE COMPATIBILITY
     _phantom: PhantomData<&'a [Sample]>,
 }
 
@@ -38,6 +39,7 @@ pub struct AudioBuffer<'a> {
 pub struct AudioBufferMut<'a> {
     pub(crate) ptr: NonNull<[Sample]>,
     pub(crate) channels: usize,
+    // DO NOT ADD MORE FIELDS HERE WITHOUT CHECKING TRANSMUTE COMPATIBILITY
     _phantom: PhantomData<&'a mut [Sample]>,
 }
 
@@ -63,6 +65,10 @@ impl<'a> AudioBuffer<'a> {
             channels,
             _phantom: PhantomData,
         })
+    }
+
+    pub fn block_size(&self) -> usize {
+        self.ptr.len() / self.channels
     }
 
     /// Construct an `AudioBuffer` from a raw pointer and channel count.
@@ -109,8 +115,7 @@ impl<'a> AudioBuffer<'a> {
                 channels: self.channels,
             });
         }
-        let total_len = self.ptr.len();
-        let block_size = total_len / self.channels;
+        let block_size = self.block_size();
         let start = c * block_size;
         // SAFETY: ptr is valid for total_len samples; start..start+block_size is in range.
         Ok(unsafe {
@@ -204,6 +209,10 @@ impl<'a> AudioBufferMut<'a> {
         self.channels
     }
 
+    pub fn block_size(&self) -> usize {
+        self.ptr.len() / self.channels
+    }
+
     /// Returns the samples for channel `c` (0-indexed).
     ///
     /// Returns `Err(ChannelOutOfRange)` if `c >= self.channels()`.
@@ -214,8 +223,7 @@ impl<'a> AudioBufferMut<'a> {
                 channels: self.channels,
             });
         }
-        let total_len = self.ptr.len();
-        let block_size = total_len / self.channels;
+        let block_size = self.block_size();
         let start = c * block_size;
         // SAFETY: ptr is valid for total_len samples; start..start+block_size is in range.
         Ok(unsafe {
@@ -233,8 +241,7 @@ impl<'a> AudioBufferMut<'a> {
                 channels: self.channels,
             });
         }
-        let total_len = self.ptr.len();
-        let block_size = total_len / self.channels;
+        let block_size = self.block_size();
         let start = c * block_size;
         // SAFETY: ptr is valid for total_len samples; start..start+block_size is in range.
         Ok(unsafe {
