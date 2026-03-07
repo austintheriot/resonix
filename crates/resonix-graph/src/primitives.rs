@@ -1,6 +1,7 @@
 mod audio_buffers;
 mod block_size;
 mod buffer_pool;
+mod channel;
 mod connection;
 mod connection_id;
 mod data;
@@ -19,6 +20,7 @@ mod sample;
 pub use audio_buffers::*;
 pub use block_size::*;
 pub use buffer_pool::*;
+pub use channel::*;
 pub use connection::*;
 pub use connection_id::*;
 pub use data::*;
