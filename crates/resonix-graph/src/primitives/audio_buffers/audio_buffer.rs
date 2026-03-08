@@ -17,12 +17,15 @@ pub struct AudioBuffer<'a> {
 }
 
 // validate transmute safety at compile time for `AudioBuffer`
+// byte-representation size of the struct didn't change
 const _: () = assert!(
     core::mem::size_of::<Option<RawAudioBuffer>>()
         == core::mem::size_of::<Option<AudioBuffer<'_>>>()
 );
+// basic check to make sure fields weren't reordered
 const _: () = assert!(
-    core::mem::offset_of!(RawAudioBuffer, ptr) == core::mem::offset_of!(AudioBuffer<'_>, ptr)
+    core::mem::offset_of!(RawAudioBuffer, channels)
+        == core::mem::offset_of!(AudioBuffer<'_>, channels)
 );
 
 impl<'a> AudioBuffer<'a> {
