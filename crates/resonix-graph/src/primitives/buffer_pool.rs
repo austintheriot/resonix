@@ -41,3 +41,30 @@ impl DerefMut for BufferPool {
         &mut self.buffers
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_buffer_pool_is_empty() {
+        let pool = BufferPool::default();
+        assert!(pool.is_empty());
+    }
+
+    #[test]
+    fn deref_of_default_pool_yields_empty_map() {
+        let pool = BufferPool::default();
+        assert_eq!(pool.len(), 0);
+    }
+
+    #[test]
+    fn deref_mut_allows_removing_entries() {
+        let mut pool = BufferPool::default();
+        // Insert via the underlying map (requires a ChannelledBuffer, so we
+        // only verify that nothing is present before and after a no-op removal).
+        let absent_id = ConnectionId::new(999);
+        let removed = pool.remove(&absent_id);
+        assert!(removed.is_none());
+    }
+}

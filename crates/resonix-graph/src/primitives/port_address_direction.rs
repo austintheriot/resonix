@@ -13,3 +13,37 @@ pub enum PortAddressDirection {
     /// Node accepts data from the external system at this port location
     ExternalInput,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_four_variants_exist_and_are_distinct() {
+        let directions = [
+            PortAddressDirection::Input,
+            PortAddressDirection::Output,
+            PortAddressDirection::ExternalOutput,
+            PortAddressDirection::ExternalInput,
+        ];
+        // Every pair should be distinct
+        for i in 0..directions.len() {
+            for j in 0..directions.len() {
+                if i == j {
+                    assert_eq!(directions[i], directions[j]);
+                } else {
+                    assert_ne!(directions[i], directions[j]);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn port_address_direction_is_copy_and_clone() {
+        let original = PortAddressDirection::Input;
+        let copied = original;
+        let cloned = original;
+        assert_eq!(copied, original);
+        assert_eq!(cloned, original);
+    }
+}

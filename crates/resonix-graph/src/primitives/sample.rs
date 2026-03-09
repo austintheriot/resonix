@@ -38,3 +38,42 @@ impl From<f32> for Sample {
         Sample(value)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_stores_value_accessible_via_deref() {
+        let sample = Sample::new(0.5f32);
+        assert_eq!(*sample, 0.5f32);
+    }
+
+    #[test]
+    fn default_sample_is_zero() {
+        let sample = Sample::default();
+        assert_eq!(*sample, 0.0f32);
+    }
+
+    #[test]
+    fn from_f32_creates_sample_with_that_value() {
+        let sample = Sample::from(1.0f32);
+        assert_eq!(*sample, 1.0f32);
+    }
+
+    #[test]
+    fn from_i32_casts_integer_to_float() {
+        let sample = Sample::from(3i32);
+        assert_eq!(*sample, 3.0f32);
+    }
+
+    #[test]
+    fn samples_with_same_value_are_equal() {
+        assert_eq!(Sample::new(2.0f32), Sample::new(2.0f32));
+    }
+
+    #[test]
+    fn sample_with_lower_value_is_less_than_sample_with_higher_value() {
+        assert!(Sample::new(-1.0f32) < Sample::new(1.0f32));
+    }
+}
