@@ -17,5 +17,7 @@ pub trait AudioBuffer {
     /// Should return `Err(NotMono)` if `channels != 1`.
     fn mono(&self) -> Result<&[Sample], AudioBufferError>;
 
+    /// Returns the internal audio buffer as a contiguous slice,
+    /// without checking the number of channels it contains.
     fn as_slice(&self) -> &[Sample];
 }

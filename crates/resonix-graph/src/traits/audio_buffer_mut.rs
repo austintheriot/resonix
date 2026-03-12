@@ -5,6 +5,9 @@ pub trait AudioBufferMut: crate::traits::AudioBuffer {
         &mut self,
     ) -> Result<impl Iterator<Item = &mut [Sample]>, AudioBufferError>;
 
+    /// Returns the single channel's samples.
+    ///
+    /// Should return `Err(NotMono)` if `channels != 1`.
     fn mono_mut(&mut self) -> Result<&mut [Sample], AudioBufferError>;
 
     /// Returns the mutable samples for channel `c` (0-indexed).
@@ -15,5 +18,7 @@ pub trait AudioBufferMut: crate::traits::AudioBuffer {
         channel: impl Into<Channel>,
     ) -> Result<&mut [Sample], AudioBufferError>;
 
+    /// Returns the internal audio buffer as a contiguous, mutable slice,
+    /// without checking the number of channels it contains.
     fn as_slice_mut(&mut self) -> &mut [Sample];
 }
