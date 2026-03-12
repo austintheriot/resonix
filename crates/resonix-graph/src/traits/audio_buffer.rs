@@ -16,4 +16,6 @@ pub trait AudioBuffer {
     ///
     /// Should return `Err(NotMono)` if `channels != 1`.
     fn mono(&self) -> Result<&[Sample], AudioBufferError>;
+
+    fn as_slice(&self) -> &[Sample];
 }

@@ -734,10 +734,10 @@ impl crate::traits::Graph for Graph {
         Ok(self)
     }
 
-    fn run(
+    fn run<A: crate::traits::AudioBuffer, M: crate::traits::AudioBufferMut>(
         &mut self,
-        inputs: &HashMap<ConnectionId, AudioBuffer<'_>>,
-        outputs: &mut HashMap<ConnectionId, AudioBufferMut<'_>>,
+        inputs: &HashMap<ConnectionId, A>,
+        outputs: &mut HashMap<ConnectionId, M>,
     ) -> Result<(), GraphRunError> {
         self.ensure_compiled_plan();
 
@@ -747,17 +747,25 @@ impl crate::traits::Graph for Graph {
             // Patch output slots whose buffers are supplied by the caller for this block.
             for &(slot, connection_id) in step.external_output_slots.iter() {
                 step.output_ptrs[slot] =
-                    outputs.get_mut(&connection_id).map(|buf| RawAudioBuffer {
-                        ptr: buf.ptr,
-                        channels: buf.channels,
-                    });
+                    outputs
+                        .get_mut(&connection_id)
+                        .map(|audio_buffer_mut: &mut M| {
+                            let slice = audio_buffer_mut.as_slice_mut();
+                            RawAudioBuffer {
+                                ptr: NonNull::from(slice),
+                                channels: audio_buffer_mut.channels(),
+                            }
+                        });
             }
 
             // Patch input slots whose buffers are supplied by the caller for this block.
             for &(slot, connection_id) in step.external_input_slots.iter() {
-                step.input_ptrs[slot] = inputs.get(&connection_id).map(|buf| RawAudioBuffer {
-                    ptr: buf.ptr,
-                    channels: buf.channels,
+                step.input_ptrs[slot] = inputs.get(&connection_id).map(|audio_buffer: &A| {
+                    let slice = audio_buffer.as_slice();
+                    RawAudioBuffer {
+                        ptr: NonNull::from(slice),
+                        channels: audio_buffer.channels(),
+                    }
                 });
             }
 
@@ -1522,7 +1530,10 @@ mod graph_tests {
     }
 
     mod audio_processing {
-        use crate::traits::AudioBuffer as _;
+        use crate::{
+            primitives::{AudioBuffer, ConnectionId},
+            traits::AudioBuffer as _,
+        };
         use alloc::vec::Vec;
         use hashbrown::HashMap;
 
@@ -1559,7 +1570,7 @@ mod graph_tests {
                 .get(&OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
                 .unwrap();
 
-            let inputs = HashMap::new();
+            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut output_buffer = vec![Sample::default()];
             let mut outputs = HashMap::from([(
                 external_output_connection_id,
@@ -1590,7 +1601,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs = HashMap::new();
+            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut outputs: HashMap<_, AudioBufferMut<'_>> = HashMap::new();
             graph.run(&inputs, &mut outputs).unwrap();
 
@@ -1620,7 +1631,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs = HashMap::new();
+            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut output_buffer = vec![Sample::default()];
             let mut outputs = HashMap::from([(
                 external_output_connection_id,
@@ -1637,7 +1648,7 @@ mod graph_tests {
         #[test]
         fn empty_graph_run_succeeds() {
             let mut graph = Graph::new();
-            let inputs = HashMap::new();
+            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut outputs: HashMap<_, AudioBufferMut<'_>> = HashMap::new();
             assert!(graph.run(&inputs, &mut outputs).is_ok());
         }
@@ -1676,7 +1687,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs = HashMap::new();
+            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut out_buf = vec![Sample::default()];
             let mut outputs =
                 HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
@@ -1721,7 +1732,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs = HashMap::new();
+            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut out_buf_1 = vec![Sample::default()];
             let mut out_buf_2 = vec![Sample::default()];
             let mut out_buf_3 = vec![Sample::default()];
@@ -1765,7 +1776,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs = HashMap::new();
+            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut out_buf = vec![Sample::default(); block_size];
             let mut outputs =
                 HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
@@ -1795,7 +1806,7 @@ mod graph_tests {
                 .unwrap();
 
             for _ in 0..3 {
-                let inputs = HashMap::new();
+                let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
                 let mut out_buf = vec![Sample::default()];
                 let mut outputs =
                     HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
@@ -1854,7 +1865,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs = HashMap::new();
+            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut out_buf = vec![Sample::default()];
             let mut outputs =
                 HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
@@ -1884,7 +1895,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs = HashMap::new();
+            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut out_buf = vec![Sample::default()];
             let mut outputs =
                 HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);

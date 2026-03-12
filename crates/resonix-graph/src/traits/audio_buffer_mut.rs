@@ -14,4 +14,6 @@ pub trait AudioBufferMut: crate::traits::AudioBuffer {
         &mut self,
         channel: impl Into<Channel>,
     ) -> Result<&mut [Sample], AudioBufferError>;
+
+    fn as_slice_mut(&mut self) -> &mut [Sample];
 }

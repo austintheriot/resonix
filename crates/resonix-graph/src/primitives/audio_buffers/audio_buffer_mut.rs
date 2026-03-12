@@ -78,22 +78,6 @@ impl<'a> AudioBufferMut<'a> {
             _phantom: PhantomData,
         })
     }
-
-    /// SAFETY:
-    /// - self.ptr must point to a valid [Sample] slice
-    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
-    /// - The memory is properly aligned and initialized
-    fn as_slice_mut(&mut self) -> &mut [Sample] {
-        unsafe { self.ptr.as_mut() }
-    }
-
-    /// SAFETY:
-    /// - self.ptr must point to a valid [Sample] slice
-    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
-    /// - The memory is properly aligned and initialized
-    fn as_slice(&self) -> &[Sample] {
-        unsafe { self.ptr.as_ref() }
-    }
 }
 
 impl<'a> crate::traits::AudioBuffer for AudioBufferMut<'a> {
@@ -150,6 +134,14 @@ impl<'a> crate::traits::AudioBuffer for AudioBufferMut<'a> {
 
         Ok(self.as_slice().chunks_exact(chunks_len))
     }
+
+    /// SAFETY:
+    /// - self.ptr must point to a valid [Sample] slice
+    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
+    /// - The memory is properly aligned and initialized
+    fn as_slice(&self) -> &[Sample] {
+        unsafe { self.ptr.as_ref() }
+    }
 }
 
 impl<'a> crate::traits::AudioBufferMut for AudioBufferMut<'a> {
@@ -205,6 +197,14 @@ impl<'a> crate::traits::AudioBufferMut for AudioBufferMut<'a> {
         let chunks_len = len / channels;
 
         Ok(self.as_slice_mut().chunks_exact_mut(chunks_len))
+    }
+
+    /// SAFETY:
+    /// - self.ptr must point to a valid [Sample] slice
+    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
+    /// - The memory is properly aligned and initialized
+    fn as_slice_mut(&mut self) -> &mut [Sample] {
+        unsafe { self.ptr.as_mut() }
     }
 }
 

@@ -81,14 +81,6 @@ impl<'a> AudioBuffer<'a> {
             _phantom: PhantomData,
         })
     }
-
-    /// SAFETY:
-    /// - self.ptr must point to a valid [Sample] slice
-    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
-    /// - The memory is properly aligned and initialized
-    fn as_slice(&self) -> &[Sample] {
-        unsafe { self.ptr.as_ref() }
-    }
 }
 
 impl<'a> crate::traits::AudioBuffer for AudioBuffer<'a> {
@@ -141,6 +133,14 @@ impl<'a> crate::traits::AudioBuffer for AudioBuffer<'a> {
         Ok(unsafe {
             core::slice::from_raw_parts(self.ptr.as_ptr() as *const Sample, self.ptr.len())
         })
+    }
+
+    /// SAFETY:
+    /// - self.ptr must point to a valid [Sample] slice
+    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
+    /// - The memory is properly aligned and initialized
+    fn as_slice(&self) -> &[Sample] {
+        unsafe { self.ptr.as_ref() }
     }
 }
 
