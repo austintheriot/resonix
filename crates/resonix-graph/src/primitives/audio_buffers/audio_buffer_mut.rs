@@ -1,6 +1,9 @@
 use core::{marker::PhantomData, ptr::NonNull};
 
-use crate::primitives::{Channel, Sample};
+use crate::{
+    primitives::{Channel, Sample},
+    traits::AudioBuffer as _,
+};
 
 use super::{AudioBufferError, RawAudioBuffer};
 
@@ -76,18 +79,36 @@ impl<'a> AudioBufferMut<'a> {
         })
     }
 
-    pub fn channels(&self) -> usize {
+    /// SAFETY:
+    /// - self.ptr must point to a valid [Sample] slice
+    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
+    /// - The memory is properly aligned and initialized
+    fn as_slice_mut(&mut self) -> &mut [Sample] {
+        unsafe { self.ptr.as_mut() }
+    }
+
+    /// SAFETY:
+    /// - self.ptr must point to a valid [Sample] slice
+    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
+    /// - The memory is properly aligned and initialized
+    fn as_slice(&self) -> &[Sample] {
+        unsafe { self.ptr.as_ref() }
+    }
+}
+
+impl<'a> crate::traits::AudioBuffer for AudioBufferMut<'a> {
+    fn channels(&self) -> usize {
         self.channels
     }
 
-    pub fn block_size(&self) -> usize {
+    fn block_size(&self) -> usize {
         self.ptr.len() / self.channels
     }
 
     /// Returns the samples for channel `c` (0-indexed).
     ///
     /// Returns `Err(ChannelOutOfRange)` if `c >= self.channels()`.
-    pub fn channel(&self, channel: impl Into<Channel>) -> Result<&[Sample], AudioBufferError> {
+    fn channel(&self, channel: impl Into<Channel>) -> Result<&[Sample], AudioBufferError> {
         let channel = *channel.into();
         if channel >= self.channels {
             return Err(AudioBufferError::ChannelOutOfRange {
@@ -103,10 +124,39 @@ impl<'a> AudioBufferMut<'a> {
         })
     }
 
+    /// Returns the single channel's samples.
+    ///
+    /// Returns `Err(NotMono)` if `channels != 1`.
+    fn mono(&self) -> Result<&[Sample], AudioBufferError> {
+        if self.channels != 1 {
+            return Err(AudioBufferError::NotMono {
+                channels: self.channels,
+            });
+        }
+        // SAFETY: ptr is valid for ptr.len() samples.
+        Ok(unsafe {
+            core::slice::from_raw_parts(self.ptr.as_ptr() as *const Sample, self.ptr.len())
+        })
+    }
+
+    fn channels_iter(&self) -> Result<impl Iterator<Item = &[Sample]>, AudioBufferError> {
+        if self.channels == 0 {
+            return Err(AudioBufferError::ZeroChannels);
+        }
+
+        let len = self.ptr.len();
+        let channels = self.channels;
+        let chunks_len = len / channels;
+
+        Ok(self.as_slice().chunks_exact(chunks_len))
+    }
+}
+
+impl<'a> crate::traits::AudioBufferMut for AudioBufferMut<'a> {
     /// Returns the mutable samples for channel `c` (0-indexed).
     ///
     /// Returns `Err(ChannelOutOfRange)` if `c >= self.channels()`.
-    pub fn channel_mut(
+    fn channel_mut(
         &mut self,
         channel: impl Into<Channel>,
     ) -> Result<&mut [Sample], AudioBufferError> {
@@ -128,25 +178,10 @@ impl<'a> AudioBufferMut<'a> {
         })
     }
 
-    /// Returns the single channel's samples.
-    ///
-    /// Returns `Err(NotMono)` if `channels != 1`.
-    pub fn mono(&self) -> Result<&[Sample], AudioBufferError> {
-        if self.channels != 1 {
-            return Err(AudioBufferError::NotMono {
-                channels: self.channels,
-            });
-        }
-        // SAFETY: ptr is valid for ptr.len() samples.
-        Ok(unsafe {
-            core::slice::from_raw_parts(self.ptr.as_ptr() as *const Sample, self.ptr.len())
-        })
-    }
-
     /// Returns mutable access to the single channel's samples.
     ///
     /// Returns `Err(NotMono)` if `channels != 1`.
-    pub fn mono_mut(&mut self) -> Result<&mut [Sample], AudioBufferError> {
+    fn mono_mut(&mut self) -> Result<&mut [Sample], AudioBufferError> {
         if self.channels != 1 {
             return Err(AudioBufferError::NotMono {
                 channels: self.channels,
@@ -158,35 +193,7 @@ impl<'a> AudioBufferMut<'a> {
         })
     }
 
-    /// SAFETY:
-    /// - self.ptr must point to a valid [Sample] slice
-    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
-    /// - The memory is properly aligned and initialized
-    fn as_slice(&self) -> &[Sample] {
-        unsafe { self.ptr.as_ref() }
-    }
-
-    /// SAFETY:
-    /// - self.ptr must point to a valid [Sample] slice
-    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
-    /// - The memory is properly aligned and initialized
-    fn as_slice_mut(&mut self) -> &mut [Sample] {
-        unsafe { self.ptr.as_mut() }
-    }
-
-    pub fn channels_iter(&self) -> Result<impl Iterator<Item = &[Sample]>, AudioBufferError> {
-        if self.channels == 0 {
-            return Err(AudioBufferError::ZeroChannels);
-        }
-
-        let len = self.ptr.len();
-        let channels = self.channels;
-        let chunks_len = len / channels;
-
-        Ok(self.as_slice().chunks_exact(chunks_len))
-    }
-
-    pub fn channels_iter_mut(
+    fn channels_iter_mut(
         &mut self,
     ) -> Result<impl Iterator<Item = &mut [Sample]>, AudioBufferError> {
         if self.channels == 0 {
@@ -203,6 +210,7 @@ impl<'a> AudioBufferMut<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::traits::{AudioBuffer as _, AudioBufferMut as _};
     use alloc::vec::Vec;
 
     use crate::primitives::{AudioBufferError, AudioBufferMut, Sample};

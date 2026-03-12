@@ -1522,6 +1522,7 @@ mod graph_tests {
     }
 
     mod audio_processing {
+        use crate::traits::AudioBuffer as _;
         use alloc::vec::Vec;
         use hashbrown::HashMap;
 
@@ -2100,6 +2101,7 @@ mod graph_tests {
 
             use hashbrown::HashMap;
 
+            use crate::traits::AudioBufferMut as _;
             use crate::traits::Graph as GraphTrait;
             use crate::{
                 errors::AudioNodeRunError,
@@ -2109,8 +2111,8 @@ mod graph_tests {
                     PortAddressDirection, PortDescriptor, PortId, Priority, Sample,
                 },
                 traits::{
-                    Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors,
-                    GetPriority,
+                    Audio, AudioBuffer as _, AudioNode, DescribePorts, GenerateId, GetNodeId,
+                    GetPortDescriptors, GetPriority,
                 },
             };
 

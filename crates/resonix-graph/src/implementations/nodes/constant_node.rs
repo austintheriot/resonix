@@ -7,7 +7,8 @@ use crate::{
         PortDescriptor, PortId, Priority, Sample,
     },
     traits::{
-        Audio, AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority,
+        Audio, AudioBufferMut as _, AudioNode, DescribePorts, GenerateId, GetNodeId,
+        GetPortDescriptors, GetPriority,
     },
 };
 

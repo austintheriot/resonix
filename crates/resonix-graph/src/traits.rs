@@ -1,3 +1,5 @@
+mod audio_buffer;
+mod audio_buffer_mut;
 mod audio_node;
 mod describe_ports;
 mod generate_id;
@@ -7,6 +9,8 @@ mod get_priority;
 mod graph;
 mod param_node;
 
+pub use audio_buffer::*;
+pub use audio_buffer_mut::*;
 pub use audio_node::*;
 pub use describe_ports::*;
 pub use generate_id::*;
