@@ -1533,7 +1533,10 @@ mod graph_tests {
 
     mod audio_processing {
         use crate::{
-            implementations::{AudioBuffer, AudioBufferMut, ConstantNode, Graph, MultiplyNode, OutputNode, OutputNodePortDescriptors},
+            implementations::{
+                AudioBuffer, AudioBufferMut, ConstantNode, Graph, MultiplyNode, OutputNode,
+                OutputNodePortDescriptors,
+            },
             primitives::{ConnectionId, Sample},
             traits::{AudioBuffer as _, Graph as GraphTrait},
         };
