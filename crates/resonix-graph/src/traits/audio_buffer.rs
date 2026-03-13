@@ -1,4 +1,5 @@
-use crate::primitives::{AudioBufferError, Channel, Sample};
+use crate::errors::AudioBufferError;
+use crate::primitives::{Channel, Sample};
 
 pub trait AudioBuffer {
     /// Returns the length of each slice per channel.

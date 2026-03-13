@@ -15,7 +15,7 @@ pub enum GraphRunError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::primitives::AudioBufferError;
+    use crate::errors::AudioBufferError;
     use std::string::ToString;
 
     #[test]

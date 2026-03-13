@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::primitives::AudioBufferError;
+use crate::errors::AudioBufferError;
 
 #[derive(Error, Debug)]
 pub enum AudioNodeRunError {

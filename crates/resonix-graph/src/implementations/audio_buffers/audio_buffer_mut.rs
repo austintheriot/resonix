@@ -5,7 +5,9 @@ use crate::{
     traits::AudioBuffer as _,
 };
 
-use super::{AudioBufferError, RawAudioBuffer};
+use crate::errors::AudioBufferError;
+
+use super::RawAudioBuffer;
 
 /// Mutable multi-channel audio buffer view, repr(C)-compatible with
 /// `RawAudioBuffer` so it can be obtained via a zero-cost transmute.
@@ -213,7 +215,9 @@ mod tests {
     use crate::traits::{AudioBuffer as _, AudioBufferMut as _};
     use alloc::vec::Vec;
 
-    use crate::primitives::{AudioBufferError, AudioBufferMut, Sample};
+    use crate::errors::AudioBufferError;
+    use crate::implementations::AudioBufferMut;
+    use crate::primitives::Sample;
 
     fn samples(values: &[f32]) -> Vec<Sample> {
         values.iter().map(|&v| Sample::from(v)).collect()

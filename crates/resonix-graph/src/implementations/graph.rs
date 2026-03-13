@@ -1,10 +1,12 @@
 use core::{cell::UnsafeCell, mem::transmute, ops::Deref, ptr::NonNull};
 
+use super::{AudioBuffer, AudioBufferMut, RawAudioBuffer};
+
 use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
     primitives::{
-        AudioBuffer, AudioBufferMut, BlockSize, ChannelledBuffer, Connection, ConnectionId, Id,
-        Node, NodeHandle, NodeId, PortAddress, PortDescriptor, PortId, RawAudioBuffer, Sample,
+        BlockSize, ChannelledBuffer, Connection, ConnectionId, Id, Node, NodeHandle, NodeId,
+        PortAddress, PortDescriptor, PortId, Sample,
     },
     traits::{AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
@@ -1531,19 +1533,12 @@ mod graph_tests {
 
     mod audio_processing {
         use crate::{
-            primitives::{AudioBuffer, ConnectionId},
-            traits::AudioBuffer as _,
+            implementations::{AudioBuffer, AudioBufferMut, ConstantNode, Graph, MultiplyNode, OutputNode, OutputNodePortDescriptors},
+            primitives::{ConnectionId, Sample},
+            traits::{AudioBuffer as _, Graph as GraphTrait},
         };
         use alloc::vec::Vec;
         use hashbrown::HashMap;
-
-        use crate::{
-            implementations::{
-                ConstantNode, Graph, MultiplyNode, OutputNode, OutputNodePortDescriptors,
-            },
-            primitives::{AudioBufferMut, Sample},
-            traits::Graph as GraphTrait,
-        };
 
         /// Converts a slice of `f32` literals into `Vec<Sample>` for concise assertions.
         fn samples(values: &[f32]) -> Vec<Sample> {
@@ -1906,7 +1901,8 @@ mod graph_tests {
 
         mod channel_count_validation {
             use crate::errors::AudioNodeRunError;
-            use crate::primitives::{AudioBuffer, AudioBufferMut, BlockSize, Id, Priority};
+            use crate::implementations::{AudioBuffer, AudioBufferMut};
+            use crate::primitives::{BlockSize, Id, Priority};
             use crate::traits::Graph as GraphTrait;
             use crate::{
                 errors::GraphConnectionError,
@@ -2117,9 +2113,10 @@ mod graph_tests {
             use crate::{
                 errors::AudioNodeRunError,
                 implementations::Graph,
+                implementations::{AudioBuffer, AudioBufferMut},
                 primitives::{
-                    AudioBuffer, AudioBufferMut, BlockSize, Id, NodeId, PortAddress,
-                    PortAddressDirection, PortDescriptor, PortId, Priority, Sample,
+                    BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor,
+                    PortId, Priority, Sample,
                 },
                 traits::{
                     Audio, AudioBuffer as _, AudioNode, DescribePorts, GenerateId, GetNodeId,

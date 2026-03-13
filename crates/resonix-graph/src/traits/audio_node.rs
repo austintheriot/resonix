@@ -2,7 +2,8 @@ use core::ops::Deref;
 
 use crate::{
     errors::AudioNodeRunError,
-    primitives::{AudioBuffer, AudioBufferMut, BlockSize},
+    implementations::{AudioBuffer, AudioBufferMut},
+    primitives::BlockSize,
     traits::GetNodeId,
 };
 

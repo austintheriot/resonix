@@ -2,7 +2,9 @@ use core::{marker::PhantomData, ptr::NonNull};
 
 use crate::primitives::{Channel, Sample};
 
-use super::{AudioBufferError, RawAudioBuffer};
+use crate::errors::AudioBufferError;
+
+use super::RawAudioBuffer;
 
 /// Immutable multi-channel audio buffer view, repr(C)-compatible with
 /// `RawAudioBuffer` so it can be obtained via a zero-cost transmute.

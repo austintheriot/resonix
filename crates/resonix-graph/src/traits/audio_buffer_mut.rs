@@ -1,4 +1,5 @@
-use crate::primitives::{AudioBufferError, Channel, Sample};
+use crate::errors::AudioBufferError;
+use crate::primitives::{Channel, Sample};
 
 pub trait AudioBufferMut: crate::traits::AudioBuffer {
     /// Returns the mutable samples slice for `channel` (0-indexed).

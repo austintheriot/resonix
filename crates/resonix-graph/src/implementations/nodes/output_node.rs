@@ -2,9 +2,10 @@ use core::ops::Deref;
 
 use crate::{
     errors::AudioNodeRunError,
+    implementations::{AudioBuffer, AudioBufferMut},
     primitives::{
-        AudioBuffer, AudioBufferMut, BlockSize, Id, NodeId, PortAddress, PortAddressDirection,
-        PortDescriptor, PortId, Priority, Sample,
+        BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId, Priority,
+        Sample,
     },
     traits::{
         Audio, AudioBuffer as _, AudioBufferMut as _, AudioNode, DescribePorts, GenerateId,
