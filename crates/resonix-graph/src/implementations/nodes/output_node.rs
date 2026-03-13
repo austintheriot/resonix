@@ -2,14 +2,13 @@ use core::ops::Deref;
 
 use crate::{
     errors::AudioNodeRunError,
-    implementations::{AudioBuffer, AudioBufferMut},
     primitives::{
         BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId, Priority,
         Sample,
     },
     traits::{
-        Audio, AudioBuffer as _, AudioBufferMut as _, AudioNode, DescribePorts, GenerateId,
-        GetNodeId, GetPortDescriptors, GetPriority,
+        AudioBuffer, AudioBufferMut, AudioNode, DescribePorts, GenerateId, GetNodeId,
+        GetPortDescriptors, GetPriority,
     },
 };
 
@@ -21,14 +20,13 @@ pub struct OutputNode {
 }
 
 impl OutputNode {
-    pub fn new<G: GenerateId>(id_generator: &mut G) -> Audio<Self> {
+    pub fn new<G: GenerateId>(id_generator: &mut G) -> Self {
         let node_id: NodeId = id_generator.generate_id().into();
-        let output_node = Self {
+        Self {
             node_id,
             input_value: None,
             port_descriptors: OutputNodePortDescriptors::new(node_id),
-        };
-        Audio(output_node)
+        }
     }
 }
 
@@ -53,10 +51,10 @@ impl GetPriority for OutputNode {
 }
 
 impl AudioNode for OutputNode {
-    fn process(
+    fn process<A: AudioBuffer, M: AudioBufferMut>(
         &mut self,
-        inputs: &[Option<AudioBuffer<'_>>],
-        outputs: &mut [Option<AudioBufferMut<'_>>],
+        inputs: &[Option<A>],
+        outputs: &mut [Option<M>],
         _block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
         let input_port_slot = **OutputNodePortDescriptors::INPUT_PORT_ID;
@@ -107,10 +105,14 @@ mod tests {
     /// Runs `node.process()` with the given input and returns the output buffer contents.
     fn process_output(node: &mut OutputNode, input: &[Sample], block_size: usize) -> Vec<Sample> {
         let mut out_buf = vec![Sample::default(); block_size];
-        let inputs: Vec<Option<AudioBuffer<'_>>> = vec![Some(AudioBuffer::new(input, 1).unwrap())];
+        let inputs: Vec<Option<crate::implementations::AudioBuffer<'_>>> = vec![Some(
+            crate::implementations::AudioBuffer::new(input, 1).unwrap(),
+        )];
         {
-            let audio_buf_mut = AudioBufferMut::new(out_buf.as_mut_slice(), 1).unwrap();
-            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![Some(audio_buf_mut)];
+            let audio_buf_mut =
+                crate::implementations::AudioBufferMut::new(out_buf.as_mut_slice(), 1).unwrap();
+            let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> =
+                vec![Some(audio_buf_mut)];
             node.process(
                 inputs.as_slice(),
                 outputs.as_mut_slice(),
@@ -124,7 +126,7 @@ mod tests {
     #[test]
     fn copies_input_to_output() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = OutputNode::new(&mut id_gen).into_inner();
+        let mut node = OutputNode::new(&mut id_gen);
         let input = [Sample::from(7.0f32)];
         let result = process_output(&mut node, &input, 1);
         assert_eq!(result, vec![Sample::from(7.0f32)]);
@@ -133,7 +135,7 @@ mod tests {
     #[test]
     fn copies_multi_sample_block() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = OutputNode::new(&mut id_gen).into_inner();
+        let mut node = OutputNode::new(&mut id_gen);
         let input = [
             Sample::from(1.0f32),
             Sample::from(2.0f32),
@@ -155,11 +157,12 @@ mod tests {
     #[test]
     fn does_nothing_when_external_output_slot_is_not_connected() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = OutputNode::new(&mut id_gen).into_inner();
+        let mut node = OutputNode::new(&mut id_gen);
         let input = [Sample::from(5.0f32)];
-        let inputs: Vec<Option<AudioBuffer<'_>>> =
-            vec![Some(AudioBuffer::new(input.as_slice(), 1).unwrap())];
-        let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![None];
+        let inputs: Vec<Option<crate::implementations::AudioBuffer<'_>>> = vec![Some(
+            crate::implementations::AudioBuffer::new(input.as_slice(), 1).unwrap(),
+        )];
+        let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> = vec![None];
         let result = node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(1));
         assert!(result.is_ok());
     }
@@ -167,7 +170,7 @@ mod tests {
     #[test]
     fn partial_input_only_writes_available_samples() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = OutputNode::new(&mut id_gen).into_inner();
+        let mut node = OutputNode::new(&mut id_gen);
         // input shorter than output — zip stops at input length, rest remains default (0.0)
         let input = [Sample::from(1.0f32), Sample::from(2.0f32)];
         let result = process_output(&mut node, &input, 4);

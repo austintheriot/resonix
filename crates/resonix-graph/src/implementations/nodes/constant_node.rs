@@ -2,13 +2,12 @@ use core::ops::Deref;
 
 use crate::{
     errors::AudioNodeRunError,
-    implementations::{AudioBuffer, AudioBufferMut},
     primitives::{
         BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId, Priority,
         Sample,
     },
     traits::{
-        Audio, AudioBufferMut as _, AudioNode, DescribePorts, GenerateId, GetNodeId,
+        AudioBuffer, AudioBufferMut, AudioNode, DescribePorts, GenerateId, GetNodeId,
         GetPortDescriptors, GetPriority,
     },
 };
@@ -21,29 +20,27 @@ pub struct ConstantNode {
 }
 
 impl ConstantNode {
-    pub fn new<G: GenerateId>(id_generator: &mut G) -> Audio<Self> {
+    pub fn new<G: GenerateId>(id_generator: &mut G) -> Self {
         let node_id = NodeId::from(id_generator.generate_id());
         let port_descriptors = ConstantNodePortDescriptors::new(node_id);
-        let constant_node = Self {
+        Self {
             node_id,
             constant_value: None,
             port_descriptors,
-        };
-        Audio(constant_node)
+        }
     }
 
     pub fn new_with_value<G: GenerateId, D: Into<Sample>>(
         id_generator: &mut G,
         constant_value: D,
-    ) -> Audio<Self> {
+    ) -> Self {
         let node_id = NodeId::from(id_generator.generate_id());
         let port_descriptors = ConstantNodePortDescriptors::new(node_id);
-        let constant_node = Self {
+        Self {
             node_id,
             constant_value: Some(constant_value.into()),
             port_descriptors,
-        };
-        Audio(constant_node)
+        }
     }
 }
 
@@ -68,10 +65,10 @@ impl GetPriority for ConstantNode {
 }
 
 impl AudioNode for ConstantNode {
-    fn process(
+    fn process<A: AudioBuffer, M: AudioBufferMut>(
         &mut self,
-        _inputs: &[Option<AudioBuffer<'_>>],
-        outputs: &mut [Option<AudioBufferMut<'_>>],
+        _inputs: &[Option<A>],
+        outputs: &mut [Option<M>],
         _block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
         let output_port_slot = **ConstantNodePortDescriptors::OUTPUT_PORT_ID;
@@ -111,9 +108,13 @@ mod tests {
     fn process_constant(node: &mut ConstantNode, block_size: usize) -> Vec<Sample> {
         let mut buf = vec![Sample::default(); block_size];
         {
-            let audio_buf_mut = AudioBufferMut::new(buf.as_mut_slice(), 1).unwrap();
-            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![Some(audio_buf_mut)];
-            node.process(&[], outputs.as_mut_slice(), BlockSize::new(block_size))
+            let audio_buf_mut =
+                crate::implementations::AudioBufferMut::new(buf.as_mut_slice(), 1).unwrap();
+
+            let inputs: &[Option<crate::implementations::AudioBufferMut<'_>>] = &[];
+            let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> =
+                vec![Some(audio_buf_mut)];
+            node.process(inputs, outputs.as_mut_slice(), BlockSize::new(block_size))
                 .expect("process should not fail");
         }
         buf
@@ -122,7 +123,7 @@ mod tests {
     #[test]
     fn outputs_zero_when_no_value_set() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = ConstantNode::new(&mut id_gen).into_inner();
+        let mut node = ConstantNode::new(&mut id_gen);
         let result = process_constant(&mut node, 1);
         assert_eq!(result, vec![Sample::from(0.0f32)]);
     }
@@ -130,7 +131,7 @@ mod tests {
     #[test]
     fn outputs_constant_value_for_single_sample() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = ConstantNode::new_with_value(&mut id_gen, 5.0f32).into_inner();
+        let mut node = ConstantNode::new_with_value(&mut id_gen, 5.0f32);
         let result = process_constant(&mut node, 1);
         assert_eq!(result, vec![Sample::from(5.0f32)]);
     }
@@ -138,7 +139,7 @@ mod tests {
     #[test]
     fn fills_entire_block_with_constant_value() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = ConstantNode::new_with_value(&mut id_gen, 3.0f32).into_inner();
+        let mut node = ConstantNode::new_with_value(&mut id_gen, 3.0f32);
         let result = process_constant(&mut node, 4);
         assert_eq!(
             result,
@@ -154,9 +155,11 @@ mod tests {
     #[test]
     fn does_nothing_when_output_slot_is_not_connected() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = ConstantNode::new_with_value(&mut id_gen, 5.0f32).into_inner();
-        let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![None];
-        let result = node.process(&[], outputs.as_mut_slice(), BlockSize::new(1));
+        let mut node = ConstantNode::new_with_value(&mut id_gen, 5.0f32);
+
+        let inputs: &[Option<crate::implementations::AudioBufferMut<'_>>] = &[];
+        let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> = vec![None];
+        let result = node.process(inputs, outputs.as_mut_slice(), BlockSize::new(1));
         assert!(result.is_ok());
     }
 }

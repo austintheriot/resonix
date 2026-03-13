@@ -2,14 +2,13 @@ use core::ops::Deref;
 
 use crate::{
     errors::AudioNodeRunError,
-    implementations::{AudioBuffer, AudioBufferMut},
     primitives::{
         BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId, Priority,
         Sample,
     },
     traits::{
-        Audio, AudioBuffer as _, AudioBufferMut as _, AudioNode, DescribePorts, GenerateId,
-        GetNodeId, GetPortDescriptors, GetPriority,
+        AudioBuffer, AudioBufferMut, AudioNode, DescribePorts, GenerateId, GetNodeId,
+        GetPortDescriptors, GetPriority,
     },
 };
 
@@ -22,7 +21,7 @@ pub struct MultiplyNode {
 }
 
 impl MultiplyNode {
-    pub fn new<G: GenerateId>(id_generator: &mut G) -> Audio<Self> {
+    pub fn new<G: GenerateId>(id_generator: &mut G) -> Self {
         Self::new_with_values(id_generator, Sample::default(), Sample::default())
     }
 
@@ -30,19 +29,18 @@ impl MultiplyNode {
         id_generator: &mut G,
         left_operand: L,
         right_operand: R,
-    ) -> Audio<Self> {
+    ) -> Self {
         let node_id = NodeId::from(id_generator.generate_id());
         let left_operand_value = left_operand.into();
         let right_operand_value = right_operand.into();
         let port_descriptors = MultiplyNodePortDescriptors::new(node_id);
 
-        let multiply_node = Self {
+        Self {
             node_id,
             right_operand_value,
             left_operand_value,
             port_descriptors,
-        };
-        Audio(multiply_node)
+        }
     }
 }
 
@@ -67,10 +65,10 @@ impl GetPriority for MultiplyNode {
 }
 
 impl AudioNode for MultiplyNode {
-    fn process(
+    fn process<A: AudioBuffer, M: AudioBufferMut>(
         &mut self,
-        inputs: &[Option<AudioBuffer<'_>>],
-        outputs: &mut [Option<AudioBufferMut<'_>>],
+        inputs: &[Option<A>],
+        outputs: &mut [Option<M>],
         _block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
         let left_port_slot = **MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID;
@@ -222,13 +220,15 @@ mod tests {
         block_size: usize,
     ) -> Vec<Sample> {
         let mut out_buf = vec![Sample::default(); block_size];
-        let inputs: Vec<Option<AudioBuffer<'_>>> = vec![
-            left.map(|s| AudioBuffer::new(s, 1).unwrap()),
-            right.map(|s| AudioBuffer::new(s, 1).unwrap()),
+        let inputs: Vec<Option<crate::implementations::AudioBuffer<'_>>> = vec![
+            left.map(|s| crate::implementations::AudioBuffer::new(s, 1).unwrap()),
+            right.map(|s| crate::implementations::AudioBuffer::new(s, 1).unwrap()),
         ];
         {
-            let audio_buf_mut = AudioBufferMut::new(out_buf.as_mut_slice(), 1).unwrap();
-            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![Some(audio_buf_mut)];
+            let audio_buf_mut =
+                crate::implementations::AudioBufferMut::new(out_buf.as_mut_slice(), 1).unwrap();
+            let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> =
+                vec![Some(audio_buf_mut)];
             node.process(
                 inputs.as_slice(),
                 outputs.as_mut_slice(),
@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn multiplies_two_input_signals() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = MultiplyNode::new(&mut id_gen).into_inner();
+        let mut node = MultiplyNode::new(&mut id_gen);
         let left = [Sample::from(2.0f32)];
         let right = [Sample::from(3.0f32)];
         let result = process_multiply(&mut node, Some(&left), Some(&right), 1);
@@ -252,7 +252,7 @@ mod tests {
     #[test]
     fn defaults_to_zero_when_no_inputs_connected() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = MultiplyNode::new(&mut id_gen).into_inner();
+        let mut node = MultiplyNode::new(&mut id_gen);
         // Both held values default to 0.0, so 0.0 * 0.0 = 0.0
         let result = process_multiply(&mut node, None, None, 1);
         assert_eq!(result, vec![Sample::from(0.0f32)]);
@@ -261,7 +261,7 @@ mod tests {
     #[test]
     fn uses_initial_values_when_inputs_absent() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = MultiplyNode::new_with_values(&mut id_gen, 4.0f32, 5.0f32).into_inner();
+        let mut node = MultiplyNode::new_with_values(&mut id_gen, 4.0f32, 5.0f32);
         // No live inputs — falls back to the initial held values: 4.0 * 5.0 = 20.0
         let result = process_multiply(&mut node, None, None, 1);
         assert_eq!(result, vec![Sample::from(20.0f32)]);
@@ -270,7 +270,7 @@ mod tests {
     #[test]
     fn uses_held_value_for_missing_right_input() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = MultiplyNode::new_with_values(&mut id_gen, 1.0f32, 3.0f32).into_inner();
+        let mut node = MultiplyNode::new_with_values(&mut id_gen, 1.0f32, 3.0f32);
         let left = [Sample::from(5.0f32)];
         // right not connected — uses held initial value of 3.0; result = 5.0 * 3.0 = 15.0
         let result = process_multiply(&mut node, Some(&left), None, 1);
@@ -280,7 +280,7 @@ mod tests {
     #[test]
     fn uses_held_value_for_missing_left_input() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = MultiplyNode::new_with_values(&mut id_gen, 3.0f32, 1.0f32).into_inner();
+        let mut node = MultiplyNode::new_with_values(&mut id_gen, 3.0f32, 1.0f32);
         let right = [Sample::from(5.0f32)];
         // left not connected — uses held initial value of 3.0; result = 3.0 * 5.0 = 15.0
         let result = process_multiply(&mut node, None, Some(&right), 1);
@@ -290,7 +290,7 @@ mod tests {
     #[test]
     fn multiplies_block_element_wise() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = MultiplyNode::new(&mut id_gen).into_inner();
+        let mut node = MultiplyNode::new(&mut id_gen);
         let left = [
             Sample::from(1.0f32),
             Sample::from(2.0f32),
@@ -315,7 +315,7 @@ mod tests {
     #[test]
     fn updates_held_values_after_block() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = MultiplyNode::new(&mut id_gen).into_inner();
+        let mut node = MultiplyNode::new(&mut id_gen);
         // First block sets last-seen values to 5.0 and 7.0
         let first_left = [Sample::from(5.0f32)];
         let first_right = [Sample::from(7.0f32)];
@@ -328,14 +328,14 @@ mod tests {
     #[test]
     fn does_nothing_when_output_slot_is_not_connected() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = MultiplyNode::new(&mut id_gen).into_inner();
+        let mut node = MultiplyNode::new(&mut id_gen);
         let left = [Sample::from(5.0f32)];
         let right = [Sample::from(5.0f32)];
-        let inputs: Vec<Option<AudioBuffer<'_>>> = vec![
-            Some(AudioBuffer::new(&left, 1).unwrap()),
-            Some(AudioBuffer::new(&right, 1).unwrap()),
+        let inputs: Vec<Option<crate::implementations::AudioBuffer<'_>>> = vec![
+            Some(crate::implementations::AudioBuffer::new(&left, 1).unwrap()),
+            Some(crate::implementations::AudioBuffer::new(&right, 1).unwrap()),
         ];
-        let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![None];
+        let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> = vec![None];
         let result = node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(1));
         assert!(result.is_ok());
     }

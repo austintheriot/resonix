@@ -1,12 +1,9 @@
-use core::ops::Deref;
-
 use hashbrown::HashMap;
 
 use crate::errors::GraphAddError;
 use crate::errors::GraphConnectionError;
 use crate::errors::GraphRunError;
 use crate::primitives::ConnectionId;
-use crate::primitives::Node;
 use crate::primitives::NodeHandle;
 use crate::primitives::PortAddress;
 use crate::traits::AudioBuffer;
@@ -14,10 +11,10 @@ use crate::traits::AudioBufferMut;
 
 use crate::traits::{DescribePorts, GetPortDescriptors};
 
+use super::AudioNode;
+
 pub trait Graph {
-    /// `node` must be able to be converted into a `Node` and it must deref
-    /// to some type that implements `GetPorts`
-    fn add<P: DescribePorts, G: GetPortDescriptors<P>, N: Into<Node> + Deref<Target = G>>(
+    fn add_audio_node<P: DescribePorts, N: AudioNode + GetPortDescriptors<P> + 'static>(
         &mut self,
         node: N,
     ) -> Result<NodeHandle<P>, GraphAddError>;
