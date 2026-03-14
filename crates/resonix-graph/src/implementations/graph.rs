@@ -5,8 +5,8 @@ use crate::traits::AudioNode;
 use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
     primitives::{
-        BlockSize, ChannelledBuffer, Connection, ConnectionId, Id, NodeHandle, NodeId, PortAddress,
-        PortDescriptor, PortId, Sample,
+        BlockSize, ChannelledBuffer, Connection, ConnectionId, ExternalConnectionId, Id, NodeHandle,
+        NodeId, PortAddress, PortDescriptor, Sample,
     },
     traits::{DescribePorts, GenerateId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
@@ -26,7 +26,7 @@ use graph_item::*;
 use node::*;
 use node_connection_id_map::*;
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use hashbrown::{HashMap, HashSet};
 use petgraph::algo::tarjan_scc;
 
@@ -94,34 +94,19 @@ impl Graph {
             .insert(petgraph_index, *node_id);
     }
 
-    /// Assigns `ConnectionId`s to external ports for one direction (input or output).
+    /// Assigns `ExternalConnectionId`s to external ports for one direction (input or output).
     ///
-    /// For each port descriptor, generates a fresh `ConnectionId`, records it in
-    /// `port_address_to_connection_id_map`, fills the corresponding slot in
-    /// `connection_id_slots`, and returns an `IntMap` from `PortId` to `ConnectionId`
-    /// for use in the `NodeHandle`.
+    /// Fills `external_slots` (indexed by PortId, same length as the combined port slot array)
+    /// with `Some(ext_id)` at each external port's position.
     fn register_external_port_addresses(
         &mut self,
         port_descriptors: &[PortDescriptor],
-        connection_id_slots: &mut [Option<ConnectionId>],
-    ) -> IntMap<PortId, ConnectionId> {
-        let mut external_connection_ids: IntMap<PortId, ConnectionId> = IntMap::default();
-
+        external_slots: &mut [Option<ExternalConnectionId>],
+    ) {
         for descriptor in port_descriptors {
-            let port_address = descriptor.address;
-            let port_id = port_address.port_id();
-            let connection_id = ConnectionId::from(self.id_generator.generate_id());
-
-            external_connection_ids.insert(port_id, connection_id);
-            self.port_address_to_connection_id_map
-                .insert(port_address, connection_id);
-
-            if let Some(slot) = connection_id_slots.get_mut(**port_id) {
-                *slot = Some(connection_id);
-            }
+            let slot_index = **descriptor.address.port_id();
+            external_slots[slot_index] = Some(self.id_generator.generate_external_id());
         }
-
-        external_connection_ids
     }
 
     /// Returns the `ConnectionId` to use for a new edge leaving `start_port_address`.
@@ -176,42 +161,32 @@ impl Graph {
     /// Extracts raw buffer pointers for a single direction (inputs or outputs) of one node.
     ///
     /// Each slot in `connection_ids` maps to one port. For ports backed by pool buffers,
-    /// this extracts the `UnsafeCell`-derived pointer (SRW provenance) along with the
-    /// channel count. For external ports with no pool entry, the slot index and
-    /// `ConnectionId` are recorded in `external_slots` and the return value for that slot
-    /// is `None` — these are patched per `run` call.
+    /// this extracts the `UnsafeCell`-derived pointer (SRW provenance) along with the channel
+    /// count. External ports are not in the slot arrays (their entries are `None`), so they
+    /// naturally produce `None` here and are patched from `CompiledStep::external_*_slots`
+    /// during each `run` call.
     ///
     /// SAFETY: All returned pointers are derived from `UnsafeCell::get()` on pool buffers,
     /// giving them SRW (SharedReadWrite) provenance. See `run()` for the full safety argument.
     unsafe fn resolve_audio_buffer_pointers(
         buffer_pool: &crate::primitives::BufferPool,
         connection_ids: &[Option<ConnectionId>],
-        external_slots: &mut Vec<(usize, ConnectionId)>,
     ) -> Box<[Option<RawAudioBuffer>]> {
         connection_ids
             .iter()
-            .enumerate()
-            .map(
-                |(slot_index, connection_id_opt): (usize, &Option<ConnectionId>)| {
-                    let connection_id = connection_id_opt.as_ref()?;
-
-                    if !buffer_pool.contains_key(connection_id) {
-                        external_slots.push((slot_index, *connection_id));
-                        return None;
-                    }
-
-                    let cb: &ChannelledBuffer = buffer_pool.get(connection_id)?;
-                    // SAFETY: UnsafeCell::get() yields *mut [Sample] with SRW
-                    // (SharedReadWrite) provenance, which lives at the base of the
-                    // Stacked Borrows borrow stack and is never invalidated by Unique
-                    // retags from mutable accesses in other nodes' process() calls.
-                    let raw_ptr: *mut [Sample] = cb.data.get();
-                    Some(RawAudioBuffer {
-                        ptr: unsafe { NonNull::new_unchecked(raw_ptr) },
-                        channels: cb.channels,
-                    })
-                },
-            )
+            .map(|connection_id_opt| {
+                let connection_id = connection_id_opt.as_ref()?;
+                let cb: &ChannelledBuffer = buffer_pool.get(connection_id)?;
+                // SAFETY: UnsafeCell::get() yields *mut [Sample] with SRW
+                // (SharedReadWrite) provenance, which lives at the base of the
+                // Stacked Borrows borrow stack and is never invalidated by Unique
+                // retags from mutable accesses in other nodes' process() calls.
+                let raw_ptr: *mut [Sample] = cb.data.get();
+                Some(RawAudioBuffer {
+                    ptr: unsafe { NonNull::new_unchecked(raw_ptr) },
+                    channels: cb.channels,
+                })
+            })
             .collect()
     }
 
@@ -462,22 +437,17 @@ impl Graph {
 
                 let connection_id_map = self.node_connection_id_map.get(&NodeId::from(id))?;
 
-                let mut external_input_slots: Vec<(usize, ConnectionId)> = Vec::new();
-                let mut external_output_slots: Vec<(usize, ConnectionId)> = Vec::new();
-
                 // SAFETY: see run() for the full provenance and aliasing argument.
                 let input_ptrs = unsafe {
                     Self::resolve_audio_buffer_pointers(
                         &self.buffer_pool,
                         &connection_id_map.input_port_slots,
-                        &mut external_input_slots,
                     )
                 };
                 let output_ptrs = unsafe {
                     Self::resolve_audio_buffer_pointers(
                         &self.buffer_pool,
                         &connection_id_map.output_port_slots,
-                        &mut external_output_slots,
                     )
                 };
 
@@ -485,8 +455,8 @@ impl Graph {
                     node: node_ptr,
                     input_ptrs,
                     output_ptrs,
-                    external_output_slots: external_output_slots.into_boxed_slice(),
-                    external_input_slots: external_input_slots.into_boxed_slice(),
+                    external_output_slots: connection_id_map.external_output_slots.clone(),
+                    external_input_slots: connection_id_map.external_input_slots.clone(),
                     block_size,
                 })
             })
@@ -572,21 +542,25 @@ impl crate::traits::Graph for Graph {
             port_descriptors.external_output_ports(),
         ]);
 
-        let mut input_port_slots: Vec<Option<ConnectionId>> = Vec::with_capacity(num_input_ports);
-        input_port_slots.resize(num_input_ports, None);
-        let mut output_port_slots: Vec<Option<ConnectionId>> = Vec::with_capacity(num_output_ports);
-        output_port_slots.resize(num_output_ports, None);
+        let input_port_slots: Vec<Option<ConnectionId>> = vec![None; num_input_ports];
+        let output_port_slots: Vec<Option<ConnectionId>> = vec![None; num_output_ports];
+        let mut external_input_slots: Vec<Option<ExternalConnectionId>> = vec![None; num_input_ports];
+        let mut external_output_slots: Vec<Option<ExternalConnectionId>> = vec![None; num_output_ports];
 
-        // External ports are not wired via `connect()`, so their ConnectionIds are assigned here.
-        // The actual buffers are provided by the caller at run time.
-        let external_output_connection_ids = self.register_external_port_addresses(
+        // External ports are provided by the caller at run time; assign ExternalConnectionIds now.
+        self.register_external_port_addresses(
             port_descriptors.external_output_ports().unwrap_or(&[]),
-            &mut output_port_slots,
+            &mut external_output_slots,
         );
-        let external_input_connection_ids = self.register_external_port_addresses(
+        self.register_external_port_addresses(
             port_descriptors.external_input_ports().unwrap_or(&[]),
-            &mut input_port_slots,
+            &mut external_input_slots,
         );
+
+        let external_output_connection_ids: Box<[ExternalConnectionId]> =
+            external_output_slots.iter().filter_map(|id| *id).collect();
+        let external_input_connection_ids: Box<[ExternalConnectionId]> =
+            external_input_slots.iter().filter_map(|id| *id).collect();
 
         // Register channel counts for all port addresses so that `connect()` can validate
         // matching channel counts and `resolve_connection_for_output_port` can allocate
@@ -611,6 +585,8 @@ impl crate::traits::Graph for Graph {
             NodeConnectionIdMap {
                 input_port_slots: input_port_slots.into_boxed_slice(),
                 output_port_slots: output_port_slots.into_boxed_slice(),
+                external_input_slots: external_input_slots.into_boxed_slice(),
+                external_output_slots: external_output_slots.into_boxed_slice(),
             },
         );
 
@@ -699,8 +675,8 @@ impl crate::traits::Graph for Graph {
 
     fn run<A: crate::traits::AudioBuffer, M: crate::traits::AudioBufferMut>(
         &mut self,
-        inputs: &HashMap<ConnectionId, A>,
-        outputs: &mut HashMap<ConnectionId, M>,
+        inputs: &HashMap<ExternalConnectionId, A>,
+        outputs: &mut HashMap<ExternalConnectionId, M>,
     ) -> Result<(), GraphRunError> {
         self.ensure_compiled_plan();
 
@@ -708,27 +684,20 @@ impl crate::traits::Graph for Graph {
 
         for step in compiled_plan.iter_mut() {
             // Patch output slots whose buffers are supplied by the caller for this block.
-            for &(slot, connection_id) in step.external_output_slots.iter() {
-                step.output_ptrs[slot] =
-                    outputs
-                        .get_mut(&connection_id)
-                        .map(|audio_buffer_mut: &mut M| {
-                            let slice = audio_buffer_mut.as_slice_mut();
-                            RawAudioBuffer {
-                                ptr: NonNull::from(slice),
-                                channels: audio_buffer_mut.channels(),
-                            }
-                        });
+            for (slot, ext_id_opt) in step.external_output_slots.iter().enumerate() {
+                let Some(ext_id) = ext_id_opt else { continue };
+                step.output_ptrs[slot] = outputs.get_mut(ext_id).map(|buf: &mut M| RawAudioBuffer {
+                    ptr: NonNull::from(buf.as_slice_mut()),
+                    channels: buf.channels(),
+                });
             }
 
             // Patch input slots whose buffers are supplied by the caller for this block.
-            for &(slot, connection_id) in step.external_input_slots.iter() {
-                step.input_ptrs[slot] = inputs.get(&connection_id).map(|audio_buffer: &A| {
-                    let slice = audio_buffer.as_slice();
-                    RawAudioBuffer {
-                        ptr: NonNull::from(slice),
-                        channels: audio_buffer.channels(),
-                    }
+            for (slot, ext_id_opt) in step.external_input_slots.iter().enumerate() {
+                let Some(ext_id) = ext_id_opt else { continue };
+                step.input_ptrs[slot] = inputs.get(ext_id).map(|buf: &A| RawAudioBuffer {
+                    ptr: NonNull::from(buf.as_slice()),
+                    channels: buf.channels(),
                 });
             }
 
@@ -738,7 +707,7 @@ impl crate::traits::Graph for Graph {
             //    while `compiled_plan` is in use.  External input/output pointers come from
             //    the caller's AudioBuffer/AudioBufferMut, which are valid for the duration
             //    of `run()`.
-            // 2. No mutable aliasing on outputs: each output slot has a unique `ConnectionId`,
+            // 2. No mutable aliasing on outputs: each output slot has a unique `ExternalConnectionId`,
             //    so no two `*mut [Sample]` pointers in `output_ptrs` alias the same memory.
             // 3. Visit order enforces exclusive access: by the time a node reads a buffer as
             //    input, the upstream node that writes it has already completed its `process` call.
@@ -1498,7 +1467,7 @@ mod graph_tests {
                 AudioBuffer, AudioBufferMut, ConstantNode, Graph, MultiplyNode, OutputNode,
                 OutputNodePortDescriptors,
             },
-            primitives::{ConnectionId, Sample},
+            primitives::{ExternalConnectionId, Sample},
             traits::{AudioBuffer as _, Graph as GraphTrait},
         };
         use alloc::vec::Vec;
@@ -1509,13 +1478,11 @@ mod graph_tests {
             values.iter().map(|&v| Sample::from(v)).collect()
         }
 
-        /// Returns the single external output `ConnectionId` from an `OutputNode` handle.
+        /// Returns the single external output `ExternalConnectionId` from an `OutputNode` handle.
         macro_rules! ext_output_id {
             ($handle:expr) => {
-                *$handle
-                    .external_output_connection_ids()
-                    .get(&OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
-                    .unwrap()
+                $handle.external_output_connection_ids()
+                    [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
             };
         }
 
@@ -1524,12 +1491,10 @@ mod graph_tests {
             let mut graph = Graph::new();
             let output_node = OutputNode::new(&mut graph);
             let output_node_handle = graph.add_audio_node(output_node).unwrap();
-            let &external_output_connection_id = output_node_handle
-                .external_output_connection_ids()
-                .get(&OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
-                .unwrap();
+            let external_output_connection_id = output_node_handle.external_output_connection_ids()
+                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID];
 
-            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
+            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut output_buffer = vec![Sample::default()];
             let mut outputs = HashMap::from([(
                 external_output_connection_id,
@@ -1560,7 +1525,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
+            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut outputs: HashMap<_, AudioBufferMut<'_>> = HashMap::new();
             graph.run(&inputs, &mut outputs).unwrap();
 
@@ -1578,10 +1543,8 @@ mod graph_tests {
 
             let constant_node_handle = graph.add_audio_node(constant_node).unwrap();
             let output_node_handle = graph.add_audio_node(output_node).unwrap();
-            let &external_output_connection_id = output_node_handle
-                .external_output_connection_ids()
-                .get(&OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
-                .unwrap();
+            let external_output_connection_id = output_node_handle.external_output_connection_ids()
+                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID];
 
             graph
                 .connect(
@@ -1590,7 +1553,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
+            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut output_buffer = vec![Sample::default()];
             let mut outputs = HashMap::from([(
                 external_output_connection_id,
@@ -1607,7 +1570,7 @@ mod graph_tests {
         #[test]
         fn empty_graph_run_succeeds() {
             let mut graph = Graph::new();
-            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
+            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut outputs: HashMap<_, AudioBufferMut<'_>> = HashMap::new();
             assert!(graph.run(&inputs, &mut outputs).is_ok());
         }
@@ -1646,7 +1609,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
+            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut out_buf = vec![Sample::default()];
             let mut outputs =
                 HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
@@ -1691,7 +1654,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
+            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut out_buf_1 = vec![Sample::default()];
             let mut out_buf_2 = vec![Sample::default()];
             let mut out_buf_3 = vec![Sample::default()];
@@ -1735,7 +1698,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
+            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut out_buf = vec![Sample::default(); block_size];
             let mut outputs =
                 HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
@@ -1765,7 +1728,7 @@ mod graph_tests {
                 .unwrap();
 
             for _ in 0..3 {
-                let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
+                let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
                 let mut out_buf = vec![Sample::default()];
                 let mut outputs =
                     HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
@@ -1824,7 +1787,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
+            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut out_buf = vec![Sample::default()];
             let mut outputs =
                 HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
@@ -1854,7 +1817,7 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ConnectionId, AudioBuffer<'_>> = HashMap::new();
+            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut out_buf = vec![Sample::default()];
             let mut outputs =
                 HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
@@ -2204,14 +2167,10 @@ mod graph_tests {
                 let node = PassthroughNode::new(&mut graph);
                 let handle = graph.add_audio_node(node).unwrap();
 
-                let &ext_input_conn_id = handle
-                    .external_input_connection_ids()
-                    .get(&PassthroughPortDescriptors::EXTERNAL_INPUT_PORT_ID)
-                    .unwrap();
-                let &ext_output_conn_id = handle
-                    .external_output_connection_ids()
-                    .get(&PassthroughPortDescriptors::EXTERNAL_OUTPUT_PORT_ID)
-                    .unwrap();
+                let ext_input_conn_id = handle.external_input_connection_ids()
+                    [**PassthroughPortDescriptors::EXTERNAL_INPUT_PORT_ID];
+                let ext_output_conn_id = handle.external_output_connection_ids()
+                    [**PassthroughPortDescriptors::EXTERNAL_OUTPUT_PORT_ID];
 
                 let input_data = [
                     Sample::from(1.0f32),

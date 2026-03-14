@@ -1,8 +1,20 @@
-use crate::{primitives::Id, traits::GenerateId};
+use crate::{
+    primitives::{ExternalConnectionId, Id},
+    traits::GenerateId,
+};
 
 #[derive(Default)]
 pub(in crate::implementations::graph) struct GraphIdGenerator {
     current_node_id: usize,
+    current_external_id: usize,
+}
+
+impl GraphIdGenerator {
+    pub fn generate_external_id(&mut self) -> ExternalConnectionId {
+        let id = self.current_external_id;
+        self.current_external_id += 1;
+        ExternalConnectionId::new(id)
+    }
 }
 
 impl GenerateId for GraphIdGenerator {

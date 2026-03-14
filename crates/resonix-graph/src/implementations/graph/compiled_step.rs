@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 
 use crate::{
     implementations::{RawAudioBuffer, graph::ErasedAudioNode},
-    primitives::{BlockSize, ConnectionId},
+    primitives::{BlockSize, ExternalConnectionId},
 };
 
 /// One entry in the compiled execution plan produced by `Graph::compile`.
@@ -19,11 +19,9 @@ pub(in crate::implementations::graph) struct CompiledStep {
     /// Output buffer pointers, one per output port, sized to actual port count.
     /// Slots for external ports start as `None` and are patched per `run` call.
     pub output_ptrs: Box<[Option<RawAudioBuffer>]>,
-    /// Which output slots are external (caller-supplied) and their `ConnectionId`
-    /// so they can be looked up in the caller's output map each `run` call.
-    pub external_output_slots: Box<[(usize, ConnectionId)]>,
-    /// Which input slots are external (caller-supplied) and their `ConnectionId`
-    /// so they can be looked up in the caller's input map each `run` call.
-    pub external_input_slots: Box<[(usize, ConnectionId)]>,
+    /// Indexed by PortId. `Some(ext_id)` marks an external output slot; patched each `run` call.
+    pub external_output_slots: Box<[Option<ExternalConnectionId>]>,
+    /// Indexed by PortId. `Some(ext_id)` marks an external input slot; patched each `run` call.
+    pub external_input_slots: Box<[Option<ExternalConnectionId>]>,
     pub block_size: BlockSize,
 }

@@ -3,7 +3,7 @@ use hashbrown::HashMap;
 use crate::errors::GraphAddError;
 use crate::errors::GraphConnectionError;
 use crate::errors::GraphRunError;
-use crate::primitives::ConnectionId;
+use crate::primitives::ExternalConnectionId;
 use crate::primitives::NodeHandle;
 use crate::primitives::PortAddress;
 use crate::traits::AudioBuffer;
@@ -27,7 +27,7 @@ pub trait Graph {
 
     fn run<A: AudioBuffer, M: AudioBufferMut>(
         &mut self,
-        inputs: &HashMap<ConnectionId, A>,
-        outputs: &mut HashMap<ConnectionId, M>,
+        inputs: &HashMap<ExternalConnectionId, A>,
+        outputs: &mut HashMap<ExternalConnectionId, M>,
     ) -> Result<(), GraphRunError>;
 }
