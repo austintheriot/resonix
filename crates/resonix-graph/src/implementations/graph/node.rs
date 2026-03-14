@@ -12,7 +12,7 @@ use super::ErasedAudioNode;
 ///
 /// Does require dynamic dispatch, which is a downside, but dealing with
 /// these dynamic types otherwise would be difficult.
-pub(crate) enum Node {
+pub(in crate::implementations::graph) enum Node {
     AudioNode(Box<dyn ErasedAudioNode>),
     #[allow(dead_code)]
     ParamNode(Box<dyn ParamNode>),

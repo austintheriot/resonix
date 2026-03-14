@@ -12,7 +12,9 @@ use crate::{
 ///
 /// This allows us to just use a concrete `ArrayBuffer` and `ArrayBufferMut`
 /// internally, but allows external callers to supply their own implementations as desired.
-pub(crate) trait ErasedAudioNode: GetNodeId + GetPriority + DescribePorts {
+pub(in crate::implementations::graph) trait ErasedAudioNode:
+    GetNodeId + GetPriority + DescribePorts
+{
     fn process(
         &mut self,
         inputs: &[Option<crate::implementations::AudioBuffer<'_>>],

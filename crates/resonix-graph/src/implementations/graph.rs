@@ -1,9 +1,3 @@
-mod erased_audio_node;
-mod node;
-
-pub(crate) use erased_audio_node::*;
-pub(crate) use node::*;
-
 use core::{cell::UnsafeCell, mem::transmute, ops::Deref, ptr::NonNull};
 
 use crate::implementations::{AudioBuffer, AudioBufferMut, RawAudioBuffer};
@@ -18,67 +12,26 @@ use crate::{
     utils::{IntMap, IntSet, compare_nodes_by_priority},
 };
 
+mod compiled_step;
+mod erased_audio_node;
+mod graph_id_generator;
+mod graph_item;
+mod node;
+mod node_connection_id_map;
+
+use compiled_step::*;
+use erased_audio_node::*;
+use graph_id_generator::*;
+use graph_item::*;
+use node::*;
+use node_connection_id_map::*;
+
 use alloc::{boxed::Box, vec::Vec};
 use hashbrown::{HashMap, HashSet};
 use petgraph::algo::tarjan_scc;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
 use wasm_bindgen::prelude::wasm_bindgen;
-
-// TODO: move these implementation-specific structs into a private module
-//
-/// Per-node storage of which `ConnectionId` backs each port slot.
-/// Allocated once at `add()` time; updated during `connect()`.
-/// A `None` entry means the port is unconnected.
-struct NodeConnectionIdMap {
-    // TODO: replace with an IntMap?
-    input_port_slots: Box<[Option<ConnectionId>]>,
-    output_port_slots: Box<[Option<ConnectionId>]>,
-}
-
-/// One entry in the compiled execution plan produced by `Graph::compile`.
-///
-/// All buffer pointers are extracted once at compile time and reused across `run` calls.
-/// External output slots are re-patched from the caller's buffer map each call.
-struct CompiledStep {
-    /// Raw fat pointer into the `Box<dyn AudioNode>` heap allocation.
-    /// Stable because moving a `Box` does not move the heap data it points to.
-    node: *mut dyn ErasedAudioNode,
-    /// Input buffer pointers, one per input port, sized to actual port count.
-    /// `None` means the port is unconnected or is a self-loop.
-    input_ptrs: Box<[Option<RawAudioBuffer>]>,
-    /// Output buffer pointers, one per output port, sized to actual port count.
-    /// Slots for external ports start as `None` and are patched per `run` call.
-    output_ptrs: Box<[Option<RawAudioBuffer>]>,
-    /// Which output slots are external (caller-supplied) and their `ConnectionId`
-    /// so they can be looked up in the caller's output map each `run` call.
-    external_output_slots: Box<[(usize, ConnectionId)]>,
-    /// Which input slots are external (caller-supplied) and their `ConnectionId`
-    /// so they can be looked up in the caller's input map each `run` call.
-    external_input_slots: Box<[(usize, ConnectionId)]>,
-    block_size: BlockSize,
-}
-
-enum GraphItem {
-    Node(Node),
-
-    // TODO: add/remove this type once we know we need it
-    #[allow(dead_code)]
-    Connection(Connection),
-}
-
-#[derive(Default)]
-struct GraphIdGenerator {
-    current_node_id: usize,
-}
-
-impl GenerateId for GraphIdGenerator {
-    fn generate_id(&mut self) -> Id {
-        let current_node_id = self.current_node_id;
-        self.current_node_id += 1;
-        current_node_id.into()
-    }
-}
 
 #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 pub struct Graph {
