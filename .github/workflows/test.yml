@@ -144,4 +144,5 @@ jobs:
         run: cargo miri setup
 
       - name: Run miri
-        run: cargo miri test --all-features
+        # many-seeds helps eliminate the chance of incidental, uncaught UB
+        run: MIRIFLAGS="-Zmiri-many-seeds=0..16" cargo miri test --all-features
