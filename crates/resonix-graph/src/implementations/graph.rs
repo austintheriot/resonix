@@ -690,24 +690,18 @@ impl crate::traits::Graph for Graph {
         for step in compiled_plan.iter_mut() {
             // Patch external output slots whose buffers are supplied by the caller for this block.
             for (slot, ext_id) in step.external_output_slots.iter().enumerate() {
-                step.external_output_ptrs[slot] = outputs.get_mut(ext_id).map(|buf: &mut M|
-                        // the generic argument is not guaranteed to be in the 
+                step.external_output_ptrs[slot] =
+                // the generic argument is not guaranteed to be in the 
                         // memory layout we need, so we do a quick conversion here
-                        RawAudioBuffer {
-                        ptr: NonNull::from(buf.as_slice_mut()),
-                        channels: buf.channels(),
-                    });
+                    outputs.get_mut(ext_id).map(RawAudioBuffer::from);
             }
 
             // Patch external input slots whose buffers are supplied by the caller for this block.
             for (slot, ext_id) in step.external_input_slots.iter().enumerate() {
-                step.external_input_ptrs[slot] = inputs.get(ext_id).map(|buf: &A|
-                    // the generic argument is not guaranteed to be in the 
+                step.external_input_ptrs[slot] =
+                // the generic argument is not guaranteed to be in the 
                         // memory layout we need, so we do a quick conversion here
-                    RawAudioBuffer {
-                    ptr: NonNull::from(buf.as_slice()),
-                    channels: buf.channels(),
-                });
+                    inputs.get(ext_id).map(RawAudioBuffer::from);
             }
 
             // SAFETY:

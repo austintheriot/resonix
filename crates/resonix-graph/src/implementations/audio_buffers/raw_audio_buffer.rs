@@ -1,6 +1,7 @@
 use core::ptr::NonNull;
 
 use crate::primitives::Sample;
+use crate::traits::{AudioBuffer, AudioBufferMut};
 
 /// Internal repr(C) buffer handle used inside the compiled execution plan.
 ///
@@ -11,6 +12,27 @@ pub(crate) struct RawAudioBuffer {
     /// Fat pointer: data pointer + (block_size * channels) as the length.
     pub ptr: NonNull<[Sample]>,
     pub channels: usize,
+}
+
+/// Extracts the raw slice pointer and channel count via the trait interface.
+/// Layout compatibility is only required between `RawAudioBuffer` and the
+/// internal `AudioBuffer<'_>`/`AudioBufferMut<'_>`, guaranteed by `#[repr(C)]`.
+impl<A: AudioBuffer> From<&A> for RawAudioBuffer {
+    fn from(audio_buffer: &A) -> Self {
+        Self {
+            ptr: NonNull::from(audio_buffer.as_slice()),
+            channels: audio_buffer.channels(),
+        }
+    }
+}
+
+impl<M: AudioBufferMut> From<&mut M> for RawAudioBuffer {
+    fn from(audio_buffer_mut: &mut M) -> Self {
+        Self {
+            ptr: NonNull::from(audio_buffer_mut.as_slice_mut()),
+            channels: audio_buffer_mut.channels(),
+        }
+    }
 }
 
 #[cfg(test)]
