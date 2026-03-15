@@ -103,7 +103,7 @@ mod tests {
         let handle = NodeHandle::new(node_id, (), input_connections, empty_connection_slice());
 
         assert_eq!(
-            handle.external_input_connection_ids().get(0),
+            handle.external_input_connection_ids().first(),
             Some(&ExternalConnectionId::new(10))
         );
     }
@@ -116,7 +116,7 @@ mod tests {
         let handle = NodeHandle::new(node_id, (), empty_connection_slice(), output_connections);
 
         assert_eq!(
-            handle.external_output_connection_ids().get(0),
+            handle.external_output_connection_ids().first(),
             Some(&ExternalConnectionId::new(20))
         );
     }

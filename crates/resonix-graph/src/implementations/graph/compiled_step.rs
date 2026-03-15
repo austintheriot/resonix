@@ -19,9 +19,13 @@ pub(in crate::implementations::graph) struct CompiledStep {
     /// Output buffer pointers, one per output port, sized to actual port count.
     /// Slots for external ports start as `None` and are patched per `run` call.
     pub output_ptrs: Box<[Option<RawAudioBuffer>]>,
-    /// Indexed by PortId. `Some(ext_id)` marks an external output slot; patched each `run` call.
-    pub external_output_slots: Box<[Option<ExternalConnectionId>]>,
-    /// Indexed by PortId. `Some(ext_id)` marks an external input slot; patched each `run` call.
-    pub external_input_slots: Box<[Option<ExternalConnectionId>]>,
+    /// External input buffer pointers, one per external input port. Patched each `run` call.
+    pub external_input_ptrs: Box<[Option<RawAudioBuffer>]>,
+    /// External output buffer pointers, one per external output port. Patched each `run` call.
+    pub external_output_ptrs: Box<[Option<RawAudioBuffer>]>,
+    /// ExternalConnectionId for each external output port (indexed by external PortId).
+    pub external_output_slots: Box<[ExternalConnectionId]>,
+    /// ExternalConnectionId for each external input port (indexed by external PortId).
+    pub external_input_slots: Box<[ExternalConnectionId]>,
     pub block_size: BlockSize,
 }

@@ -9,11 +9,11 @@ use crate::primitives::PortDescriptor;
 /// This makes connecting Node ports after they have already been
 /// added to the Graph (the primary user flow) much simpler/ergonomic.
 pub trait DescribePorts {
-    fn input_ports(&self) -> Option<&[PortDescriptor]> {
+    fn internal_input_ports(&self) -> Option<&[PortDescriptor]> {
         None
     }
 
-    fn output_ports(&self) -> Option<&[PortDescriptor]> {
+    fn internal_output_ports(&self) -> Option<&[PortDescriptor]> {
         None
     }
 
@@ -36,12 +36,12 @@ impl<D: DescribePorts + ?Sized, T: Deref<Target = D>> DescribePorts for T
 where
     for<'x> D: 'x,
 {
-    fn input_ports(&self) -> Option<&[PortDescriptor]> {
-        (**self).input_ports()
+    fn internal_input_ports(&self) -> Option<&[PortDescriptor]> {
+        (**self).internal_input_ports()
     }
 
-    fn output_ports(&self) -> Option<&[PortDescriptor]> {
-        (**self).output_ports()
+    fn internal_output_ports(&self) -> Option<&[PortDescriptor]> {
+        (**self).internal_output_ports()
     }
 
     fn external_output_ports(&self) -> Option<&[PortDescriptor]> {

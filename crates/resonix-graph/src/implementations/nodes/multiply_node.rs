@@ -67,26 +67,31 @@ impl GetPriority for MultiplyNode {
 impl AudioNode for MultiplyNode {
     fn process<A: AudioBuffer, M: AudioBufferMut>(
         &mut self,
-        inputs: &[Option<A>],
-        outputs: &mut [Option<M>],
+        internal_inputs: &[Option<A>],
+        internal_outputs: &mut [Option<M>],
+        _external_inputs: &[Option<A>],
+        _external_outputs: &mut [Option<M>],
         _block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
         let left_port_slot = **MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID;
         let right_port_slot = **MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID;
         let output_port_slot = **MultiplyNodePortDescriptors::OUTPUT_PORT_ID;
 
-        let Some(output_buf) = outputs.get_mut(output_port_slot).and_then(|o| o.as_mut()) else {
+        let Some(output_buf) = internal_outputs
+            .get_mut(output_port_slot)
+            .and_then(|o| o.as_mut())
+        else {
             return Ok(());
         };
 
         // TODO: handle None case (self-reference or not connected)
-        let left_block: &[Sample] = inputs
+        let left_block: &[Sample] = internal_inputs
             .get(left_port_slot)
             .and_then(|o| o.as_ref())
             .map(|b| b.mono())
             .transpose()?
             .unwrap_or(&[]);
-        let right_block: &[Sample] = inputs
+        let right_block: &[Sample] = internal_inputs
             .get(right_port_slot)
             .and_then(|o| o.as_ref())
             .map(|b| b.mono())
@@ -192,11 +197,11 @@ impl MultiplyNodePortDescriptors {
 }
 
 impl DescribePorts for MultiplyNodePortDescriptors {
-    fn input_ports(&self) -> Option<&[PortDescriptor]> {
+    fn internal_input_ports(&self) -> Option<&[PortDescriptor]> {
         Some(&self.input_port_descriptors)
     }
 
-    fn output_ports(&self) -> Option<&[PortDescriptor]> {
+    fn internal_output_ports(&self) -> Option<&[PortDescriptor]> {
         Some(&self.output_port_descriptors)
     }
 }
@@ -232,6 +237,8 @@ mod tests {
             node.process(
                 inputs.as_slice(),
                 outputs.as_mut_slice(),
+                &[],
+                &mut [],
                 BlockSize::new(block_size),
             )
             .expect("process should not fail");
@@ -336,7 +343,13 @@ mod tests {
             Some(crate::implementations::AudioBuffer::new(&right, 1).unwrap()),
         ];
         let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> = vec![None];
-        let result = node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(1));
+        let result = node.process(
+            inputs.as_slice(),
+            outputs.as_mut_slice(),
+            &[],
+            &mut [],
+            BlockSize::new(1),
+        );
         assert!(result.is_ok());
     }
 }
