@@ -549,10 +549,9 @@ impl crate::traits::Graph for Graph {
         let num_internal_output_ports =
             Self::count_ports(&[port_descriptors.internal_output_ports()]);
 
-        // TODO: do we still need these?
+        // None for now: updated at `connect` time. Indexed by PortId
         let internal_input_port_slots: Vec<Option<ConnectionId>> =
             vec![None; num_internal_input_ports];
-        // TODO: do we still need these?
         let internal_output_port_slots: Vec<Option<ConnectionId>> =
             vec![None; num_internal_output_ports];
 
