@@ -17,10 +17,8 @@ pub(in crate::implementations::graph) trait ErasedAudioNode:
 {
     fn process<'buf>(
         &mut self,
-        internal_inputs: &[Option<crate::implementations::AudioBuffer<'buf>>],
-        internal_outputs: &mut [Option<crate::implementations::AudioBufferMut<'buf>>],
-        external_inputs: &[Option<crate::implementations::AudioBuffer<'buf>>],
-        external_outputs: &mut [Option<crate::implementations::AudioBufferMut<'buf>>],
+        inputs: &[Option<crate::implementations::AudioBuffer<'buf>>],
+        outputs: &mut [Option<crate::implementations::AudioBufferMut<'buf>>],
         block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError>;
 }
@@ -28,18 +26,10 @@ pub(in crate::implementations::graph) trait ErasedAudioNode:
 impl<T: AudioNode> ErasedAudioNode for T {
     fn process<'buf>(
         &mut self,
-        internal_inputs: &[Option<crate::implementations::AudioBuffer<'buf>>],
-        internal_outputs: &mut [Option<crate::implementations::AudioBufferMut<'buf>>],
-        external_inputs: &[Option<crate::implementations::AudioBuffer<'buf>>],
-        external_outputs: &mut [Option<crate::implementations::AudioBufferMut<'buf>>],
+        inputs: &[Option<crate::implementations::AudioBuffer<'buf>>],
+        outputs: &mut [Option<crate::implementations::AudioBufferMut<'buf>>],
         block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
-        self.process(
-            internal_inputs,
-            internal_outputs,
-            external_inputs,
-            external_outputs,
-            block_size,
-        )
+        self.process(inputs, outputs, block_size)
     }
 }

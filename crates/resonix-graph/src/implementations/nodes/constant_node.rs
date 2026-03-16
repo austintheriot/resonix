@@ -67,19 +67,14 @@ impl GetPriority for ConstantNode {
 impl AudioNode for ConstantNode {
     fn process<A: AudioBuffer, M: AudioBufferMut>(
         &mut self,
-        _internal_inputs: &[Option<A>],
-        internal_outputs: &mut [Option<M>],
-        _external_inputs: &[Option<A>],
-        _external_outputs: &mut [Option<M>],
+        _inputs: &[Option<A>],
+        outputs: &mut [Option<M>],
         _block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
         let output_port_slot = **ConstantNodePortDescriptors::OUTPUT_PORT_ID;
         let value = self.constant_value.unwrap_or_default();
 
-        let Some(output_buf) = internal_outputs
-            .get_mut(output_port_slot)
-            .and_then(|o| o.as_mut())
-        else {
+        let Some(output_buf) = outputs.get_mut(output_port_slot).and_then(|o| o.as_mut()) else {
             return Ok(());
         };
 
@@ -119,14 +114,8 @@ mod tests {
             let inputs: &[Option<crate::implementations::AudioBufferMut<'_>>] = &[];
             let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> =
                 vec![Some(audio_buf_mut)];
-            node.process(
-                inputs,
-                outputs.as_mut_slice(),
-                &[],
-                &mut [],
-                BlockSize::new(block_size),
-            )
-            .expect("process should not fail");
+            node.process(inputs, outputs.as_mut_slice(), BlockSize::new(block_size))
+                .expect("process should not fail");
         }
         buf
     }
@@ -170,13 +159,7 @@ mod tests {
 
         let inputs: &[Option<crate::implementations::AudioBufferMut<'_>>] = &[];
         let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> = vec![None];
-        let result = node.process(
-            inputs,
-            outputs.as_mut_slice(),
-            &[],
-            &mut [],
-            BlockSize::new(1),
-        );
+        let result = node.process(inputs, outputs.as_mut_slice(), BlockSize::new(1));
         assert!(result.is_ok());
     }
 }

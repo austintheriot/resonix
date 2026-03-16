@@ -96,19 +96,17 @@ impl Graph {
 
     /// Assigns `ExternalConnectionId`s to external ports for one direction (input or output).
     ///
-    /// Returns a `Box<[ExternalConnectionId]>` indexed by external PortId (0..n),
-    /// where n is the number of external ports in `port_descriptors`.
+    /// Fills `external_slots` (indexed by combined PortId, same length as the combined port slot
+    /// array) with `Some(ext_id)` at each external port's position.
     fn register_external_port_addresses(
         &mut self,
         port_descriptors: &[PortDescriptor],
-    ) -> Box<[ExternalConnectionId]> {
-        let n = port_descriptors.len();
-        let mut slots = vec![ExternalConnectionId::new(0); n];
+        external_slots: &mut [Option<ExternalConnectionId>],
+    ) {
         for descriptor in port_descriptors {
             let slot_index = **descriptor.address.port_id();
-            slots[slot_index] = self.id_generator.generate_external_id();
+            external_slots[slot_index] = Some(self.id_generator.generate_external_id());
         }
-        slots.into_boxed_slice()
     }
 
     /// Returns the `ConnectionId` to use for a new edge leaving `start_port_address`.
@@ -440,36 +438,23 @@ impl Graph {
                 let connection_id_map = self.node_connection_id_map.get(&NodeId::from(id))?;
 
                 // SAFETY: see run() for the full provenance and aliasing argument.
-                let input_ptrs = unsafe {
+                let input_buffer_ptrs = unsafe {
                     Self::resolve_audio_buffer_pointers(
                         &self.buffer_pool,
                         &connection_id_map.internal_input_port_slots,
                     )
                 };
-                let output_ptrs = unsafe {
+                let output_buffer_ptrs = unsafe {
                     Self::resolve_audio_buffer_pointers(
                         &self.buffer_pool,
                         &connection_id_map.internal_output_port_slots,
                     )
                 };
 
-                // None for now--patched at `run` time
-                let external_input_ptrs: Box<[Option<RawAudioBuffer>]> =
-                    (0..connection_id_map.external_input_slots.len())
-                        .map(|_| None)
-                        .collect();
-                // None for now--patched at `run` time
-                let external_output_ptrs: Box<[Option<RawAudioBuffer>]> =
-                    (0..connection_id_map.external_output_slots.len())
-                        .map(|_| None)
-                        .collect();
-
                 Some(CompiledStep {
                     node: node_ptr,
-                    input_ptrs,
-                    output_ptrs,
-                    external_input_ptrs,
-                    external_output_ptrs,
+                    input_buffer_ptrs,
+                    output_buffer_ptrs,
                     external_output_slots: connection_id_map.external_output_slots.clone(),
                     external_input_slots: connection_id_map.external_input_slots.clone(),
                     block_size,
@@ -534,37 +519,51 @@ impl crate::traits::Graph for Graph {
 
         let port_descriptors: P = node.get_port_descriptors();
 
-        // Enforces dense port IDs independently for internal & external ports, so that slice
-        // lengths equal actual port counts.
-        Self::validate_dense_port_ids(&[port_descriptors.internal_input_ports()])?;
-        Self::validate_dense_port_ids(&[port_descriptors.internal_output_ports()])?;
-        Self::validate_dense_port_ids(&[port_descriptors.external_input_ports()])?;
-        Self::validate_dense_port_ids(&[port_descriptors.external_output_ports()])?;
+        // Enforce dense port IDs so that slice lengths equal actual port counts.
+        // Internal and external ports share a namespace within each direction.
+        Self::validate_dense_port_ids(&[
+            port_descriptors.internal_input_ports(),
+            port_descriptors.external_input_ports(),
+        ])?;
+        Self::validate_dense_port_ids(&[
+            port_descriptors.internal_output_ports(),
+            port_descriptors.external_output_ports(),
+        ])?;
 
         let node_id = NodeId::from(node.node_id());
 
-        // Pre-allocate internal slot arrays; external slots are built by registration below.
-        let num_internal_input_ports =
-            Self::count_ports(&[port_descriptors.internal_input_ports()]);
-        let num_internal_output_ports =
-            Self::count_ports(&[port_descriptors.internal_output_ports()]);
+        // Pre-allocate slot arrays (internal + external ports share a namespace).
+        let num_input_ports = Self::count_ports(&[
+            port_descriptors.internal_input_ports(),
+            port_descriptors.external_input_ports(),
+        ]);
+        let num_output_ports = Self::count_ports(&[
+            port_descriptors.internal_output_ports(),
+            port_descriptors.external_output_ports(),
+        ]);
 
-        // None for now: updated at `connect` time. Indexed by PortId
-        let internal_input_port_slots: Vec<Option<ConnectionId>> =
-            vec![None; num_internal_input_ports];
-        let internal_output_port_slots: Vec<Option<ConnectionId>> =
-            vec![None; num_internal_output_ports];
+        // None for now: updated at `connect` time. Indexed by combined PortId.
+        let internal_input_port_slots: Vec<Option<ConnectionId>> = vec![None; num_input_ports];
+        let internal_output_port_slots: Vec<Option<ConnectionId>> = vec![None; num_output_ports];
+        let mut external_input_slots: Vec<Option<ExternalConnectionId>> =
+            vec![None; num_input_ports];
+        let mut external_output_slots: Vec<Option<ExternalConnectionId>> =
+            vec![None; num_output_ports];
 
         // External ports are provided by the caller at run time; assign ExternalConnectionIds now.
-        let external_output_slots = self.register_external_port_addresses(
+        self.register_external_port_addresses(
             port_descriptors.external_output_ports().unwrap_or(&[]),
+            &mut external_output_slots,
         );
-        let external_input_slots = self.register_external_port_addresses(
+        self.register_external_port_addresses(
             port_descriptors.external_input_ports().unwrap_or(&[]),
+            &mut external_input_slots,
         );
 
-        let external_output_connection_ids = external_output_slots.clone();
-        let external_input_connection_ids = external_input_slots.clone();
+        let external_output_connection_ids: Box<[ExternalConnectionId]> =
+            external_output_slots.iter().filter_map(|id| *id).collect();
+        let external_input_connection_ids: Box<[ExternalConnectionId]> =
+            external_input_slots.iter().filter_map(|id| *id).collect();
 
         // Register channel counts for all port addresses so that `connect()` can validate
         // matching channel counts and `resolve_connection_for_output_port` can allocate
@@ -589,8 +588,8 @@ impl crate::traits::Graph for Graph {
             NodeConnectionIdMap {
                 internal_input_port_slots: internal_input_port_slots.into_boxed_slice(),
                 internal_output_port_slots: internal_output_port_slots.into_boxed_slice(),
-                external_input_slots,
-                external_output_slots,
+                external_input_slots: external_input_slots.into_boxed_slice(),
+                external_output_slots: external_output_slots.into_boxed_slice(),
             },
         );
 
@@ -687,19 +686,21 @@ impl crate::traits::Graph for Graph {
         let compiled_plan = self.compiled_plan.as_mut().unwrap();
 
         for step in compiled_plan.iter_mut() {
-            // Patch external output slots whose buffers are supplied by the caller for this block.
-            for (slot, ext_id) in step.external_output_slots.iter().enumerate() {
-                step.external_output_ptrs[slot] =
-                // the generic argument is not guaranteed to be in the 
-                        // memory layout we need, so we do a quick conversion here
+            // Patch output slots whose buffers are supplied by the caller for this block.
+            for (slot, ext_id_opt) in step.external_output_slots.iter().enumerate() {
+                let Some(ext_id) = ext_id_opt else { continue };
+                step.output_buffer_ptrs[slot] =
+                    // the generic argument is not guaranteed to be in the
+                    // memory layout we need, so we do a quick conversion here
                     outputs.get_mut(ext_id).map(RawAudioBuffer::from);
             }
 
-            // Patch external input slots whose buffers are supplied by the caller for this block.
-            for (slot, ext_id) in step.external_input_slots.iter().enumerate() {
-                step.external_input_ptrs[slot] =
-                // the generic argument is not guaranteed to be in the 
-                        // memory layout we need, so we do a quick conversion here
+            // Patch input slots whose buffers are supplied by the caller for this block.
+            for (slot, ext_id_opt) in step.external_input_slots.iter().enumerate() {
+                let Some(ext_id) = ext_id_opt else { continue };
+                step.input_buffer_ptrs[slot] =
+                    // the generic argument is not guaranteed to be in the
+                    // memory layout we need, so we do a quick conversion here
                     inputs.get(ext_id).map(RawAudioBuffer::from);
             }
 
@@ -710,7 +711,7 @@ impl crate::traits::Graph for Graph {
             //    the caller's AudioBuffer/AudioBufferMut, which are valid for the duration
             //    of `run()`.
             // 2. No mutable aliasing on outputs: each output slot has a unique `ConnectionId` or
-            //    `ExternalConnectionId`. No two `*mut [Sample]` pointers in `internal_output_ptrs` alias the same memory.
+            //    `ExternalConnectionId`. No two `*mut [Sample]` pointers in `output_ptrs` alias the same memory.
             // 3. Visit order enforces exclusive access: by the time a node reads a buffer as
             //    input, the upstream node that writes it has already completed its `process` call.
             // 4. Stacked Borrows / pointer provenance: all pool buffer pointers are derived from
@@ -723,28 +724,16 @@ impl crate::traits::Graph for Graph {
             //    PhantomData being zero-sized and last. Option<RawAudioBuffer> uses the same
             //    null-pointer niche as Option<AudioBuffer<'_>>. The transmute is valid.
             let input_buffers: &[Option<AudioBuffer<'_>>] =
-                unsafe { transmute(step.input_ptrs.as_ref()) };
+                unsafe { transmute(step.input_buffer_ptrs.as_ref()) };
             let output_buffers: &mut [Option<AudioBufferMut<'_>>] =
-                unsafe { transmute(step.output_ptrs.as_mut()) };
-            let external_input_buffers: &[Option<AudioBuffer<'_>>] =
-                unsafe { transmute(step.external_input_ptrs.as_ref()) };
-            let external_output_buffers: &mut [Option<AudioBufferMut<'_>>] =
-                unsafe { transmute(step.external_output_ptrs.as_mut()) };
+                unsafe { transmute(step.output_buffer_ptrs.as_mut()) };
 
             // SAFETY: `step.node` points into the heap allocation of a `Box<dyn AudioNode>`
             // stored in `self.graph_items`. Moving the `Box` (e.g. on IntMap rehash) does not
             // move the heap data, so the pointer remains valid. No topology modification
             // (add/connect/disconnect/remove) can occur concurrently with `run()`.
-            unsafe {
-                (&mut *step.node).process(
-                    input_buffers,
-                    output_buffers,
-                    external_input_buffers,
-                    external_output_buffers,
-                    step.block_size,
-                )
-            }
-            .map_err(GraphRunError::AudioNodeRunError)?;
+            unsafe { (&mut *step.node).process(input_buffers, output_buffers, step.block_size) }
+                .map_err(GraphRunError::AudioNodeRunError)?;
         }
 
         Ok(())
@@ -1919,10 +1908,8 @@ mod graph_tests {
             impl AudioNode for MonoOutputNode {
                 fn process<A: crate::traits::AudioBuffer, M: crate::traits::AudioBufferMut>(
                     &mut self,
-                    _internal_inputs: &[Option<A>],
-                    _internal_outputs: &mut [Option<M>],
-                    _external_inputs: &[Option<A>],
-                    _external_outputs: &mut [Option<M>],
+                    _inputs: &[Option<A>],
+                    _outputs: &mut [Option<M>],
                     _block_size: BlockSize,
                 ) -> Result<(), AudioNodeRunError> {
                     Ok(())
@@ -1993,10 +1980,8 @@ mod graph_tests {
             impl AudioNode for StereoInputNode {
                 fn process<A: crate::traits::AudioBuffer, M: crate::traits::AudioBufferMut>(
                     &mut self,
-                    _internal_inputs: &[Option<A>],
-                    _internal_outputs: &mut [Option<M>],
-                    _external_inputs: &[Option<A>],
-                    _external_outputs: &mut [Option<M>],
+                    _inputs: &[Option<A>],
+                    _outputs: &mut [Option<M>],
                     _block_size: BlockSize,
                 ) -> Result<(), AudioNodeRunError> {
                     Ok(())
@@ -2106,16 +2091,14 @@ mod graph_tests {
             impl AudioNode for PassthroughNode {
                 fn process<A: crate::traits::AudioBuffer, M: crate::traits::AudioBufferMut>(
                     &mut self,
-                    _internal_inputs: &[Option<A>],
-                    _internal_outputs: &mut [Option<M>],
-                    external_inputs: &[Option<A>],
-                    external_outputs: &mut [Option<M>],
+                    inputs: &[Option<A>],
+                    outputs: &mut [Option<M>],
                     _block_size: BlockSize,
                 ) -> Result<(), AudioNodeRunError> {
-                    let Some(out_buf) = external_outputs.get_mut(0).and_then(|o| o.as_mut()) else {
+                    let Some(out_buf) = outputs.get_mut(0).and_then(|o| o.as_mut()) else {
                         return Ok(());
                     };
-                    let input_block: &[Sample] = external_inputs
+                    let input_block: &[Sample] = inputs
                         .first()
                         .and_then(|o| o.as_ref())
                         .map(|b| b.mono())

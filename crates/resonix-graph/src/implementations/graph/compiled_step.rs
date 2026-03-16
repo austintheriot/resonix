@@ -13,19 +13,17 @@ pub(in crate::implementations::graph) struct CompiledStep {
     /// Raw fat pointer into the `Box<dyn AudioNode>` heap allocation.
     /// Stable because moving a `Box` does not move the heap data it points to.
     pub node: *mut dyn ErasedAudioNode,
-    /// Input buffer pointers, one per input port, sized to actual port count.
-    /// `None` means the port is unconnected or is a self-loop.
-    pub input_ptrs: Box<[Option<RawAudioBuffer>]>,
-    /// Output buffer pointers, one per output port, sized to actual port count.
-    /// Slots for external ports start as `None` and are patched per `run` call.
-    pub output_ptrs: Box<[Option<RawAudioBuffer>]>,
-    /// External input buffer pointers, one per external input port. Patched each `run` call.
-    pub external_input_ptrs: Box<[Option<RawAudioBuffer>]>,
-    /// External output buffer pointers, one per external output port. Patched each `run` call.
-    pub external_output_ptrs: Box<[Option<RawAudioBuffer>]>,
-    /// ExternalConnectionId for each external output port (indexed by external PortId).
-    pub external_output_slots: Box<[ExternalConnectionId]>,
-    /// ExternalConnectionId for each external input port (indexed by external PortId).
-    pub external_input_slots: Box<[ExternalConnectionId]>,
+    /// Input buffer pointers, one per input port (internal + external), indexed by PortId.
+    /// Internal ports are backed by pool buffers and set at `connect` time.
+    /// External port slots start as `None` and are patched from the caller's buffer map on each `run` call.
+    pub input_buffer_ptrs: Box<[Option<RawAudioBuffer>]>,
+    /// Output buffer pointers, one per output port (internal + external), indexed by PortId.
+    /// Internal ports are backed by pool buffers and set at `connect` time.
+    /// External port slots start as `None` and are patched from the caller's buffer map on each `run` call.
+    pub output_buffer_ptrs: Box<[Option<RawAudioBuffer>]>,
+    /// Indexed by PortId. `Some(ext_id)` marks an external output slot; patched each `run` call.
+    pub external_output_slots: Box<[Option<ExternalConnectionId>]>,
+    /// Indexed by PortId. `Some(ext_id)` marks an external input slot; patched each `run` call.
+    pub external_input_slots: Box<[Option<ExternalConnectionId>]>,
     pub block_size: BlockSize,
 }

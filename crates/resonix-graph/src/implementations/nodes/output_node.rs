@@ -53,24 +53,19 @@ impl GetPriority for OutputNode {
 impl AudioNode for OutputNode {
     fn process<A: AudioBuffer, M: AudioBufferMut>(
         &mut self,
-        internal_inputs: &[Option<A>],
-        _internal_outputs: &mut [Option<M>],
-        _external_inputs: &[Option<A>],
-        external_outputs: &mut [Option<M>],
+        inputs: &[Option<A>],
+        outputs: &mut [Option<M>],
         _block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
         let input_port_slot = **OutputNodePortDescriptors::INPUT_PORT_ID;
         let output_port_slot = **OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID;
 
-        let Some(output_buf) = external_outputs
-            .get_mut(output_port_slot)
-            .and_then(|o| o.as_mut())
-        else {
+        let Some(output_buf) = outputs.get_mut(output_port_slot).and_then(|o| o.as_mut()) else {
             return Ok(());
         };
 
         // TODO: handle None case (self-reference)
-        let input_block: &[Sample] = internal_inputs
+        let input_block: &[Sample] = inputs
             .get(input_port_slot)
             .and_then(|o| o.as_ref())
             .map(|b| b.mono())
@@ -110,19 +105,17 @@ mod tests {
     /// Runs `node.process()` with the given input and returns the output buffer contents.
     fn process_output(node: &mut OutputNode, input: &[Sample], block_size: usize) -> Vec<Sample> {
         let mut out_buf = vec![Sample::default(); block_size];
-        let internal_inputs: Vec<Option<crate::implementations::AudioBuffer<'_>>> = vec![Some(
+        let inputs: Vec<Option<crate::implementations::AudioBuffer<'_>>> = vec![Some(
             crate::implementations::AudioBuffer::new(input, 1).unwrap(),
         )];
         {
             let audio_buf_mut =
                 crate::implementations::AudioBufferMut::new(out_buf.as_mut_slice(), 1).unwrap();
-            let mut external_outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> =
+            let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> =
                 vec![Some(audio_buf_mut)];
             node.process(
-                internal_inputs.as_slice(),
-                &mut [],
-                &[],
-                external_outputs.as_mut_slice(),
+                inputs.as_slice(),
+                outputs.as_mut_slice(),
                 BlockSize::new(block_size),
             )
             .expect("process should not fail");
@@ -169,15 +162,8 @@ mod tests {
         let inputs: Vec<Option<crate::implementations::AudioBuffer<'_>>> = vec![Some(
             crate::implementations::AudioBuffer::new(input.as_slice(), 1).unwrap(),
         )];
-        let mut external_outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> =
-            vec![None];
-        let result = node.process(
-            inputs.as_slice(),
-            &mut [],
-            &[],
-            external_outputs.as_mut_slice(),
-            BlockSize::new(1),
-        );
+        let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> = vec![None];
+        let result = node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(1));
         assert!(result.is_ok());
     }
 
