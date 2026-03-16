@@ -13,18 +13,20 @@ use super::NodeId;
 pub struct NodeHandle<PortDescriptor> {
     pub(crate) node_id: NodeId,
     pub(crate) port_descriptors: PortDescriptor,
-    /// Indexed by `PortId`s, which are densely packed for external connections
-    pub(crate) external_input_connection_ids: Box<[ExternalConnectionId]>,
-    /// Indexed by `PortId`s, which are densely packed for external connections
-    pub(crate) external_output_connection_ids: Box<[ExternalConnectionId]>,
+    /// Indexed by the combined input-direction `PortId` (same namespace as `input_ports()`).
+    /// `Some(id)` at external input port positions, `None` at internal input port positions.
+    pub(crate) external_input_connection_ids: Box<[Option<ExternalConnectionId>]>,
+    /// Indexed by the combined output-direction `PortId` (same namespace as `output_ports()`).
+    /// `Some(id)` at external output port positions, `None` at internal output port positions.
+    pub(crate) external_output_connection_ids: Box<[Option<ExternalConnectionId>]>,
 }
 
 impl<PortDescriptors> NodeHandle<PortDescriptors> {
     pub fn new(
         node_id: NodeId,
         port_descriptors: PortDescriptors,
-        external_input_connection_ids: Box<[ExternalConnectionId]>,
-        external_output_connection_ids: Box<[ExternalConnectionId]>,
+        external_input_connection_ids: Box<[Option<ExternalConnectionId>]>,
+        external_output_connection_ids: Box<[Option<ExternalConnectionId>]>,
     ) -> Self {
         Self {
             node_id,
@@ -34,11 +36,11 @@ impl<PortDescriptors> NodeHandle<PortDescriptors> {
         }
     }
 
-    pub fn external_input_connection_ids(&self) -> &[ExternalConnectionId] {
+    pub fn external_input_connection_ids(&self) -> &[Option<ExternalConnectionId>] {
         &self.external_input_connection_ids
     }
 
-    pub fn external_output_connection_ids(&self) -> &[ExternalConnectionId] {
+    pub fn external_output_connection_ids(&self) -> &[Option<ExternalConnectionId>] {
         &self.external_output_connection_ids
     }
 }
@@ -63,7 +65,7 @@ mod tests {
 
     use alloc::boxed::Box;
 
-    fn empty_connection_slice() -> Box<[ExternalConnectionId]> {
+    fn empty_connection_slice() -> Box<[Option<ExternalConnectionId>]> {
         Box::new([])
     }
 
@@ -98,26 +100,26 @@ mod tests {
     #[test]
     fn external_input_connection_ids_returns_the_map_provided_at_construction() {
         let node_id = NodeId::new(0);
-        let input_connections = Box::new([ExternalConnectionId::new(10)]);
+        let input_connections = Box::new([Some(ExternalConnectionId::new(10))]);
 
         let handle = NodeHandle::new(node_id, (), input_connections, empty_connection_slice());
 
         assert_eq!(
             handle.external_input_connection_ids().first(),
-            Some(&ExternalConnectionId::new(10))
+            Some(&Some(ExternalConnectionId::new(10)))
         );
     }
 
     #[test]
     fn external_output_connection_ids_returns_the_map_provided_at_construction() {
         let node_id = NodeId::new(0);
-        let output_connections = Box::new([ExternalConnectionId::new(20)]);
+        let output_connections = Box::new([Some(ExternalConnectionId::new(20))]);
 
         let handle = NodeHandle::new(node_id, (), empty_connection_slice(), output_connections);
 
         assert_eq!(
             handle.external_output_connection_ids().first(),
-            Some(&ExternalConnectionId::new(20))
+            Some(&Some(ExternalConnectionId::new(20)))
         );
     }
 }

@@ -6,7 +6,7 @@ use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
     primitives::{
         BlockSize, ChannelledBuffer, Connection, ConnectionId, ExternalConnectionId, Id,
-        NodeHandle, NodeId, PortAddress, PortDescriptor, Sample,
+        NodeHandle, NodeId, PortAddress, PortAddressDirection, PortDescriptor, Sample,
     },
     traits::{DescribePorts, GenerateId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
@@ -94,16 +94,23 @@ impl Graph {
             .insert(petgraph_index, *node_id);
     }
 
-    /// Assigns `ExternalConnectionId`s to external ports for one direction (input or output).
+    /// Assigns `ExternalConnectionId`s to external ports within a combined port direction slice.
     ///
-    /// Fills `external_slots` (indexed by combined PortId, same length as the combined port slot
-    /// array) with `Some(ext_id)` at each external port's position.
+    /// Iterates all `port_descriptors` and fills `external_slots` (indexed by combined PortId,
+    /// same length as the combined port slot array) with `Some(ext_id)` at each position whose
+    /// address direction is `ExternalInput` or `ExternalOutput`. Internal ports are skipped.
     fn register_external_port_addresses(
         &mut self,
         port_descriptors: &[PortDescriptor],
         external_slots: &mut [Option<ExternalConnectionId>],
     ) {
         for descriptor in port_descriptors {
+            if !matches!(
+                descriptor.address.port_address_direction(),
+                PortAddressDirection::ExternalInput | PortAddressDirection::ExternalOutput,
+            ) {
+                continue;
+            }
             let slot_index = **descriptor.address.port_id();
             external_slots[slot_index] = Some(self.id_generator.generate_external_id());
         }
@@ -146,7 +153,7 @@ impl Graph {
         let start_node_id = start_port_address.node_id();
         if let Some(port_map) = self.node_connection_id_map.get_mut(&start_node_id)
             && let Some(slot) = port_map
-                .internal_output_port_slots
+                .output_port_slots
                 .get_mut(**start_port_address.port_id())
         {
             *slot = Some(connection_id);
@@ -441,13 +448,13 @@ impl Graph {
                 let input_buffer_ptrs = unsafe {
                     Self::resolve_audio_buffer_pointers(
                         &self.buffer_pool,
-                        &connection_id_map.internal_input_port_slots,
+                        &connection_id_map.input_port_slots,
                     )
                 };
                 let output_buffer_ptrs = unsafe {
                     Self::resolve_audio_buffer_pointers(
                         &self.buffer_pool,
-                        &connection_id_map.internal_output_port_slots,
+                        &connection_id_map.output_port_slots,
                     )
                 };
 
@@ -520,59 +527,42 @@ impl crate::traits::Graph for Graph {
         let port_descriptors: P = node.get_port_descriptors();
 
         // Enforce dense port IDs so that slice lengths equal actual port counts.
-        // Internal and external ports share a namespace within each direction.
-        Self::validate_dense_port_ids(&[
-            port_descriptors.internal_input_ports(),
-            port_descriptors.external_input_ports(),
-        ])?;
-        Self::validate_dense_port_ids(&[
-            port_descriptors.internal_output_ports(),
-            port_descriptors.external_output_ports(),
-        ])?;
+        // All inputs share one PortId namespace; all outputs share another.
+        Self::validate_dense_port_ids(&[port_descriptors.input_ports()])?;
+        Self::validate_dense_port_ids(&[port_descriptors.output_ports()])?;
 
         let node_id = NodeId::from(node.node_id());
 
-        // Pre-allocate slot arrays (internal + external ports share a namespace).
-        let num_input_ports = Self::count_ports(&[
-            port_descriptors.internal_input_ports(),
-            port_descriptors.external_input_ports(),
-        ]);
-        let num_output_ports = Self::count_ports(&[
-            port_descriptors.internal_output_ports(),
-            port_descriptors.external_output_ports(),
-        ]);
+        // Pre-allocate slot arrays indexed by PortId.
+        let num_input_ports = Self::count_ports(&[port_descriptors.input_ports()]);
+        let num_output_ports = Self::count_ports(&[port_descriptors.output_ports()]);
 
-        // None for now: updated at `connect` time. Indexed by combined PortId.
-        let internal_input_port_slots: Vec<Option<ConnectionId>> = vec![None; num_input_ports];
-        let internal_output_port_slots: Vec<Option<ConnectionId>> = vec![None; num_output_ports];
+        // None for now: updated at `connect` time. Indexed by PortId.
+        let input_port_slots: Vec<Option<ConnectionId>> = vec![None; num_input_ports];
+        let output_port_slots: Vec<Option<ConnectionId>> = vec![None; num_output_ports];
         let mut external_input_slots: Vec<Option<ExternalConnectionId>> =
             vec![None; num_input_ports];
         let mut external_output_slots: Vec<Option<ExternalConnectionId>> =
             vec![None; num_output_ports];
 
         // External ports are provided by the caller at run time; assign ExternalConnectionIds now.
+        // `register_external_port_addresses` inspects each descriptor's direction and only fills
+        // slots for ExternalInput/ExternalOutput ports.
         self.register_external_port_addresses(
-            port_descriptors.external_output_ports().unwrap_or(&[]),
+            port_descriptors.output_ports().unwrap_or(&[]),
             &mut external_output_slots,
         );
         self.register_external_port_addresses(
-            port_descriptors.external_input_ports().unwrap_or(&[]),
+            port_descriptors.input_ports().unwrap_or(&[]),
             &mut external_input_slots,
         );
-
-        let external_output_connection_ids: Box<[ExternalConnectionId]> =
-            external_output_slots.iter().filter_map(|id| *id).collect();
-        let external_input_connection_ids: Box<[ExternalConnectionId]> =
-            external_input_slots.iter().filter_map(|id| *id).collect();
 
         // Register channel counts for all port addresses so that `connect()` can validate
         // matching channel counts and `resolve_connection_for_output_port` can allocate
         // correctly-sized pool buffers.
         for descriptors in [
-            port_descriptors.internal_input_ports(),
-            port_descriptors.internal_output_ports(),
-            port_descriptors.external_output_ports(),
-            port_descriptors.external_input_ports(),
+            port_descriptors.input_ports(),
+            port_descriptors.output_ports(),
         ]
         .into_iter()
         .flatten()
@@ -586,8 +576,8 @@ impl crate::traits::Graph for Graph {
         self.node_connection_id_map.insert(
             node_id,
             NodeConnectionIdMap {
-                internal_input_port_slots: internal_input_port_slots.into_boxed_slice(),
-                internal_output_port_slots: internal_output_port_slots.into_boxed_slice(),
+                input_port_slots: input_port_slots.into_boxed_slice(),
+                output_port_slots: output_port_slots.into_boxed_slice(),
                 external_input_slots: external_input_slots.into_boxed_slice(),
                 external_output_slots: external_output_slots.into_boxed_slice(),
             },
@@ -596,8 +586,12 @@ impl crate::traits::Graph for Graph {
         let node_handle = NodeHandle::new(
             node_id,
             port_descriptors,
-            external_input_connection_ids,
-            external_output_connection_ids,
+            self.node_connection_id_map[&node_id]
+                .external_input_slots
+                .clone(),
+            self.node_connection_id_map[&node_id]
+                .external_output_slots
+                .clone(),
         );
 
         self.graph_items.insert(
@@ -657,7 +651,7 @@ impl crate::traits::Graph for Graph {
         let end_node_id = end_port_address.node_id();
         if let Some(port_map) = self.node_connection_id_map.get_mut(&end_node_id)
             && let Some(slot) = port_map
-                .internal_input_port_slots
+                .input_port_slots
                 .get_mut(**end_port_address.port_id())
         {
             *slot = Some(connection_id);
@@ -1486,6 +1480,7 @@ mod graph_tests {
             ($handle:expr) => {
                 $handle.external_output_connection_ids()
                     [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                    .unwrap()
             };
         }
 
@@ -1495,7 +1490,8 @@ mod graph_tests {
             let output_node = OutputNode::new(&mut graph);
             let output_node_handle = graph.add_audio_node(output_node).unwrap();
             let external_output_connection_id = output_node_handle.external_output_connection_ids()
-                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID];
+                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                .unwrap();
 
             let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut output_buffer = vec![Sample::default()];
@@ -1547,7 +1543,8 @@ mod graph_tests {
             let constant_node_handle = graph.add_audio_node(constant_node).unwrap();
             let output_node_handle = graph.add_audio_node(output_node).unwrap();
             let external_output_connection_id = output_node_handle.external_output_connection_ids()
-                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID];
+                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                .unwrap();
 
             graph
                 .connect(
@@ -1890,7 +1887,7 @@ mod graph_tests {
                 }
             }
             impl DescribePorts for MonoOutputDescriptors {
-                fn internal_output_ports(&self) -> Option<&[PortDescriptor]> {
+                fn output_ports(&self) -> Option<&[PortDescriptor]> {
                     Some(&self.output)
                 }
             }
@@ -1962,7 +1959,7 @@ mod graph_tests {
                 }
             }
             impl DescribePorts for StereoInputDescriptors {
-                fn internal_input_ports(&self) -> Option<&[PortDescriptor]> {
+                fn input_ports(&self) -> Option<&[PortDescriptor]> {
                     Some(&self.input)
                 }
             }
@@ -2145,11 +2142,11 @@ mod graph_tests {
             }
 
             impl DescribePorts for PassthroughPortDescriptors {
-                fn external_input_ports(&self) -> Option<&[PortDescriptor]> {
+                fn input_ports(&self) -> Option<&[PortDescriptor]> {
                     Some(&self.external_input)
                 }
 
-                fn external_output_ports(&self) -> Option<&[PortDescriptor]> {
+                fn output_ports(&self) -> Option<&[PortDescriptor]> {
                     Some(&self.external_output)
                 }
             }
@@ -2171,9 +2168,11 @@ mod graph_tests {
                 let handle = graph.add_audio_node(node).unwrap();
 
                 let ext_input_conn_id = handle.external_input_connection_ids()
-                    [**PassthroughPortDescriptors::EXTERNAL_INPUT_PORT_ID];
+                    [**PassthroughPortDescriptors::EXTERNAL_INPUT_PORT_ID]
+                    .unwrap();
                 let ext_output_conn_id = handle.external_output_connection_ids()
-                    [**PassthroughPortDescriptors::EXTERNAL_OUTPUT_PORT_ID];
+                    [**PassthroughPortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                    .unwrap();
 
                 let input_data = [
                     Sample::from(1.0f32),

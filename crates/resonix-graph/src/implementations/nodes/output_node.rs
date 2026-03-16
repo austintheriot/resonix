@@ -194,11 +194,11 @@ pub struct OutputNodePortDescriptors {
 }
 
 impl DescribePorts for OutputNodePortDescriptors {
-    fn internal_input_ports(&self) -> Option<&[PortDescriptor]> {
+    fn input_ports(&self) -> Option<&[PortDescriptor]> {
         Some(&self.input_port_descriptors)
     }
 
-    fn external_output_ports(&self) -> Option<&[PortDescriptor]> {
+    fn output_ports(&self) -> Option<&[PortDescriptor]> {
         Some(&self.external_port_descriptors)
     }
 }

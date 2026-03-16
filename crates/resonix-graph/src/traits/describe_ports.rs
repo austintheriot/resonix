@@ -8,20 +8,29 @@ use crate::primitives::PortDescriptor;
 ///
 /// This makes connecting Node ports after they have already been
 /// added to the Graph (the primary user flow) much simpler/ergonomic.
+///
+/// # PortId invariants
+///
+/// All ports within the **input** direction — regardless of whether they are
+/// internal (pool-backed, `PortAddressDirection::Input`) or external
+/// (caller-supplied, `PortAddressDirection::ExternalInput`) — must share a
+/// single, dense, monotonically increasing `PortId` namespace starting at 0.
+/// Concretely, if a node has N input ports their PortIds must be exactly 0..N.
+///
+/// The same rule applies independently to the **output** direction: all output
+/// ports (internal `Output` and external `ExternalOutput`) must use PortIds 0..M
+/// where M is the total number of output ports.
+///
+/// The graph uses these PortIds as direct slice indices, so gaps or duplicates
+/// will cause incorrect behaviour or a `GraphAddError::SparsePortIds` at add-time.
+/// Whether a port is internal or external is determined at call sites by
+/// inspecting `PortDescriptor::address.port_address_direction()`.
 pub trait DescribePorts {
-    fn internal_input_ports(&self) -> Option<&[PortDescriptor]> {
+    fn input_ports(&self) -> Option<&[PortDescriptor]> {
         None
     }
 
-    fn internal_output_ports(&self) -> Option<&[PortDescriptor]> {
-        None
-    }
-
-    fn external_output_ports(&self) -> Option<&[PortDescriptor]> {
-        None
-    }
-
-    fn external_input_ports(&self) -> Option<&[PortDescriptor]> {
+    fn output_ports(&self) -> Option<&[PortDescriptor]> {
         None
     }
 }
@@ -36,19 +45,11 @@ impl<D: DescribePorts + ?Sized, T: Deref<Target = D>> DescribePorts for T
 where
     for<'x> D: 'x,
 {
-    fn internal_input_ports(&self) -> Option<&[PortDescriptor]> {
-        (**self).internal_input_ports()
+    fn input_ports(&self) -> Option<&[PortDescriptor]> {
+        (**self).input_ports()
     }
 
-    fn internal_output_ports(&self) -> Option<&[PortDescriptor]> {
-        (**self).internal_output_ports()
-    }
-
-    fn external_output_ports(&self) -> Option<&[PortDescriptor]> {
-        (**self).external_output_ports()
-    }
-
-    fn external_input_ports(&self) -> Option<&[PortDescriptor]> {
-        (**self).external_input_ports()
+    fn output_ports(&self) -> Option<&[PortDescriptor]> {
+        (**self).output_ports()
     }
 }

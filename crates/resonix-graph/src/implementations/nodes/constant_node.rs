@@ -188,11 +188,11 @@ impl ConstantNodePortDescriptors {
 }
 
 impl DescribePorts for ConstantNodePortDescriptors {
-    fn internal_input_ports(&self) -> Option<&[PortDescriptor]> {
+    fn input_ports(&self) -> Option<&[PortDescriptor]> {
         Some(&self.input_port_descriptors)
     }
 
-    fn internal_output_ports(&self) -> Option<&[PortDescriptor]> {
+    fn output_ports(&self) -> Option<&[PortDescriptor]> {
         Some(&self.output_port_descriptors)
     }
 }
