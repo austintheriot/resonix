@@ -97,7 +97,7 @@ impl Graph {
     /// Assigns `ExternalConnectionId`s to external ports within a combined port direction slice.
     ///
     /// Iterates all `port_descriptors` and fills `external_slots` (indexed by combined PortId,
-    /// same length as the combined port slot array) with `Some(ext_id)` at each position whose
+    /// same length as the combined port slot array) with `Some(external_connection_id)` at each position whose
     /// address direction is `ExternalInput` or `ExternalOutput`. Internal ports are skipped.
     fn register_external_port_addresses(
         &mut self,
@@ -672,8 +672,8 @@ impl crate::traits::Graph for Graph {
 
     fn run<A: crate::traits::AudioBuffer, M: crate::traits::AudioBufferMut>(
         &mut self,
-        inputs: &HashMap<ExternalConnectionId, A>,
-        outputs: &mut HashMap<ExternalConnectionId, M>,
+        inputs: &[Option<A>],
+        outputs: &mut [Option<M>],
     ) -> Result<(), GraphRunError> {
         self.ensure_compiled_plan();
 
@@ -681,21 +681,26 @@ impl crate::traits::Graph for Graph {
 
         for step in compiled_plan.iter_mut() {
             // Patch output slots whose buffers are supplied by the caller for this block.
-            for (slot, ext_id_opt) in step.external_output_slots.iter().enumerate() {
-                let Some(ext_id) = ext_id_opt else { continue };
+            for (slot, external_connection_id_opt) in step.external_output_slots.iter().enumerate()
+            {
+                let Some(external_connection_id) = external_connection_id_opt else {
+                    continue;
+                };
                 step.output_buffer_ptrs[slot] =
                     // the generic argument is not guaranteed to be in the
                     // memory layout we need, so we do a quick conversion here
-                    outputs.get_mut(ext_id).map(RawAudioBuffer::from);
+                    outputs.get_mut(***external_connection_id).and_then(|opt| opt.as_mut()).map(RawAudioBuffer::from);
             }
 
             // Patch input slots whose buffers are supplied by the caller for this block.
-            for (slot, ext_id_opt) in step.external_input_slots.iter().enumerate() {
-                let Some(ext_id) = ext_id_opt else { continue };
+            for (slot, external_connection_id_opt) in step.external_input_slots.iter().enumerate() {
+                let Some(external_connection_id) = external_connection_id_opt else {
+                    continue;
+                };
                 step.input_buffer_ptrs[slot] =
                     // the generic argument is not guaranteed to be in the
                     // memory layout we need, so we do a quick conversion here
-                    inputs.get(ext_id).map(RawAudioBuffer::from);
+                    inputs.get(***external_connection_id).and_then(|opt| opt.as_ref()).map(RawAudioBuffer::from);
             }
 
             // SAFETY:
@@ -1464,11 +1469,10 @@ mod graph_tests {
                 AudioBuffer, AudioBufferMut, ConstantNode, Graph, MultiplyNode, OutputNode,
                 OutputNodePortDescriptors,
             },
-            primitives::{ExternalConnectionId, Sample},
+            primitives::Sample,
             traits::{AudioBuffer as _, Graph as GraphTrait},
         };
         use alloc::vec::Vec;
-        use hashbrown::HashMap;
 
         /// Converts a slice of `f32` literals into `Vec<Sample>` for concise assertions.
         fn samples(values: &[f32]) -> Vec<Sample> {
@@ -1493,16 +1497,22 @@ mod graph_tests {
                 [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
                 .unwrap();
 
-            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut output_buffer = vec![Sample::default()];
-            let mut outputs = HashMap::from([(
-                external_output_connection_id,
-                AudioBufferMut::new(&mut output_buffer, 1).unwrap(),
-            )]);
-            graph.run(&inputs, &mut outputs).unwrap();
+            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
+                ..=**external_output_connection_id)
+                .map(|_| None)
+                .collect();
+            outputs[**external_output_connection_id] =
+                Some(AudioBufferMut::new(&mut output_buffer, 1).unwrap());
+
+            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
 
             assert_eq!(
-                outputs[&external_output_connection_id].mono().unwrap(),
+                outputs[**external_output_connection_id]
+                    .as_ref()
+                    .unwrap()
+                    .mono()
+                    .unwrap(),
                 &[Sample::default()]
             );
         }
@@ -1524,9 +1534,9 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
-            let mut outputs: HashMap<_, AudioBufferMut<'_>> = HashMap::new();
-            graph.run(&inputs, &mut outputs).unwrap();
+            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![];
+
+            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
 
             assert!(outputs.is_empty());
         }
@@ -1553,16 +1563,22 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut output_buffer = vec![Sample::default()];
-            let mut outputs = HashMap::from([(
-                external_output_connection_id,
-                AudioBufferMut::new(&mut output_buffer, 1).unwrap(),
-            )]);
-            graph.run(&inputs, &mut outputs).unwrap();
+            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
+                ..=**external_output_connection_id)
+                .map(|_| None)
+                .collect();
+            outputs[**external_output_connection_id] =
+                Some(AudioBufferMut::new(&mut output_buffer, 1).unwrap());
+
+            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
 
             assert_eq!(
-                outputs[&external_output_connection_id].mono().unwrap(),
+                outputs[**external_output_connection_id]
+                    .as_ref()
+                    .unwrap()
+                    .mono()
+                    .unwrap(),
                 &[Sample::from(expected_sample_value)]
             );
         }
@@ -1570,9 +1586,8 @@ mod graph_tests {
         #[test]
         fn empty_graph_run_succeeds() {
             let mut graph = Graph::new();
-            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
-            let mut outputs: HashMap<_, AudioBufferMut<'_>> = HashMap::new();
-            assert!(graph.run(&inputs, &mut outputs).is_ok());
+            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![];
+            assert!(graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).is_ok());
         }
 
         #[test]
@@ -1590,7 +1605,10 @@ mod graph_tests {
             let const_3_handle = graph.add_audio_node(const_3).unwrap();
             let multiply_handle = graph.add_audio_node(multiply).unwrap();
             let output_handle = graph.add_audio_node(output).unwrap();
-            let ext_id = ext_output_id!(output_handle);
+
+            let external_output_connection_id = output_handle.external_output_connection_ids()
+                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                .unwrap();
 
             graph
                 .connect(
@@ -1609,13 +1627,24 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
-            let mut out_buf = vec![Sample::default()];
-            let mut outputs =
-                HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
-            graph.run(&inputs, &mut outputs).unwrap();
+            let mut output_buffer = vec![Sample::default()];
+            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
+                ..=**external_output_connection_id)
+                .map(|_| None)
+                .collect();
+            outputs[**external_output_connection_id] =
+                Some(AudioBufferMut::new(&mut output_buffer, 1).unwrap());
 
-            assert_eq!(outputs[&ext_id].mono().unwrap(), samples(&[6.0]).as_slice());
+            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
+
+            assert_eq!(
+                outputs[**external_output_connection_id]
+                    .as_ref()
+                    .unwrap()
+                    .mono()
+                    .unwrap(),
+                samples(&[6.0]).as_slice()
+            );
         }
 
         #[test]
@@ -1633,9 +1662,16 @@ mod graph_tests {
             let output_1_handle = graph.add_audio_node(output_1).unwrap();
             let output_2_handle = graph.add_audio_node(output_2).unwrap();
             let output_3_handle = graph.add_audio_node(output_3).unwrap();
-            let ext_id_1 = ext_output_id!(output_1_handle);
-            let ext_id_2 = ext_output_id!(output_2_handle);
-            let ext_id_3 = ext_output_id!(output_3_handle);
+
+            let external_connection_id_1 = output_1_handle.external_output_connection_ids()
+                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                .unwrap();
+            let external_connection_id_2 = output_2_handle.external_output_connection_ids()
+                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                .unwrap();
+            let external_connection_id_3 = output_3_handle.external_output_connection_ids()
+                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                .unwrap();
 
             graph
                 .connect(
@@ -1654,28 +1690,40 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut out_buf_1 = vec![Sample::default()];
             let mut out_buf_2 = vec![Sample::default()];
             let mut out_buf_3 = vec![Sample::default()];
-            let mut outputs = HashMap::from([
-                (ext_id_1, AudioBufferMut::new(&mut out_buf_1, 1).unwrap()),
-                (ext_id_2, AudioBufferMut::new(&mut out_buf_2, 1).unwrap()),
-                (ext_id_3, AudioBufferMut::new(&mut out_buf_3, 1).unwrap()),
+
+            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = Vec::from([
+                Some(AudioBufferMut::new(&mut out_buf_1, 1).unwrap()),
+                Some(AudioBufferMut::new(&mut out_buf_2, 1).unwrap()),
+                Some(AudioBufferMut::new(&mut out_buf_3, 1).unwrap()),
             ]);
 
-            graph.run(&inputs, &mut outputs).unwrap();
+            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
 
             assert_eq!(
-                outputs[&ext_id_1].mono().unwrap(),
+                outputs[**external_connection_id_1]
+                    .as_ref()
+                    .unwrap()
+                    .mono()
+                    .unwrap(),
                 samples(&[5.0]).as_slice()
             );
             assert_eq!(
-                outputs[&ext_id_2].mono().unwrap(),
+                outputs[**external_connection_id_2]
+                    .as_ref()
+                    .unwrap()
+                    .mono()
+                    .unwrap(),
                 samples(&[5.0]).as_slice()
             );
             assert_eq!(
-                outputs[&ext_id_3].mono().unwrap(),
+                outputs[**external_connection_id_3]
+                    .as_ref()
+                    .unwrap()
+                    .mono()
+                    .unwrap(),
                 samples(&[5.0]).as_slice()
             );
         }
@@ -1689,7 +1737,9 @@ mod graph_tests {
 
             let constant_handle = graph.add_audio_node(constant).unwrap();
             let output_handle = graph.add_audio_node(output).unwrap();
-            let ext_id = ext_output_id!(output_handle);
+            let external_output_connection_id = output_handle.external_output_connection_ids()
+                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                .unwrap();
 
             graph
                 .connect(
@@ -1698,14 +1748,22 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
-            let mut out_buf = vec![Sample::default(); block_size];
-            let mut outputs =
-                HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
-            graph.run(&inputs, &mut outputs).unwrap();
+            let mut output_buffer = vec![Sample::default(); block_size];
+            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
+                ..=**external_output_connection_id)
+                .map(|_| None)
+                .collect();
+            outputs[**external_output_connection_id] =
+                Some(AudioBufferMut::new(&mut output_buffer, 1).unwrap());
+
+            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
 
             assert_eq!(
-                outputs[&ext_id].mono().unwrap(),
+                outputs[**external_output_connection_id]
+                    .as_ref()
+                    .unwrap()
+                    .mono()
+                    .unwrap(),
                 samples(&[9.0, 9.0, 9.0, 9.0]).as_slice()
             );
         }
@@ -1718,7 +1776,9 @@ mod graph_tests {
 
             let constant_handle = graph.add_audio_node(constant).unwrap();
             let output_handle = graph.add_audio_node(output).unwrap();
-            let ext_id = ext_output_id!(output_handle);
+            let external_output_connection_id = output_handle.external_output_connection_ids()
+                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                .unwrap();
 
             graph
                 .connect(
@@ -1728,12 +1788,24 @@ mod graph_tests {
                 .unwrap();
 
             for _ in 0..3 {
-                let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
-                let mut out_buf = vec![Sample::default()];
-                let mut outputs =
-                    HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
-                graph.run(&inputs, &mut outputs).unwrap();
-                assert_eq!(outputs[&ext_id].mono().unwrap(), samples(&[3.0]).as_slice());
+                let mut output_buffer = vec![Sample::default()];
+                let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
+                    ..=**external_output_connection_id)
+                    .map(|_| None)
+                    .collect();
+                outputs[**external_output_connection_id] =
+                    Some(AudioBufferMut::new(&mut output_buffer, 1).unwrap());
+
+                graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
+
+                assert_eq!(
+                    outputs[**external_output_connection_id]
+                        .as_ref()
+                        .unwrap()
+                        .mono()
+                        .unwrap(),
+                    samples(&[3.0]).as_slice()
+                );
             }
         }
 
@@ -1758,7 +1830,10 @@ mod graph_tests {
             let multiply_1_handle = graph.add_audio_node(multiply_1).unwrap();
             let multiply_2_handle = graph.add_audio_node(multiply_2).unwrap();
             let output_handle = graph.add_audio_node(output).unwrap();
-            let ext_id = ext_output_id!(output_handle);
+
+            let external_connection_id = output_handle.external_output_connection_ids()
+                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                .unwrap();
 
             graph
                 .connect(
@@ -1787,14 +1862,17 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut out_buf = vec![Sample::default()];
-            let mut outputs =
-                HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
-            graph.run(&inputs, &mut outputs).unwrap();
+            let mut outputs = vec![Some(AudioBufferMut::new(&mut out_buf, 1).unwrap())];
+
+            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
 
             assert_eq!(
-                outputs[&ext_id].mono().unwrap(),
+                outputs[**external_connection_id]
+                    .as_ref()
+                    .unwrap()
+                    .mono()
+                    .unwrap(),
                 samples(&[24.0]).as_slice()
             );
         }
@@ -1808,7 +1886,7 @@ mod graph_tests {
 
             let multiply_handle = graph.add_audio_node(multiply).unwrap();
             let output_handle = graph.add_audio_node(output).unwrap();
-            let ext_id = ext_output_id!(output_handle);
+            let external_connection_id = ext_output_id!(output_handle);
 
             graph
                 .connect(
@@ -1817,13 +1895,19 @@ mod graph_tests {
                 )
                 .unwrap();
 
-            let inputs: HashMap<ExternalConnectionId, AudioBuffer<'_>> = HashMap::new();
             let mut out_buf = vec![Sample::default()];
-            let mut outputs =
-                HashMap::from([(ext_id, AudioBufferMut::new(&mut out_buf, 1).unwrap())]);
-            graph.run(&inputs, &mut outputs).unwrap();
+            let mut outputs = vec![Some(AudioBufferMut::new(&mut out_buf, 1).unwrap())];
 
-            assert_eq!(outputs[&ext_id].mono().unwrap(), samples(&[0.0]).as_slice());
+            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
+
+            assert_eq!(
+                outputs[**external_connection_id]
+                    .as_ref()
+                    .unwrap()
+                    .mono()
+                    .unwrap(),
+                samples(&[0.0]).as_slice()
+            );
         }
 
         mod channel_count_validation {
@@ -2032,8 +2116,6 @@ mod graph_tests {
         mod external_inputs {
             use core::ops::Deref;
 
-            use hashbrown::HashMap;
-
             use crate::traits::Graph as GraphTrait;
             use crate::{
                 errors::AudioNodeRunError,
@@ -2048,6 +2130,7 @@ mod graph_tests {
                     GetPriority,
                 },
             };
+            use alloc::vec::Vec;
 
             /// A node with one external input and one external output that copies
             /// the caller-supplied input buffer to the caller-supplied output buffer.
@@ -2167,10 +2250,10 @@ mod graph_tests {
                 let node = PassthroughNode::new(&mut graph);
                 let handle = graph.add_audio_node(node).unwrap();
 
-                let ext_input_conn_id = handle.external_input_connection_ids()
+                let external_input_connection_id = handle.external_input_connection_ids()
                     [**PassthroughPortDescriptors::EXTERNAL_INPUT_PORT_ID]
                     .unwrap();
-                let ext_output_conn_id = handle.external_output_connection_ids()
+                let external_output_connection_id = handle.external_output_connection_ids()
                     [**PassthroughPortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
                     .unwrap();
 
@@ -2180,17 +2263,21 @@ mod graph_tests {
                     Sample::from(3.0f32),
                     Sample::from(4.0f32),
                 ];
-                let input_audio = AudioBuffer::new(input_data.as_slice(), 1).unwrap();
-                let inputs = HashMap::from([(ext_input_conn_id, input_audio)]);
+
+                let mut inputs: Vec<Option<AudioBuffer<'_>>> =
+                    (0..=**external_input_connection_id).map(|_| None).collect();
+                inputs[**external_input_connection_id] =
+                    Some(AudioBuffer::new(input_data.as_slice(), 1).unwrap());
 
                 let mut output_buffer = vec![Sample::default(); block_size];
-                {
-                    let mut outputs = HashMap::from([(
-                        ext_output_conn_id,
-                        AudioBufferMut::new(output_buffer.as_mut_slice(), 1).unwrap(),
-                    )]);
-                    graph.run(&inputs, &mut outputs).unwrap();
-                }
+                let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
+                    ..=**external_output_connection_id)
+                    .map(|_| None)
+                    .collect();
+                outputs[**external_output_connection_id] =
+                    Some(AudioBufferMut::new(output_buffer.as_mut_slice(), 1).unwrap());
+
+                graph.run(&inputs, &mut outputs).unwrap();
 
                 assert_eq!(output_buffer, input_data.as_slice());
             }
