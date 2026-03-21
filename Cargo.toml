@@ -1,5 +1,8 @@
 [workspace]
-members = [ "crates/resonix", "crates/resonix-audio", "crates/resonix-cli-tests",
+members = [
+	"crates/resonix",
+	"crates/resonix-audio",
+	"crates/resonix-cli-tests",
 	"crates/resonix-core",
 	"crates/resonix-graph",
 	"crates/resonix-gui",
@@ -7,6 +10,7 @@ members = [ "crates/resonix", "crates/resonix-audio", "crates/resonix-cli-tests"
 	"crates/resonix-primitives",
 	"crates/resonix-types",
 	"crates/resonix-web",
+	"scripts/compare-benchmarks",
 ]
 
 resolver = "2"
