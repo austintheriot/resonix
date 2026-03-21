@@ -1,16 +1,34 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use std::{hint::black_box, thread::sleep, time::Duration};
+use resonix_graph::{
+    implementations::{AudioBuffer, AudioBufferMut, ConstantNode, Graph, OutputNode},
+    traits::Graph as _,
+};
 
-fn fibonacci(n: u64) -> u64 {
-    match n {
-        0 => 1,
-        1 => 1,
-        n => fibonacci(n - 1) + fibonacci(n - 2),
-    }
+fn create_and_run_constant_to_external_graph() {
+    let mut graph = Graph::with_block_size(1);
+
+    let constant_node = ConstantNode::new(&mut graph);
+    let constant_node_handle = graph.add_audio_node(constant_node).unwrap();
+
+    let output_node = OutputNode::new(&mut graph);
+    let output_node_handle = graph.add_audio_node(output_node).unwrap();
+
+    graph
+        .connect(
+            constant_node_handle.output_port_address(),
+            output_node_handle.input_port_address(),
+        )
+        .unwrap();
+
+    graph
+        .run::<AudioBuffer<'_>, AudioBufferMut<'_>>(&[], &mut [])
+        .unwrap();
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("fib 20", |b| b.iter(|| fibonacci(black_box(20))));
+    c.bench_function("making & running Constant -> External nodes", |b| {
+        b.iter(create_and_run_constant_to_external_graph)
+    });
 }
 
 criterion_group!(benches, criterion_benchmark);
