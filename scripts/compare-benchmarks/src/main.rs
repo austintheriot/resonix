@@ -18,6 +18,7 @@ const CI_BENCHMARKS_PATH: &str = "benches/new.json";
 
 #[derive(Debug, Deserialize)]
 #[serde(tag = "reason")]
+#[allow(clippy::large_enum_variant)]
 pub enum BenchmarkReport {
     #[serde(rename = "benchmark-complete")]
     BenchmarkComplete {
