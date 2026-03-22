@@ -8,8 +8,8 @@ use crate::{
     traits::{AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority},
 };
 
-/// A node with one external input and one external output that copies
-/// the caller-supplied input buffer to the caller-supplied output buffer.
+/// A node with one internal input and one internal output that copies
+/// the graph-supplied input buffer to the graph-supplied output buffer.
 pub struct PassthroughNode {
     node_id: NodeId,
     port_descriptors: PassthroughPortDescriptors,
