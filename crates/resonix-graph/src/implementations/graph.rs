@@ -1488,306 +1488,27 @@ mod graph_tests {
             };
         }
 
-        #[test]
-        fn only_output_node() {
-            let mut graph = Graph::new();
-            let output_node = OutputNode::new(&mut graph);
-            let output_node_handle = graph.add_audio_node(output_node).unwrap();
-            let external_output_connection_id = output_node_handle.external_output_connection_ids()
-                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
-                .unwrap();
+        mod buffer_processing_results {
+            use crate::{
+                implementations::{
+                    AudioBuffer, AudioBufferMut, ConstantNode, Graph, MultiplyNode, OutputNode,
+                    OutputNodePortDescriptors, graph::graph_tests::audio_processing::samples,
+                },
+                primitives::Sample,
+                traits::{AudioBuffer as _, Graph as GraphTrait},
+            };
+            use alloc::vec::Vec;
 
-            let mut output_buffer = vec![Sample::default()];
-            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
-                ..=**external_output_connection_id)
-                .map(|_| None)
-                .collect();
-            outputs[**external_output_connection_id] =
-                Some(AudioBufferMut::new(&mut output_buffer, 1).unwrap());
+            #[test]
+            fn only_output_node() {
+                let mut graph = Graph::new();
+                let output_node = OutputNode::new(&mut graph);
+                let output_node_handle = graph.add_audio_node(output_node).unwrap();
+                let external_output_connection_id = output_node_handle
+                    .external_output_connection_ids()
+                    [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                    .unwrap();
 
-            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
-
-            assert_eq!(
-                outputs[**external_output_connection_id]
-                    .as_ref()
-                    .unwrap()
-                    .mono()
-                    .unwrap(),
-                &[Sample::default()]
-            );
-        }
-
-        #[test]
-        fn no_external_output_supplied_none_written() {
-            let mut graph = Graph::new();
-
-            let constant_node = ConstantNode::new(&mut graph);
-            let output_node = OutputNode::new(&mut graph);
-
-            let constant_node_handle = graph.add_audio_node(constant_node).unwrap();
-            let output_node_handle = graph.add_audio_node(output_node).unwrap();
-
-            graph
-                .connect(
-                    constant_node_handle.output_port_address(),
-                    output_node_handle.input_port_address(),
-                )
-                .unwrap();
-
-            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![];
-
-            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
-
-            assert!(outputs.is_empty());
-        }
-
-        #[test]
-        fn constant_node_with_value_to_output_node() {
-            let mut graph = Graph::new();
-
-            let expected_sample_value = 5i32;
-            let constant_node =
-                ConstantNode::new_with_value(&mut graph, Sample::from(expected_sample_value));
-            let output_node = OutputNode::new(&mut graph);
-
-            let constant_node_handle = graph.add_audio_node(constant_node).unwrap();
-            let output_node_handle = graph.add_audio_node(output_node).unwrap();
-            let external_output_connection_id = output_node_handle.external_output_connection_ids()
-                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
-                .unwrap();
-
-            graph
-                .connect(
-                    constant_node_handle.output_port_address(),
-                    output_node_handle.input_port_address(),
-                )
-                .unwrap();
-
-            let mut output_buffer = vec![Sample::default()];
-            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
-                ..=**external_output_connection_id)
-                .map(|_| None)
-                .collect();
-            outputs[**external_output_connection_id] =
-                Some(AudioBufferMut::new(&mut output_buffer, 1).unwrap());
-
-            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
-
-            assert_eq!(
-                outputs[**external_output_connection_id]
-                    .as_ref()
-                    .unwrap()
-                    .mono()
-                    .unwrap(),
-                &[Sample::from(expected_sample_value)]
-            );
-        }
-
-        #[test]
-        fn empty_graph_run_succeeds() {
-            let mut graph = Graph::new();
-            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![];
-            assert!(graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).is_ok());
-        }
-
-        #[test]
-        fn multiply_node_produces_product_of_two_constants() {
-            // const(2.0) ─left─┐
-            //                  ├─ multiply ─── output
-            // const(3.0) ─right┘
-            let mut graph = Graph::new();
-            let const_2 = ConstantNode::new_with_value(&mut graph, 2.0f32);
-            let const_3 = ConstantNode::new_with_value(&mut graph, 3.0f32);
-            let multiply = MultiplyNode::new(&mut graph);
-            let output = OutputNode::new(&mut graph);
-
-            let const_2_handle = graph.add_audio_node(const_2).unwrap();
-            let const_3_handle = graph.add_audio_node(const_3).unwrap();
-            let multiply_handle = graph.add_audio_node(multiply).unwrap();
-            let output_handle = graph.add_audio_node(output).unwrap();
-
-            let external_output_connection_id = output_handle.external_output_connection_ids()
-                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
-                .unwrap();
-
-            graph
-                .connect(
-                    const_2_handle.output_port_address(),
-                    multiply_handle.left_operand_input_address(),
-                )
-                .unwrap()
-                .connect(
-                    const_3_handle.output_port_address(),
-                    multiply_handle.right_operand_input_address(),
-                )
-                .unwrap()
-                .connect(
-                    multiply_handle.output_port_address(),
-                    output_handle.input_port_address(),
-                )
-                .unwrap();
-
-            let mut output_buffer = vec![Sample::default()];
-            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
-                ..=**external_output_connection_id)
-                .map(|_| None)
-                .collect();
-            outputs[**external_output_connection_id] =
-                Some(AudioBufferMut::new(&mut output_buffer, 1).unwrap());
-
-            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
-
-            assert_eq!(
-                outputs[**external_output_connection_id]
-                    .as_ref()
-                    .unwrap()
-                    .mono()
-                    .unwrap(),
-                samples(&[6.0]).as_slice()
-            );
-        }
-
-        #[test]
-        fn fan_out_one_constant_to_multiple_outputs() {
-            // const(5.0) ─── output_1
-            //            └── output_2
-            //            └── output_3
-            let mut graph = Graph::new();
-            let constant = ConstantNode::new_with_value(&mut graph, 5.0f32);
-            let output_1 = OutputNode::new(&mut graph);
-            let output_2 = OutputNode::new(&mut graph);
-            let output_3 = OutputNode::new(&mut graph);
-
-            let constant_handle = graph.add_audio_node(constant).unwrap();
-            let output_1_handle = graph.add_audio_node(output_1).unwrap();
-            let output_2_handle = graph.add_audio_node(output_2).unwrap();
-            let output_3_handle = graph.add_audio_node(output_3).unwrap();
-
-            let external_connection_id_1 = output_1_handle.external_output_connection_ids()
-                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
-                .unwrap();
-            let external_connection_id_2 = output_2_handle.external_output_connection_ids()
-                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
-                .unwrap();
-            let external_connection_id_3 = output_3_handle.external_output_connection_ids()
-                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
-                .unwrap();
-
-            graph
-                .connect(
-                    constant_handle.output_port_address(),
-                    output_1_handle.input_port_address(),
-                )
-                .unwrap()
-                .connect(
-                    constant_handle.output_port_address(),
-                    output_2_handle.input_port_address(),
-                )
-                .unwrap()
-                .connect(
-                    constant_handle.output_port_address(),
-                    output_3_handle.input_port_address(),
-                )
-                .unwrap();
-
-            let mut out_buf_1 = vec![Sample::default()];
-            let mut out_buf_2 = vec![Sample::default()];
-            let mut out_buf_3 = vec![Sample::default()];
-
-            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = Vec::from([
-                Some(AudioBufferMut::new(&mut out_buf_1, 1).unwrap()),
-                Some(AudioBufferMut::new(&mut out_buf_2, 1).unwrap()),
-                Some(AudioBufferMut::new(&mut out_buf_3, 1).unwrap()),
-            ]);
-
-            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
-
-            assert_eq!(
-                outputs[**external_connection_id_1]
-                    .as_ref()
-                    .unwrap()
-                    .mono()
-                    .unwrap(),
-                samples(&[5.0]).as_slice()
-            );
-            assert_eq!(
-                outputs[**external_connection_id_2]
-                    .as_ref()
-                    .unwrap()
-                    .mono()
-                    .unwrap(),
-                samples(&[5.0]).as_slice()
-            );
-            assert_eq!(
-                outputs[**external_connection_id_3]
-                    .as_ref()
-                    .unwrap()
-                    .mono()
-                    .unwrap(),
-                samples(&[5.0]).as_slice()
-            );
-        }
-
-        #[test]
-        fn larger_block_size_fills_all_samples() {
-            let block_size = 4usize;
-            let mut graph = Graph::with_block_size(block_size);
-            let constant = ConstantNode::new_with_value(&mut graph, 9.0f32);
-            let output = OutputNode::new(&mut graph);
-
-            let constant_handle = graph.add_audio_node(constant).unwrap();
-            let output_handle = graph.add_audio_node(output).unwrap();
-            let external_output_connection_id = output_handle.external_output_connection_ids()
-                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
-                .unwrap();
-
-            graph
-                .connect(
-                    constant_handle.output_port_address(),
-                    output_handle.input_port_address(),
-                )
-                .unwrap();
-
-            let mut output_buffer = vec![Sample::default(); block_size];
-            let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
-                ..=**external_output_connection_id)
-                .map(|_| None)
-                .collect();
-            outputs[**external_output_connection_id] =
-                Some(AudioBufferMut::new(&mut output_buffer, 1).unwrap());
-
-            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
-
-            assert_eq!(
-                outputs[**external_output_connection_id]
-                    .as_ref()
-                    .unwrap()
-                    .mono()
-                    .unwrap(),
-                samples(&[9.0, 9.0, 9.0, 9.0]).as_slice()
-            );
-        }
-
-        #[test]
-        fn multiple_run_calls_produce_consistent_results() {
-            let mut graph = Graph::new();
-            let constant = ConstantNode::new_with_value(&mut graph, 3.0f32);
-            let output = OutputNode::new(&mut graph);
-
-            let constant_handle = graph.add_audio_node(constant).unwrap();
-            let output_handle = graph.add_audio_node(output).unwrap();
-            let external_output_connection_id = output_handle.external_output_connection_ids()
-                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
-                .unwrap();
-
-            graph
-                .connect(
-                    constant_handle.output_port_address(),
-                    output_handle.input_port_address(),
-                )
-                .unwrap();
-
-            for _ in 0..3 {
                 let mut output_buffer = vec![Sample::default()];
                 let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
                     ..=**external_output_connection_id)
@@ -1804,110 +1525,403 @@ mod graph_tests {
                         .unwrap()
                         .mono()
                         .unwrap(),
-                    samples(&[3.0]).as_slice()
+                    &[Sample::default()]
                 );
             }
-        }
 
-        #[test]
-        fn chained_multiply_nodes() {
-            // const(2) ─left─┐
-            //                ├─ multiply_1 ─left─┐
-            // const(3) ─right┘                   ├─ multiply_2 ─── output
-            //                         const(4) ─right┘
-            // Expected: (2 * 3) * 4 = 24
-            let mut graph = Graph::new();
-            let const_2 = ConstantNode::new_with_value(&mut graph, 2.0f32);
-            let const_3 = ConstantNode::new_with_value(&mut graph, 3.0f32);
-            let const_4 = ConstantNode::new_with_value(&mut graph, 4.0f32);
-            let multiply_1 = MultiplyNode::new(&mut graph);
-            let multiply_2 = MultiplyNode::new(&mut graph);
-            let output = OutputNode::new(&mut graph);
+            #[test]
+            fn no_external_output_supplied_none_written() {
+                let mut graph = Graph::new();
 
-            let const_2_handle = graph.add_audio_node(const_2).unwrap();
-            let const_3_handle = graph.add_audio_node(const_3).unwrap();
-            let const_4_handle = graph.add_audio_node(const_4).unwrap();
-            let multiply_1_handle = graph.add_audio_node(multiply_1).unwrap();
-            let multiply_2_handle = graph.add_audio_node(multiply_2).unwrap();
-            let output_handle = graph.add_audio_node(output).unwrap();
+                let constant_node = ConstantNode::new(&mut graph);
+                let output_node = OutputNode::new(&mut graph);
 
-            let external_connection_id = output_handle.external_output_connection_ids()
-                [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
-                .unwrap();
+                let constant_node_handle = graph.add_audio_node(constant_node).unwrap();
+                let output_node_handle = graph.add_audio_node(output_node).unwrap();
 
-            graph
-                .connect(
-                    const_2_handle.output_port_address(),
-                    multiply_1_handle.left_operand_input_address(),
-                )
-                .unwrap()
-                .connect(
-                    const_3_handle.output_port_address(),
-                    multiply_1_handle.right_operand_input_address(),
-                )
-                .unwrap()
-                .connect(
-                    multiply_1_handle.output_port_address(),
-                    multiply_2_handle.left_operand_input_address(),
-                )
-                .unwrap()
-                .connect(
-                    const_4_handle.output_port_address(),
-                    multiply_2_handle.right_operand_input_address(),
-                )
-                .unwrap()
-                .connect(
-                    multiply_2_handle.output_port_address(),
-                    output_handle.input_port_address(),
-                )
-                .unwrap();
+                graph
+                    .connect(
+                        constant_node_handle.output_port_address(),
+                        output_node_handle.input_port_address(),
+                    )
+                    .unwrap();
 
-            let mut out_buf = vec![Sample::default()];
-            let mut outputs = vec![Some(AudioBufferMut::new(&mut out_buf, 1).unwrap())];
+                let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![];
 
-            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
+                graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
 
-            assert_eq!(
-                outputs[**external_connection_id]
-                    .as_ref()
+                assert!(outputs.is_empty());
+            }
+
+            #[test]
+            fn constant_node_with_value_to_output_node() {
+                let mut graph = Graph::new();
+
+                let expected_sample_value = 5i32;
+                let constant_node =
+                    ConstantNode::new_with_value(&mut graph, Sample::from(expected_sample_value));
+                let output_node = OutputNode::new(&mut graph);
+
+                let constant_node_handle = graph.add_audio_node(constant_node).unwrap();
+                let output_node_handle = graph.add_audio_node(output_node).unwrap();
+                let external_output_connection_id = output_node_handle
+                    .external_output_connection_ids()
+                    [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                    .unwrap();
+
+                graph
+                    .connect(
+                        constant_node_handle.output_port_address(),
+                        output_node_handle.input_port_address(),
+                    )
+                    .unwrap();
+
+                let mut output_buffer = vec![Sample::default()];
+                let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
+                    ..=**external_output_connection_id)
+                    .map(|_| None)
+                    .collect();
+                outputs[**external_output_connection_id] =
+                    Some(AudioBufferMut::new(&mut output_buffer, 1).unwrap());
+
+                graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
+
+                assert_eq!(
+                    outputs[**external_output_connection_id]
+                        .as_ref()
+                        .unwrap()
+                        .mono()
+                        .unwrap(),
+                    &[Sample::from(expected_sample_value)]
+                );
+            }
+
+            #[test]
+            fn empty_graph_run_succeeds() {
+                let mut graph = Graph::new();
+                let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![];
+                assert!(graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).is_ok());
+            }
+
+            #[test]
+            fn multiply_node_produces_product_of_two_constants() {
+                // const(2.0) ─left─┐
+                //                  ├─ multiply ─── output
+                // const(3.0) ─right┘
+                let mut graph = Graph::new();
+                let const_2 = ConstantNode::new_with_value(&mut graph, 2.0f32);
+                let const_3 = ConstantNode::new_with_value(&mut graph, 3.0f32);
+                let multiply = MultiplyNode::new(&mut graph);
+                let output = OutputNode::new(&mut graph);
+
+                let const_2_handle = graph.add_audio_node(const_2).unwrap();
+                let const_3_handle = graph.add_audio_node(const_3).unwrap();
+                let multiply_handle = graph.add_audio_node(multiply).unwrap();
+                let output_handle = graph.add_audio_node(output).unwrap();
+
+                let external_output_connection_id = output_handle.external_output_connection_ids()
+                    [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                    .unwrap();
+
+                graph
+                    .connect(
+                        const_2_handle.output_port_address(),
+                        multiply_handle.left_operand_input_address(),
+                    )
                     .unwrap()
-                    .mono()
-                    .unwrap(),
-                samples(&[24.0]).as_slice()
-            );
-        }
-
-        #[test]
-        fn multiply_node_with_unconnected_inputs_outputs_zero() {
-            // A multiply node with no connections defaults to 0.0 * 0.0 = 0.0
-            let mut graph = Graph::new();
-            let multiply = MultiplyNode::new(&mut graph);
-            let output = OutputNode::new(&mut graph);
-
-            let multiply_handle = graph.add_audio_node(multiply).unwrap();
-            let output_handle = graph.add_audio_node(output).unwrap();
-            let external_connection_id = ext_output_id!(output_handle);
-
-            graph
-                .connect(
-                    multiply_handle.output_port_address(),
-                    output_handle.input_port_address(),
-                )
-                .unwrap();
-
-            let mut out_buf = vec![Sample::default()];
-            let mut outputs = vec![Some(AudioBufferMut::new(&mut out_buf, 1).unwrap())];
-
-            graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
-
-            assert_eq!(
-                outputs[**external_connection_id]
-                    .as_ref()
+                    .connect(
+                        const_3_handle.output_port_address(),
+                        multiply_handle.right_operand_input_address(),
+                    )
                     .unwrap()
-                    .mono()
-                    .unwrap(),
-                samples(&[0.0]).as_slice()
-            );
+                    .connect(
+                        multiply_handle.output_port_address(),
+                        output_handle.input_port_address(),
+                    )
+                    .unwrap();
+
+                let mut output_buffer = vec![Sample::default()];
+                let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
+                    ..=**external_output_connection_id)
+                    .map(|_| None)
+                    .collect();
+                outputs[**external_output_connection_id] =
+                    Some(AudioBufferMut::new(&mut output_buffer, 1).unwrap());
+
+                graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
+
+                assert_eq!(
+                    outputs[**external_output_connection_id]
+                        .as_ref()
+                        .unwrap()
+                        .mono()
+                        .unwrap(),
+                    samples(&[6.0]).as_slice()
+                );
+            }
+
+            #[test]
+            fn fan_out_one_constant_to_multiple_outputs() {
+                // const(5.0) ─── output_1
+                //            └── output_2
+                //            └── output_3
+                let mut graph = Graph::new();
+                let constant = ConstantNode::new_with_value(&mut graph, 5.0f32);
+                let output_1 = OutputNode::new(&mut graph);
+                let output_2 = OutputNode::new(&mut graph);
+                let output_3 = OutputNode::new(&mut graph);
+
+                let constant_handle = graph.add_audio_node(constant).unwrap();
+                let output_1_handle = graph.add_audio_node(output_1).unwrap();
+                let output_2_handle = graph.add_audio_node(output_2).unwrap();
+                let output_3_handle = graph.add_audio_node(output_3).unwrap();
+
+                let external_connection_id_1 = output_1_handle.external_output_connection_ids()
+                    [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                    .unwrap();
+                let external_connection_id_2 = output_2_handle.external_output_connection_ids()
+                    [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                    .unwrap();
+                let external_connection_id_3 = output_3_handle.external_output_connection_ids()
+                    [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                    .unwrap();
+
+                graph
+                    .connect(
+                        constant_handle.output_port_address(),
+                        output_1_handle.input_port_address(),
+                    )
+                    .unwrap()
+                    .connect(
+                        constant_handle.output_port_address(),
+                        output_2_handle.input_port_address(),
+                    )
+                    .unwrap()
+                    .connect(
+                        constant_handle.output_port_address(),
+                        output_3_handle.input_port_address(),
+                    )
+                    .unwrap();
+
+                let mut out_buf_1 = vec![Sample::default()];
+                let mut out_buf_2 = vec![Sample::default()];
+                let mut out_buf_3 = vec![Sample::default()];
+
+                let mut outputs: Vec<Option<AudioBufferMut<'_>>> = Vec::from([
+                    Some(AudioBufferMut::new(&mut out_buf_1, 1).unwrap()),
+                    Some(AudioBufferMut::new(&mut out_buf_2, 1).unwrap()),
+                    Some(AudioBufferMut::new(&mut out_buf_3, 1).unwrap()),
+                ]);
+
+                graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
+
+                assert_eq!(
+                    outputs[**external_connection_id_1]
+                        .as_ref()
+                        .unwrap()
+                        .mono()
+                        .unwrap(),
+                    samples(&[5.0]).as_slice()
+                );
+                assert_eq!(
+                    outputs[**external_connection_id_2]
+                        .as_ref()
+                        .unwrap()
+                        .mono()
+                        .unwrap(),
+                    samples(&[5.0]).as_slice()
+                );
+                assert_eq!(
+                    outputs[**external_connection_id_3]
+                        .as_ref()
+                        .unwrap()
+                        .mono()
+                        .unwrap(),
+                    samples(&[5.0]).as_slice()
+                );
+            }
+
+            #[test]
+            fn larger_block_size_fills_all_samples() {
+                let block_size = 4usize;
+                let mut graph = Graph::with_block_size(block_size);
+                let constant = ConstantNode::new_with_value(&mut graph, 9.0f32);
+                let output = OutputNode::new(&mut graph);
+
+                let constant_handle = graph.add_audio_node(constant).unwrap();
+                let output_handle = graph.add_audio_node(output).unwrap();
+                let external_output_connection_id = output_handle.external_output_connection_ids()
+                    [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                    .unwrap();
+
+                graph
+                    .connect(
+                        constant_handle.output_port_address(),
+                        output_handle.input_port_address(),
+                    )
+                    .unwrap();
+
+                let mut output_buffer = vec![Sample::default(); block_size];
+                let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
+                    ..=**external_output_connection_id)
+                    .map(|_| None)
+                    .collect();
+                outputs[**external_output_connection_id] =
+                    Some(AudioBufferMut::new(&mut output_buffer, 1).unwrap());
+
+                graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
+
+                assert_eq!(
+                    outputs[**external_output_connection_id]
+                        .as_ref()
+                        .unwrap()
+                        .mono()
+                        .unwrap(),
+                    samples(&[9.0, 9.0, 9.0, 9.0]).as_slice()
+                );
+            }
+
+            #[test]
+            fn multiple_run_calls_produce_consistent_results() {
+                let mut graph = Graph::new();
+                let constant = ConstantNode::new_with_value(&mut graph, 3.0f32);
+                let output = OutputNode::new(&mut graph);
+
+                let constant_handle = graph.add_audio_node(constant).unwrap();
+                let output_handle = graph.add_audio_node(output).unwrap();
+                let external_output_connection_id = output_handle.external_output_connection_ids()
+                    [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                    .unwrap();
+
+                graph
+                    .connect(
+                        constant_handle.output_port_address(),
+                        output_handle.input_port_address(),
+                    )
+                    .unwrap();
+
+                for _ in 0..3 {
+                    let mut output_buffer = vec![Sample::default()];
+                    let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
+                        ..=**external_output_connection_id)
+                        .map(|_| None)
+                        .collect();
+                    outputs[**external_output_connection_id] =
+                        Some(AudioBufferMut::new(&mut output_buffer, 1).unwrap());
+
+                    graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
+
+                    assert_eq!(
+                        outputs[**external_output_connection_id]
+                            .as_ref()
+                            .unwrap()
+                            .mono()
+                            .unwrap(),
+                        samples(&[3.0]).as_slice()
+                    );
+                }
+            }
+
+            #[test]
+            fn chained_multiply_nodes() {
+                // const(2) ─left─┐
+                //                ├─ multiply_1 ─left─┐
+                // const(3) ─right┘                   ├─ multiply_2 ─── output
+                //                         const(4) ─right┘
+                // Expected: (2 * 3) * 4 = 24
+                let mut graph = Graph::new();
+                let const_2 = ConstantNode::new_with_value(&mut graph, 2.0f32);
+                let const_3 = ConstantNode::new_with_value(&mut graph, 3.0f32);
+                let const_4 = ConstantNode::new_with_value(&mut graph, 4.0f32);
+                let multiply_1 = MultiplyNode::new(&mut graph);
+                let multiply_2 = MultiplyNode::new(&mut graph);
+                let output = OutputNode::new(&mut graph);
+
+                let const_2_handle = graph.add_audio_node(const_2).unwrap();
+                let const_3_handle = graph.add_audio_node(const_3).unwrap();
+                let const_4_handle = graph.add_audio_node(const_4).unwrap();
+                let multiply_1_handle = graph.add_audio_node(multiply_1).unwrap();
+                let multiply_2_handle = graph.add_audio_node(multiply_2).unwrap();
+                let output_handle = graph.add_audio_node(output).unwrap();
+
+                let external_connection_id = output_handle.external_output_connection_ids()
+                    [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+                    .unwrap();
+
+                graph
+                    .connect(
+                        const_2_handle.output_port_address(),
+                        multiply_1_handle.left_operand_input_address(),
+                    )
+                    .unwrap()
+                    .connect(
+                        const_3_handle.output_port_address(),
+                        multiply_1_handle.right_operand_input_address(),
+                    )
+                    .unwrap()
+                    .connect(
+                        multiply_1_handle.output_port_address(),
+                        multiply_2_handle.left_operand_input_address(),
+                    )
+                    .unwrap()
+                    .connect(
+                        const_4_handle.output_port_address(),
+                        multiply_2_handle.right_operand_input_address(),
+                    )
+                    .unwrap()
+                    .connect(
+                        multiply_2_handle.output_port_address(),
+                        output_handle.input_port_address(),
+                    )
+                    .unwrap();
+
+                let mut out_buf = vec![Sample::default()];
+                let mut outputs = vec![Some(AudioBufferMut::new(&mut out_buf, 1).unwrap())];
+
+                graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
+
+                assert_eq!(
+                    outputs[**external_connection_id]
+                        .as_ref()
+                        .unwrap()
+                        .mono()
+                        .unwrap(),
+                    samples(&[24.0]).as_slice()
+                );
+            }
+
+            #[test]
+            fn multiply_node_with_unconnected_inputs_outputs_zero() {
+                // A multiply node with no connections defaults to 0.0 * 0.0 = 0.0
+                let mut graph = Graph::new();
+                let multiply = MultiplyNode::new(&mut graph);
+                let output = OutputNode::new(&mut graph);
+
+                let multiply_handle = graph.add_audio_node(multiply).unwrap();
+                let output_handle = graph.add_audio_node(output).unwrap();
+                let external_connection_id = ext_output_id!(output_handle);
+
+                graph
+                    .connect(
+                        multiply_handle.output_port_address(),
+                        output_handle.input_port_address(),
+                    )
+                    .unwrap();
+
+                let mut out_buf = vec![Sample::default()];
+                let mut outputs = vec![Some(AudioBufferMut::new(&mut out_buf, 1).unwrap())];
+
+                graph.run::<AudioBuffer<'_>, _>(&[], &mut outputs).unwrap();
+
+                assert_eq!(
+                    outputs[**external_connection_id]
+                        .as_ref()
+                        .unwrap()
+                        .mono()
+                        .unwrap(),
+                    samples(&[0.0]).as_slice()
+                );
+            }
         }
 
         mod channel_count_validation {
