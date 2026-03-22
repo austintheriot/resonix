@@ -1,13 +1,7 @@
-use crate::{primitives::Id, traits::GenerateId};
+mod inputs_from_buffer_mapping;
+mod outputs_from_buffer_mapping;
+mod test_id_generator;
 
-/// A minimal `GenerateId` implementation for unit tests.
-/// Yields sequential IDs starting from the initial value.
-pub struct TestIdGenerator(pub usize);
-
-impl GenerateId for TestIdGenerator {
-    fn generate_id(&mut self) -> Id {
-        let id = self.0;
-        self.0 += 1;
-        id.into()
-    }
-}
+pub use inputs_from_buffer_mapping::*;
+pub use outputs_from_buffer_mapping::*;
+pub use test_id_generator::*;

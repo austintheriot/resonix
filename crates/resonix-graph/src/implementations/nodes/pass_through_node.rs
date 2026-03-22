@@ -145,6 +145,7 @@ mod tests {
         implementations::{AudioBuffer, AudioBufferMut},
         primitives::{BlockSize, Sample},
         test_utils::TestIdGenerator,
+        test_utils::{inputs_from_buffer_mapping, outputs_from_buffer_mapping},
     };
 
     fn run_process(
@@ -153,37 +154,23 @@ mod tests {
         channels: usize,
         block_size: usize,
     ) -> Result<Vec<Sample>, AudioNodeRunError> {
-        let default_inputs: [Option<AudioBuffer<'_>>; 0] = [];
         let inputs = if let Some(raw_input_buffer) = raw_input_buffer {
-            let input_audio_buffer = AudioBuffer::new(raw_input_buffer, channels)
-                .expect("should be able to make audio_buffer out of raw buffer");
-
-            let mut inputs: Vec<Option<AudioBuffer<'_>>> = (0
-                ..=**PassthroughPortDescriptors::INPUT_PORT_ID)
-                .map(|_| None)
-                .collect();
-
-            inputs[**PassthroughPortDescriptors::INPUT_PORT_ID] = Some(input_audio_buffer);
-
-            inputs
+            inputs_from_buffer_mapping(&[(
+                PassthroughPortDescriptors::INPUT_PORT_ID,
+                raw_input_buffer,
+                channels,
+            )])
         } else {
-            default_inputs.to_vec()
+            inputs_from_buffer_mapping(&[])
         };
-
         let inputs = inputs.as_slice();
 
         let mut raw_output_buffer = vec![Sample::default(); block_size * channels];
-
-        let output_audio_buffer = AudioBufferMut::new(raw_output_buffer.as_mut_slice(), channels)
-            .expect("should be able to make audio_buffer out of raw buffer");
-
-        let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0
-            ..=**PassthroughPortDescriptors::OUTPUT_PORT_ID)
-            .map(|_| None)
-            .collect();
-
-        outputs[**PassthroughPortDescriptors::OUTPUT_PORT_ID] = Some(output_audio_buffer);
-
+        let mut outputs = outputs_from_buffer_mapping(&mut [(
+            PassthroughPortDescriptors::OUTPUT_PORT_ID,
+            Some(raw_output_buffer.as_mut_slice()),
+            channels,
+        )]);
         let outputs = outputs.as_mut_slice();
 
         node.process(inputs, outputs, BlockSize::new(block_size))?;
