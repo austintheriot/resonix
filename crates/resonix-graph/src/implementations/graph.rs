@@ -2123,7 +2123,6 @@ mod graph_tests {
             use crate::traits::Graph as GraphTrait;
             use crate::{
                 errors::AudioNodeRunError,
-                implementations::AudioBuffer,
                 implementations::Graph,
                 primitives::{
                     BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor,
@@ -2134,7 +2133,6 @@ mod graph_tests {
                     GetPriority,
                 },
             };
-            use alloc::vec::Vec;
 
             /// A node with one external input and one external output that copies
             /// the caller-supplied input buffer to the caller-supplied output buffer.
