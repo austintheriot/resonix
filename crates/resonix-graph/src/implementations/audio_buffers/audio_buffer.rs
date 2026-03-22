@@ -10,7 +10,11 @@ use super::RawAudioBuffer;
 /// `RawAudioBuffer` so it can be obtained via a zero-cost transmute.
 ///
 /// Planar layout: channel `c`, sample `i` = `data[c * block_size + i]`.
+/// Implements `Copy` and `Clone`, because immutable references are safe
+/// to clone, and doing so is the cost of copying a pointer and the number
+/// of channels in the audio buffer.
 #[repr(C)]
+#[derive(Clone, Copy, Debug)]
 pub struct AudioBuffer<'a> {
     pub(crate) ptr: NonNull<[Sample]>,
     pub(crate) channels: usize,
