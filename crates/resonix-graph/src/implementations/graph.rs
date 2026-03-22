@@ -1464,14 +1464,7 @@ mod graph_tests {
     }
 
     mod audio_processing {
-        use crate::{
-            implementations::{
-                AudioBuffer, AudioBufferMut, ConstantNode, Graph, MultiplyNode, OutputNode,
-                OutputNodePortDescriptors,
-            },
-            primitives::Sample,
-            traits::{AudioBuffer as _, Graph as GraphTrait},
-        };
+        use crate::primitives::Sample;
         use alloc::vec::Vec;
 
         /// Converts a slice of `f32` literals into `Vec<Sample>` for concise assertions.

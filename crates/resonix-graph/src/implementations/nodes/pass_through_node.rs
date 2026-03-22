@@ -138,8 +138,6 @@ impl GetPortDescriptors<PassthroughPortDescriptors> for PassthroughNode {
 #[cfg(test)]
 mod tests {
 
-    use std::process::Output;
-
     use alloc::vec::Vec;
 
     use super::*;
