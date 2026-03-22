@@ -25,6 +25,9 @@ pub struct ChannelledBuffer {
 
 #[derive(Debug, Default)]
 pub struct BufferPool {
+    // TODO: replace with a Vec for better caching/lookup speeds
+    // but consider if this should be a pub struct or a pub(crate) struct:
+    // `ConnectionId`s are guaranteed to be dense in THIS implementation
     buffers: IntMap<ConnectionId, ChannelledBuffer>,
 }
 
