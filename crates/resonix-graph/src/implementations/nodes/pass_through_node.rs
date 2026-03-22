@@ -161,7 +161,7 @@ mod tests {
                 channels,
             )])
         } else {
-            inputs_from_buffer_mapping(&[])
+            inputs_from_buffer_mapping::<PortId>(&[])
         };
         let inputs = inputs.as_slice();
 

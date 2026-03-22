@@ -40,6 +40,12 @@ impl<I: Into<Id>> From<I> for PortId {
     }
 }
 
+impl From<PortId> for usize {
+    fn from(value: PortId) -> Self {
+        **value
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

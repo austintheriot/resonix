@@ -37,6 +37,12 @@ impl<I: Into<Id>> From<I> for ExternalConnectionId {
     }
 }
 
+impl From<ExternalConnectionId> for usize {
+    fn from(value: ExternalConnectionId) -> Self {
+        **value
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
