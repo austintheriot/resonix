@@ -1,13 +1,18 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use resonix_graph::{
-    implementations::{AudioBuffer, AudioBufferMut, ConstantNode, Graph, OutputNode},
-    traits::Graph as _,
+    implementations::{
+        AudioBuffer, AudioBufferMut, ConstantNode, Graph, OutputNode, OutputNodePortDescriptors,
+    },
+    primitives::Sample,
+    traits::{AudioBuffer as _, Graph as _},
 };
 
 fn create_and_run_constant_to_external_graph() {
-    let mut graph = Graph::with_block_size(1);
+    let channels = 1;
+    let block_size = 256;
+    let mut graph = Graph::with_block_size(block_size);
 
-    let constant_node = ConstantNode::new(&mut graph);
+    let constant_node = ConstantNode::new_with_value(&mut graph, 1.0);
     let constant_node_handle = graph.add_audio_node(constant_node).unwrap();
 
     let output_node = OutputNode::new(&mut graph);
@@ -20,9 +25,24 @@ fn create_and_run_constant_to_external_graph() {
         )
         .unwrap();
 
+    let inputs: [Option<AudioBuffer<'_>>; 0] = [];
+    let inputs = inputs.as_slice();
+    let mut raw_output_buffer = vec![Sample::default(); block_size * channels];
+    let output_audio_buffer = AudioBufferMut::new(raw_output_buffer.as_mut_slice(), channels)
+        .expect("should be able to make audio_buffer out of raw buffer");
+
+    let output_external_connection_id = output_node_handle.external_output_connection_ids()
+        [**OutputNodePortDescriptors::EXTERNAL_OUTPUT_PORT_ID]
+        .expect("should have an external connection id");
+
+    let mut outputs: Vec<Option<AudioBufferMut<'_>>> = (0..=**output_external_connection_id)
+        .map(|_| None)
+        .collect();
+    outputs[**output_external_connection_id] = Some(output_audio_buffer);
+
     graph
-        .run::<AudioBuffer<'_>, AudioBufferMut<'_>>(&[], &mut [])
-        .unwrap();
+        .run(inputs, &mut outputs)
+        .expect("should be able to run the graph without errors");
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

@@ -1,3 +1,5 @@
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 use core::ops::Deref;
 
 use crate::{
@@ -12,33 +14,37 @@ use crate::{
     },
 };
 
-// TODO: update to support multi-channel audio
 pub struct ConstantNode {
     node_id: NodeId,
-    constant_value: Option<Sample>,
+    constant_values: Box<[Sample]>,
     port_descriptors: ConstantNodePortDescriptors,
 }
 
 impl ConstantNode {
     pub fn new<G: GenerateId>(id_generator: &mut G) -> Self {
-        let node_id = NodeId::from(id_generator.generate_id());
-        let port_descriptors = ConstantNodePortDescriptors::new(node_id);
-        Self {
-            node_id,
-            constant_value: None,
-            port_descriptors,
-        }
+        Self::new_with_value(id_generator, Sample::default())
     }
 
     pub fn new_with_value<G: GenerateId, D: Into<Sample>>(
         id_generator: &mut G,
         constant_value: D,
     ) -> Self {
+        Self::new_with_value_and_channels(id_generator, constant_value, 1)
+    }
+
+    pub fn new_with_value_and_channels<G: GenerateId, D: Into<Sample>>(
+        id_generator: &mut G,
+        constant_value: D,
+        channels: usize,
+    ) -> Self {
         let node_id = NodeId::from(id_generator.generate_id());
-        let port_descriptors = ConstantNodePortDescriptors::new(node_id);
+        let port_descriptors = ConstantNodePortDescriptors::new(node_id, channels);
+        let mut constant_values = Vec::with_capacity(channels);
+        constant_values.resize(channels, constant_value.into());
+
         Self {
             node_id,
-            constant_value: Some(constant_value.into()),
+            constant_values: constant_values.into_boxed_slice(),
             port_descriptors,
         }
     }
@@ -72,14 +78,19 @@ impl AudioNode for ConstantNode {
         _block_size: BlockSize,
     ) -> Result<(), AudioNodeRunError> {
         let output_port_slot = **ConstantNodePortDescriptors::OUTPUT_PORT_ID;
-        let value = self.constant_value.unwrap_or_default();
 
         let Some(output_buf) = outputs.get_mut(output_port_slot).and_then(|o| o.as_mut()) else {
             return Ok(());
         };
 
-        for sample in output_buf.mono_mut()?.iter_mut() {
-            *sample = value;
+        // fill all samples in each channel with that channel's value
+        for (i, channel) in output_buf.channels_iter_mut()?.enumerate() {
+            // channel length match is checked at `connect` time
+            let value = *self.constant_values.get(i).unwrap();
+
+            for sample in channel.iter_mut() {
+                *sample = value;
+            }
         }
 
         Ok(())
@@ -172,16 +183,16 @@ pub struct ConstantNodePortDescriptors {
 }
 
 impl ConstantNodePortDescriptors {
-    pub fn new(node_id: NodeId) -> Self {
+    pub fn new(node_id: NodeId, channels: usize) -> Self {
         Self {
             node_id,
             input_port_descriptors: [PortDescriptor {
                 address: Self::gen_set_constant_value_port_address(node_id),
-                channels: 1,
+                channels,
             }],
             output_port_descriptors: [PortDescriptor {
                 address: Self::gen_output_port_address(node_id),
-                channels: 1,
+                channels,
             }],
         }
     }
