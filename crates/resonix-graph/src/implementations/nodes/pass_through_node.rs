@@ -137,7 +137,6 @@ impl GetPortDescriptors<PassthroughPortDescriptors> for PassthroughNode {
 
 #[cfg(test)]
 mod tests {
-
     use alloc::vec::Vec;
 
     use super::*;
@@ -212,14 +211,13 @@ mod tests {
         let num_channels = 4;
         let mut node = PassthroughNode::new_with_channels(&mut id_gen, num_channels);
 
-        let input_mappings: Option<&[(PortId, &[Sample], usize)]> = None;
         let mut raw_output_buffer: Vec<Sample> = [0.0; 4].into_iter().map(Sample::from).collect();
         let expected_raw_output_buffer = raw_output_buffer.clone();
         let block_size = raw_output_buffer.len();
 
         run_process(
             &mut node,
-            input_mappings,
+            None,
             Some(&mut [(
                 PassthroughPortDescriptors::OUTPUT_PORT_ID,
                 Some(raw_output_buffer.as_mut_slice()),
@@ -241,7 +239,6 @@ mod tests {
         let raw_input_buffer: Vec<Sample> =
             [0.0, 1.0, 2.0, 3.0].into_iter().map(Sample::from).collect();
         let block_size = raw_input_buffer.len();
-        let output_mappings: Option<&mut [(PortId, Option<&mut [Sample]>, usize)]> = None;
 
         run_process(
             &mut node,
@@ -250,7 +247,7 @@ mod tests {
                 raw_input_buffer.as_slice(),
                 num_channels,
             )]),
-            output_mappings,
+            None,
             block_size,
         )
         .unwrap();
@@ -262,10 +259,8 @@ mod tests {
         let num_channels = 4;
         let mut node = PassthroughNode::new_with_channels(&mut id_gen, num_channels);
         let block_size = 256;
-        let input_mappings: Option<&[(PortId, &[Sample], usize)]> = None;
-        let output_mappings: Option<&mut [(PortId, Option<&mut [Sample]>, usize)]> = None;
 
-        run_process(&mut node, input_mappings, output_mappings, block_size).unwrap();
+        run_process::<PassthroughNode, PortId>(&mut node, None, None, block_size).unwrap();
     }
 
     #[ignore]
