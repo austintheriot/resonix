@@ -2,7 +2,8 @@ use crate::{implementations::AudioBuffer, primitives::Sample};
 
 use alloc::vec::Vec;
 
-pub fn inputs_from_buffer_mapping<'a, 'b: 'a, Id: Into<usize> + Copy>(
+/// id, buffer, channels
+pub(crate) fn inputs_from_buffer_mapping<'a, 'b: 'a, Id: Into<usize> + Copy>(
     buffer_key_mapping: &'a [(Id, &'b [Sample], usize)],
 ) -> Vec<Option<AudioBuffer<'b>>> {
     let Some(max_id) = buffer_key_mapping

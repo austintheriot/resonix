@@ -2,7 +2,8 @@ use crate::{implementations::AudioBufferMut, primitives::Sample};
 
 use alloc::vec::Vec;
 
-pub fn outputs_from_buffer_mapping<'a, 'b: 'a, Id: Into<usize> + Copy>(
+/// id, buffer, channels
+pub(crate) fn outputs_from_buffer_mapping<'a, 'b: 'a, Id: Into<usize> + Copy>(
     buffer_key_mapping: &'a mut [(Id, Option<&'b mut [Sample]>, usize)],
 ) -> Vec<Option<AudioBufferMut<'b>>> {
     let Some(max_id) = buffer_key_mapping

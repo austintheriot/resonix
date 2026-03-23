@@ -142,104 +142,130 @@ mod tests {
 
     use super::*;
     use crate::{
-        implementations::{AudioBuffer, AudioBufferMut},
-        primitives::{BlockSize, Sample},
-        test_utils::TestIdGenerator,
-        test_utils::{inputs_from_buffer_mapping, outputs_from_buffer_mapping},
+        primitives::Sample,
+        test_utils::{TestIdGenerator, run_process},
     };
-
-    fn run_process(
-        node: &mut PassthroughNode,
-        raw_input_buffer: Option<&[Sample]>,
-        channels: usize,
-        block_size: usize,
-    ) -> Result<Vec<Sample>, AudioNodeRunError> {
-        let inputs = if let Some(raw_input_buffer) = raw_input_buffer {
-            inputs_from_buffer_mapping(&[(
-                PassthroughPortDescriptors::INPUT_PORT_ID,
-                raw_input_buffer,
-                channels,
-            )])
-        } else {
-            inputs_from_buffer_mapping::<PortId>(&[])
-        };
-        let inputs = inputs.as_slice();
-
-        let mut raw_output_buffer = vec![Sample::default(); block_size * channels];
-        let mut outputs = outputs_from_buffer_mapping(&mut [(
-            PassthroughPortDescriptors::OUTPUT_PORT_ID,
-            Some(raw_output_buffer.as_mut_slice()),
-            channels,
-        )]);
-        let outputs = outputs.as_mut_slice();
-
-        node.process(inputs, outputs, BlockSize::new(block_size))?;
-
-        Ok(raw_output_buffer)
-    }
 
     #[test]
     fn it_should_copy_single_channel_input_to_output() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = PassthroughNode::new_with_channels(&mut id_gen, 1);
+        let num_channels = 1;
+        let mut node = PassthroughNode::new_with_channels(&mut id_gen, num_channels);
 
         let raw_input_buffer: Vec<Sample> =
             [0.0, 1.0, 2.0, 3.0].into_iter().map(Sample::from).collect();
-        let channels = 1;
+        let mut raw_output_buffer: Vec<Sample> = [0.0; 4].into_iter().map(Sample::from).collect();
         let block_size = raw_input_buffer.len();
 
-        let output = run_process(
+        run_process(
             &mut node,
-            Some(raw_input_buffer.as_slice()),
-            channels,
+            Some(&[(
+                PassthroughPortDescriptors::INPUT_PORT_ID,
+                raw_input_buffer.as_slice(),
+                num_channels,
+            )]),
+            Some(&mut [(
+                PassthroughPortDescriptors::OUTPUT_PORT_ID,
+                Some(raw_output_buffer.as_mut_slice()),
+                num_channels,
+            )]),
             block_size,
         )
         .unwrap();
 
-        assert_eq!(output, raw_input_buffer);
+        assert_eq!(raw_input_buffer, raw_output_buffer);
     }
 
     #[test]
     fn it_should_copy_multi_channel_input_to_output() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = PassthroughNode::new_with_channels(&mut id_gen, 1);
+        let num_channels = 4;
+        let mut node = PassthroughNode::new_with_channels(&mut id_gen, num_channels);
 
         let raw_input_buffer: Vec<Sample> =
             [0.0, 1.0, 2.0, 3.0].into_iter().map(Sample::from).collect();
-        let channels = 4;
-        let block_size = raw_input_buffer.len() / channels;
+        let mut raw_output_buffer: Vec<Sample> = [0.0; 4].into_iter().map(Sample::from).collect();
+        let block_size = raw_input_buffer.len();
 
-        let output = run_process(
+        run_process(
             &mut node,
-            Some(raw_input_buffer.as_slice()),
-            channels,
+            Some(&[(
+                PassthroughPortDescriptors::INPUT_PORT_ID,
+                raw_input_buffer.as_slice(),
+                num_channels,
+            )]),
+            Some(&mut [(
+                PassthroughPortDescriptors::OUTPUT_PORT_ID,
+                Some(raw_output_buffer.as_mut_slice()),
+                num_channels,
+            )]),
             block_size,
         )
         .unwrap();
 
-        assert_eq!(output, raw_input_buffer);
+        assert_eq!(raw_input_buffer, raw_output_buffer);
     }
 
     #[test]
     fn it_should_not_panic_on_empty_inputs() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = PassthroughNode::new_with_channels(&mut id_gen, 1);
+        let num_channels = 4;
+        let mut node = PassthroughNode::new_with_channels(&mut id_gen, num_channels);
 
-        let raw_input_buffer: Vec<Sample> =
-            [0.0, 1.0, 2.0, 3.0].into_iter().map(Sample::from).collect();
-        let channels = 4;
-        let block_size = raw_input_buffer.len() / channels;
+        let input_mappings: Option<&[(PortId, &[Sample], usize)]> = None;
+        let mut raw_output_buffer: Vec<Sample> = [0.0; 4].into_iter().map(Sample::from).collect();
+        let expected_raw_output_buffer = raw_output_buffer.clone();
+        let block_size = raw_output_buffer.len();
 
-        run_process(&mut node, None, channels, block_size).unwrap();
+        run_process(
+            &mut node,
+            input_mappings,
+            Some(&mut [(
+                PassthroughPortDescriptors::OUTPUT_PORT_ID,
+                Some(raw_output_buffer.as_mut_slice()),
+                num_channels,
+            )]),
+            block_size,
+        )
+        .unwrap();
+
+        assert_eq!(expected_raw_output_buffer, raw_output_buffer);
     }
 
     #[test]
     fn it_should_not_panic_on_empty_outputs() {
         let mut id_gen = TestIdGenerator(0);
-        let mut node = PassthroughNode::new_with_channels(&mut id_gen, 1);
+        let num_channels = 4;
+        let mut node = PassthroughNode::new_with_channels(&mut id_gen, num_channels);
 
-        node.process::<AudioBuffer<'_>, AudioBufferMut<'_>>(&[], &mut [], BlockSize::from(256))
-            .unwrap();
+        let raw_input_buffer: Vec<Sample> =
+            [0.0, 1.0, 2.0, 3.0].into_iter().map(Sample::from).collect();
+        let block_size = raw_input_buffer.len();
+        let output_mappings: Option<&mut [(PortId, Option<&mut [Sample]>, usize)]> = None;
+
+        run_process(
+            &mut node,
+            Some(&[(
+                PassthroughPortDescriptors::INPUT_PORT_ID,
+                raw_input_buffer.as_slice(),
+                num_channels,
+            )]),
+            output_mappings,
+            block_size,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn it_should_not_panic_on_empty_inputs_and_outputs() {
+        let mut id_gen = TestIdGenerator(0);
+        let num_channels = 4;
+        let mut node = PassthroughNode::new_with_channels(&mut id_gen, num_channels);
+        let block_size = 256;
+        let input_mappings: Option<&[(PortId, &[Sample], usize)]> = None;
+        let output_mappings: Option<&mut [(PortId, Option<&mut [Sample]>, usize)]> = None;
+
+        run_process(&mut node, input_mappings, output_mappings, block_size).unwrap();
     }
 
     #[ignore]

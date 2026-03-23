@@ -2,7 +2,7 @@ use crate::{primitives::Id, traits::GenerateId};
 
 /// A minimal `GenerateId` implementation for unit tests.
 /// Yields sequential IDs starting from the initial value.
-pub struct TestIdGenerator(pub usize);
+pub(crate) struct TestIdGenerator(pub usize);
 
 impl GenerateId for TestIdGenerator {
     fn generate_id(&mut self) -> Id {
