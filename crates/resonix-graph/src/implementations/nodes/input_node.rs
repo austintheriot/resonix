@@ -106,7 +106,7 @@ mod tests {
     use super::*;
     use crate::{
         primitives::Sample,
-        test_utils::{TestIdGenerator, run_process},
+        test_utils::{InputBufferKeyMapping, OutputBufferKeyMapping, TestIdGenerator, run_process},
     };
 
     #[test]
@@ -122,16 +122,16 @@ mod tests {
 
         run_process(
             &mut node,
-            Some(&[(
-                InputNodePortDescriptors::EXTERNAL_INPUT_PORT_ID,
-                raw_external_input_buffer.as_slice(),
+            Some(&[InputBufferKeyMapping {
+                id: InputNodePortDescriptors::EXTERNAL_INPUT_PORT_ID,
+                buffer: raw_external_input_buffer.as_slice(),
                 num_channels,
-            )]),
-            Some(&mut [(
-                InputNodePortDescriptors::OUTPUT_PORT_ID,
-                Some(raw_output_buffer.as_mut_slice()),
+            }]),
+            Some(&mut [OutputBufferKeyMapping {
+                id: InputNodePortDescriptors::OUTPUT_PORT_ID,
+                buffer: Some(raw_output_buffer.as_mut_slice()),
                 num_channels,
-            )]),
+            }]),
             block_size,
         )
         .unwrap();
@@ -152,16 +152,16 @@ mod tests {
 
         run_process(
             &mut node,
-            Some(&[(
-                InputNodePortDescriptors::EXTERNAL_INPUT_PORT_ID,
-                raw_external_input_buffer.as_slice(),
+            Some(&[InputBufferKeyMapping {
+                id: InputNodePortDescriptors::EXTERNAL_INPUT_PORT_ID,
+                buffer: raw_external_input_buffer.as_slice(),
                 num_channels,
-            )]),
-            Some(&mut [(
-                InputNodePortDescriptors::OUTPUT_PORT_ID,
-                Some(raw_output_buffer.as_mut_slice()),
+            }]),
+            Some(&mut [OutputBufferKeyMapping {
+                id: InputNodePortDescriptors::OUTPUT_PORT_ID,
+                buffer: Some(raw_output_buffer.as_mut_slice()),
                 num_channels,
-            )]),
+            }]),
             block_size,
         )
         .unwrap();
@@ -180,11 +180,11 @@ mod tests {
         run_process(
             &mut node,
             None,
-            Some(&mut [(
-                InputNodePortDescriptors::OUTPUT_PORT_ID,
-                Some(raw_output_buffer.as_mut_slice()),
+            Some(&mut [OutputBufferKeyMapping {
+                id: InputNodePortDescriptors::OUTPUT_PORT_ID,
+                buffer: Some(raw_output_buffer.as_mut_slice()),
                 num_channels,
-            )]),
+            }]),
             block_size,
         )
         .unwrap();
@@ -202,11 +202,11 @@ mod tests {
 
         run_process(
             &mut node,
-            Some(&[(
-                InputNodePortDescriptors::EXTERNAL_INPUT_PORT_ID,
-                raw_external_input_buffer.as_slice(),
+            Some(&[InputBufferKeyMapping {
+                id: InputNodePortDescriptors::EXTERNAL_INPUT_PORT_ID,
+                buffer: raw_external_input_buffer.as_slice(),
                 num_channels,
-            )]),
+            }]),
             None,
             block_size,
         )
@@ -234,16 +234,16 @@ mod tests {
 
         run_process(
             &mut node,
-            Some(&[(
-                InputNodePortDescriptors::EXTERNAL_INPUT_PORT_ID,
-                raw_external_input_buffer.as_slice(),
+            Some(&[InputBufferKeyMapping {
+                id: InputNodePortDescriptors::EXTERNAL_INPUT_PORT_ID,
+                buffer: raw_external_input_buffer.as_slice(),
                 num_channels,
-            )]),
-            Some(&mut [(
-                InputNodePortDescriptors::OUTPUT_PORT_ID,
-                Some(raw_output_buffer.as_mut_slice()),
+            }]),
+            Some(&mut [OutputBufferKeyMapping {
+                id: InputNodePortDescriptors::OUTPUT_PORT_ID,
+                buffer: Some(raw_output_buffer.as_mut_slice()),
                 num_channels,
-            )]),
+            }]),
             block_size,
         )
         .unwrap();
@@ -271,16 +271,16 @@ mod tests {
 
         run_process(
             &mut node,
-            Some(&[(
-                InputNodePortDescriptors::EXTERNAL_INPUT_PORT_ID,
-                raw_external_input_buffer.as_slice(),
+            Some(&[InputBufferKeyMapping {
+                id: InputNodePortDescriptors::EXTERNAL_INPUT_PORT_ID,
+                buffer: raw_external_input_buffer.as_slice(),
                 num_channels,
-            )]),
-            Some(&mut [(
-                InputNodePortDescriptors::OUTPUT_PORT_ID,
-                Some(raw_output_buffer.as_mut_slice()),
+            }]),
+            Some(&mut [OutputBufferKeyMapping {
+                id: InputNodePortDescriptors::OUTPUT_PORT_ID,
+                buffer: Some(raw_output_buffer.as_mut_slice()),
                 num_channels,
-            )]),
+            }]),
             block_size,
         )
         .unwrap();

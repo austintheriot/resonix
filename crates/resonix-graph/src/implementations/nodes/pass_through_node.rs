@@ -142,7 +142,7 @@ mod tests {
     use super::*;
     use crate::{
         primitives::Sample,
-        test_utils::{TestIdGenerator, run_process},
+        test_utils::{InputBufferKeyMapping, OutputBufferKeyMapping, TestIdGenerator, run_process},
     };
 
     #[test]
@@ -158,16 +158,16 @@ mod tests {
 
         run_process(
             &mut node,
-            Some(&[(
-                PassthroughPortDescriptors::INPUT_PORT_ID,
-                raw_input_buffer.as_slice(),
+            Some(&[InputBufferKeyMapping {
+                id: PassthroughPortDescriptors::INPUT_PORT_ID,
+                buffer: raw_input_buffer.as_slice(),
                 num_channels,
-            )]),
-            Some(&mut [(
-                PassthroughPortDescriptors::OUTPUT_PORT_ID,
-                Some(raw_output_buffer.as_mut_slice()),
+            }]),
+            Some(&mut [OutputBufferKeyMapping {
+                id: PassthroughPortDescriptors::OUTPUT_PORT_ID,
+                buffer: Some(raw_output_buffer.as_mut_slice()),
                 num_channels,
-            )]),
+            }]),
             block_size,
         )
         .unwrap();
@@ -188,16 +188,16 @@ mod tests {
 
         run_process(
             &mut node,
-            Some(&[(
-                PassthroughPortDescriptors::INPUT_PORT_ID,
-                raw_input_buffer.as_slice(),
+            Some(&[InputBufferKeyMapping {
+                id: PassthroughPortDescriptors::INPUT_PORT_ID,
+                buffer: raw_input_buffer.as_slice(),
                 num_channels,
-            )]),
-            Some(&mut [(
-                PassthroughPortDescriptors::OUTPUT_PORT_ID,
-                Some(raw_output_buffer.as_mut_slice()),
+            }]),
+            Some(&mut [OutputBufferKeyMapping {
+                id: PassthroughPortDescriptors::OUTPUT_PORT_ID,
+                buffer: Some(raw_output_buffer.as_mut_slice()),
                 num_channels,
-            )]),
+            }]),
             block_size,
         )
         .unwrap();
@@ -218,11 +218,11 @@ mod tests {
         run_process(
             &mut node,
             None,
-            Some(&mut [(
-                PassthroughPortDescriptors::OUTPUT_PORT_ID,
-                Some(raw_output_buffer.as_mut_slice()),
+            Some(&mut [OutputBufferKeyMapping {
+                id: PassthroughPortDescriptors::OUTPUT_PORT_ID,
+                buffer: Some(raw_output_buffer.as_mut_slice()),
                 num_channels,
-            )]),
+            }]),
             block_size,
         )
         .unwrap();
@@ -242,11 +242,11 @@ mod tests {
 
         run_process(
             &mut node,
-            Some(&[(
-                PassthroughPortDescriptors::INPUT_PORT_ID,
-                raw_input_buffer.as_slice(),
+            Some(&[InputBufferKeyMapping {
+                id: PassthroughPortDescriptors::INPUT_PORT_ID,
+                buffer: raw_input_buffer.as_slice(),
                 num_channels,
-            )]),
+            }]),
             None,
             block_size,
         )
