@@ -1,35 +1,40 @@
+use core::marker::PhantomData;
+
 use alloc::boxed::Box;
-use cpal::Sample;
-use ringbuf::{
-    HeapRb,
-    traits::{Observer, Producer as RingBufProducer, Split},
+
+use crate::{
+    SystemAudioOutputError,
+    implementations::mock::MockAudioOutputError,
+    traits::{Consumer, Producer, SystemAudioOutput},
 };
 
-use crate::{Consumer, MockAudioOutputError, Producer, SystemAudioOutput, SystemAudioOutputError};
-
-pub struct MockAudioOutput<S: Sample> {
-    producer: Producer<S>,
-    consumer: Option<Consumer<S>>,
+pub struct MockAudioOutput<S, P: Producer<S>, C: Consumer<S>> {
+    producer: P,
+    consumer: Option<C>,
+    phantom: PhantomData<S>,
 }
 
-impl<S: Sample> MockAudioOutput<S> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
-impl<S: Sample> Default for MockAudioOutput<S> {
-    fn default() -> Self {
-        let buffer = HeapRb::new(1024);
-        let (producer, consumer) = buffer.split();
+impl<S, C: Consumer<S>, P: Producer<S>> MockAudioOutput<S, P, C> {
+    pub fn from_producer_and_consumer(producer: P, consumer: C) -> Self {
         Self {
-            producer: Producer(producer),
-            consumer: Some(Consumer(consumer)),
+            producer,
+            consumer: Some(consumer),
+            phantom: PhantomData,
         }
     }
 }
 
-impl<S: Sample> SystemAudioOutput<S> for MockAudioOutput<S> {
+impl<S, C: Consumer<S> + Default, P: Producer<S> + Default> Default for MockAudioOutput<S, P, C> {
+    fn default() -> Self {
+        Self {
+            producer: P::default(),
+            consumer: Some(C::default()),
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<S, C: Consumer<S>, P: Producer<S>> SystemAudioOutput<S> for MockAudioOutput<S, P, C> {
     fn try_write_block(&mut self, samples: &[S]) -> Result<(), SystemAudioOutputError> {
         self.producer.try_write_block(samples).map_err(|_e| {
             SystemAudioOutputError::WriteError(Box::new(MockAudioOutputError::WriteError))
@@ -46,8 +51,10 @@ impl<S: Sample> SystemAudioOutput<S> for MockAudioOutput<S> {
         Ok(())
     }
 
-    fn consumer(&mut self) -> Option<Consumer<S>> {
-        self.consumer.take()
+    fn consumer(&mut self) -> Option<Box<dyn Consumer<S>>> {
+        self.consumer
+            .take()
+            .map(|c| Box::new(c) as Box<dyn Consumer<S>>)
     }
 
     fn ready_for_sample(&self) -> bool {

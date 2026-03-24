@@ -1,18 +1,26 @@
 use alloc::{boxed::Box, vec::Vec};
 use cpal::Sample;
 
-use crate::{Consumer, CpalAudioInputError, Producer, SystemAudioInput, SystemAudioInputError};
+use crate::{
+    SystemAudioInputError,
+    implementations::cpal::CpalAudioInputError,
+    traits::{Consumer, SystemAudioInput},
+};
 
-pub struct CpalAudioInput<S: Sample> {
-    consumer: Consumer<S>,
-    // TODO: will use to receive data from cpal
-    #[allow(dead_code)]
-    producer: Option<Producer<S>>,
+#[cfg(feature = "mock")]
+use crate::traits::Producer;
+
+pub struct CpalAudioInput<S: Sample, C: Consumer<S>> {
+    consumer: C,
+    #[cfg(feature = "mock")]
+    producer: Option<Box<dyn Producer<S>>>,
 }
 
-impl<S: Sample> CpalAudioInput<S> {}
+impl<S: Sample, C: Consumer<S>> CpalAudioInput<S, C> {
+    // TODO: implement
+}
 
-impl<S: Sample> SystemAudioInput<S> for CpalAudioInput<S> {
+impl<S: Sample, C: Consumer<S>> SystemAudioInput<S> for CpalAudioInput<S, C> {
     fn try_read_sample(&mut self) -> Result<S, SystemAudioInputError> {
         let sample = self.consumer.try_read().map_err(|_| {
             SystemAudioInputError::ReadError(Box::new(CpalAudioInputError::ReadError))
@@ -48,8 +56,7 @@ impl<S: Sample> SystemAudioInput<S> for CpalAudioInput<S> {
     }
 
     #[cfg(feature = "mock")]
-    fn producer(&mut self) -> Option<Producer<S>> {
-        // only used in Mock implementation
-        None
+    fn producer(&mut self) -> Option<Box<dyn Producer<S>>> {
+        self.producer.take()
     }
 }

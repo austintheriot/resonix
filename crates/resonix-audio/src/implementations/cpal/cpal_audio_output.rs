@@ -3,10 +3,8 @@ use cpal::{
     Sample, SizedSample, Stream, StreamConfig,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
-use ringbuf::traits::Split;
-use ringbuf::{HeapRb, traits::Observer};
 
-use crate::{Consumer, CpalAudioOutputError, Producer, SystemAudioOutput, SystemAudioOutputError};
+use crate::SystemAudioOutputError;
 
 pub struct CpalAudioOutput<S: Sample> {
     producer: Producer<S>,

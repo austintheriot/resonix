@@ -4,11 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-cpal = []
+cpal = ["dep:cpal"]
 mock = []
+ringbuf = ["dep:ringbuf"]
 
 [dependencies]
-cpal = "0.15.3"
 thiserror.workspace = true
+# TODO: is this needed?
 dasp_sample = "0.11"
-ringbuf = "0.4.8"
+cpal = { version = "0.15.3", optional = true }
+ringbuf = { version = "0.4.8", optional = true }

@@ -1,36 +1,40 @@
+use core::marker::PhantomData;
+
 use alloc::{boxed::Box, vec::Vec};
-use cpal::Sample;
-use ringbuf::{
-    HeapRb, SharedRb,
-    storage::Heap,
-    traits::{Consumer, Split},
+
+use crate::{
+    SystemAudioInputError,
+    implementations::mock::MockAudioInputError,
+    traits::{Consumer, Producer, SystemAudioInput},
 };
 
-use crate::{MockAudioInputError, Producer, SystemAudioInput, SystemAudioInputError};
-
-pub struct MockAudioInput<S: Sample> {
-    consumer: <SharedRb<Heap<S>> as Split>::Cons,
-    producer: Option<Producer<S>>,
+pub struct MockAudioInput<S, C: Consumer<S>, P: Producer<S>> {
+    consumer: C,
+    producer: Option<P>,
+    phantom: PhantomData<S>,
 }
 
-impl<S: Sample> Default for MockAudioInput<S> {
+impl<S, C: Consumer<S> + Default, P: Producer<S> + Default> Default for MockAudioInput<S, C, P> {
     fn default() -> Self {
-        let buffer = HeapRb::new(1024);
-        let (producer, consumer) = buffer.split();
         Self {
-            consumer,
-            producer: Some(Producer(producer)),
+            consumer: C::default(),
+            producer: Some(P::default()),
+            phantom: PhantomData,
         }
     }
 }
 
-impl<S: Sample> MockAudioInput<S> {
-    pub fn new() -> Self {
-        Self::default()
+impl<S, C: Consumer<S>, P: Producer<S>> MockAudioInput<S, C, P> {
+    pub fn from_consumer_and_producer(consumer: C, producer: P) -> Self {
+        Self {
+            consumer,
+            producer: Some(producer),
+            phantom: PhantomData,
+        }
     }
 }
 
-impl<S: Sample> SystemAudioInput<S> for MockAudioInput<S> {
+impl<S, C: Consumer<S>, P: Producer<S>> SystemAudioInput<S> for MockAudioInput<S, C, P> {
     fn try_read_sample(&mut self) -> Result<S, SystemAudioInputError> {
         let sample = self.consumer.try_pop().ok_or_else(|| {
             // TODO: narrow down to out-of-data error
@@ -66,8 +70,10 @@ impl<S: Sample> SystemAudioInput<S> for MockAudioInput<S> {
         Ok(out)
     }
 
-    fn producer(&mut self) -> Option<Producer<S>> {
-        self.producer.take()
+    fn producer(&mut self) -> Option<Box<dyn Producer<S>>> {
+        self.producer
+            .take()
+            .map(|p| Box::new(p) as Box<dyn Producer<S>>)
     }
 }
 

@@ -1,20 +1,3 @@
-use core::ops::{Deref, DerefMut};
-
-use cpal::Sample;
-
-use ringbuf::{
-    SharedRb,
-    storage::Heap,
-    traits::{Producer as RingBufProducer, Split},
-};
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum ProducerError {
-    #[error("Failed to write sample")]
-    WriteFailure,
-}
-
 pub struct Producer<S: Sample>(pub(crate) <SharedRb<Heap<S>> as Split>::Prod);
 
 impl<S: Sample> Producer<S> {
