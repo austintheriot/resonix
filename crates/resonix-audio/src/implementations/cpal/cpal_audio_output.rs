@@ -4,10 +4,13 @@ use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
 
-use crate::SystemAudioOutputError;
+use crate::{
+    SystemAudioOutputError,
+    traits::{Consumer, Producer},
+};
 
-pub struct CpalAudioOutput<S: Sample> {
-    producer: Producer<S>,
+pub struct CpalAudioOutput<P: Producer<S>> {
+    producer: P,
     // must be kept alive so stream doesn't end
     #[allow(dead_code)]
     stream: Stream,
@@ -15,7 +18,7 @@ pub struct CpalAudioOutput<S: Sample> {
     ring_buffer_capacity: usize,
 }
 
-impl<S: Sample> CpalAudioOutput<S> {
+impl<S: Sample, P: Producer<S>> CpalAudioOutput<S, P> {
     pub fn config(&self) -> &StreamConfig {
         &self.config
     }
@@ -25,8 +28,9 @@ impl<S: Sample> CpalAudioOutput<S> {
     }
 }
 
-impl<S: Sample + SizedSample + Send + 'static> CpalAudioOutput<S> {
-    pub fn from_defaults() -> Self {
+impl<S: Sample + SizedSample + Send + 'static, P: Producer<S>> CpalAudioOutput<S, P> {
+    /// requires a consumer & producer pair to propagate audio data from the audio thread
+    pub fn from_defaults<C: Consumer<S>>(consumer: C, producer: P) -> Self {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
@@ -38,10 +42,6 @@ impl<S: Sample + SizedSample + Send + 'static> CpalAudioOutput<S> {
         let ring_buffer_capacity = supported_config.sample_rate().0 as f32 * 0.00267;
         let ring_buffer_capacity = ring_buffer_capacity.round() as usize;
         let buffer = HeapRb::new(ring_buffer_capacity);
-
-        // setup ringbuffer to relay messages to the audio thread
-        let (producer, consumer) = buffer.split();
-        let mut consumer = Consumer::<S>(consumer);
 
         // just output whatever is read from the ring buffer
         let mut next_value = move || consumer.try_read().unwrap();
@@ -61,7 +61,7 @@ impl<S: Sample + SizedSample + Send + 'static> CpalAudioOutput<S> {
         Self {
             stream,
             config: supported_config.config(),
-            producer: Producer(producer),
+            producer,
             ring_buffer_capacity,
         }
     }
@@ -78,7 +78,7 @@ where
     }
 }
 
-impl<S> SystemAudioOutput<S> for CpalAudioOutput<S>
+impl<S, P: Producer<S>> SystemAudioOutput<S> for CpalAudioOutput<S, P>
 where
     S: Sample,
 {
