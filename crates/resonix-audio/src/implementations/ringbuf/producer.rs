@@ -1,22 +1,34 @@
-pub struct Producer<S: Sample>(pub(crate) <SharedRb<Heap<S>> as Split>::Prod);
+use core::ops::{Deref, DerefMut};
 
-impl<S: Sample> Producer<S> {
-    pub fn try_write(&mut self, sample: S) -> Result<(), ProducerError> {
-        self.0
-            .try_push(sample)
-            .map_err(|_| ProducerError::WriteFailure)
-    }
+use ringbuf::{
+    SharedRb,
+    storage::Heap,
+    traits::{Observer, Producer as _, Split},
+};
 
-    pub fn try_write_block(&mut self, samples: &[S]) -> Result<(), ProducerError> {
-        for &sample in samples.iter() {
-            self.try_write(sample)?;
-        }
+use crate::{ProducerError, traits::Producer};
 
-        Ok(())
+pub struct RingbufProducer<S>(pub(crate) <SharedRb<Heap<S>> as Split>::Prod);
+
+impl<S> RingbufProducer<S> {
+    pub fn new(producer: <SharedRb<Heap<S>> as Split>::Prod) -> Self {
+        Self(producer)
     }
 }
 
-impl<S: Sample> Deref for Producer<S> {
+impl<S> Producer<S> for RingbufProducer<S> {
+    fn try_write(&mut self, sample: S) -> Result<(), ProducerError> {
+        self.0
+            .try_push(sample)
+            .map_err(|_sample| ProducerError::WriteFailure(None))
+    }
+
+    fn ready(&self) -> bool {
+        !self.0.is_full()
+    }
+}
+
+impl<S> Deref for RingbufProducer<S> {
     type Target = <SharedRb<Heap<S>> as Split>::Prod;
 
     fn deref(&self) -> &Self::Target {
@@ -24,7 +36,7 @@ impl<S: Sample> Deref for Producer<S> {
     }
 }
 
-impl<S: Sample> DerefMut for Producer<S> {
+impl<S> DerefMut for RingbufProducer<S> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -39,10 +51,10 @@ mod tests {
     /// Creates a (Producer<f32>, reader) pair backed by a ringbuffer of the given capacity.
     fn make_producer_with_capacity(
         capacity: usize,
-    ) -> (Producer<f32>, impl RingBufConsumer<Item = f32>) {
+    ) -> (RingbufProducer<f32>, impl RingBufConsumer<Item = f32>) {
         let ring_buffer = HeapRb::<f32>::new(capacity);
         let (producer, consumer) = ring_buffer.split();
-        (Producer(producer), consumer)
+        (RingbufProducer(producer), consumer)
     }
 
     #[test]
@@ -57,30 +69,12 @@ mod tests {
         let (mut producer, _consumer) = make_producer_with_capacity(1);
         producer.try_write(1.0f32).unwrap();
         let result = producer.try_write(2.0f32);
-        assert!(matches!(result, Err(ProducerError::WriteFailure)));
-    }
-
-    #[test]
-    fn try_write_block_writes_all_samples_in_order() {
-        let (mut producer, mut consumer) = make_producer_with_capacity(8);
-        let samples = [1.0f32, 2.0f32, 3.0f32];
-        producer.try_write_block(&samples).unwrap();
-        assert_eq!(consumer.try_pop().unwrap(), 1.0f32);
-        assert_eq!(consumer.try_pop().unwrap(), 2.0f32);
-        assert_eq!(consumer.try_pop().unwrap(), 3.0f32);
-    }
-
-    #[test]
-    fn try_write_block_fails_when_buffer_would_overflow() {
-        let (mut producer, _consumer) = make_producer_with_capacity(2);
-        let samples = [1.0f32, 2.0f32, 3.0f32]; // 3 samples, capacity 2
-        let result = producer.try_write_block(&samples);
-        assert!(result.is_err());
+        assert!(matches!(result, Err(ProducerError::WriteFailure(..))));
     }
 
     #[test]
     fn producer_error_display_message_is_correct() {
-        let error = ProducerError::WriteFailure;
+        let error = ProducerError::WriteFailure(None);
         assert_eq!(error.to_string(), "Failed to write sample");
     }
 }

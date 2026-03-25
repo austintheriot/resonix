@@ -1,9 +1,21 @@
-use resonix_audio::{CpalAudioOutput, SystemAudioOutput};
+use resonix_audio::{
+    implementations::{
+        cpal::CpalAudioOutput,
+        ringbuf::{self, RingbufConsumer, RingbufProducer, ringbuf::traits::Split},
+    },
+    traits::SystemAudioOutput,
+};
 
 fn main() {
     use core::f32;
 
-    let mut audio_output = CpalAudioOutput::from_defaults();
+    // TODO: implement this logic in the library
+    // so callers don't have to deal with this logic
+    let channels = ringbuf::ringbuf::HeapRb::new(2048);
+    let (producer, consumer) = channels.split();
+    let producer = RingbufProducer::new(producer);
+    let consumer = RingbufConsumer::new(consumer);
+    let mut audio_output = CpalAudioOutput::from_defaults(consumer, producer);
 
     let mut sample_clock = 0f32;
     let sample_rate = audio_output.config().sample_rate.0;

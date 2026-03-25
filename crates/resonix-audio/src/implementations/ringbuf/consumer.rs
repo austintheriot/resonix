@@ -1,37 +1,23 @@
-pub struct Consumer<S: Sample>(pub(crate) <SharedRb<Heap<S>> as Split>::Cons);
+use ringbuf::{
+    SharedRb,
+    storage::Heap,
+    traits::{Consumer as _, Split},
+};
 
-impl<S: Sample> Consumer<S> {
-    pub fn try_read(&mut self) -> Result<S, ConsumerError> {
+use crate::{ConsumerError, traits::Consumer};
+
+/// Typed wrapper around the ringbuf split consumer
+pub struct RingbufConsumer<S>(pub(crate) <SharedRb<Heap<S>> as Split>::Cons);
+
+impl<S> RingbufConsumer<S> {
+    pub fn new(value: <SharedRb<Heap<S>> as Split>::Cons) -> Self {
+        Self(value)
+    }
+}
+
+impl<S> Consumer<S> for RingbufConsumer<S> {
+    fn try_read(&mut self) -> Result<S, ConsumerError> {
         self.0.try_pop().ok_or(ConsumerError::NoData)
-    }
-
-    /// Reads as many samples as possible into `buf`.
-    /// Returns the number of samples written.
-    pub fn read_into(&mut self, buffer: &mut [S]) -> usize {
-        let mut count = 0;
-
-        for slot in buffer.iter_mut() {
-            match self.0.try_pop() {
-                Some(sample) => {
-                    *slot = sample;
-                    count += 1;
-                }
-                None => break,
-            }
-        }
-
-        count
-    }
-
-    /// Drains all currently available samples into a Vec.
-    pub fn drain(&mut self) -> Vec<S> {
-        let mut out = Vec::new();
-
-        while let Some(sample) = self.0.try_pop() {
-            out.push(sample);
-        }
-
-        out
     }
 }
 
@@ -44,10 +30,10 @@ mod tests {
     /// Creates a (writer, Consumer<f32>) pair backed by a ringbuffer of the given capacity.
     fn make_consumer_with_capacity(
         capacity: usize,
-    ) -> (impl RingBufProducer<Item = f32>, Consumer<f32>) {
+    ) -> (impl RingBufProducer<Item = f32>, RingbufConsumer<f32>) {
         let ring_buffer = HeapRb::<f32>::new(capacity);
         let (producer, consumer) = ring_buffer.split();
-        (producer, Consumer(consumer))
+        (producer, RingbufConsumer(consumer))
     }
 
     #[test]

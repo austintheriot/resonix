@@ -34,12 +34,9 @@ impl<S, C: Consumer<S>, P: Producer<S>> MockAudioInput<S, C, P> {
     }
 }
 
-impl<S, C: Consumer<S>, P: Producer<S>> SystemAudioInput<S> for MockAudioInput<S, C, P> {
+impl<S, C: Consumer<S>, P: Producer<S> + 'static> SystemAudioInput<S> for MockAudioInput<S, C, P> {
     fn try_read_sample(&mut self) -> Result<S, SystemAudioInputError> {
-        let sample = self.consumer.try_pop().ok_or_else(|| {
-            // TODO: narrow down to out-of-data error
-            SystemAudioInputError::ReadError(Box::new(MockAudioInputError::ReadError))
-        })?;
+        let sample = self.consumer.try_read()?;
 
         Ok(sample)
     }

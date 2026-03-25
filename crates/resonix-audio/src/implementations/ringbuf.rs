@@ -2,4 +2,7 @@ mod consumer;
 mod producer;
 
 pub use consumer::*;
-pub use prodcuer::*;
+pub use producer::*;
+
+// re-export for convenience
+pub use ringbuf;

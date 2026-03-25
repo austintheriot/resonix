@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+
 use alloc::{boxed::Box, vec::Vec};
 use cpal::Sample;
 
@@ -12,8 +14,7 @@ use crate::traits::Producer;
 
 pub struct CpalAudioInput<S: Sample, C: Consumer<S>> {
     consumer: C,
-    #[cfg(feature = "mock")]
-    producer: Option<Box<dyn Producer<S>>>,
+    _phantom: PhantomData<S>,
 }
 
 impl<S: Sample, C: Consumer<S>> CpalAudioInput<S, C> {
@@ -57,6 +58,8 @@ impl<S: Sample, C: Consumer<S>> SystemAudioInput<S> for CpalAudioInput<S, C> {
 
     #[cfg(feature = "mock")]
     fn producer(&mut self) -> Option<Box<dyn Producer<S>>> {
-        self.producer.take()
+        // only used in Mock implementation--we need the producer
+        // to be able to get audio data from cpal
+        None
     }
 }

@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+
 use alloc::boxed::Box;
 use cpal::{
     Sample, SizedSample, Stream, StreamConfig,
@@ -6,42 +8,34 @@ use cpal::{
 
 use crate::{
     SystemAudioOutputError,
-    traits::{Consumer, Producer},
+    implementations::cpal::CpalAudioOutputError,
+    traits::{Consumer, Producer, SystemAudioOutput},
 };
 
-pub struct CpalAudioOutput<P: Producer<S>> {
+pub struct CpalAudioOutput<S, P: Producer<S>> {
     producer: P,
     // must be kept alive so stream doesn't end
     #[allow(dead_code)]
     stream: Stream,
     config: StreamConfig,
-    ring_buffer_capacity: usize,
+    _phantom: PhantomData<S>,
 }
 
 impl<S: Sample, P: Producer<S>> CpalAudioOutput<S, P> {
     pub fn config(&self) -> &StreamConfig {
         &self.config
     }
-
-    pub fn ring_buffer_capacity(&self) -> usize {
-        self.ring_buffer_capacity
-    }
 }
 
 impl<S: Sample + SizedSample + Send + 'static, P: Producer<S>> CpalAudioOutput<S, P> {
     /// requires a consumer & producer pair to propagate audio data from the audio thread
-    pub fn from_defaults<C: Consumer<S>>(consumer: C, producer: P) -> Self {
+    pub fn from_defaults<C: Consumer<S> + Send + 'static>(mut consumer: C, producer: P) -> Self {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
             .expect("failed to find a default output device");
         let supported_config = device.default_output_config().unwrap();
         let channels = supported_config.channels() as usize;
-
-        // ~2.67ms of latency at 48kHz = ~128 samples--good enough for most needs
-        let ring_buffer_capacity = supported_config.sample_rate().0 as f32 * 0.00267;
-        let ring_buffer_capacity = ring_buffer_capacity.round() as usize;
-        let buffer = HeapRb::new(ring_buffer_capacity);
 
         // just output whatever is read from the ring buffer
         let mut next_value = move || consumer.try_read().unwrap();
@@ -62,7 +56,7 @@ impl<S: Sample + SizedSample + Send + 'static, P: Producer<S>> CpalAudioOutput<S
             stream,
             config: supported_config.config(),
             producer,
-            ring_buffer_capacity,
+            _phantom: PhantomData,
         }
     }
 }
@@ -78,14 +72,14 @@ where
     }
 }
 
-impl<S, P: Producer<S>> SystemAudioOutput<S> for CpalAudioOutput<S, P>
+impl<S: Copy, P: Producer<S>> SystemAudioOutput<S> for CpalAudioOutput<S, P>
 where
     S: Sample,
 {
     fn try_write_block(&mut self, samples: &[S]) -> Result<(), SystemAudioOutputError> {
-        self.producer.try_write_block(samples).map_err(|_e| {
-            SystemAudioOutputError::WriteError(Box::new(CpalAudioOutputError::WriteError))
-        })?;
+        for sample in samples {
+            self.producer.try_write(*sample)?;
+        }
 
         Ok(())
     }
@@ -98,13 +92,14 @@ where
         Ok(())
     }
 
-    #[cfg(feature = "mock")]
-    fn consumer(&mut self) -> Option<Consumer<S>> {
-        // only used in Mock implementation
-        None
+    fn ready_for_sample(&self) -> bool {
+        self.producer.ready()
     }
 
-    fn ready_for_sample(&self) -> bool {
-        !self.producer.is_full()
+    #[cfg(feature = "mock")]
+    fn consumer(&mut self) -> Option<Box<dyn Consumer<S>>> {
+        // only used in Mock implementation--we need the consumer
+        // to send audio data to cpal
+        None
     }
 }

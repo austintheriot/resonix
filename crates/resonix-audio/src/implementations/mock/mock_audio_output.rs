@@ -4,7 +4,6 @@ use alloc::boxed::Box;
 
 use crate::{
     SystemAudioOutputError,
-    implementations::mock::MockAudioOutputError,
     traits::{Consumer, Producer, SystemAudioOutput},
 };
 
@@ -34,19 +33,19 @@ impl<S, C: Consumer<S> + Default, P: Producer<S> + Default> Default for MockAudi
     }
 }
 
-impl<S, C: Consumer<S>, P: Producer<S>> SystemAudioOutput<S> for MockAudioOutput<S, P, C> {
-    fn try_write_block(&mut self, samples: &[S]) -> Result<(), SystemAudioOutputError> {
-        self.producer.try_write_block(samples).map_err(|_e| {
-            SystemAudioOutputError::WriteError(Box::new(MockAudioOutputError::WriteError))
-        })?;
+impl<S: Copy, C: Consumer<S> + 'static, P: Producer<S>> SystemAudioOutput<S>
+    for MockAudioOutput<S, P, C>
+{
+    fn try_write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError> {
+        self.producer.try_write(sample)?;
 
         Ok(())
     }
 
-    fn try_write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError> {
-        self.producer.try_push(sample).map_err(|_sample| {
-            SystemAudioOutputError::WriteError(Box::new(MockAudioOutputError::WriteError))
-        })?;
+    fn try_write_block(&mut self, samples: &[S]) -> Result<(), SystemAudioOutputError> {
+        for sample in samples {
+            self.producer.try_write(*sample)?;
+        }
 
         Ok(())
     }
@@ -58,7 +57,7 @@ impl<S, C: Consumer<S>, P: Producer<S>> SystemAudioOutput<S> for MockAudioOutput
     }
 
     fn ready_for_sample(&self) -> bool {
-        !self.producer.is_full()
+        self.producer.ready()
     }
 }
 
