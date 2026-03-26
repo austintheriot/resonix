@@ -821,7 +821,6 @@ name = "resonix-audio"
 version = "0.1.0"
 dependencies = [
  "cpal",
- "dasp_sample",
  "ringbuf",
  "thiserror 2.0.11",
 ]
@@ -830,7 +829,6 @@ dependencies = [
 name = "resonix-cli-tests"
 version = "0.1.0"
 dependencies = [
- "dasp_sample",
  "resonix-audio",
 ]
 

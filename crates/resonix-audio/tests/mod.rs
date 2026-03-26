@@ -36,7 +36,6 @@ mod test_audio_output {
     }
 
     mod mock_audio_input {
-        use cpal::Sample;
         use resonix_audio::{
             implementations::{mock::MockAudioInput, ringbuf::RingbufRuntime},
             traits::SystemAudioInput,
@@ -50,7 +49,7 @@ mod test_audio_output {
             audio_input
                 .producer()
                 .unwrap()
-                .try_write(Sample::from_sample(expected_input_sample))
+                .try_write(expected_input_sample)
                 .unwrap();
 
             let input_sample = audio_input.try_read_sample().unwrap();
@@ -60,11 +59,7 @@ mod test_audio_output {
         #[test]
         fn receive_audio_block() {
             let mut audio_input = MockAudioInput::<f32>::new::<RingbufRuntime>();
-            let expected_input_block: [f32; 3] = [
-                Sample::from_sample(0.0),
-                Sample::from_sample(1.0),
-                Sample::from_sample(2.0),
-            ];
+            let expected_input_block: [f32; 3] = [0.0, 1.0, 2.0];
 
             let mut producer = audio_input.producer().unwrap();
             for sample in expected_input_block {

@@ -6,11 +6,12 @@ edition = "2024"
 [features]
 cpal = ["dep:cpal"]
 mock = []
-ringbuf = ["dep:ringbuf"]
+
+# default channel runtime for now
+# ringbuf = ["dep:ringbuf"]
 
 [dependencies]
+ringbuf = { version = "0.4.8" }
 thiserror.workspace = true
 # TODO: is this needed?
-dasp_sample = "0.11"
 cpal = { version = "0.15.3", optional = true }
-ringbuf = { version = "0.4.8", optional = true }

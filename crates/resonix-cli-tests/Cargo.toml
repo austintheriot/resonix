@@ -4,9 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-resonix-audio = { path = "../resonix-audio/", features = [
-	"cpal",
-	"mock",
-	"ringbuf",
-] }
-dasp_sample = "0.11"
+resonix-audio = { path = "../resonix-audio/", features = ["cpal", "mock"] }
