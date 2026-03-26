@@ -6,4 +6,3 @@ pub mod mock;
 
 #[cfg(feature = "ringbuf")]
 pub mod ringbuf;
-

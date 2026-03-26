@@ -28,7 +28,7 @@ impl<S: Sample + Send + 'static> CpalAudioOutput<S> {
 
 impl<S: SizedSample + Sample + Send + 'static> CpalAudioOutput<S> {
     /// requires a consumer & producer pair to propagate audio data from the audio thread
-    pub fn from_defaults<R: ChannelRuntime>(runtime: &R) -> Self {
+    pub fn from_defaults<R: ChannelRuntime>() -> Self {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
@@ -36,7 +36,7 @@ impl<S: SizedSample + Sample + Send + 'static> CpalAudioOutput<S> {
         let supported_config = device.default_output_config().unwrap();
 
         let default_capacity = 2048;
-        let (producer, mut consumer) = runtime.create_channel(default_capacity);
+        let (producer, mut consumer) = R::create_channel(default_capacity);
         let channels = supported_config.channels() as usize;
 
         // just output whatever is read from the ring buffer
@@ -99,7 +99,7 @@ where
     }
 
     #[cfg(feature = "mock")]
-    fn consumer(&mut self) -> Option<Box<dyn Consumer<S>>> {
+    fn consumer(&mut self) -> Option<Box<dyn Consumer<S> + Send>> {
         // only used in Mock implementation--we need the consumer
         // to send audio data to cpal
         None

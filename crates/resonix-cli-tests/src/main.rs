@@ -6,8 +6,7 @@ use resonix_audio::{
 fn main() {
     use core::f32;
 
-    let runtime = RingbufRuntime;
-    let mut audio_output = CpalAudioOutput::from_defaults(&runtime);
+    let mut audio_output = CpalAudioOutput::from_defaults::<RingbufRuntime>();
 
     let mut sample_clock = 0f32;
     let sample_rate = audio_output.config().sample_rate.0;
@@ -27,12 +26,14 @@ fn main() {
 
 #[cfg(test)]
 mod test_mock {
-    use dasp_sample::Sample;
-    use resonix_audio::implementations::mock::MockAudioOutput;
+    use resonix_audio::{
+        implementations::{mock::MockAudioOutput, ringbuf::RingbufRuntime},
+        traits::SystemAudioOutput,
+    };
 
     #[test]
     fn output_is_captured() {
-        let mut audio_output = MockAudioOutput::<f32>::default();
+        let mut audio_output = MockAudioOutput::<f32>::new::<RingbufRuntime>();
 
         audio_output.try_write_sample(0.123).unwrap();
 

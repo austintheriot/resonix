@@ -37,5 +37,5 @@ pub trait SystemAudioInput<S> {
     }
 
     #[cfg(feature = "mock")]
-    fn producer(&mut self) -> Option<Box<dyn Producer<S>>>;
+    fn producer(&mut self) -> Option<Box<dyn Producer<S> + Send>>;
 }

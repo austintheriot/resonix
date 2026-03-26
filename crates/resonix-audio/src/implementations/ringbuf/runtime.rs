@@ -8,16 +8,25 @@ use ringbuf::{HeapRb, traits::Split};
 
 pub struct RingbufRuntime;
 
-impl ChannelRuntime for RingbufRuntime {
-    fn create_channel<S: Send + 'static>(
-        &self,
+impl RingbufRuntime {
+    /// Raw type without type erasure: useful for internal tests
+    pub fn create_named_channel<S: Send + 'static>(
         capacity: usize,
-    ) -> (Box<dyn Producer<S> + Send>, Box<dyn Consumer<S> + Send>) {
+    ) -> (RingbufProducer<S>, RingbufConsumer<S>) {
         let channels = HeapRb::new(capacity);
         let (producer, consumer) = channels.split();
+        (RingbufProducer(producer), RingbufConsumer(consumer))
+    }
+}
+
+impl ChannelRuntime for RingbufRuntime {
+    fn create_channel<S: Send + 'static>(
+        capacity: usize,
+    ) -> (Box<dyn Producer<S> + Send>, Box<dyn Consumer<S> + Send>) {
+        let (producer, consumer) = Self::create_named_channel(capacity);
         (
-            Box::new(RingbufProducer(producer)) as Box<dyn Producer<S> + Send>,
-            Box::new(RingbufConsumer(consumer)) as Box<dyn Consumer<S> + Send>,
+            Box::new(producer) as Box<dyn Producer<S> + Send>,
+            Box::new(consumer) as Box<dyn Consumer<S> + Send>,
         )
     }
 }

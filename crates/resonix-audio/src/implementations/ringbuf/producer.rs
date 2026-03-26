@@ -44,30 +44,26 @@ impl<S> DerefMut for RingbufProducer<S> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use ringbuf::{HeapRb, traits::Consumer as RingBufConsumer};
+    use crate::{implementations::ringbuf::RingbufRuntime, traits::Consumer};
 
-    /// Creates a (Producer<f32>, reader) pair backed by a ringbuffer of the given capacity.
-    fn make_producer_with_capacity(
-        capacity: usize,
-    ) -> (RingbufProducer<f32>, impl RingBufConsumer<Item = f32>) {
-        let ring_buffer = HeapRb::<f32>::new(capacity);
-        let (producer, consumer) = ring_buffer.split();
-        (RingbufProducer(producer), consumer)
-    }
+    use super::*;
 
     #[test]
     fn try_write_pushes_a_single_sample_to_the_buffer() {
-        let (mut producer, mut consumer) = make_producer_with_capacity(4);
+        let (mut producer, mut consumer) = RingbufRuntime::create_named_channel(4);
+
         producer.try_write(0.75f32).unwrap();
-        assert_eq!(consumer.try_pop().unwrap(), 0.75f32);
+
+        assert_eq!(consumer.try_read().unwrap(), 0.75f32);
     }
 
     #[test]
     fn try_write_to_full_buffer_returns_write_failure_error() {
-        let (mut producer, _consumer) = make_producer_with_capacity(1);
+        let (mut producer, _consumer) = RingbufRuntime::create_named_channel(1);
+
         producer.try_write(1.0f32).unwrap();
         let result = producer.try_write(2.0f32);
-        assert!(matches!(result, Err(ProducerError::UnknownError(..))));
+
+        assert!(matches!(result, Err(ProducerError::InsufficientSpace)));
     }
 }

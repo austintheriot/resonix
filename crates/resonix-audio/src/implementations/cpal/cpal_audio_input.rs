@@ -53,7 +53,7 @@ impl<S: Sample + Send + 'static> SystemAudioInput<S> for CpalAudioInput<S> {
     }
 
     #[cfg(feature = "mock")]
-    fn producer(&mut self) -> Option<Box<dyn Producer<S>>> {
+    fn producer(&mut self) -> Option<Box<dyn Producer<S> + Send>> {
         // only used in Mock implementation--we need the producer
         // to be able to get audio data from cpal
         None

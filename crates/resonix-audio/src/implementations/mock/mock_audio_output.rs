@@ -11,9 +11,13 @@ pub struct MockAudioOutput<S> {
 }
 
 impl<S: Send + 'static> MockAudioOutput<S> {
-    pub fn new<R: ChannelRuntime>(runtime: &R) -> Self {
+    pub fn new<R: ChannelRuntime>() -> Self {
         let default_capacity = 2048;
-        let (producer, consumer) = runtime.create_channel(default_capacity);
+        Self::with_capacity::<R>(default_capacity)
+    }
+
+    pub fn with_capacity<R: ChannelRuntime>(capacity: usize) -> Self {
+        let (producer, consumer) = R::create_channel(capacity);
         Self {
             producer,
             consumer: Some(consumer),
@@ -53,22 +57,19 @@ mod tests {
 
     #[test]
     fn ready_for_sample_returns_true_on_new_output() {
-        let runtime = RingbufRuntime;
-        let output = MockAudioOutput::<f32>::new(&runtime);
+        let output = MockAudioOutput::<f32>::new::<RingbufRuntime>();
         assert!(output.ready_for_sample());
     }
 
     #[test]
     fn try_write_sample_succeeds_when_buffer_has_space() {
-        let runtime = RingbufRuntime;
-        let mut output = MockAudioOutput::<f32>::new(&runtime);
+        let mut output = MockAudioOutput::<f32>::new::<RingbufRuntime>();
         assert!(output.try_write_sample(0.5f32).is_ok());
     }
 
     #[test]
     fn consumer_can_only_be_taken_once() {
-        let runtime = RingbufRuntime;
-        let mut output = MockAudioOutput::<f32>::new(&runtime);
+        let mut output = MockAudioOutput::<f32>::new::<RingbufRuntime>();
         let first_consumer = output.consumer();
         let second_consumer = output.consumer();
         assert!(first_consumer.is_some());
@@ -77,8 +78,7 @@ mod tests {
 
     #[test]
     fn try_write_block_and_consumer_drain_roundtrip() {
-        let runtime = RingbufRuntime;
-        let mut output = MockAudioOutput::<f32>::new(&runtime);
+        let mut output = MockAudioOutput::<f32>::new::<RingbufRuntime>();
         let written_samples = [1.0f32, 2.0f32, 3.0f32];
         output.try_write_block(&written_samples).unwrap();
 
@@ -89,21 +89,23 @@ mod tests {
 
     #[test]
     fn try_write_sample_error_when_buffer_is_full() {
-        let runtime = RingbufRuntime;
-        let mut output = MockAudioOutput::<f32>::new(&runtime);
-        // Fill the entire 1024-sample capacity
-        for _ in 0..1024 {
+        let capacity = 4;
+        let mut output = MockAudioOutput::<f32>::with_capacity::<RingbufRuntime>(capacity);
+
+        for _ in 0..capacity {
             output.try_write_sample(0.0f32).unwrap();
         }
+
         let result = output.try_write_sample(1.0f32);
         assert!(result.is_err());
     }
 
     #[test]
     fn ready_for_sample_returns_false_when_buffer_is_full() {
-        let runtime = RingbufRuntime;
-        let mut output = MockAudioOutput::<f32>::new(&runtime);
-        for _ in 0..1024 {
+        let capacity = 4;
+        let mut output = MockAudioOutput::<f32>::with_capacity::<RingbufRuntime>(capacity);
+
+        for _ in 0..capacity {
             output.try_write_sample(0.0f32).unwrap();
         }
         assert!(!output.ready_for_sample());
