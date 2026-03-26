@@ -3,13 +3,13 @@ mod test_audio_output {
 
     mod mock_audio_output {
         use resonix_audio::{
-            implementations::{mock::MockAudioOutput, ringbuf::RingbufRuntime},
+            implementations::{mock::MockAudioOutput, ringbuf::RingbufChannel},
             traits::SystemAudioOutput,
         };
 
         #[test]
         fn send_audio_sample() {
-            let mut audio_output = MockAudioOutput::<f32>::new::<RingbufRuntime>();
+            let mut audio_output = MockAudioOutput::<f32>::new::<RingbufChannel>();
             let expected_output_sample: f32 = 0.123;
 
             audio_output
@@ -23,7 +23,7 @@ mod test_audio_output {
 
         #[test]
         fn send_audio_block() {
-            let mut audio_output = MockAudioOutput::<f32>::new::<RingbufRuntime>();
+            let mut audio_output = MockAudioOutput::<f32>::new::<RingbufChannel>();
             let expected_output_block: [f32; 3] = [0.0, 1.0, 2.0];
 
             audio_output
@@ -37,13 +37,13 @@ mod test_audio_output {
 
     mod mock_audio_input {
         use resonix_audio::{
-            implementations::{mock::MockAudioInput, ringbuf::RingbufRuntime},
+            implementations::{mock::MockAudioInput, ringbuf::RingbufChannel},
             traits::SystemAudioInput,
         };
 
         #[test]
         fn receive_audio_sample() {
-            let mut audio_input = MockAudioInput::<f32>::new::<RingbufRuntime>();
+            let mut audio_input = MockAudioInput::<f32>::new::<RingbufChannel>();
             let expected_input_sample: f32 = 0.123;
 
             audio_input
@@ -58,7 +58,7 @@ mod test_audio_output {
 
         #[test]
         fn receive_audio_block() {
-            let mut audio_input = MockAudioInput::<f32>::new::<RingbufRuntime>();
+            let mut audio_input = MockAudioInput::<f32>::new::<RingbufChannel>();
             let expected_input_block: [f32; 3] = [0.0, 1.0, 2.0];
 
             let mut producer = audio_input.producer().unwrap();

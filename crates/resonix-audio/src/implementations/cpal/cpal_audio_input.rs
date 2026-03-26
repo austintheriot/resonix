@@ -1,11 +1,9 @@
-use core::marker::PhantomData;
-
 use alloc::boxed::Box;
 use cpal::Sample;
 
 use crate::{
     SystemAudioInputError,
-    traits::{Consumer, SystemAudioInput},
+    traits::{ChannelRuntime, Consumer, SystemAudioInput},
 };
 
 #[cfg(feature = "mock")]
@@ -13,7 +11,12 @@ use crate::traits::Producer;
 
 pub struct CpalAudioInput<S: Sample + Send + 'static> {
     consumer: Box<dyn Consumer<S>>,
-    _phantom: PhantomData<S>,
+}
+
+impl<S: Sample + Send + 'static> CpalAudioInput<S> {
+    pub fn with_capacity<R: ChannelRuntime>(_channel_capacity: usize) -> Self {
+        todo!("Must initiate audio from a microphone source here");
+    }
 }
 
 impl<S: Sample + Send + 'static> SystemAudioInput<S> for CpalAudioInput<S> {

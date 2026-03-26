@@ -1,7 +1,7 @@
+mod channel;
 mod consumer;
 mod producer;
-mod runtime;
 
+pub use channel::*;
 pub use consumer::*;
 pub use producer::*;
-pub use runtime::*;

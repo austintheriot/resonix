@@ -8,6 +8,7 @@ use ringbuf::{
 
 use crate::{ProducerError, traits::Producer};
 
+/// Typed wrapper around the ringbuf split producer
 pub struct RingbufProducer<S>(pub(crate) <SharedRb<Heap<S>> as Split>::Prod);
 
 impl<S> RingbufProducer<S> {
@@ -44,13 +45,13 @@ impl<S> DerefMut for RingbufProducer<S> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{implementations::ringbuf::RingbufRuntime, traits::Consumer};
+    use crate::{implementations::ringbuf::RingbufChannel, traits::Consumer};
 
     use super::*;
 
     #[test]
     fn try_write_pushes_a_single_sample_to_the_buffer() {
-        let (mut producer, mut consumer) = RingbufRuntime::create_named_channel(4);
+        let (mut producer, mut consumer) = RingbufChannel::create_named_channel(4);
 
         producer.try_write(0.75f32).unwrap();
 
@@ -59,7 +60,7 @@ mod tests {
 
     #[test]
     fn try_write_to_full_buffer_returns_write_failure_error() {
-        let (mut producer, _consumer) = RingbufRuntime::create_named_channel(1);
+        let (mut producer, _consumer) = RingbufChannel::create_named_channel(1);
 
         producer.try_write(1.0f32).unwrap();
         let result = producer.try_write(2.0f32);

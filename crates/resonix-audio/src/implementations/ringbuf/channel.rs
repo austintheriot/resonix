@@ -6,9 +6,9 @@ use crate::{
 use alloc::boxed::Box;
 use ringbuf::{HeapRb, traits::Split};
 
-pub struct RingbufRuntime;
+pub struct RingbufChannel;
 
-impl RingbufRuntime {
+impl RingbufChannel {
     /// Raw type without type erasure: useful for internal tests
     pub fn create_named_channel<S: Send + 'static>(
         capacity: usize,
@@ -19,7 +19,7 @@ impl RingbufRuntime {
     }
 }
 
-impl ChannelRuntime for RingbufRuntime {
+impl ChannelRuntime for RingbufChannel {
     fn create_channel<S: Send + 'static>(
         capacity: usize,
     ) -> (Box<dyn Producer<S> + Send>, Box<dyn Consumer<S> + Send>) {

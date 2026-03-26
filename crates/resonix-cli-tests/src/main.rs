@@ -1,12 +1,12 @@
 use resonix_audio::{
-    implementations::{cpal::CpalAudioOutput, ringbuf::RingbufRuntime},
+    implementations::{cpal::CpalAudioOutput, ringbuf::RingbufChannel},
     traits::SystemAudioOutput,
 };
 
 fn main() {
     use core::f32;
 
-    let mut audio_output = CpalAudioOutput::from_defaults::<RingbufRuntime>();
+    let mut audio_output = CpalAudioOutput::new::<RingbufChannel>();
 
     let mut sample_clock = 0f32;
     let sample_rate = audio_output.config().sample_rate.0;
@@ -27,13 +27,13 @@ fn main() {
 #[cfg(test)]
 mod test_mock {
     use resonix_audio::{
-        implementations::{mock::MockAudioOutput, ringbuf::RingbufRuntime},
+        implementations::{mock::MockAudioOutput, ringbuf::RingbufChannel},
         traits::SystemAudioOutput,
     };
 
     #[test]
     fn output_is_captured() {
-        let mut audio_output = MockAudioOutput::<f32>::new::<RingbufRuntime>();
+        let mut audio_output = MockAudioOutput::<f32>::new::<RingbufChannel>();
 
         audio_output.try_write_sample(0.123).unwrap();
 

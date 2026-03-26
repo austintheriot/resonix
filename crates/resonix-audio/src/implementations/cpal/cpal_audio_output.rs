@@ -1,5 +1,3 @@
-use core::marker::PhantomData;
-
 use alloc::boxed::Box;
 use cpal::{
     Sample, SizedSample, Stream, StreamConfig,
@@ -7,7 +5,7 @@ use cpal::{
 };
 
 use crate::{
-    ProducerError, SystemAudioOutputError,
+    SystemAudioOutputError,
     traits::{ChannelRuntime, Consumer, Producer, SystemAudioOutput},
 };
 
@@ -17,7 +15,6 @@ pub struct CpalAudioOutput<S: Sample + Send + 'static> {
     #[allow(dead_code)]
     stream: Stream,
     config: StreamConfig,
-    _phantom: PhantomData<S>,
 }
 
 impl<S: Sample + Send + 'static> CpalAudioOutput<S> {
@@ -27,16 +24,19 @@ impl<S: Sample + Send + 'static> CpalAudioOutput<S> {
 }
 
 impl<S: SizedSample + Sample + Send + 'static> CpalAudioOutput<S> {
+    pub fn new<R: ChannelRuntime>() -> Self {
+        let default_capacity = 2048;
+        Self::with_capacity::<R>(default_capacity)
+    }
+
     /// requires a consumer & producer pair to propagate audio data from the audio thread
-    pub fn from_defaults<R: ChannelRuntime>() -> Self {
+    pub fn with_capacity<R: ChannelRuntime>(channel_capacity: usize) -> Self {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
             .expect("failed to find a default output device");
         let supported_config = device.default_output_config().unwrap();
-
-        let default_capacity = 2048;
-        let (producer, mut consumer) = R::create_channel(default_capacity);
+        let (producer, mut consumer) = R::create_channel(channel_capacity);
         let channels = supported_config.channels() as usize;
 
         // just output whatever is read from the ring buffer
@@ -58,7 +58,6 @@ impl<S: SizedSample + Sample + Send + 'static> CpalAudioOutput<S> {
             stream,
             config: supported_config.config(),
             producer,
-            _phantom: PhantomData,
         }
     }
 }
@@ -79,9 +78,7 @@ where
     S: Sample,
 {
     fn try_write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError> {
-        self.producer.try_write(sample).map_err(|_e| {
-            SystemAudioOutputError::ProducerError(ProducerError::InsufficientSpace)
-        })?;
+        self.producer.try_write(sample)?;
 
         Ok(())
     }
