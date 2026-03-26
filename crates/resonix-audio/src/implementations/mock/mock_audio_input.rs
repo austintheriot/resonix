@@ -4,7 +4,6 @@ use alloc::{boxed::Box, vec::Vec};
 
 use crate::{
     SystemAudioInputError,
-    implementations::mock::MockAudioInputError,
     traits::{Consumer, Producer, SystemAudioInput},
 };
 

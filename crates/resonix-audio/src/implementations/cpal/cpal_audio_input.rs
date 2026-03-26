@@ -5,7 +5,6 @@ use cpal::Sample;
 
 use crate::{
     SystemAudioInputError,
-    implementations::cpal::CpalAudioInputError,
     traits::{Consumer, SystemAudioInput},
 };
 
@@ -23,9 +22,10 @@ impl<S: Sample, C: Consumer<S>> CpalAudioInput<S, C> {
 
 impl<S: Sample, C: Consumer<S>> SystemAudioInput<S> for CpalAudioInput<S, C> {
     fn try_read_sample(&mut self) -> Result<S, SystemAudioInputError> {
-        let sample = self.consumer.try_read().map_err(|_| {
-            SystemAudioInputError::ReadError(Box::new(CpalAudioInputError::ReadError))
-        })?;
+        let sample = self
+            .consumer
+            .try_read()
+            .map_err(|e| SystemAudioInputError::UnknownError(Box::new(e)))?;
 
         Ok(sample)
     }

@@ -7,8 +7,7 @@ use cpal::{
 };
 
 use crate::{
-    SystemAudioOutputError,
-    implementations::cpal::CpalAudioOutputError,
+    ProducerError, SystemAudioOutputError,
     traits::{Consumer, Producer, SystemAudioOutput},
 };
 
@@ -86,7 +85,7 @@ where
 
     fn try_write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError> {
         self.producer.try_write(sample).map_err(|_e| {
-            SystemAudioOutputError::WriteError(Box::new(CpalAudioOutputError::WriteError))
+            SystemAudioOutputError::ProducerError(ProducerError::InsufficientSpace)
         })?;
 
         Ok(())

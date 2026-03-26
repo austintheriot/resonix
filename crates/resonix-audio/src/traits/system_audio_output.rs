@@ -6,9 +6,9 @@ use crate::traits::Consumer;
 use alloc::boxed::Box;
 
 pub trait SystemAudioOutput<S> {
-    fn try_write_block(&mut self, samples: &[S]) -> Result<(), SystemAudioOutputError>;
-
     fn try_write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError>;
+
+    fn try_write_block(&mut self, samples: &[S]) -> Result<(), SystemAudioOutputError>;
 
     fn ready_for_sample(&self) -> bool;
 

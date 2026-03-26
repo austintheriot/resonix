@@ -7,8 +7,8 @@ use crate::ProducerError;
 
 #[derive(Error, Debug)]
 pub enum SystemAudioOutputError {
-    #[error("Producer error occurred: {0}")]
+    #[error("Producer error occurred: {0:?}")]
     ProducerError(#[from] ProducerError),
-    #[error("Internal buffer error write occurred: {0}")]
-    WriteError(#[from] Box<dyn Error>),
+    #[error("Unknown error occurred: {0:?}")]
+    UnknownError(#[from] Box<dyn Error>),
 }

@@ -3,7 +3,7 @@ mod test_audio_output {
 
     mod mock_audio_output {
         use cpal::Sample;
-        use resonix_audio::{MockAudioOutput, SystemAudioOutput};
+        use resonix_audio::implementations::mock::MockAudioOutput;
 
         #[test]
         fn send_audio_sample() {
