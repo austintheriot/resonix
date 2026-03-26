@@ -31,17 +31,16 @@ The mock `producer()` / `consumer()` methods on `SystemAudioInput` / `SystemAudi
 
 ---
 
-## Option A: `ChannelRuntime` Trait with GATs
+## Option A: `ChannelRuntime` Trait with Dynamic Dispatch
 
-Define a trait that abstracts over "how to create a sample channel":
+Mirroring the webrtc.rs approach directly: a `Runtime` trait whose methods return boxed trait objects. The article's `wrap_udp_socket` returns `Box<dyn AsyncUdpSocket>`; the audio analog is `create_channel` returning `(Box<dyn Producer<S>>, Box<dyn Consumer<S>>)`.
 
 ```rust
-pub trait ChannelRuntime: 'static {
-    type Producer<S: Send + 'static>: Producer<S> + Send + 'static;
-    type Consumer<S: Send + 'static>: Consumer<S> + Send + 'static;
-
-    fn channel<S: Send + 'static>(capacity: usize)
-        -> (Self::Producer<S>, Self::Consumer<S>);
+pub trait ChannelRuntime: Send + Sync + 'static {
+    fn create_channel<S: Send + 'static>(
+        &self,
+        capacity: usize,
+    ) -> (Box<dyn Producer<S>>, Box<dyn Consumer<S>>);
 }
 ```
 
@@ -58,19 +57,22 @@ pub struct StdMpscRuntime;       // std::sync::mpsc
 impl ChannelRuntime for StdMpscRuntime { ... }
 ```
 
-`CpalAudioOutput` takes a `ChannelRuntime` type parameter:
+`CpalAudioOutput` stores the boxed producer from the runtime:
 
 ```rust
-pub struct CpalAudioOutput<R: ChannelRuntime, S: Sample + Send + 'static> {
-    producer: R::Producer<S>,
+pub struct CpalAudioOutput<S: Sample + Send + 'static> {
+    producer: Box<dyn Producer<S>>,
     stream: Stream,
     config: StreamConfig,
-    _phantom: PhantomData<S>,
 }
 
-impl<R: ChannelRuntime, S: Sample + ...> CpalAudioOutput<R, S> {
-    pub fn from_defaults() -> Result<Self, ...> {
-        let (producer, consumer) = R::channel(DEFAULT_CAPACITY);
+impl<S: Sample + ...> CpalAudioOutput<S> {
+    pub fn from_runtime(
+        runtime: &dyn ChannelRuntime,
+        device: &Device,
+        config: &StreamConfig,
+    ) -> Result<Self, ...> {
+        let (producer, consumer) = runtime.create_channel(DEFAULT_CAPACITY);
         // consumer captured in cpal callback...
     }
 }
@@ -80,18 +82,18 @@ Call sites:
 
 ```rust
 // native
-let output = CpalAudioOutput::<RingbufRuntime, f32>::from_defaults()?;
+let output = CpalAudioOutput::from_runtime(&RingbufRuntime, &device, &config)?;
 
 // WASM
-let output = WebAudioOutput::<WasmChannelRuntime, f32>::from_defaults()?;
+let output = WebAudioOutput::from_runtime(&WasmChannelRuntime, &device, &config)?;
 
 // test
-let output = MockAudioOutput::<VecDequeRuntime, f32>::default();
+let output = CpalAudioOutput::from_runtime(&VecDequeRuntime, &device, &config)?;
 ```
 
-**Pros:** Zero-cost, compiler enforces correctness, clean call sites once the runtime type is named.
+**Pros:** No GATs, no type parameter propagation, supports `dyn ChannelRuntime` for dynamic dispatch. The boxing cost occurs once at construction — not per sample — so it's negligible.
 
-**Cons:** GAT bounds are verbose and can cause `where` clause explosion as the type parameter propagates up. GAT object safety is limited — can't use `dyn ChannelRuntime` for dynamic dispatch.
+**Cons:** Sample reads/writes go through `Box<dyn Producer<S>>` / `Box<dyn Consumer<S>>`, adding a vtable indirection on every call. Whether this matters depends on whether `Producer`/`Consumer` calls are in the hot path.
 
 ---
 
@@ -136,17 +138,17 @@ let output = MockAudioOutput::new(prod);
 
 ## Option C: Hybrid (recommended)
 
-Combine both: externalize channel construction as the canonical low-level form, and provide `ChannelRuntime` as an optional convenience factory on top.
+Combine both: externalize channel construction as the canonical low-level form (Option B), and provide `ChannelRuntime` as an optional convenience factory on top (Option A).
 
 ```rust
-// Low-level: explicit channel injection (always works)
+// Low-level: explicit channel injection (always works, zero-cost)
 let output = CpalAudioOutput::new(my_producer, my_consumer, &device, &config)?;
 
-// High-level: runtime factory (optional convenience)
-let output = CpalAudioOutput::with_runtime::<RingbufRuntime>(&device, &config)?;
+// High-level: runtime factory (optional convenience, boxes at construction only)
+let output = CpalAudioOutput::from_runtime(&RingbufRuntime, &device, &config)?;
 ```
 
-The `ChannelRuntime` trait is **additive** — the `new(P, C, ...)` constructors remain the canonical API. `with_runtime` is sugar for callers who want a one-liner default and don't need to customize the channel.
+The `ChannelRuntime` trait is **additive** — the `new(P, C, ...)` constructors remain the canonical API and keep the concrete types. `from_runtime` is sugar for callers who want a one-liner default and are fine with `Box<dyn Producer<S>>` internally.
 
 ---
 
@@ -166,6 +168,6 @@ A `SystemAudioOutput` shouldn't need to know it's a mock. The trait should only 
 
 1. **Start with Option B** — remove `from_defaults()` constructors that hide channels, add `new(P, C, ...)` constructors. Clean up `producer()` / `consumer()` from the traits. This is the 80% solution with minimal new abstraction.
 
-2. **Add Option A on top** when a second runtime is actually needed (e.g., a WASM/WebAudio backend). The `ChannelRuntime` GAT trait makes the most sense once there are at least two concrete implementations to justify the abstraction.
+2. **Add Option A on top** when a second runtime is actually needed (e.g., a WASM/WebAudio backend). The `ChannelRuntime` trait makes the most sense once there are at least two concrete implementations to justify the abstraction.
 
 The webrtc.rs article's approach applies directly here — their `Runtime` trait abstracts over async spawn/timers/sockets; the analog for `resonix-audio` is a `ChannelRuntime` trait that abstracts over how samples move between the audio callback context and user code.

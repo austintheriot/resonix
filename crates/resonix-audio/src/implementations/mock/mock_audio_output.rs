@@ -1,41 +1,27 @@
-use core::marker::PhantomData;
-
 use alloc::boxed::Box;
 
 use crate::{
     SystemAudioOutputError,
-    traits::{Consumer, Producer, SystemAudioOutput},
+    traits::{ChannelRuntime, Consumer, Producer, SystemAudioOutput},
 };
 
-pub struct MockAudioOutput<S, P: Producer<S>, C: Consumer<S>> {
-    producer: P,
-    consumer: Option<C>,
-    phantom: PhantomData<S>,
+pub struct MockAudioOutput<S> {
+    producer: Box<dyn Producer<S> + Send>,
+    consumer: Option<Box<dyn Consumer<S> + Send>>,
 }
 
-impl<S, C: Consumer<S>, P: Producer<S>> MockAudioOutput<S, P, C> {
-    pub fn from_producer_and_consumer(producer: P, consumer: C) -> Self {
+impl<S: Send + 'static> MockAudioOutput<S> {
+    pub fn new<R: ChannelRuntime>(runtime: &R) -> Self {
+        let default_capacity = 2048;
+        let (producer, consumer) = runtime.create_channel(default_capacity);
         Self {
             producer,
             consumer: Some(consumer),
-            phantom: PhantomData,
         }
     }
 }
 
-impl<S, C: Consumer<S> + Default, P: Producer<S> + Default> Default for MockAudioOutput<S, P, C> {
-    fn default() -> Self {
-        Self {
-            producer: P::default(),
-            consumer: Some(C::default()),
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<S: Copy, C: Consumer<S> + 'static, P: Producer<S>> SystemAudioOutput<S>
-    for MockAudioOutput<S, P, C>
-{
+impl<S: Copy> SystemAudioOutput<S> for MockAudioOutput<S> {
     fn try_write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError> {
         self.producer.try_write(sample)?;
 
@@ -50,10 +36,8 @@ impl<S: Copy, C: Consumer<S> + 'static, P: Producer<S>> SystemAudioOutput<S>
         Ok(())
     }
 
-    fn consumer(&mut self) -> Option<Box<dyn Consumer<S>>> {
-        self.consumer
-            .take()
-            .map(|c| Box::new(c) as Box<dyn Consumer<S>>)
+    fn consumer(&mut self) -> Option<Box<dyn Consumer<S> + Send>> {
+        self.consumer.take()
     }
 
     fn ready_for_sample(&self) -> bool {
@@ -63,23 +47,28 @@ impl<S: Copy, C: Consumer<S> + 'static, P: Producer<S>> SystemAudioOutput<S>
 
 #[cfg(test)]
 mod tests {
+    use crate::implementations::ringbuf::RingbufRuntime;
+
     use super::*;
 
     #[test]
     fn ready_for_sample_returns_true_on_new_output() {
-        let output = MockAudioOutput::<f32>::new();
+        let runtime = RingbufRuntime;
+        let output = MockAudioOutput::<f32>::new(&runtime);
         assert!(output.ready_for_sample());
     }
 
     #[test]
     fn try_write_sample_succeeds_when_buffer_has_space() {
-        let mut output = MockAudioOutput::<f32>::new();
+        let runtime = RingbufRuntime;
+        let mut output = MockAudioOutput::<f32>::new(&runtime);
         assert!(output.try_write_sample(0.5f32).is_ok());
     }
 
     #[test]
     fn consumer_can_only_be_taken_once() {
-        let mut output = MockAudioOutput::<f32>::new();
+        let runtime = RingbufRuntime;
+        let mut output = MockAudioOutput::<f32>::new(&runtime);
         let first_consumer = output.consumer();
         let second_consumer = output.consumer();
         assert!(first_consumer.is_some());
@@ -88,7 +77,8 @@ mod tests {
 
     #[test]
     fn try_write_block_and_consumer_drain_roundtrip() {
-        let mut output = MockAudioOutput::<f32>::new();
+        let runtime = RingbufRuntime;
+        let mut output = MockAudioOutput::<f32>::new(&runtime);
         let written_samples = [1.0f32, 2.0f32, 3.0f32];
         output.try_write_block(&written_samples).unwrap();
 
@@ -99,7 +89,8 @@ mod tests {
 
     #[test]
     fn try_write_sample_error_when_buffer_is_full() {
-        let mut output = MockAudioOutput::<f32>::new();
+        let runtime = RingbufRuntime;
+        let mut output = MockAudioOutput::<f32>::new(&runtime);
         // Fill the entire 1024-sample capacity
         for _ in 0..1024 {
             output.try_write_sample(0.0f32).unwrap();
@@ -110,7 +101,8 @@ mod tests {
 
     #[test]
     fn ready_for_sample_returns_false_when_buffer_is_full() {
-        let mut output = MockAudioOutput::<f32>::new();
+        let runtime = RingbufRuntime;
+        let mut output = MockAudioOutput::<f32>::new(&runtime);
         for _ in 0..1024 {
             output.try_write_sample(0.0f32).unwrap();
         }

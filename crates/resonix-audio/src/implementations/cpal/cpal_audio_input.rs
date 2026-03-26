@@ -11,16 +11,12 @@ use crate::{
 #[cfg(feature = "mock")]
 use crate::traits::Producer;
 
-pub struct CpalAudioInput<S: Sample, C: Consumer<S>> {
-    consumer: C,
+pub struct CpalAudioInput<S: Sample + Send + 'static> {
+    consumer: Box<dyn Consumer<S>>,
     _phantom: PhantomData<S>,
 }
 
-impl<S: Sample, C: Consumer<S>> CpalAudioInput<S, C> {
-    // TODO: implement
-}
-
-impl<S: Sample, C: Consumer<S>> SystemAudioInput<S> for CpalAudioInput<S, C> {
+impl<S: Sample + Send + 'static> SystemAudioInput<S> for CpalAudioInput<S> {
     fn try_read_sample(&mut self) -> Result<S, SystemAudioInputError> {
         let sample = self
             .consumer

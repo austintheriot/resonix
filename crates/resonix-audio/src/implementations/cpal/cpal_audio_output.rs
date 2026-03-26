@@ -8,11 +8,11 @@ use cpal::{
 
 use crate::{
     ProducerError, SystemAudioOutputError,
-    traits::{Consumer, Producer, SystemAudioOutput},
+    traits::{ChannelRuntime, Consumer, Producer, SystemAudioOutput},
 };
 
-pub struct CpalAudioOutput<S, P: Producer<S>> {
-    producer: P,
+pub struct CpalAudioOutput<S: Sample + Send + 'static> {
+    producer: Box<dyn Producer<S> + Send>,
     // must be kept alive so stream doesn't end
     #[allow(dead_code)]
     stream: Stream,
@@ -20,20 +20,23 @@ pub struct CpalAudioOutput<S, P: Producer<S>> {
     _phantom: PhantomData<S>,
 }
 
-impl<S: Sample, P: Producer<S>> CpalAudioOutput<S, P> {
+impl<S: Sample + Send + 'static> CpalAudioOutput<S> {
     pub fn config(&self) -> &StreamConfig {
         &self.config
     }
 }
 
-impl<S: Sample + SizedSample + Send + 'static, P: Producer<S>> CpalAudioOutput<S, P> {
+impl<S: SizedSample + Sample + Send + 'static> CpalAudioOutput<S> {
     /// requires a consumer & producer pair to propagate audio data from the audio thread
-    pub fn from_defaults<C: Consumer<S> + Send + 'static>(mut consumer: C, producer: P) -> Self {
+    pub fn from_defaults<R: ChannelRuntime>(runtime: &R) -> Self {
         let host = cpal::default_host();
         let device = host
             .default_output_device()
             .expect("failed to find a default output device");
         let supported_config = device.default_output_config().unwrap();
+
+        let default_capacity = 2048;
+        let (producer, mut consumer) = runtime.create_channel(default_capacity);
         let channels = supported_config.channels() as usize;
 
         // just output whatever is read from the ring buffer
@@ -71,7 +74,7 @@ where
     }
 }
 
-impl<S: Copy, P: Producer<S>> SystemAudioOutput<S> for CpalAudioOutput<S, P>
+impl<S: Copy + Send> SystemAudioOutput<S> for CpalAudioOutput<S>
 where
     S: Sample,
 {

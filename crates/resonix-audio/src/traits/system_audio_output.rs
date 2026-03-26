@@ -13,5 +13,5 @@ pub trait SystemAudioOutput<S> {
     fn ready_for_sample(&self) -> bool;
 
     #[cfg(feature = "mock")]
-    fn consumer(&mut self) -> Option<Box<dyn Consumer<S>>>;
+    fn consumer(&mut self) -> Option<Box<dyn Consumer<S> + Send>>;
 }
