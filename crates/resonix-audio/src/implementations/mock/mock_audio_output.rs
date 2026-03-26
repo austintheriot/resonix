@@ -32,14 +32,6 @@ impl<S: Copy> SystemAudioOutput<S> for MockAudioOutput<S> {
         Ok(())
     }
 
-    fn try_write_block(&mut self, samples: &[S]) -> Result<(), SystemAudioOutputError> {
-        for sample in samples {
-            self.producer.try_write(*sample)?;
-        }
-
-        Ok(())
-    }
-
     fn consumer(&mut self) -> Option<Box<dyn Consumer<S> + Send>> {
         self.consumer.take()
     }

@@ -31,7 +31,9 @@ pub trait SystemAudioInput<S> {
     fn drain(&mut self) -> Result<Vec<S>, SystemAudioInputError> {
         let mut out = Vec::new();
 
-        self.read_into(&mut out)?;
+        while let Ok(sample) = self.try_read_sample() {
+            out.push(sample);
+        }
 
         Ok(out)
     }

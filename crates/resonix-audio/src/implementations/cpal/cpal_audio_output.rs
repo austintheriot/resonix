@@ -78,14 +78,6 @@ impl<S: Copy + Send> SystemAudioOutput<S> for CpalAudioOutput<S>
 where
     S: Sample,
 {
-    fn try_write_block(&mut self, samples: &[S]) -> Result<(), SystemAudioOutputError> {
-        for sample in samples {
-            self.producer.try_write(*sample)?;
-        }
-
-        Ok(())
-    }
-
     fn try_write_sample(&mut self, sample: S) -> Result<(), SystemAudioOutputError> {
         self.producer.try_write(sample).map_err(|_e| {
             SystemAudioOutputError::ProducerError(ProducerError::InsufficientSpace)
