@@ -18,10 +18,7 @@ pub struct CpalAudioInput<S: Sample + Send + 'static> {
 
 impl<S: Sample + Send + 'static> SystemAudioInput<S> for CpalAudioInput<S> {
     fn try_read_sample(&mut self) -> Result<S, SystemAudioInputError> {
-        let sample = self
-            .consumer
-            .try_read()
-            .map_err(|e| SystemAudioInputError::UnknownError(Box::new(e)))?;
+        let sample = self.consumer.try_read()?;
 
         Ok(sample)
     }
