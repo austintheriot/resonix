@@ -13,7 +13,7 @@ jobs:
   clippy-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Update apt
         run: sudo apt update
       - name: Install alsa
@@ -31,7 +31,7 @@ jobs:
   rustfmt-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -42,7 +42,7 @@ jobs:
   ubuntu-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Update apt
         run: sudo apt update
       - name: Install alsa
@@ -62,7 +62,7 @@ jobs:
         version: [x86_64, i686]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install ASIO SDK
         env:
           LINK: https://www.steinberg.net/asiosdk
@@ -88,7 +88,7 @@ jobs:
   macos-test:
     runs-on: macOS-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install llvm and clang
         run: brew install llvm
       - name: Install stable
@@ -101,7 +101,7 @@ jobs:
   chrome-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       # only test resonix-web for now, since web bindings are only present there
@@ -112,7 +112,7 @@ jobs:
     # It does not test the javascript/web integration
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install stable (wasm32 target)
         uses: dtolnay/rust-toolchain@stable
         with:
