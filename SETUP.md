@@ -19,7 +19,7 @@ rustup target add wasm32-unknown-unknown
 Note: must match version of `wasm-bindgen` installed [locally](./Cargo.toml).
 
 ```sh
-cargo install wasm-bindgen-cli --vers "0.2.100"
+cargo install wasm-bindgen-cli --vers "0.2.104"
 ```
 
 - Install Firefox's `geckodriver` to your $PATH (for running wasm tests in headless mode): https://github.com/mozilla/geckodriver/releases
