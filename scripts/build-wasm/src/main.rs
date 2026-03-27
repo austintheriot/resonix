@@ -1,6 +1,11 @@
 use anyhow::{Result, anyhow};
 use clap::{Parser, ValueEnum};
-use std::{fs, path::PathBuf, process::Command, time::Instant};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+    time::Instant,
+};
 
 /// Build profile
 #[derive(Debug, Clone, ValueEnum)]
@@ -173,7 +178,7 @@ fn build_target(args: &Args, target: &Target) -> Result<()> {
     Ok(())
 }
 
-fn post_process(wasm_out_dir: &PathBuf, wasm_name: &str) -> Result<()> {
+fn post_process(wasm_out_dir: &Path, wasm_name: &str) -> Result<()> {
     let wasm_file_path = wasm_out_dir.join(format!("{}_bg.wasm", wasm_name));
 
     if !wasm_file_path.exists() {
