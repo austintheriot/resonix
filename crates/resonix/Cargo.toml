@@ -3,4 +3,13 @@ name = "resonix"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+cpal = ["resonix-audio/cpal"]
+mock = ["resonix-audio/mock"]
+
 [dependencies]
+resonix-graph = { path = "../resonix-graph/" }
+resonix-audio = { path = "../resonix-audio/" }

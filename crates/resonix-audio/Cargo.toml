@@ -13,5 +13,4 @@ mock = []
 [dependencies]
 ringbuf = { version = "0.4.8" }
 thiserror.workspace = true
-# TODO: is this needed?
 cpal = { version = "0.15.3", optional = true }
