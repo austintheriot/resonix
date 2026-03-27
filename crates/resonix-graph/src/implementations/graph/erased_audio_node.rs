@@ -1,6 +1,6 @@
 use crate::{
     errors::AudioNodeRunError,
-    primitives::BlockSize,
+    primitives::{BlockSize, CurrentTime},
     traits::{AudioNode, DescribePorts, GetNodeId, GetPriority},
 };
 
@@ -20,6 +20,7 @@ pub(in crate::implementations::graph) trait ErasedAudioNode:
         inputs: &[Option<crate::implementations::AudioBuffer<'buf>>],
         outputs: &mut [Option<crate::implementations::AudioBufferMut<'buf>>],
         block_size: BlockSize,
+        current_time: CurrentTime,
     ) -> Result<(), AudioNodeRunError>;
 }
 
@@ -29,7 +30,8 @@ impl<T: AudioNode> ErasedAudioNode for T {
         inputs: &[Option<crate::implementations::AudioBuffer<'buf>>],
         outputs: &mut [Option<crate::implementations::AudioBufferMut<'buf>>],
         block_size: BlockSize,
+        current_time: CurrentTime,
     ) -> Result<(), AudioNodeRunError> {
-        self.process(inputs, outputs, block_size)
+        self.process(inputs, outputs, block_size, current_time)
     }
 }

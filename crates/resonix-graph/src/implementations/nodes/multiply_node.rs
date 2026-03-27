@@ -3,8 +3,8 @@ use core::ops::Deref;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId, Priority,
-        Sample,
+        BlockSize, CurrentTime, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor,
+        PortId, Priority, Sample,
     },
     traits::{
         AudioBuffer, AudioBufferMut, AudioNode, DescribePorts, GenerateId, GetNodeId,
@@ -70,6 +70,7 @@ impl AudioNode for MultiplyNode {
         inputs: &[Option<A>],
         outputs: &mut [Option<M>],
         _block_size: BlockSize,
+        _current_time: CurrentTime,
     ) -> Result<(), AudioNodeRunError> {
         let left_port_slot = **MultiplyNodePortDescriptors::LEFT_OPERAND_INPUT_PORT_ID;
         let right_port_slot = **MultiplyNodePortDescriptors::RIGHT_OPERAND_INPUT_PORT_ID;
@@ -233,6 +234,7 @@ mod tests {
                 inputs.as_slice(),
                 outputs.as_mut_slice(),
                 BlockSize::new(block_size),
+                CurrentTime::from(0.0),
             )
             .expect("process should not fail");
         }
@@ -336,7 +338,13 @@ mod tests {
             Some(crate::implementations::AudioBuffer::new(&right, 1).unwrap()),
         ];
         let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> = vec![None];
-        let result = node.process(inputs.as_slice(), outputs.as_mut_slice(), BlockSize::new(1));
+        let result = node.process(
+            inputs.as_slice(),
+            outputs.as_mut_slice(),
+            BlockSize::new(1),
+            CurrentTime::from(0.0),
+        );
+
         assert!(result.is_ok());
     }
 }

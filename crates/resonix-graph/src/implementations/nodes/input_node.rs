@@ -3,7 +3,8 @@ use core::ops::Deref;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId, Priority,
+        BlockSize, CurrentTime, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor,
+        PortId, Priority,
     },
     traits::{
         AudioBuffer, AudioBufferMut, AudioNode, DescribePorts, GenerateId, GetNodeId,
@@ -59,6 +60,7 @@ impl AudioNode for InputNode {
         inputs: &[Option<A>],
         outputs: &mut [Option<M>],
         _block_size: BlockSize,
+        _current_time: CurrentTime,
     ) -> Result<(), AudioNodeRunError> {
         // no output buffer to write to, nothing to do
         let Some(output_buffer) = outputs
@@ -133,6 +135,7 @@ mod tests {
                 num_channels,
             }]),
             block_size,
+            CurrentTime::from(0.0),
         )
         .unwrap();
 
@@ -163,6 +166,7 @@ mod tests {
                 num_channels,
             }]),
             block_size,
+            CurrentTime::from(0.0),
         )
         .unwrap();
 
@@ -186,6 +190,7 @@ mod tests {
                 num_channels,
             }]),
             block_size,
+            CurrentTime::from(0.0),
         )
         .unwrap();
     }
@@ -209,6 +214,7 @@ mod tests {
             }]),
             None,
             block_size,
+            CurrentTime::from(0.0),
         )
         .unwrap();
     }
@@ -245,6 +251,7 @@ mod tests {
                 num_channels,
             }]),
             block_size,
+            CurrentTime::from(0.0),
         )
         .unwrap();
 
@@ -282,6 +289,7 @@ mod tests {
                 num_channels,
             }]),
             block_size,
+            CurrentTime::from(0.0),
         )
         .unwrap();
 

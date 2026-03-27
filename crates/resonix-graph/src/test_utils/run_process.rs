@@ -1,6 +1,6 @@
 use crate::{
     errors::AudioNodeRunError,
-    primitives::{BlockSize, PortId},
+    primitives::{BlockSize, CurrentTime, PortId},
     test_utils::{
         InputBufferKeyMapping, OutputBufferKeyMapping, inputs_from_buffer_mapping,
         outputs_from_buffer_mapping,
@@ -14,7 +14,8 @@ pub(crate) fn run_process<'mapping, 'buffer: 'mapping, N: AudioNode, Id: Into<us
     node: &mut N,
     input_buffer_key_mappings: Option<&'mapping [InputBufferKeyMapping<Id>]>,
     output_buffer_key_mappings: Option<&'mapping mut [OutputBufferKeyMapping<Id>]>,
-    block_size: usize,
+    block_size: impl Into<BlockSize>,
+    current_time: impl Into<CurrentTime>,
 ) -> Result<(), AudioNodeRunError> {
     let inputs = if let Some(input_buffer_key_mapping) = input_buffer_key_mappings {
         inputs_from_buffer_mapping(input_buffer_key_mapping)
@@ -30,7 +31,7 @@ pub(crate) fn run_process<'mapping, 'buffer: 'mapping, N: AudioNode, Id: Into<us
     };
     let outputs = outputs.as_mut_slice();
 
-    node.process(inputs, outputs, BlockSize::new(block_size))?;
+    node.process(inputs, outputs, block_size.into(), current_time.into())?;
 
     Ok(())
 }

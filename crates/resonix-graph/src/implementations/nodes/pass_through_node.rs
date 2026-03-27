@@ -3,7 +3,8 @@ use core::ops::Deref;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId, Priority,
+        BlockSize, CurrentTime, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor,
+        PortId, Priority,
     },
     traits::{AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors, GetPriority},
 };
@@ -56,6 +57,7 @@ impl AudioNode for PassthroughNode {
         inputs: &[Option<A>],
         outputs: &mut [Option<M>],
         _block_size: BlockSize,
+        _current_time: CurrentTime,
     ) -> Result<(), AudioNodeRunError> {
         // no output: nothing to write
         let Some(output_buffer) = outputs
@@ -169,6 +171,7 @@ mod tests {
                 num_channels,
             }]),
             block_size,
+            CurrentTime::from(0.0),
         )
         .unwrap();
 
@@ -199,6 +202,7 @@ mod tests {
                 num_channels,
             }]),
             block_size,
+            CurrentTime::from(0.0),
         )
         .unwrap();
 
@@ -224,6 +228,7 @@ mod tests {
                 num_channels,
             }]),
             block_size,
+            CurrentTime::from(0.0),
         )
         .unwrap();
 
@@ -249,6 +254,7 @@ mod tests {
             }]),
             None,
             block_size,
+            CurrentTime::from(0.0),
         )
         .unwrap();
     }
@@ -260,7 +266,14 @@ mod tests {
         let mut node = PassthroughNode::new_with_channels(&mut id_gen, num_channels);
         let block_size = 256;
 
-        run_process::<PassthroughNode, PortId>(&mut node, None, None, block_size).unwrap();
+        run_process::<PassthroughNode, PortId>(
+            &mut node,
+            None,
+            None,
+            block_size,
+            CurrentTime::from(0.0),
+        )
+        .unwrap();
     }
 
     #[ignore]

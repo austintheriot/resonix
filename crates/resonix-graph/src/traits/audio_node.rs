@@ -1,8 +1,7 @@
 use crate::{
     errors::AudioNodeRunError,
-    primitives::BlockSize,
-    traits::GetNodeId,
-    traits::{AudioBuffer, AudioBufferMut},
+    primitives::{BlockSize, CurrentTime},
+    traits::{AudioBuffer, AudioBufferMut, GetNodeId},
 };
 
 use super::{DescribePorts, GetPriority};
@@ -20,5 +19,6 @@ pub trait AudioNode: GetNodeId + GetPriority + DescribePorts {
         inputs: &[Option<A>],
         outputs: &mut [Option<M>],
         block_size: BlockSize,
+        current_time: CurrentTime,
     ) -> Result<(), AudioNodeRunError>;
 }

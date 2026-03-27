@@ -5,8 +5,8 @@ use core::ops::Deref;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId, Priority,
-        Sample,
+        BlockSize, CurrentTime, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor,
+        PortId, Priority, Sample,
     },
     traits::{
         AudioBuffer, AudioBufferMut, AudioNode, DescribePorts, GenerateId, GetNodeId,
@@ -76,6 +76,7 @@ impl AudioNode for ConstantNode {
         _inputs: &[Option<A>],
         outputs: &mut [Option<M>],
         _block_size: BlockSize,
+        _current_time: CurrentTime,
     ) -> Result<(), AudioNodeRunError> {
         let output_port_slot = **ConstantNodePortDescriptors::OUTPUT_PORT_ID;
 
@@ -125,8 +126,13 @@ mod tests {
             let inputs: &[Option<crate::implementations::AudioBufferMut<'_>>] = &[];
             let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> =
                 vec![Some(audio_buf_mut)];
-            node.process(inputs, outputs.as_mut_slice(), BlockSize::new(block_size))
-                .expect("process should not fail");
+            node.process(
+                inputs,
+                outputs.as_mut_slice(),
+                BlockSize::new(block_size),
+                CurrentTime::from(0.0),
+            )
+            .expect("process should not fail");
         }
         buf
     }
@@ -170,7 +176,12 @@ mod tests {
 
         let inputs: &[Option<crate::implementations::AudioBufferMut<'_>>] = &[];
         let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> = vec![None];
-        let result = node.process(inputs, outputs.as_mut_slice(), BlockSize::new(1));
+        let result = node.process(
+            inputs,
+            outputs.as_mut_slice(),
+            BlockSize::new(1),
+            CurrentTime::from(0.0),
+        );
         assert!(result.is_ok());
     }
 }
