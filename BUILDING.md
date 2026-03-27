@@ -1,0 +1,9 @@
+# Building Wasm
+
+For building all wasm targets:
+
+```sh
+# only including example for resonix_graph right now, but other
+# crates may be (more) relevant soon
+cargo run -p build-wasm -- --wasm-name resonix_graph
+```

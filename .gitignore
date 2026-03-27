@@ -4,6 +4,7 @@
 **/bin/
 **/pkg/
 **/dist/
+**/build/
 **/wasm-pack.log
 **/node_modules
 **/notes.txt
