@@ -53,6 +53,16 @@ pub struct Graph {
     compiled_plan: Option<Vec<CompiledStep>>,
 }
 
+// TODO: delete. Just using to test wasm imports for now on web
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+#[wasm_bindgen]
+impl Graph {
+    #[wasm_bindgen]
+    pub fn test_with_block_size(block_size: usize) -> Graph {
+        Self::with_block_size(BlockSize::from(block_size))
+    }
+}
+
 impl Graph {
     pub fn with_block_size(block_size: impl Into<BlockSize>) -> Self {
         use crate::utils::IntMap;
