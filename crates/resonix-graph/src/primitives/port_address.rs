@@ -1,9 +1,13 @@
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 use crate::primitives::PortAddressDirection;
 
 use super::{NodeId, PortId};
 
 /// Indicates the exact connection address that a node is connected at
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct PortAddress {
     node_id: NodeId,
     port_id: PortId,

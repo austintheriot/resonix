@@ -1,5 +1,8 @@
 use core::ops::Deref;
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
@@ -12,6 +15,7 @@ use crate::{
     },
 };
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct InputNode {
     node_id: NodeId,
     port_descriptors: InputNodePortDescriptors,

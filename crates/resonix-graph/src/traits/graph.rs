@@ -1,13 +1,8 @@
-use crate::errors::GraphAddError;
-use crate::errors::GraphConnectionError;
-use crate::errors::GraphRunError;
-use crate::primitives::CurrentTime;
-use crate::primitives::NodeHandle;
-use crate::primitives::PortAddress;
-use crate::traits::AudioBuffer;
-use crate::traits::AudioBufferMut;
-
-use crate::traits::{DescribePorts, GetPortDescriptors};
+use crate::{
+    errors::{GraphAddError, GraphConnectionError, GraphRunError},
+    primitives::{CurrentTime, NodeHandle, PortAddress},
+    traits::{AudioBuffer, AudioBufferMut, DescribePorts, GetPortDescriptors},
+};
 
 use super::AudioNode;
 

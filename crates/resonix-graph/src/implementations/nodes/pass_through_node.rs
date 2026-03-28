@@ -1,5 +1,8 @@
 use core::ops::Deref;
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
@@ -11,6 +14,7 @@ use crate::{
 
 /// A node with one internal input and one internal output that copies
 /// the graph-supplied input buffer to the graph-supplied output buffer.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct PassthroughNode {
     node_id: NodeId,
     port_descriptors: PassthroughPortDescriptors,

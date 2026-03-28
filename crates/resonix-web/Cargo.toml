@@ -1,12 +1,17 @@
 [package]
 name = "resonix-web"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 wasm-bindgen = { version = "0.2.100" }
 js-sys = { version = "0.3.77" }
 web-sys = { version = "0.3.77", features = [] }
+resonix-graph = { path = "../resonix-graph/", features = ["wasm"] }
+wasm-logger = "0.2.0"
+log = "0.4.29"
+console_error_panic_hook = "0.1.7"
 
 [dev-dependencies]
+wasm-bindgen = { workspace = true }
 wasm-bindgen-test = { workspace = true }

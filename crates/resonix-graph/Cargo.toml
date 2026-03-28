@@ -6,14 +6,15 @@ edition = "2024"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+wasm = ["dep:wasm-bindgen"]
+
 [dependencies]
 hashbrown = "0.15.3"
 nohash-hasher = "0.2.0"
 petgraph = "0.8.1"
 thiserror.workspace = true
-
-[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
-wasm-bindgen = { workspace = true }
+wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["html_reports"] }

@@ -67,7 +67,7 @@ struct Args {
     wasm_dir: PathBuf,
 
     /// Name of wasm file (without extension)
-    #[arg(long)]
+    #[arg(long, default_value = "resonix")]
     wasm_name: String,
 }
 

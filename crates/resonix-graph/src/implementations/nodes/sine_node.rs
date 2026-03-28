@@ -2,6 +2,9 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::ops::Deref;
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
@@ -14,6 +17,7 @@ use crate::{
     },
 };
 
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct SineNode {
     node_id: NodeId,
     frequencies: Box<[Sample]>,

@@ -2,10 +2,14 @@ use core::ops::Deref;
 
 use nohash_hasher::IsEnabled;
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 use crate::primitives::Id;
 
 /// Strongly typed wrapper around the Id primitive for strong type-checking
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct PortId(Id);
 
 impl IsEnabled for PortId {}
