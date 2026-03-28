@@ -6,10 +6,14 @@ use crate::traits::GetNodeId;
 
 use super::NodeId;
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 /// Indicates the presence of a Node in the Graph.
 /// Derefs to the Node's PortDescriptors to allow making
 /// connections easier after Nodes have already been added to the Graph.
 #[derive(Debug, PartialEq)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 pub struct NodeHandle<PortDescriptor> {
     pub(crate) node_id: NodeId,
     pub(crate) port_descriptors: PortDescriptor,

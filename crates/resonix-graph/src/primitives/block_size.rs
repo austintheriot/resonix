@@ -2,6 +2,10 @@ use core::ops::Deref;
 
 use nohash_hasher::IsEnabled;
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BlockSize(usize);
 

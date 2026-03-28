@@ -1,8 +1,12 @@
 use core::ops::Deref;
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 /// Currently, this value aligns with the web_sys's BaseAudioContext::curent_time
 /// implementation, but the specific type here is subject to change.
 #[derive(Copy, Debug, Default, Clone, PartialEq, PartialOrd)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 pub struct CurrentTime(f64);
 
 impl CurrentTime {

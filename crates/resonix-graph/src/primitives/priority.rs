@@ -1,7 +1,11 @@
 use core::ops::Deref;
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 /// Strongly typed wrapper around a usize for better type checking
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 pub struct Priority(usize);
 
 impl Priority {

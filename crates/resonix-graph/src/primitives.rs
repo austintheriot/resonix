@@ -11,7 +11,6 @@ mod node_handle;
 mod node_id;
 mod port_address;
 mod port_address_direction;
-mod port_address_with_direction;
 mod port_descriptor;
 mod port_id;
 mod priority;

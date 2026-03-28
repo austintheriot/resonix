@@ -2,8 +2,12 @@ use core::ops::Deref;
 
 use nohash_hasher::IsEnabled;
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 /// Strongly-typed wrapper
 /// Functions as an indexer for the channels of an audio buffer
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Channel(usize);
 

@@ -1,7 +1,11 @@
 use thiserror::Error;
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 use crate::errors::common::BufferAlreadyAllocated;
 
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 #[derive(Error, Debug)]
 pub enum GraphAddError {
     #[error(transparent)]

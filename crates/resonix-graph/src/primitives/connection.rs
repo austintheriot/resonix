@@ -1,8 +1,12 @@
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 use crate::primitives::PortAddress;
 use crate::traits::GenerateId;
 
 use super::ConnectionId;
 
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 #[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Connection {
     pub connection_id: ConnectionId,

@@ -1038,6 +1038,7 @@ name = "resonix-web"
 version = "0.1.0"
 dependencies = [
  "js-sys",
+ "resonix-graph",
  "wasm-bindgen",
  "wasm-bindgen-test",
  "web-sys",

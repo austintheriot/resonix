@@ -2,11 +2,15 @@ use core::ops::Deref;
 
 use nohash_hasher::IsEnabled;
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 /// All Graph-internal audio is computed with `f32`s.
 ///
 /// Conversion to other sample formats takes place on the
 /// I/O boundaries.
 #[derive(Copy, Default, Debug, Clone, PartialEq, PartialOrd)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 pub struct Sample(f32);
 
 impl Sample {

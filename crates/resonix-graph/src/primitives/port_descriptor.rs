@@ -1,6 +1,10 @@
 use crate::primitives::PortAddress;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 pub struct PortDescriptor {
     pub address: PortAddress,
     pub channels: usize,

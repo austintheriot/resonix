@@ -2,8 +2,12 @@ use core::ops::Deref;
 
 use nohash_hasher::IsEnabled;
 
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 /// Basic id for data structures around the Graph
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), wasm_bindgen)]
 pub struct Id(usize);
 
 impl Id {
