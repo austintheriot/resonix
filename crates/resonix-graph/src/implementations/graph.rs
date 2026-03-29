@@ -44,6 +44,8 @@ pub struct Graph {
     port_address_to_connection_id_map: HashMap<PortAddress, ConnectionId>,
     /// Channel counts for all registered port addresses (both internal and external).
     port_address_to_channel_count: HashMap<PortAddress, usize>,
+    /// Channel counts keyed by ExternalConnectionId, populated when external ports are registered.
+    external_connection_channel_counts: IntMap<ExternalConnectionId, usize>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
     leaf_nodes: IntSet<NodeId>,
     block_size: BlockSize,
@@ -77,6 +79,7 @@ impl Graph {
             petgraph_index_to_node_id: HashMap::new(),
             port_address_to_connection_id_map: HashMap::new(),
             port_address_to_channel_count: HashMap::new(),
+            external_connection_channel_counts: IntMap::default(),
             block_size: block_size.into(),
             buffer_pool: crate::primitives::BufferPool::default(),
             compiled_plan: None,
@@ -123,7 +126,10 @@ impl Graph {
                 continue;
             }
             let slot_index = **descriptor.address.port_id();
-            external_slots[slot_index] = Some(self.id_generator.generate_external_id());
+            let external_id = self.id_generator.generate_external_id();
+            self.external_connection_channel_counts
+                .insert(external_id, descriptor.channels);
+            external_slots[slot_index] = Some(external_id);
         }
     }
 
@@ -541,18 +547,17 @@ impl crate::traits::Graph for Graph {
 
         // get all external connection id mappings
         for step in compiled_plan.iter() {
-            for (port_id, external_connection_id_opt) in
-                step.external_input_slots.iter().enumerate()
-            {
+            for external_connection_id_opt in step.external_input_slots.iter() {
                 let Some(external_connection_id) = external_connection_id_opt else {
                     continue;
                 };
 
-                let Some(Some(raw_audio_buffer)) = step.input_buffer_ptrs.get(port_id) else {
+                let Some(&channels) = self
+                    .external_connection_channel_counts
+                    .get(external_connection_id)
+                else {
                     continue;
                 };
-
-                let channels = raw_audio_buffer.channels;
 
                 if external_input_buffer_mappings.len() < ***external_connection_id + 1 {
                     external_input_buffer_mappings
@@ -566,18 +571,17 @@ impl crate::traits::Graph for Graph {
                     })
             }
 
-            for (port_id, external_connection_id_opt) in
-                step.external_output_slots.iter().enumerate()
-            {
+            for external_connection_id_opt in step.external_output_slots.iter() {
                 let Some(external_connection_id) = external_connection_id_opt else {
                     continue;
                 };
 
-                let Some(Some(raw_audio_buffer)) = step.output_buffer_ptrs.get(port_id) else {
+                let Some(&channels) = self
+                    .external_connection_channel_counts
+                    .get(external_connection_id)
+                else {
                     continue;
                 };
-
-                let channels = raw_audio_buffer.channels;
 
                 if external_output_buffer_mappings.len() < ***external_connection_id + 1 {
                     external_output_buffer_mappings
