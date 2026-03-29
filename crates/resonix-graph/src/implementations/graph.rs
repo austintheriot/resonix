@@ -1,7 +1,7 @@
 use core::{cell::UnsafeCell, mem::transmute, ops::Deref, ptr::NonNull};
 
 use crate::implementations::{AudioBuffer, AudioBufferMut, RawAudioBuffer};
-use crate::primitives::CurrentTime;
+use crate::primitives::{CurrentTime, ExternalBufferMappingData, ExternalBufferMappings};
 use crate::traits::AudioNode;
 use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
@@ -527,6 +527,88 @@ impl GenerateId for Graph {
 }
 
 impl crate::traits::Graph for Graph {
+    fn block_size(&self) -> BlockSize {
+        self.block_size
+    }
+
+    fn external_buffer_mappings(&mut self) -> ExternalBufferMappings {
+        self.ensure_compiled_plan();
+
+        let mut external_input_buffer_mappings = Vec::<Option<ExternalBufferMappingData>>::new();
+        let mut external_output_buffer_mappings = Vec::<Option<ExternalBufferMappingData>>::new();
+
+        let compiled_plan = self.compiled_plan.as_ref().unwrap();
+
+        // get all external connection id mappings
+        for step in compiled_plan.iter() {
+            for (port_id, external_connection_id_opt) in
+                step.external_input_slots.iter().enumerate()
+            {
+                let Some(external_connection_id) = external_connection_id_opt else {
+                    continue;
+                };
+
+                let Some(Some(raw_audio_buffer)) = step.input_buffer_ptrs.get(port_id) else {
+                    continue;
+                };
+
+                let channels = raw_audio_buffer.channels;
+
+                if external_input_buffer_mappings.len() < ***external_connection_id + 1 {
+                    external_input_buffer_mappings
+                        .resize_with(***external_connection_id + 1, || None);
+                }
+
+                external_input_buffer_mappings[***external_connection_id] =
+                    Some(ExternalBufferMappingData {
+                        channels,
+                        id: *external_connection_id,
+                    })
+            }
+
+            for (port_id, external_connection_id_opt) in
+                step.external_output_slots.iter().enumerate()
+            {
+                let Some(external_connection_id) = external_connection_id_opt else {
+                    continue;
+                };
+
+                let Some(Some(raw_audio_buffer)) = step.output_buffer_ptrs.get(port_id) else {
+                    continue;
+                };
+
+                let channels = raw_audio_buffer.channels;
+
+                if external_output_buffer_mappings.len() < ***external_connection_id + 1 {
+                    external_output_buffer_mappings
+                        .resize_with(***external_connection_id + 1, || None);
+                }
+
+                external_output_buffer_mappings[***external_connection_id] =
+                    Some(ExternalBufferMappingData {
+                        channels,
+                        id: *external_connection_id,
+                    })
+            }
+        }
+
+        let external_input_buffer_mappings: Vec<ExternalBufferMappingData> =
+            external_input_buffer_mappings
+                .into_iter()
+                .map(|mapping| mapping.unwrap())
+                .collect();
+        let external_output_buffer_mappings: Vec<ExternalBufferMappingData> =
+            external_output_buffer_mappings
+                .into_iter()
+                .map(|mapping| mapping.unwrap())
+                .collect();
+
+        ExternalBufferMappings {
+            external_inputs: external_input_buffer_mappings.into_boxed_slice(),
+            external_outputs: external_output_buffer_mappings.into_boxed_slice(),
+        }
+    }
+
     fn add_audio_node<P: DescribePorts, N: AudioNode + GetPortDescriptors<P> + 'static>(
         &mut self,
         node: N,

@@ -2,6 +2,9 @@ use core::ops::Deref;
 
 use nohash_hasher::IsEnabled;
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::wasm_bindgen;
+
 use crate::primitives::Id;
 
 /// Strongly typed wrapper around the Id primitive
@@ -11,6 +14,7 @@ use crate::primitives::Id;
 /// Maintaining separate internal/external connection_ids also
 /// enables passing in I/O connection data densely (in slices)
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub struct ExternalConnectionId(Id);
 
 impl IsEnabled for ExternalConnectionId {}

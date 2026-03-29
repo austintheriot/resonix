@@ -1,6 +1,6 @@
 use crate::{
     errors::{GraphAddError, GraphConnectionError, GraphRunError},
-    primitives::{CurrentTime, NodeHandle, PortAddress},
+    primitives::{BlockSize, CurrentTime, ExternalBufferMappings, NodeHandle, PortAddress},
     traits::{AudioBuffer, AudioBufferMut, DescribePorts, GetPortDescriptors},
 };
 
@@ -26,4 +26,9 @@ pub trait Graph {
         outputs: &mut [Option<M>],
         current_time: CurrentTime,
     ) -> Result<(), GraphRunError>;
+
+    fn block_size(&self) -> BlockSize;
+
+    // TODO: remove `mut` ?
+    fn external_buffer_mappings(&mut self) -> ExternalBufferMappings;
 }

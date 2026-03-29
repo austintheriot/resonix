@@ -112,6 +112,8 @@ fn cargo_build(args: &Args) -> Result<()> {
         "build",
         "--target",
         "wasm32-unknown-unknown",
+        "--features",
+        "wasm",
         "--profile",
         profile,
     ])
