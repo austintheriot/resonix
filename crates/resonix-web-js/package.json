@@ -15,6 +15,9 @@
     "build": "tsdown",
     "dev": "tsdown --watch"
   },
+  "dependencies": {
+    "resonix": "0.0.1"
+  },
   "devDependencies": {
     "tsdown": "^0.21.7",
     "typescript": "^6.0.2"

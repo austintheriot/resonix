@@ -1,0 +1,9 @@
+{
+  "name": "resonix",
+  "version": "0.0.1",
+  "main": "dist/bundler/resonix.js",
+  "types": "dist/bundler/reonix.d.ts",
+  "files": [
+    "dist/bundler"
+  ]
+}

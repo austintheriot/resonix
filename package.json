@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "workspaces": [
+    "crates/resonix",
+    "crates/resonix-web-js"
+  ]
+}
