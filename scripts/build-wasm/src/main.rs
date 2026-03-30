@@ -59,7 +59,7 @@ struct Args {
     workspace: PathBuf,
 
     /// Path to output directory, relative to the workspace root
-    #[arg(long, default_value = "./build")]
+    #[arg(long, default_value = "./crates/resonix/dist")]
     out_dir: PathBuf,
 
     /// Path to wasm binary (relative to workspace)
