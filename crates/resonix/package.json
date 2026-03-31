@@ -1,8 +1,8 @@
 {
   "name": "resonix",
   "version": "0.0.1",
-  "main": "dist/bundler/resonix.js",
-  "types": "dist/bundler/resonix.d.ts",
+  "main": "dist/web/resonix.js",
+  "types": "dist/web/resonix.d.ts",
   "files": [
     "dist/bundler"
   ]

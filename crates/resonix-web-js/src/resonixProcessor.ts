@@ -1,19 +1,38 @@
 // Wasm assumes a `TextEncoder` / `TextDecoder` implementation,
 // but none is available in the `AudioWorkletGlobalScope`
 import "./polyfillTextEncoder.js";
-import * as Resonix from "resonix";
+import init, { JsRetainedGraph } from "resonix";
 import { RESONIX_PROCESSOR_NAME } from "./common.js";
 
 class ResonixProcessor extends AudioWorkletProcessor {
-  // private _jsRetainedGraph = Resonix.JsRetainedGraph.new();
+  private _jsRetainedGraph: JsRetainedGraph | undefined;
 
   constructor() {
     super();
 
-    // this._jsRetainedGraph.print_external_buffer_mappings();
+    // TODO: register the class itself as an EventListenerObject
+    this.port.onmessage = (event) => this.onmessage(event.data);
+    this.port.onmessageerror = (event) => this.onmessageerror(event.data);
   }
 
-  process(
+  public onmessageerror(event: MessageEvent): void {
+    console.log("###### ResonixProcessor.onmessageerror", { event });
+  }
+
+  public onmessage(event: MessageEvent<{ wasmBytes: ArrayBuffer }>) {
+    console.log("###### ResonixProcessor.onmessage", { event });
+    if (event.type === "send-wasm-module") {
+      init(WebAssembly.compile(event.data.wasmBytes)).then(() => {
+        this.port.postMessage({ type: "wasm-module-loaded" });
+      });
+
+      // TODO:
+      this._jsRetainedGraph = JsRetainedGraph.new();
+      this._jsRetainedGraph.print_external_buffer_mappings();
+    }
+  }
+
+  public process(
     _inputs: Float32Array[][],
     outputs: Float32Array[][],
     _parameters: Record<string, Float32Array>,

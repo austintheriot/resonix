@@ -4,6 +4,7 @@
     "lib": ["esnext", "webworker"],
     "types": ["audioworklet"]
   },
+  // gives stronger, AudioContext typing in resonixProcessor  file
   "include": ["src/resonixProcessor.ts"],
   "exclude": []
 }

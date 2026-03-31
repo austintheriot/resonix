@@ -42,5 +42,5 @@
     "moduleDetection": "force",
     "skipLibCheck": true,
   },
-  "exclude": ["src/resonixProcessor.ts"]
+  "exclude": ["src/resonixProcessor.ts", "tsdown.config.ts"]
 }

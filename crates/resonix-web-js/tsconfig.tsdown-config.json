@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["esnext"],
+    "types": ["node"]
+  },
+  // gives stronger, Node-based typing in tsdown config file
+  "include": ["tsdown.config.ts"],
+  "exclude": []
+}
