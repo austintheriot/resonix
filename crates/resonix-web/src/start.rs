@@ -10,5 +10,7 @@ pub fn start() -> Result<(), JsValue> {
     // enables using info!() macros
     wasm_logger::init(wasm_logger::Config::default());
 
+    log::info!("Running startup function from wasm");
+
     Ok(())
 }

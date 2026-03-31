@@ -1,7 +1,7 @@
 {
   "name": "web-frontend-vite",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "resonix": "file:../../build/web"
+    "resonix-web-js": "0.0.1"
   },
   "devDependencies": {
     "typescript": "~5.9.3",

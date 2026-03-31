@@ -1,5 +1,7 @@
-import Resonix from "resonix"
+import * as Resonix from "resonix";
 
-export function fn() {
-  return 'Hello, tsdown!'
+export function printExports() {
+  console.log("resonix-web-js: printing raw Rust exports from `resonix`", { Resonix });
 }
+
+export * from "resonix";
