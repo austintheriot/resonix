@@ -173,6 +173,11 @@
   dependencies:
     tslib "^2.4.0"
 
+"@types/audioworklet@^0.0.97":
+  version "0.0.97"
+  resolved "https://registry.yarnpkg.com/@types/audioworklet/-/audioworklet-0.0.97.tgz#9fca454f65817486158d26cd8369064ee8b4b44b"
+  integrity sha512-z4RRI9147KXm3b1U4dR/XFfsxSR5yymEWEJT+Td0tCJyRkyGccIXEL09W7c5TcbDd51qKR/+LrO2SPC1SL2RLA==
+
 "@types/estree@^1.0.0":
   version "1.0.8"
   resolved "https://registry.yarnpkg.com/@types/estree/-/estree-1.0.8.tgz#958b91c991b1867ced318bedea0e215ee050726e"

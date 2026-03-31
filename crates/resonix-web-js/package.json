@@ -12,13 +12,15 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch"
+    "check": "yarn tsc --noEmit && yarn tsc -p tsconfig.worklet.json --noEmit",
+    "dev": "tsdown --watch",
+    "build": "yarn run check && tsdown"
   },
   "dependencies": {
     "resonix": "0.0.1"
   },
   "devDependencies": {
+    "@types/audioworklet": "^0.0.97",
     "tsdown": "^0.21.7",
     "typescript": "^6.0.2"
   }
