@@ -22,6 +22,7 @@ async function main() {
         audioContext,
         wasmArrayBuffer,
         resonixProcessorUrl,
+        440,
       );
       resonixProcessor.connect(audioContext.destination);
     }

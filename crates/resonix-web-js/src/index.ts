@@ -8,6 +8,8 @@ export async function createResonixProcessorFromUrl(
   audioContext: AudioContext,
   wasmBytes: ArrayBuffer,
   url: string,
+  // TODO: just for testing
+  frequency: number,
 ): Promise<ResonixNode> {
   console.log("resonix-web-js: createResonixProcessorFromUrl", {
     url,
@@ -15,7 +17,7 @@ export async function createResonixProcessorFromUrl(
   });
   await audioContext.audioWorklet.addModule(url);
   const resonixNode = new ResonixNode(audioContext, RESONIX_PROCESSOR_NAME);
-  await resonixNode.init(wasmBytes);
+  await resonixNode.init(wasmBytes, frequency);
 
   return resonixNode;
 }

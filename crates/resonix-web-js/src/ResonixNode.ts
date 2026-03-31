@@ -1,17 +1,41 @@
+import type {
+  ResonixNodeIncomingMessage,
+  ResonixNodeOutgoingMessage,
+} from "./common.js";
+
 export default class ResonixNode extends AudioWorkletNode {
   private _resolvers = Promise.withResolvers<void>();
+  private _initStarted = false;
 
-  public init(wasmBytes: ArrayBuffer): Promise<void> {
+  private _postMessage(
+    message: ResonixNodeOutgoingMessage,
+    transfer: Transferable[] = [],
+  ): void {
+    this.port.postMessage(message, transfer);
+  }
+
+  // TODO: eventually, output constructor result here
+  public init(wasmBytes: ArrayBuffer, frequency: number): Promise<void> {
+    if (this._initStarted) {
+      return this._resolvers.promise;
+    }
+
+    this._initStarted = true;
+
     // TODO: register the class itself as an EventListenerObject
-    this.port.onmessage = (event) => this.onPortMessage(event.data);
-    this.port.onmessageerror = (event) => this.onPortMessageError(event.data);
+    this.port.onmessage = (event) => this.onPortMessage(event);
+    this.port.onmessageerror = (event) => this.onPortMessageError(event);
 
-    this.port.postMessage(
+    this._postMessage(
       {
-        type: "send-wasm-module",
+        tag: "init",
         wasmBytes,
+        frequency,
       },
-      [wasmBytes],
+      // DON'T transfer buffer here--caller may
+      // want to instantiate more than one Node
+      // with the same buffer
+      [],
     );
 
     return this._resolvers.promise;
@@ -22,12 +46,15 @@ export default class ResonixNode extends AudioWorkletNode {
     console.log("###### ResonixNode.onmessageerror", { event });
   }
 
-  public onPortMessage(event: MessageEvent) {
+  public onPortMessage(event: MessageEvent<ResonixNodeIncomingMessage>) {
     console.log("###### ResonixNode.onmessage", { event });
 
-    if (event.type === "wasm-module-ready") {
-      // assume this means the module is loaded
-      this._resolvers.resolve();
+    switch (event.data.tag) {
+      case "ready":
+        this._resolvers.resolve();
+        break;
+      default:
+        console.error("Unexpected case reached in ResonixNode.onPortMessage");
     }
   }
 }

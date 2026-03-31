@@ -2,13 +2,19 @@
 // but none is available in the `AudioWorkletGlobalScope`
 import "./polyfillTextEncoder.js";
 import init, { JsRetainedGraph } from "resonix";
-import { RESONIX_PROCESSOR_NAME } from "./common.js";
+import {
+  RESONIX_PROCESSOR_NAME,
+  type ResonixInitMessage,
+  type ResonixProcesorIncomingMessage,
+  type ResonixProcesorOutgoingMessage,
+} from "./common.js";
 
 class ResonixProcessor
   extends AudioWorkletProcessor
   implements EventListenerObject
 {
   private _jsRetainedGraph: JsRetainedGraph | undefined;
+  private _frequency: number | undefined;
 
   constructor() {
     super();
@@ -26,21 +32,33 @@ class ResonixProcessor
   }
 
   // TODO: strongly type these messages
-  private async _handleWasmModuleBinary(wasmBytes: ArrayBuffer): Promise<void> {
-    const wasmModule = await WebAssembly.compile(wasmBytes);
+  private async _init(initMessage: ResonixInitMessage): Promise<void> {
+    const wasmModule = await WebAssembly.compile(initMessage.wasmBytes);
     await init(wasmModule);
     this._jsRetainedGraph = JsRetainedGraph.new();
     this._jsRetainedGraph.print_external_buffer_mappings();
-    this.port.postMessage({ type: "wasm-module-ready" });
+    this._frequency = initMessage.frequency;
+    this._postMessage({ tag: "ready" });
+  }
+
+  private _postMessage(
+    message: ResonixProcesorOutgoingMessage,
+    transfer: Transferable[] = [],
+  ): void {
+    this.port.postMessage(message, transfer);
   }
 
   // TODO: strongly type these messages
-  public onPortMessage(
-    event: MessageEvent<{ type: string; wasmBytes: ArrayBuffer }>,
-  ) {
+  public onPortMessage(event: MessageEvent<ResonixProcesorIncomingMessage>) {
     console.log("###### ResonixProcessor.onmessage", { event });
-    if (event.data.type === "send-wasm-module") {
-      this._handleWasmModuleBinary(event.data.wasmBytes);
+    switch (event.data.tag) {
+      case "init":
+        this._init(event.data);
+        break;
+      default:
+        console.error(
+          "Unexpected case reached in Resonix.Processor.onPortMessage",
+        );
     }
   }
 
@@ -49,13 +67,17 @@ class ResonixProcessor
     outputs: Float32Array[][],
     _parameters: Record<string, Float32Array>,
   ): boolean {
+    const frequency = this._frequency;
+    if (frequency === undefined) {
+      return true;
+    }
+
     // just test getting sound going
-    const FREQUENCY = 440.0;
     outputs.forEach((output) => {
       output.forEach((channel) => {
         channel.forEach((_sample, sampleIndex) => {
           const sampleTime = currentTime + sampleIndex / sampleRate;
-          channel[sampleIndex] = Math.sin(2 * Math.PI * FREQUENCY * sampleTime);
+          channel[sampleIndex] = Math.sin(2 * Math.PI * frequency * sampleTime);
         });
       });
     });
