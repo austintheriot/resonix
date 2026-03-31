@@ -3,11 +3,12 @@
   "type": "module",
   "version": "0.0.1",
   "private": true,
-  "description": "Resonix TypeScript glue code for running on web",
+  "description": "TypeScript glue code & wrappers for running Resonix ergonomically on the web",
   "exports": {
     ".": "./dist/index.mjs",
-    "./resonixProcessor": "./dist/resonixProcessor.mjs",
-    "./package.json": "./package.json"
+    "./ResonixProcessor": "./dist/ResonixProcessor.mjs",
+    "./package.json": "./package.json",
+    "./resonix.wasm": "./dist/resonix.wasm"
   },
   "files": [
     "dist"

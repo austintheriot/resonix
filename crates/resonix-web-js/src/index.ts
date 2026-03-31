@@ -14,7 +14,6 @@ export async function createResonixProcessorFromUrl(
     audioContext,
   });
   await audioContext.audioWorklet.addModule(url);
-
   const resonixNode = new ResonixNode(audioContext, RESONIX_PROCESSOR_NAME);
   await resonixNode.init(wasmBytes);
 

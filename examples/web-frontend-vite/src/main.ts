@@ -1,6 +1,7 @@
 import "./style.css";
 import { printExports, createResonixProcessorFromUrl } from "resonix-web-js";
-import resonixProcessorUrl from "resonix-web-js/resonixProcessor?url";
+import resonixProcessorUrl from "resonix-web-js/ResonixProcessor?url";
+import resonixWasmUrl from "resonix-web-js/resonix.wasm?url";
 
 async function main() {
   console.log("web-frontend-vite: running `main`");
@@ -14,9 +15,12 @@ async function main() {
   let audioContext: AudioContext | undefined;
   button.onclick = async () => {
     if (!audioContext) {
+      const wasmBytes = await fetch(resonixWasmUrl).then((res) => res.bytes());
+      const wasmArrayBuffer = wasmBytes.buffer;
       audioContext = new AudioContext();
       const resonixProcessor = await createResonixProcessorFromUrl(
         audioContext,
+        wasmArrayBuffer,
         resonixProcessorUrl,
       );
       resonixProcessor.connect(audioContext.destination);

@@ -3,8 +3,8 @@ export default class ResonixNode extends AudioWorkletNode {
 
   public init(wasmBytes: ArrayBuffer): Promise<void> {
     // TODO: register the class itself as an EventListenerObject
-    this.port.onmessage = (event) => this.onmessage(event.data);
-    this.port.onmessageerror = (event) => this.onmessageerror(event.data);
+    this.port.onmessage = (event) => this.onPortMessage(event.data);
+    this.port.onmessageerror = (event) => this.onPortMessageError(event.data);
 
     this.port.postMessage(
       {
@@ -18,14 +18,14 @@ export default class ResonixNode extends AudioWorkletNode {
   }
 
   // Handle an uncaught exception thrown in the PitchProcessor.
-  public onmessageerror(event: MessageEvent) {
+  public onPortMessageError(event: MessageEvent) {
     console.log("###### ResonixNode.onmessageerror", { event });
   }
 
-  public onmessage(event: MessageEvent) {
+  public onPortMessage(event: MessageEvent) {
     console.log("###### ResonixNode.onmessage", { event });
 
-    if (event.type === "wasm-module-loaded") {
+    if (event.type === "wasm-module-ready") {
       // assume this means the module is loaded
       this._resolvers.resolve();
     }
