@@ -22,6 +22,8 @@ Note: must match version of `wasm-bindgen` installed [locally](./Cargo.toml).
 cargo install wasm-bindgen-cli --vers "0.2.104"
 ```
 
+- Install [yarn v1](https://classic.yarnpkg.com/en/)
+
 - Install Firefox's `geckodriver` to your $PATH (for running wasm tests in headless mode): https://github.com/mozilla/geckodriver/releases
 
 `geckodriver` must be in your $PATH, so that it can be executed from `cargo make`.
