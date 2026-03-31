@@ -1,13 +1,13 @@
-import * as Resonix from "resonix";
+// import * as Resonix from "resonix";
 import { RESONIX_PROCESSOR_NAME } from "./common.js";
 
 class ResonixProcessor extends AudioWorkletProcessor {
-  private _jsRetainedGraph = Resonix.JsRetainedGraph.new();
+  // private _jsRetainedGraph = Resonix.JsRetainedGraph.new();
 
   constructor() {
     super();
 
-    this._jsRetainedGraph.print_external_buffer_mappings();
+    // this._jsRetainedGraph.print_external_buffer_mappings();
   }
 
   process(

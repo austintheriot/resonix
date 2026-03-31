@@ -9,15 +9,28 @@ async function main() {
   // web audio must be started from a user interaction
   const button = document.createElement("button");
   button.textContent = "Start audio";
+
+  let started = false;
+  let audioContext: AudioContext | undefined;
   button.onclick = async () => {
-    const audioContext = new AudioContext();
+    if (!audioContext) {
+      audioContext = new AudioContext();
+      const resonixProcessor = await createResonixProcessorFromUrl(
+        audioContext,
+        resonixProcessorUrl,
+      );
+      resonixProcessor.connect(audioContext.destination);
+    }
 
-    const resonixProcessor = await createResonixProcessorFromUrl(
-      audioContext,
-      resonixProcessorUrl,
-    );
-
-    resonixProcessor.connect(audioContext.destination);
+    if (started) {
+      started = false;
+      button.textContent = "Start audio";
+      audioContext.suspend();
+    } else {
+      started = true;
+      button.textContent = "Stop audio";
+      audioContext.resume();
+    }
   };
 
   document.body.appendChild(button);

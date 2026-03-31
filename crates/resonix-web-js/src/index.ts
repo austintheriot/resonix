@@ -5,8 +5,6 @@ export async function createResonixProcessorFromUrl(
   audioContext: AudioContext,
   url: string,
 ): Promise<AudioWorkletNode> {
-  await audioContext.resume();
-
   console.log("resonix-web-js: createResonixProcessorFromUrl", {
     url,
     audioContext,
