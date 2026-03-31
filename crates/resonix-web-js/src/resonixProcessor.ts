@@ -1,4 +1,7 @@
-// import * as Resonix from "resonix";
+// Wasm assumes a `TextEncoder` / `TextDecoder` implementation,
+// but none is available in the `AudioWorkletGlobalScope`
+import "./polyfillTextEncoder.js";
+import * as Resonix from "resonix";
 import { RESONIX_PROCESSOR_NAME } from "./common.js";
 
 class ResonixProcessor extends AudioWorkletProcessor {
