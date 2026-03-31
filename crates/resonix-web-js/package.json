@@ -6,6 +6,7 @@
   "description": "Resonix TypeScript glue code for running on web",
   "exports": {
     ".": "./dist/index.mjs",
+    "./resonixProcessor": "./dist/resonixProcessor.mjs",
     "./package.json": "./package.json"
   },
   "files": [
