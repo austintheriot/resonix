@@ -1,8 +1,12 @@
+import type { InitInput } from "resonix";
+
 export const RESONIX_PROCESSOR_NAME = "resonix-processor";
+
+export type WasmInitSource = Extract<InitInput, string | BufferSource> | Blob;
 
 export type ResonixInitMessage = {
   tag: "init";
-  wasmBytes: ArrayBuffer;
+  wasmInitSource: WasmInitSource;
   frequency: number;
 };
 

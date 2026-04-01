@@ -33,8 +33,7 @@ class ResonixProcessor
 
   // TODO: strongly type these messages
   private async _init(initMessage: ResonixInitMessage): Promise<void> {
-    const wasmModule = await WebAssembly.compile(initMessage.wasmBytes);
-    await init(wasmModule);
+    await init(initMessage.wasmInitSource);
     this._jsRetainedGraph = JsRetainedGraph.new();
     this._jsRetainedGraph.print_external_buffer_mappings();
     this._frequency = initMessage.frequency;

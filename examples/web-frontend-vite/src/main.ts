@@ -1,11 +1,10 @@
 import "./style.css";
-import { printExports, createResonixProcessorFromUrl } from "resonix-web-js";
-import resonixProcessorUrl from "resonix-web-js/ResonixProcessor?url";
-import resonixWasmUrl from "resonix-web-js/resonix.wasm?url";
+import { ResonixNode } from "resonix-web-js";
+import processorUrl from "resonix-web-js/ResonixProcessor?url";
+import wasmUrl from "resonix-web-js/resonix.wasm?url";
 
 async function main() {
   console.log("web-frontend-vite: running `main`");
-  printExports();
 
   // web audio must be started from a user interaction
   const button = document.createElement("button");
@@ -15,16 +14,15 @@ async function main() {
   let audioContext: AudioContext | undefined;
   button.onclick = async () => {
     if (!audioContext) {
-      const wasmBytes = await fetch(resonixWasmUrl).then((res) => res.bytes());
-      const wasmArrayBuffer = wasmBytes.buffer;
       audioContext = new AudioContext();
-      const resonixProcessor = await createResonixProcessorFromUrl(
+      const wasmInitSource = fetch(wasmUrl).then((res) => res.bytes());
+      const resonixNode = await ResonixNode.newWithInit({
         audioContext,
-        wasmArrayBuffer,
-        resonixProcessorUrl,
-        440,
-      );
-      resonixProcessor.connect(audioContext.destination);
+        wasmInitSource,
+        processorUrl,
+        frequency: 440,
+      });
+      resonixNode.connect(audioContext.destination);
     }
 
     if (started) {

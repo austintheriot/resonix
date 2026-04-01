@@ -1,11 +1,34 @@
-import type {
-  ResonixNodeIncomingMessage,
-  ResonixNodeOutgoingMessage,
+import {
+  RESONIX_PROCESSOR_NAME,
+  type ResonixNodeIncomingMessage,
+  type ResonixNodeOutgoingMessage,
+  type WasmInitSource,
 } from "./common.js";
 
-export default class ResonixNode extends AudioWorkletNode {
+export type MaybePromiseWasmInitSource =
+  | WasmInitSource
+  | Promise<WasmInitSource>;
+
+export interface ResonixNodeInitOpts {
+  /** must only be passed on the first instantiation */
+  processorUrl?: string;
+  audioContext: AudioContext;
+  wasmInitSource: MaybePromiseWasmInitSource;
+  frequency: number;
+}
+
+export interface ResonixNodeConstructorOpts {
+  audioContext: AudioContext;
+}
+
+export class ResonixNode extends AudioWorkletNode {
+  private static _workletModuleEvaluated = false;
   private _resolvers = Promise.withResolvers<void>();
   private _initStarted = false;
+
+  constructor({ audioContext }: ResonixNodeConstructorOpts) {
+    super(audioContext, RESONIX_PROCESSOR_NAME);
+  }
 
   private _postMessage(
     message: ResonixNodeOutgoingMessage,
@@ -14,25 +37,66 @@ export default class ResonixNode extends AudioWorkletNode {
     this.port.postMessage(message, transfer);
   }
 
-  // TODO: eventually, output constructor result here
-  public init(wasmBytes: ArrayBuffer, frequency: number): Promise<void> {
+  /**
+   * Constructs new node & initializes it, returning the
+   * node when initialization is complete.
+   */
+  public static async newWithInit(
+    opts: ResonixNodeConstructorOpts & ResonixNodeInitOpts,
+  ): Promise<ResonixNode> {
+    await ResonixNode.ensureModuleEvaulated(opts);
+    const node = new ResonixNode(opts);
+    await node.init(opts);
+    return node;
+  }
+
+  public static async ensureModuleEvaulated({
+    audioContext,
+    processorUrl,
+  }: {
+    audioContext: AudioContext;
+    processorUrl?: string;
+  }): Promise<void> {
+    // TODO: create an async read-write lock to prevent race conditions
+    if (!ResonixNode._workletModuleEvaluated) {
+      if (!processorUrl) {
+        throw new Error(
+          "Attempted to init a `ResonixNode` without a `processorUrl`",
+        );
+      }
+      await audioContext.audioWorklet.addModule(processorUrl);
+      ResonixNode._workletModuleEvaluated = true;
+    }
+  }
+
+  /**
+   * Begins initialization of the internal wasm modules & audio thread.
+   *
+   * Will throw:
+   * - If you `init` multiple nodes with the same underlying memory
+   *   simultaneously (e.g. `Response`). To prevent issues, `.clone()`
+   *   any responses before submitting them.
+   */
+  public async init(opts: ResonixNodeInitOpts): Promise<void> {
     if (this._initStarted) {
       return this._resolvers.promise;
     }
 
-    this._initStarted = true;
+    const [wasmInitSource] = await Promise.all([
+      opts.wasmInitSource,
+      ResonixNode.ensureModuleEvaulated(opts),
+    ]);
 
-    // TODO: register the class itself as an EventListenerObject
     this.port.onmessage = (event) => this.onPortMessage(event);
     this.port.onmessageerror = (event) => this.onPortMessageError(event);
-
+    this._initStarted = true;
     this._postMessage(
       {
         tag: "init",
-        wasmBytes,
-        frequency,
+        wasmInitSource,
+        frequency: opts.frequency,
       },
-      // DON'T transfer buffer here--caller may
+      // DON'T transfer wasm init source here--caller may
       // want to instantiate more than one Node
       // with the same buffer
       [],
