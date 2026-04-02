@@ -17,14 +17,13 @@ pub struct ExternalBufferMappings {
     pub(crate) external_outputs: Box<[ExternalBufferMappingData]>,
 }
 
-#[cfg(not(feature = "wasm"))]
 impl ExternalBufferMappings {
     pub fn external_inputs(&self) -> &[ExternalBufferMappingData] {
-        self.external_inputs
+        &self.external_inputs
     }
 
     pub fn external_outputs(&self) -> &[ExternalBufferMappingData] {
-        self.external_outputs
+        &self.external_outputs
     }
 }
 
