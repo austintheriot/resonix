@@ -15,6 +15,7 @@ class ResonixProcessor
 {
   private _jsRetainedGraph: JsRetainedGraph | undefined;
   private _frequency: number | undefined;
+  private _hasRunWasmProcess = false;
 
   constructor() {
     super();
@@ -62,13 +63,19 @@ class ResonixProcessor
   }
 
   public process(
-    _inputs: Float32Array[][],
+    inputs: Float32Array[][],
     outputs: Float32Array[][],
     _parameters: Record<string, Float32Array>,
   ): boolean {
     const frequency = this._frequency;
     if (frequency === undefined) {
       return true;
+    }
+
+    if (this._jsRetainedGraph && !this._hasRunWasmProcess) {
+      this._hasRunWasmProcess = true;
+
+      this._jsRetainedGraph.process(inputs, outputs);
     }
 
     // just test getting sound going

@@ -7,7 +7,12 @@ use nohash_hasher::IsEnabled;
 /// Conversion to other sample formats takes place on the
 /// I/O boundaries.
 #[derive(Copy, Default, Debug, Clone, PartialEq, PartialOrd)]
+#[repr(transparent)]
 pub struct Sample(f32);
+
+// validate transmute safety at compile time for `Sample`
+// byte-representation size of the struct didn't change
+const _: () = assert!(core::mem::size_of::<Sample>() == core::mem::size_of::<f32>());
 
 impl Sample {
     pub const fn new(id: f32) -> Self {

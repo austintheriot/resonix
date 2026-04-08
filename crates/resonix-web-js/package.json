@@ -6,7 +6,7 @@
   "description": "TypeScript glue code & wrappers for running Resonix ergonomically on the web",
   "exports": {
     ".": "./dist/index.mjs",
-    "./ResonixProcessor": "./dist/ResonixProcessor.mjs",
+    "./ResonixProcessor.worklet": "./dist/ResonixProcessor.worklet.mjs",
     "./package.json": "./package.json",
     "./resonix.wasm": "./dist/resonix.wasm"
   },
@@ -15,7 +15,7 @@
   ],
   "scripts": {
     "check": "yarn tsc --noEmit && yarn tsc -p tsconfig.worklet.json --noEmit",
-    "dev": "tsdown --watch",
+    "dev": "tsdown --watch ../resonix/dist/",
     "build": "tsdown"
   },
   "dependencies": {
