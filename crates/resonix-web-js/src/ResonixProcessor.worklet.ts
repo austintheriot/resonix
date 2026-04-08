@@ -9,6 +9,9 @@ import {
   type ResonixProcesorOutgoingMessage,
 } from "./common.js";
 
+// TODO: move logic of `ResonixProcessor` into a 
+// `ResonixProcessorCore` struct for easier/env-agnostic testing,
+// then just call it into it from here
 class ResonixProcessor
   extends AudioWorkletProcessor
   implements EventListenerObject
@@ -72,23 +75,11 @@ class ResonixProcessor
       return true;
     }
 
-    if (this._jsRetainedGraph && !this._hasRunWasmProcess) {
-      this._hasRunWasmProcess = true;
-
-      this._jsRetainedGraph.process(inputs, outputs);
+    if (!this._jsRetainedGraph) {
+      return true;
     }
 
-    // just test getting sound going
-    outputs.forEach((output) => {
-      output.forEach((channel) => {
-        channel.forEach((_sample, sampleIndex) => {
-          const sampleTime = currentTime + sampleIndex / sampleRate;
-          channel[sampleIndex] = Math.sin(2 * Math.PI * frequency * sampleTime);
-        });
-      });
-    });
-
-    return true;
+    return this._jsRetainedGraph.process(inputs, outputs, currentTime);
   }
 }
 

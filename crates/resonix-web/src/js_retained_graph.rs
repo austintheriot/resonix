@@ -205,12 +205,6 @@ impl JsRetainedGraph {
     }
 
     pub fn process(&mut self, inputs: Array, outputs: Array, current_time: f64) -> bool {
-        log::info!(
-            "Calling process from `JsRetainedGraph` \nInputs = {:?} \nOutputs = {:?}",
-            inputs,
-            outputs
-        );
-
         self.copy_input_buffer_data_into_wasm(inputs);
 
         self.graph
