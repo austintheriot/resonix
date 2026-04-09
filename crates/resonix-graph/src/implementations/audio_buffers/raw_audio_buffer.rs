@@ -4,11 +4,15 @@ use crate::errors::AudioBufferError;
 use crate::primitives::{Channel, Sample};
 use crate::traits::{AudioBuffer, AudioBufferMut};
 
-/// Internal repr(C) buffer handle used inside the compiled execution plan.
+/// Non-owning, non-lifetimed, unsafe pointer to a multi-channel audio buffer.
+///
+/// Gives flexibility to accessing audio buffers when ownership cannot be
+/// statically guaranteed (such as during audio graph execution).
 ///
 /// `Option<RawAudioBuffer>` uses the null-pointer niche of `ptr` (the first
 /// field), giving it the same size as three `usize`s with no discriminant.
 #[repr(C)]
+#[derive(Debug)]
 pub struct RawAudioBuffer {
     /// Fat pointer: data pointer + (block_size * channels) as the length.
     pub ptr: NonNull<[Sample]>,
@@ -21,9 +25,9 @@ impl RawAudioBuffer {
     /// Returns `Err` if `channels` is zero or `buffer.len()` is not divisible
     /// by `channels`. `buffer.len()` must equal `block_size * channels`.
     ///
-    /// SAFETY:
-    /// - Caller must guarantee that the buffer passed in lives as long as the underlying
-    /// `RawAudioBuffer` pointer
+    /// # SAFETY
+    ///
+    /// - Caller must guarantee that the buffer passed in lives as long as the underlying `RawAudioBuffer` pointer
     /// - Underlying buffer must not be mutably accessed while the `RawAudioBuffer` exists
     pub unsafe fn new(buffer: &[Sample], channels: usize) -> Result<Self, AudioBufferError> {
         if channels == 0 {

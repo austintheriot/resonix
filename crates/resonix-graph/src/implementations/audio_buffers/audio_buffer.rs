@@ -18,7 +18,8 @@ use super::RawAudioBuffer;
 pub struct AudioBuffer<'a> {
     pub(crate) ptr: NonNull<[Sample]>,
     pub(crate) channels: usize,
-    // DO NOT ADD MORE FIELDS HERE WITHOUT CHECKING TRANSMUTE COMPATIBILITY
+    // DO NOT ADD MORE FIELDS HERE WITHOUT CHECKING
+    // TRANSMUTE COMPATIBILITY WITH `RawAudioBuffer`
     _phantom: PhantomData<&'a [Sample]>,
 }
 
