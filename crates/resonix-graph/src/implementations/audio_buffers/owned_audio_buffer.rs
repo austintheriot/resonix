@@ -8,12 +8,12 @@ use crate::{
     traits::AudioBuffer,
 };
 
-/// A pooled audio buffer with its channel count.
+/// A audio buffer that owns its underlying data.
 ///
 /// `data` holds `block_size * channels` samples in planar layout.
 /// The slice is wrapped in `UnsafeCell` so that raw pointers derived from
 /// `UnsafeCell::get()` carry SharedReadWrite (SRW) provenance under Stacked
-/// Borrows, preventing invalidation when the compiled plan holds both an
+/// Borrows, preventing invalidation when downstream refreences hold both an
 /// input pointer (downstream node reads) and an output pointer (upstream
 /// node writes) to the same buffer simultaneously.
 #[derive(Debug)]
