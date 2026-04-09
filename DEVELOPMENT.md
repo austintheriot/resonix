@@ -11,8 +11,10 @@ yarn build
 Rebuild Rust & Wasm library code on Rust code changes:
 
 ```sh
-# ignore JS-only crates
-cargo watch -w ./crates -i ./crates/resonix-web-js -- cargo run -p build-wasm
+# ignore JS-only crates, only build `bundler` target (the only one we consume in the js library for now)
+cargo watch -w ./crates -i ./crates/resonix-web-js \
+    -- cargo run -p build-wasm \
+    -- --target bundler
 ```
 
 Rebuild JS library wrapper code around Rust/Wasm on changes:

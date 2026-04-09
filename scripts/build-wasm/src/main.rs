@@ -47,11 +47,11 @@ impl Target {
 )]
 struct Args {
     /// Build profile
-    #[arg(value_enum, default_value_t = Profile::Dev)]
+    #[arg(long, value_enum, default_value_t = Profile::Dev)]
     profile: Profile,
 
     /// Optional target (build all if omitted)
-    #[arg(value_enum)]
+    #[arg(long, value_enum, default_value = None)]
     target: Option<Target>,
 
     /// Path to workspace root
