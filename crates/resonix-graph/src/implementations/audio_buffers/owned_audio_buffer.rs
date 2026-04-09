@@ -146,3 +146,62 @@ impl crate::traits::AudioBufferMut for OwnedAudioBuffer {
         self.data.get_mut()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::cell::UnsafeCell;
+
+    use alloc::vec::Vec;
+
+    use crate::test_utils::*;
+    use crate::primitives::Sample;
+
+    use super::OwnedAudioBuffer;
+
+    fn make_owned(values: &[f32], channels: usize) -> OwnedAudioBuffer {
+        let buf: Vec<Sample> = values.iter().map(|&v| Sample::from(v)).collect();
+        let data = unsafe {
+            alloc::boxed::Box::from_raw(
+                alloc::boxed::Box::into_raw(buf.into_boxed_slice())
+                    as *mut UnsafeCell<[Sample]>,
+            )
+        };
+        OwnedAudioBuffer { channels, data }
+    }
+
+    #[test]
+    fn block_size_channels_slice_len_invariant() {
+        let buf = make_owned(&[1.0, 2.0, 3.0, 4.0], 2);
+        test_block_size_channels_slice_len_invariant(&buf);
+    }
+
+    #[test]
+    fn channel_returns_planar_region() {
+        let buf = make_owned(&[1.0, 2.0, 3.0, 4.0], 2);
+        test_channel_returns_planar_region(&buf);
+    }
+
+    #[test]
+    fn channel_out_of_range() {
+        let buf = make_owned(&[1.0, 2.0, 3.0, 4.0], 2);
+        test_channel_out_of_range(&buf);
+    }
+
+    #[test]
+    fn channels_iter_matches_channels() {
+        let buf = make_owned(&[1.0, 2.0, 3.0, 4.0], 2);
+        test_channels_iter_matches_channels(&buf);
+    }
+
+    #[test]
+    fn mono_single_channel() {
+        let buf = make_owned(&[1.0, 2.0, 3.0, 4.0], 1);
+        test_mono_single_channel(&buf);
+    }
+
+    #[test]
+    fn mono_multichannel_returns_not_mono() {
+        let buf = make_owned(&[1.0, 2.0, 3.0, 4.0], 2);
+        test_mono_multichannel_returns_not_mono(&buf);
+    }
+}

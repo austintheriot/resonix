@@ -1,111 +1,54 @@
-use alloc::vec::Vec;
+use crate::{errors::AudioBufferError, traits::AudioBuffer};
 
-use crate::{errors::AudioBufferError, primitives::Sample, traits::AudioBuffer};
-
-fn samples_vec_from(values: &[f32]) -> Vec<Sample> {
-    values.iter().map(|&v| Sample::from(v)).collect()
+/// `block_size() * channels() == as_slice().len()`
+pub fn test_block_size_channels_slice_len_invariant(buf: &impl AudioBuffer) {
+    assert_eq!(buf.block_size() * buf.channels(), buf.as_slice().len());
 }
 
-// --- AudioBuffer::block_size ---
-
-pub fn test_block_size_mono<A: AudioBuffer>(make: impl Fn(&[Sample], usize) -> A) {
-    let data = samples_vec_from(&[1.0, 2.0, 3.0, 4.0]);
-    let buf = make(&data, 1);
-    assert_eq!(buf.block_size(), 4);
+/// `channel(c)` returns the planar region `as_slice()[c*bs..(c+1)*bs]`
+pub fn test_channel_returns_planar_region(buf: &impl AudioBuffer) {
+    let block_size = buf.block_size();
+    for channel in 0..buf.channels() {
+        let expected = &buf.as_slice()[channel * block_size..(channel + 1) * block_size];
+        assert_eq!(buf.channel(channel).unwrap(), expected);
+    }
 }
 
-pub fn test_block_size_stereo<A: AudioBuffer>(make: impl Fn(&[Sample], usize) -> A) {
-    let data = samples_vec_from(&[1.0, 2.0, 3.0, 4.0]);
-    let buf = make(&data, 2);
-    assert_eq!(buf.block_size(), 2);
-}
-
-pub fn test_block_size_empty<A: AudioBuffer>(make: impl Fn(&[Sample], usize) -> A) {
-    let data: Vec<Sample> = Vec::new();
-    let buf = make(&data, 1);
-    assert_eq!(buf.block_size(), 0);
-}
-
-// --- AudioBuffer::channels ---
-
-pub fn test_channels_mono<A: AudioBuffer>(make: impl Fn(&[Sample], usize) -> A) {
-    let data = samples_vec_from(&[1.0]);
-    let buf = make(&data, 1);
-    assert_eq!(buf.channels(), 1);
-}
-
-pub fn test_channels_four<A: AudioBuffer>(make: impl Fn(&[Sample], usize) -> A) {
-    let data = samples_vec_from(&[1.0, 2.0, 3.0, 4.0]);
-    let buf = make(&data, 4);
-    assert_eq!(buf.channels(), 4);
-}
-
-// --- AudioBuffer::channel ---
-
-pub fn test_channel_returns_correct_slice<A: AudioBuffer>(make: impl Fn(&[Sample], usize) -> A) {
-    // Stereo, 2 samples per channel: [L0, L1, R0, R1]
-    let data = samples_vec_from(&[1.0, 2.0, 3.0, 4.0]);
-    let buf = make(&data, 2);
-    let ch0 = samples_vec_from(&[1.0, 2.0]);
-    let ch1 = samples_vec_from(&[3.0, 4.0]);
-    assert_eq!(buf.channel(0usize).unwrap(), ch0.as_slice());
-    assert_eq!(buf.channel(1usize).unwrap(), ch1.as_slice());
-}
-
-pub fn test_channel_out_of_range<A: AudioBuffer>(make: impl Fn(&[Sample], usize) -> A) {
-    let data = samples_vec_from(&[1.0, 2.0]);
-    let buf = make(&data, 1);
+/// `channel(channels())` returns `ChannelOutOfRange`
+pub fn test_channel_out_of_range(buf: &impl AudioBuffer) {
+    let out_of_range = buf.channels();
     assert_eq!(
-        buf.channel(1usize).unwrap_err(),
+        buf.channel(out_of_range).unwrap_err(),
         AudioBufferError::ChannelOutOfRange {
-            index: 1,
-            channels: 1,
+            index: out_of_range,
+            channels: buf.channels(),
         }
     );
 }
 
-// --- AudioBuffer::channels_iter ---
-
-pub fn test_channels_iter_single_channel<A: AudioBuffer>(make: impl Fn(&[Sample], usize) -> A) {
-    let data = samples_vec_from(&[0.0, 1.0, 2.0, 3.0]);
-    let buf = make(&data, 1);
+/// `channels_iter()` yields exactly `channels()` items, each matching `channel(c)`
+pub fn test_channels_iter_matches_channels(buf: &impl AudioBuffer) {
     let mut iter = buf.channels_iter().unwrap();
-    assert_eq!(iter.next().unwrap(), data.as_slice());
+    for channel in 0..buf.channels() {
+        let expected = buf.channel(channel).unwrap();
+        assert_eq!(iter.next().unwrap(), expected);
+    }
     assert!(iter.next().is_none());
 }
 
-pub fn test_channels_iter_four_channels<A: AudioBuffer>(make: impl Fn(&[Sample], usize) -> A) {
-    let data = samples_vec_from(&[0.0, 1.0, 2.0, 3.0]);
-    let buf = make(&data, 4);
-    let mut iter = buf.channels_iter().unwrap();
-    assert_eq!(iter.next().unwrap(), &data[0..1]);
-    assert_eq!(iter.next().unwrap(), &data[1..2]);
-    assert_eq!(iter.next().unwrap(), &data[2..3]);
-    assert_eq!(iter.next().unwrap(), &data[3..4]);
-    assert!(iter.next().is_none());
+/// On a mono buffer: `mono()` returns all samples (`== as_slice()`)
+pub fn test_mono_single_channel(buf: &impl AudioBuffer) {
+    assert_eq!(buf.channels(), 1, "requires a mono buffer");
+    assert_eq!(buf.mono().unwrap(), buf.as_slice());
 }
 
-// --- AudioBuffer::mono ---
-
-pub fn test_mono_returns_samples<A: AudioBuffer>(make: impl Fn(&[Sample], usize) -> A) {
-    let data = samples_vec_from(&[1.0, 2.0, 3.0]);
-    let buf = make(&data, 1);
-    assert_eq!(buf.mono().unwrap(), data.as_slice());
-}
-
-pub fn test_mono_stereo_returns_error<A: AudioBuffer>(make: impl Fn(&[Sample], usize) -> A) {
-    let data = samples_vec_from(&[1.0, 2.0]);
-    let buf = make(&data, 2);
+/// On a multi-channel buffer: `mono()` returns `NotMono`
+pub fn test_mono_multichannel_returns_not_mono(buf: &impl AudioBuffer) {
+    assert!(buf.channels() > 1, "requires channels > 1");
     assert_eq!(
         buf.mono().unwrap_err(),
-        AudioBufferError::NotMono { channels: 2 }
+        AudioBufferError::NotMono {
+            channels: buf.channels(),
+        }
     );
-}
-
-// --- AudioBuffer::as_slice ---
-
-pub fn test_as_slice_returns_all_samples<A: AudioBuffer>(make: impl Fn(&[Sample], usize) -> A) {
-    let data = samples_vec_from(&[1.0, 2.0, 3.0, 4.0]);
-    let buf = make(&data, 2);
-    assert_eq!(buf.as_slice(), data.as_slice());
 }

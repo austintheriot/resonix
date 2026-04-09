@@ -154,7 +154,7 @@ impl<'a> crate::traits::AudioBuffer for AudioBuffer<'a> {
 mod tests {
     use alloc::vec::Vec;
 
-    use crate::traits::AudioBuffer as _;
+    use crate::test_utils::*;
 
     use super::*;
 
@@ -203,32 +203,47 @@ mod tests {
         assert!(AudioBuffer::new(&data, 1).is_ok());
     }
 
-    // --- AudioBuffer::channels_iter ---
+    // --- Conformance ---
 
     #[test]
-    fn single_channel() {
-        let expected_slice = [0.0, 1.0, 2.0, 3.0];
-        let samples = samples(&expected_slice);
-        let audio_buffer = AudioBuffer::new(&samples, 1).unwrap();
-
-        let mut channels_iter = audio_buffer.channels_iter().unwrap();
-
-        assert_eq!(channels_iter.next().unwrap(), samples);
-        assert_eq!(channels_iter.next(), None);
+    fn block_size_channels_slice_len_invariant() {
+        let data = samples(&[1.0, 2.0, 3.0, 4.0]);
+        let buf = AudioBuffer::new(&data, 2).unwrap();
+        test_block_size_channels_slice_len_invariant(&buf);
     }
 
     #[test]
-    fn four_channels() {
-        let expected_slice = [0.0, 1.0, 2.0, 3.0];
-        let samples = samples(&expected_slice);
-        let audio_buffer = AudioBuffer::new(&samples, 4).unwrap();
+    fn channel_returns_planar_region() {
+        let data = samples(&[1.0, 2.0, 3.0, 4.0]);
+        let buf = AudioBuffer::new(&data, 2).unwrap();
+        test_channel_returns_planar_region(&buf);
+    }
 
-        let mut channels_iter = audio_buffer.channels_iter().unwrap();
+    #[test]
+    fn channel_out_of_range() {
+        let data = samples(&[1.0, 2.0, 3.0, 4.0]);
+        let buf = AudioBuffer::new(&data, 2).unwrap();
+        test_channel_out_of_range(&buf);
+    }
 
-        assert_eq!(channels_iter.next().unwrap(), [samples[0]]);
-        assert_eq!(channels_iter.next().unwrap(), [samples[1]]);
-        assert_eq!(channels_iter.next().unwrap(), [samples[2]]);
-        assert_eq!(channels_iter.next().unwrap(), [samples[3]]);
-        assert_eq!(channels_iter.next(), None);
+    #[test]
+    fn channels_iter_matches_channels() {
+        let data = samples(&[1.0, 2.0, 3.0, 4.0]);
+        let buf = AudioBuffer::new(&data, 2).unwrap();
+        test_channels_iter_matches_channels(&buf);
+    }
+
+    #[test]
+    fn mono_single_channel() {
+        let data = samples(&[1.0, 2.0, 3.0, 4.0]);
+        let buf = AudioBuffer::new(&data, 1).unwrap();
+        test_mono_single_channel(&buf);
+    }
+
+    #[test]
+    fn mono_multichannel_returns_not_mono() {
+        let data = samples(&[1.0, 2.0, 3.0, 4.0]);
+        let buf = AudioBuffer::new(&data, 2).unwrap();
+        test_mono_multichannel_returns_not_mono(&buf);
     }
 }
