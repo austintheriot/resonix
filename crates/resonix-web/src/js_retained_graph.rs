@@ -128,13 +128,16 @@ impl JsRetainedGraph {
     fn copy_input_buffer_data_into_wasm(&self, inputs: Array) {
         for (input_i, input) in inputs.into_iter().enumerate() {
             let input: Array = input.unchecked_into();
+
             // Only process inputs the graph declared; ignore extras from Web Audio.
             let Some(buf) = self.input_storage.get(input_i) else {
                 break;
             };
+
             for (channel_i, channel) in input.into_iter().enumerate() {
                 let channel: Float32Array = channel.unchecked_into();
                 let start = channel_i * WEB_BLOCK_SIZE;
+
                 // SAFETY: `buf.data.get()` has SRW provenance (UnsafeCell).
                 // `Sample` is `repr(transparent)` over `f32`, identical layout.
                 // `buf.data` holds `channels * WEB_BLOCK_SIZE` samples, so

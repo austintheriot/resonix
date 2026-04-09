@@ -40,8 +40,8 @@ pub fn test_channels_iter_mut_matches_channels(buf: &mut impl AudioBufferMut) {
     let block_size = buf.block_size();
     let channels = buf.channels();
     let mut count = 0;
-    let mut iter = buf.channels_iter_mut().unwrap();
-    while let Some(slice) = iter.next() {
+    let iter = buf.channels_iter_mut().unwrap();
+    for slice in iter {
         assert_eq!(slice.len(), block_size);
         count += 1;
     }

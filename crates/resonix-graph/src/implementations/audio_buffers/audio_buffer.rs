@@ -150,6 +150,17 @@ impl<'a> crate::traits::AudioBuffer for AudioBuffer<'a> {
     }
 }
 
+/// Extracts the raw slice pointer and channel count via the trait interface.
+impl<'a, A: crate::traits::AudioBuffer> From<&'a A> for AudioBuffer<'a> {
+    fn from(audio_buffer: &A) -> Self {
+        Self {
+            ptr: NonNull::from(audio_buffer.as_slice()),
+            channels: audio_buffer.channels(),
+            _phantom: PhantomData,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
