@@ -22,6 +22,34 @@ pub struct OwnedAudioBuffer {
     pub data: Box<UnsafeCell<[Sample]>>,
 }
 
+impl OwnedAudioBuffer {
+    pub fn from_sample_buffer(buffer: Box<[Sample]>, channels: usize) -> Self {
+        // SAFETY: `UnsafeCell<[Sample]>` is `repr(transparent)` over `[Sample]`,
+        // so `Box<[Sample]>` and `Box<UnsafeCell<[Sample]>>` have identical layouts.
+        let data: Box<UnsafeCell<[Sample]>> =
+            unsafe { Box::from_raw(Box::into_raw(buffer) as *mut UnsafeCell<[Sample]>) };
+
+        OwnedAudioBuffer { channels, data }
+    }
+
+    pub fn from_f32_buffer(buffer: Box<[f32]>, channels: usize) -> Self {
+        // SAFETY: `UnsafeCell<[Sample]>` is `repr(transparent)` over `[Sample]`,
+        // so `Box<[Sample]>` and `Box<UnsafeCell<[Sample]>>` have identical layouts.
+        let data: Box<UnsafeCell<[Sample]>> =
+            unsafe { Box::from_raw(Box::into_raw(buffer) as *mut UnsafeCell<[Sample]>) };
+
+        OwnedAudioBuffer { channels, data }
+    }
+
+    pub fn as_f32_slice(&self) -> &[f32] {
+        unsafe { &*(self.data.get() as *const [f32]) }
+    }
+
+    pub fn as_f32_mut_slice(&mut self) -> &mut [f32] {
+        unsafe { &mut *(self.data.get() as *mut [f32]) }
+    }
+}
+
 impl crate::traits::AudioBuffer for OwnedAudioBuffer {
     fn block_size(&self) -> usize {
         self.as_slice().len() / self.channels

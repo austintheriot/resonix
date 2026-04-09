@@ -1,40 +1,26 @@
-use core::cell::UnsafeCell;
-use core::ptr::NonNull;
-
 use js_sys::{Array, Float32Array};
 use resonix_graph::{
-    implementations::{AudioBuffer, AudioBufferMut, Graph, OutputNode, OwnedAudioBuffer, SineNode},
+    implementations::{Graph, OutputNode, OwnedAudioBuffer, SineNode},
     primitives::{CurrentTime, ExternalBufferMappingData, ExternalBufferMappings, Sample},
     traits::Graph as _,
 };
-use wasm_bindgen::{JsCast as _, prelude::wasm_bindgen};
+use wasm_bindgen::prelude::wasm_bindgen;
 
-/// Web Audio API's AudioWorkletProcessor always delivers 128-sample blocks.
+/// Currently the spec specifiec that Web Audio API's
+/// AudioWorkletProcessor always delivers 128-sample blocks.
+///
+/// This is subject to change in the future.
 const WEB_BLOCK_SIZE: usize = 128;
 
 struct JsRetainedGraphStorage {
-    input_storage: Vec<Option<OwnedAudioBuffer>>,
-    output_storage: Vec<Option<OwnedAudioBuffer>>,
+    inputs: Vec<Option<OwnedAudioBuffer>>,
+    outputs: Vec<Option<OwnedAudioBuffer>>,
 }
 
 #[wasm_bindgen]
 pub struct JsRetainedGraph {
     graph: Graph,
-    /// Stable, heap-allocated planar buffers for each external input, indexed by
-    /// `ExternalConnectionId`. Each `ChannelledBuffer` holds
-    /// `channels * WEB_BLOCK_SIZE` samples in planar layout
-    /// `[C0S0..C0SN, C1S0..C1SN, …]`.
-    ///
-    /// The `Box<UnsafeCell<[Sample]>>` inside `ChannelledBuffer` gives pointers
-    /// derived from `.get()` SRW (SharedReadWrite) provenance under Stacked
-    /// Borrows. This is necessary because `inputs` below holds live
-    /// `AudioBuffer<'static>` pointers into these same allocations while the JS
-    /// copy helpers also write to them directly — a plain `Box<[Sample]>` would
-    /// give those pointers SRO provenance, which gets invalidated on the first
-    /// mutable access.
-    input_storage: Vec<Option<OwnedAudioBuffer>>,
-    /// Same as `input_storage` but for external outputs.
-    output_storage: Vec<Option<OwnedAudioBuffer>>,
+    storage: JsRetainedGraphStorage,
 }
 
 impl JsRetainedGraph {
@@ -47,102 +33,95 @@ impl JsRetainedGraph {
     ) -> JsRetainedGraphStorage {
         log::info!("Creating storage based on mapping: {:?}", mappings);
 
-        let input_storage = Self::allocate_channel_buffers(block_size, mappings.external_inputs());
-        let output_storage =
-            Self::allocate_channel_buffers(block_size, mappings.external_outputs());
+        let inputs = Self::allocate_audio_buffers(block_size, mappings.external_inputs());
+        let outputs = Self::allocate_audio_buffers(block_size, mappings.external_outputs());
 
-        JsRetainedGraphStorage {
-            input_storage,
-            output_storage,
-        }
+        JsRetainedGraphStorage { inputs, outputs }
     }
 
-    fn allocate_channel_buffers(
+    fn allocate_audio_buffers(
         block_size: usize,
         mappings: &[ExternalBufferMappingData],
-    ) -> Vec<OwnedAudioBuffer> {
+    ) -> Vec<Option<OwnedAudioBuffer>> {
         // Size the slot Vec so that id == index (ids are contiguous from 0).
-        let capacity = mappings.iter().map(|m| **m.id + 1).max().unwrap_or(0);
+        let storage_capacity = mappings
+            .iter()
+            .map(|mapping| **mapping.id + 1)
+            .max()
+            .unwrap_or(0);
 
-        let mut slots: Vec<Option<OwnedAudioBuffer>> = Vec::with_capacity(capacity);
-        slots.resize_with(capacity, || None);
+        let mut buffers: Vec<Option<OwnedAudioBuffer>> = Vec::with_capacity(storage_capacity);
+        buffers.resize_with(storage_capacity, || None);
 
-        for m in mappings {
-            let total_samples = m.channels * block_size;
-            let mut buf: Vec<Sample> = Vec::with_capacity(total_samples);
-            buf.resize(total_samples, Sample::default());
+        for mapping in mappings {
+            let total_samples = mapping.channels * block_size;
 
-            // SAFETY: `UnsafeCell<[Sample]>` is `repr(transparent)` over `[Sample]`,
-            // so `Box<[Sample]>` and `Box<UnsafeCell<[Sample]>>` have identical
-            // layouts. Mirrors the allocation in `Graph::allocate_empty_buffer_for_connection`.
-            let data: Box<UnsafeCell<[Sample]>> = unsafe {
-                Box::from_raw(Box::into_raw(buf.into_boxed_slice()) as *mut UnsafeCell<[Sample]>)
-            };
+            let mut buffer: Vec<Sample> = Vec::with_capacity(total_samples);
+            buffer.resize(total_samples, Sample::default());
 
-            slots[**m.id] = Some(OwnedAudioBuffer {
-                channels: m.channels,
-                data,
-            });
+            buffers[**mapping.id] = Some(OwnedAudioBuffer::from_sample_buffer(
+                buffer.into_boxed_slice(),
+                mapping.channels,
+            ));
         }
 
-        slots.into_iter().map(|s| s.unwrap()).collect()
+        buffers
+    }
+
+    /// Copy each channel from `outputs` back into the JS `outputs`
+    /// Float32Arrays so the Web Audio pipeline can consume the rendered audio.
+    /// Extra outputs beyond what the graph declared are ignored.
+    fn extract_slices_for_web_channel_buffers<F: Fn(Float32Array, &mut [f32])>(
+        web_input_output_list: Array<Array<Float32Array>>,
+        internal_input_output_list: &mut [Option<OwnedAudioBuffer>],
+        process: F,
+    ) {
+        for (input_output_i, web_input_output) in web_input_output_list.into_iter().enumerate() {
+            // Only process inputs/outputs the graph declared; ignore extras from Web Audio.
+            let Some(Some(internal_buffer)) = internal_input_output_list.get_mut(input_output_i)
+            else {
+                break;
+            };
+
+            for (channel_i, web_channel_buffer) in web_input_output.into_iter().enumerate() {
+                let slice_start = channel_i * WEB_BLOCK_SIZE;
+                let slice_end = slice_start + WEB_BLOCK_SIZE;
+                let internal_slice =
+                    &mut internal_buffer.as_f32_mut_slice()[slice_start..slice_end];
+
+                process(web_channel_buffer, internal_slice);
+            }
+        }
     }
 
     /// Copy each channel from the JS `inputs` array-of-arrays into the
-    /// corresponding contiguous planar buffer in `input_storage`.
+    /// corresponding contiguous planar buffer in `inputs`.
     ///
     /// Web Audio supplies `inputs[nodeIndex][channelIndex]: Float32Array` while
     /// Resonix expects a single planar `[C0S0..C0SN, C1S0..C1SN, …]` slice.
     /// Extra inputs beyond what the graph declared are ignored.
-    fn copy_input_buffer_data_into_wasm(&self, inputs: Array) {
-        for (input_i, input) in inputs.into_iter().enumerate() {
-            let input: Array = input.unchecked_into();
-
-            // Only process inputs the graph declared; ignore extras from Web Audio.
-            let Some(Some(buffer)) = self.input_storage.get(input_i) else {
-                break;
-            };
-
-            for (channel_i, channel) in input.into_iter().enumerate() {
-                let channel: Float32Array = channel.unchecked_into();
-                let start = channel_i * WEB_BLOCK_SIZE;
-
-                // SAFETY: `buf.data.get()` has SRW provenance (UnsafeCell).
-                // `Sample` is `repr(transparent)` over `f32`, identical layout.
-                // `buf.data` holds `channels * WEB_BLOCK_SIZE` samples, so
-                // `start..start + WEB_BLOCK_SIZE` is in bounds for valid channel
-                // indices (the Web Audio worklet guarantees WEB_BLOCK_SIZE frames).
-                let dst: &mut [f32] = unsafe {
-                    let base = (buffer.data.get() as *mut Sample).add(start);
-                    core::slice::from_raw_parts_mut(base as *mut f32, WEB_BLOCK_SIZE)
-                };
-                channel.copy_to(dst);
-            }
-        }
+    fn copy_input_buffer_data_into_wasm(&mut self, inputs: Array<Array<Float32Array>>) {
+        Self::extract_slices_for_web_channel_buffers(
+            inputs,
+            self.storage.inputs.as_mut_slice(),
+            |web_buffer, internal_slice| {
+                web_buffer.copy_to(internal_slice);
+            },
+        );
     }
 
-    /// Copy each channel from `output_storage` back into the JS `outputs`
-    /// Float32Arrays so the Web Audio pipeline can consume the rendered audio.
+    /// Copy each channel from `outputs` back into the JS `outputs` Float32Arrays,
+    /// so the Web Audio pipeline can consume the rendered audio.
+    ///
     /// Extra outputs beyond what the graph declared are ignored.
-    fn copy_output_buffer_data_out_of_wasm(&self, outputs: Array) {
-        for (output_i, output) in outputs.into_iter().enumerate() {
-            let output: Array = output.unchecked_into();
-            // Only process outputs the graph declared; ignore extras from Web Audio.
-            let Some(Some(buf)) = self.output_storage.get(output_i) else {
-                break;
-            };
-
-            for (channel_i, channel) in output.into_iter().enumerate() {
-                let channel: Float32Array = channel.unchecked_into();
-                let start = channel_i * WEB_BLOCK_SIZE;
-                // SAFETY: same SRW and repr(transparent) invariants as the input copy.
-                let src: &[f32] = unsafe {
-                    let base = (buf.data.get() as *const Sample).add(start);
-                    core::slice::from_raw_parts(base as *const f32, WEB_BLOCK_SIZE)
-                };
-                channel.copy_from(src);
-            }
-        }
+    fn copy_output_buffer_data_out_of_wasm(&mut self, outputs: Array<Array<Float32Array>>) {
+        Self::extract_slices_for_web_channel_buffers(
+            outputs,
+            self.storage.outputs.as_mut_slice(),
+            |web_buffer, internal_slice| {
+                web_buffer.copy_from(internal_slice);
+            },
+        );
     }
 }
 
@@ -166,16 +145,9 @@ impl JsRetainedGraph {
             )
             .unwrap();
 
-        let JsRetainedGraphStorage {
-            input_storage,
-            output_storage,
-        } = Self::create_storage(*graph.block_size(), &graph.external_buffer_mappings());
+        let storage = Self::create_storage(*graph.block_size(), &graph.external_buffer_mappings());
 
-        Self {
-            graph,
-            input_storage,
-            output_storage,
-        }
+        Self { graph, storage }
     }
 
     pub fn print_external_buffer_mappings(&mut self) {
@@ -183,13 +155,18 @@ impl JsRetainedGraph {
         log::info!("Mappings! {:#?}", mappings);
     }
 
-    pub fn process(&mut self, inputs: Array, outputs: Array, current_time: f64) -> bool {
+    pub fn process(
+        &mut self,
+        inputs: Array<Array<Float32Array>>,
+        outputs: Array<Array<Float32Array>>,
+        current_time: f64,
+    ) -> bool {
         self.copy_input_buffer_data_into_wasm(inputs);
 
         self.graph
             .run(
-                self.inputs.as_slice(),
-                self.outputs.as_mut_slice(),
+                self.storage.inputs.as_slice(),
+                self.storage.outputs.as_mut_slice(),
                 CurrentTime::from(current_time),
             )
             .unwrap();
