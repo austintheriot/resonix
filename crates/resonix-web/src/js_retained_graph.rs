@@ -68,10 +68,10 @@ impl JsRetainedGraph {
         buffers
     }
 
-    /// Copy each channel from `outputs` back into the JS `outputs`
-    /// Float32Arrays so the Web Audio pipeline can consume the rendered audio.
-    /// Extra outputs beyond what the graph declared are ignored.
-    fn extract_slices_for_web_channel_buffers<F: Fn(Float32Array, &mut [f32])>(
+    /// Aligns the web's list of input/output buffer channel with the corresponding portion
+    /// of this Graph's retained input/output storage and iterates over them, for easy
+    /// copying into/out of Wasm.
+    fn iter_aligned_web_and_internal_buffers<F: Fn(Float32Array, &mut [f32])>(
         web_input_output_list: Array<Array<Float32Array>>,
         internal_input_output_list: &mut [Option<OwnedAudioBuffer>],
         process: F,
@@ -86,10 +86,10 @@ impl JsRetainedGraph {
             for (channel_i, web_channel_buffer) in web_input_output.into_iter().enumerate() {
                 let slice_start = channel_i * WEB_BLOCK_SIZE;
                 let slice_end = slice_start + WEB_BLOCK_SIZE;
-                let internal_slice =
+                let internal_buffer_slice =
                     &mut internal_buffer.as_f32_mut_slice()[slice_start..slice_end];
 
-                process(web_channel_buffer, internal_slice);
+                process(web_channel_buffer, internal_buffer_slice);
             }
         }
     }
@@ -101,7 +101,7 @@ impl JsRetainedGraph {
     /// Resonix expects a single planar `[C0S0..C0SN, C1S0..C1SN, …]` slice.
     /// Extra inputs beyond what the graph declared are ignored.
     fn copy_input_buffer_data_into_wasm(&mut self, inputs: Array<Array<Float32Array>>) {
-        Self::extract_slices_for_web_channel_buffers(
+        Self::iter_aligned_web_and_internal_buffers(
             inputs,
             self.storage.inputs.as_mut_slice(),
             |web_buffer, internal_slice| {
@@ -115,7 +115,7 @@ impl JsRetainedGraph {
     ///
     /// Extra outputs beyond what the graph declared are ignored.
     fn copy_output_buffer_data_out_of_wasm(&mut self, outputs: Array<Array<Float32Array>>) {
-        Self::extract_slices_for_web_channel_buffers(
+        Self::iter_aligned_web_and_internal_buffers(
             outputs,
             self.storage.outputs.as_mut_slice(),
             |web_buffer, internal_slice| {
