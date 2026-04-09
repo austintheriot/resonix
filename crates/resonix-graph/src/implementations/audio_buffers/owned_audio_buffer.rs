@@ -168,6 +168,8 @@ mod tests {
         OwnedAudioBuffer { channels, data }
     }
 
+    // --- Conformance  ---
+
     #[test]
     fn block_size_channels_slice_len_invariant() {
         let buf = make_owned(&[1.0, 2.0, 3.0, 4.0], 2);
@@ -202,5 +204,43 @@ mod tests {
     fn mono_multichannel_returns_not_mono() {
         let buf = make_owned(&[1.0, 2.0, 3.0, 4.0], 2);
         test_mono_multichannel_returns_not_mono(&buf);
+    }
+
+    // --- Conformance (mut) ---
+
+    #[test]
+    fn as_slice_mut_len_invariant() {
+        let mut buf = make_owned(&[1.0, 2.0, 3.0, 4.0], 2);
+        test_as_slice_mut_len_invariant(&mut buf);
+    }
+
+    #[test]
+    fn channel_mut_writes_correct_region() {
+        let mut buf = make_owned(&[0.0, 0.0, 0.0, 0.0], 2);
+        test_channel_mut_writes_correct_region(&mut buf);
+    }
+
+    #[test]
+    fn channel_mut_out_of_range() {
+        let mut buf = make_owned(&[1.0, 2.0, 3.0, 4.0], 2);
+        test_channel_mut_out_of_range(&mut buf);
+    }
+
+    #[test]
+    fn channels_iter_mut_matches_channels() {
+        let mut buf = make_owned(&[1.0, 2.0, 3.0, 4.0], 2);
+        test_channels_iter_mut_matches_channels(&mut buf);
+    }
+
+    #[test]
+    fn mono_mut_single_channel() {
+        let mut buf = make_owned(&[1.0, 2.0, 3.0, 4.0], 1);
+        test_mono_mut_single_channel(&mut buf);
+    }
+
+    #[test]
+    fn mono_mut_multichannel_returns_not_mono() {
+        let mut buf = make_owned(&[1.0, 2.0, 3.0, 4.0], 2);
+        test_mono_mut_multichannel_returns_not_mono(&mut buf);
     }
 }
