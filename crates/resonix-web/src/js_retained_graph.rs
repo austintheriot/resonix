@@ -13,10 +13,8 @@ use wasm_bindgen::{JsCast as _, prelude::wasm_bindgen};
 const WEB_BLOCK_SIZE: usize = 128;
 
 struct JsRetainedGraphStorage {
-    input_storage: Vec<OwnedAudioBuffer>,
-    output_storage: Vec<OwnedAudioBuffer>,
-    inputs: Vec<Option<AudioBuffer<'static>>>,
-    outputs: Vec<Option<AudioBufferMut<'static>>>,
+    input_storage: Vec<Option<OwnedAudioBuffer>>,
+    output_storage: Vec<Option<OwnedAudioBuffer>>,
 }
 
 #[wasm_bindgen]
@@ -34,15 +32,9 @@ pub struct JsRetainedGraph {
     /// copy helpers also write to them directly — a plain `Box<[Sample]>` would
     /// give those pointers SRO provenance, which gets invalidated on the first
     /// mutable access.
-    input_storage: Vec<OwnedAudioBuffer>,
+    input_storage: Vec<Option<OwnedAudioBuffer>>,
     /// Same as `input_storage` but for external outputs.
-    output_storage: Vec<OwnedAudioBuffer>,
-    /// Pre-built, zero-allocation immutable views into `input_storage`.
-    /// Valid for the lifetime of this struct; never reallocated after `new()`.
-    inputs: Vec<Option<AudioBuffer<'static>>>,
-    /// Pre-built, zero-allocation mutable views into `output_storage`.
-    /// Valid for the lifetime of this struct; never reallocated after `new()`.
-    outputs: Vec<Option<AudioBufferMut<'static>>>,
+    output_storage: Vec<Option<OwnedAudioBuffer>>,
 }
 
 impl JsRetainedGraph {
@@ -59,32 +51,9 @@ impl JsRetainedGraph {
         let output_storage =
             Self::allocate_channel_buffers(block_size, mappings.external_outputs());
 
-        // SAFETY: `UnsafeCell::get()` yields `*mut [Sample]` with SRW provenance.
-        // These pointers remain valid for the lifetime of the storage Vecs, which
-        // equals the lifetime of `JsRetainedGraph`. The `'static` bound is upheld
-        // because both the storage and these views are owned fields of the same
-        // struct and are never moved or reallocated after construction.
-        let inputs: Vec<Option<AudioBuffer<'static>>> = input_storage
-            .iter()
-            .map(|buf| {
-                let ptr = unsafe { NonNull::new_unchecked(buf.data.get()) };
-                Some(unsafe { AudioBuffer::from_raw(ptr, buf.channels).unwrap() })
-            })
-            .collect();
-
-        let outputs: Vec<Option<AudioBufferMut<'static>>> = output_storage
-            .iter()
-            .map(|buf| {
-                let ptr = unsafe { NonNull::new_unchecked(buf.data.get()) };
-                Some(unsafe { AudioBufferMut::from_raw(ptr, buf.channels).unwrap() })
-            })
-            .collect();
-
         JsRetainedGraphStorage {
             input_storage,
             output_storage,
-            inputs,
-            outputs,
         }
     }
 
@@ -130,7 +99,7 @@ impl JsRetainedGraph {
             let input: Array = input.unchecked_into();
 
             // Only process inputs the graph declared; ignore extras from Web Audio.
-            let Some(buf) = self.input_storage.get(input_i) else {
+            let Some(Some(buffer)) = self.input_storage.get(input_i) else {
                 break;
             };
 
@@ -144,7 +113,7 @@ impl JsRetainedGraph {
                 // `start..start + WEB_BLOCK_SIZE` is in bounds for valid channel
                 // indices (the Web Audio worklet guarantees WEB_BLOCK_SIZE frames).
                 let dst: &mut [f32] = unsafe {
-                    let base = (buf.data.get() as *mut Sample).add(start);
+                    let base = (buffer.data.get() as *mut Sample).add(start);
                     core::slice::from_raw_parts_mut(base as *mut f32, WEB_BLOCK_SIZE)
                 };
                 channel.copy_to(dst);
@@ -159,9 +128,10 @@ impl JsRetainedGraph {
         for (output_i, output) in outputs.into_iter().enumerate() {
             let output: Array = output.unchecked_into();
             // Only process outputs the graph declared; ignore extras from Web Audio.
-            let Some(buf) = self.output_storage.get(output_i) else {
+            let Some(Some(buf)) = self.output_storage.get(output_i) else {
                 break;
             };
+
             for (channel_i, channel) in output.into_iter().enumerate() {
                 let channel: Float32Array = channel.unchecked_into();
                 let start = channel_i * WEB_BLOCK_SIZE;
@@ -199,16 +169,12 @@ impl JsRetainedGraph {
         let JsRetainedGraphStorage {
             input_storage,
             output_storage,
-            inputs,
-            outputs,
         } = Self::create_storage(*graph.block_size(), &graph.external_buffer_mappings());
 
         Self {
             graph,
             input_storage,
             output_storage,
-            inputs,
-            outputs,
         }
     }
 
