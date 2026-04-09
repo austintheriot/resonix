@@ -1,7 +1,9 @@
 use core::{cell::UnsafeCell, mem::transmute, ops::Deref, ptr::NonNull};
 
 use crate::implementations::{AudioBuffer, AudioBufferMut, OwnedAudioBuffer, RawAudioBuffer};
-use crate::primitives::{CurrentTime, ExternalBufferMappingData, ExternalBufferMappings};
+use crate::primitives::{
+    AudioNodeCtx, CurrentTime, ExternalBufferMappingData, ExternalBufferMappings,
+};
 use crate::traits::AudioNode;
 use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
@@ -825,19 +827,17 @@ impl crate::traits::Graph for Graph {
             let output_buffers: &mut [Option<AudioBufferMut<'_>>] =
                 unsafe { transmute(step.output_buffer_ptrs.as_mut()) };
 
+            let ctx = AudioNodeCtx {
+                block_size: step.block_size,
+                current_time,
+            };
+
             // SAFETY: `step.node` points into the heap allocation of a `Box<dyn AudioNode>`
             // stored in `self.graph_items`. Moving the `Box` (e.g. on IntMap rehash) does not
             // move the heap data, so the pointer remains valid. No topology modification
             // (add/connect/disconnect/remove) can occur concurrently with `run()`.
-            unsafe {
-                (&mut *step.node).process(
-                    input_buffers,
-                    output_buffers,
-                    step.block_size,
-                    current_time,
-                )
-            }
-            .map_err(GraphRunError::AudioNodeRunError)?;
+            unsafe { (&mut *step.node).process(input_buffers, output_buffers, ctx) }
+                .map_err(GraphRunError::AudioNodeRunError)?;
         }
 
         Ok(())
@@ -2053,7 +2053,7 @@ mod graph_tests {
 
         mod channel_count_validation {
             use crate::errors::AudioNodeRunError;
-            use crate::primitives::{BlockSize, CurrentTime, Id, Priority};
+            use crate::primitives::{AudioNodeCtx, Id, Priority};
             use crate::traits::Graph as GraphTrait;
             use crate::{
                 errors::GraphConnectionError,
@@ -2132,8 +2132,7 @@ mod graph_tests {
                     &mut self,
                     _inputs: &[Option<A>],
                     _outputs: &mut [Option<M>],
-                    _block_size: BlockSize,
-                    _current_time: CurrentTime,
+                    _ctx: AudioNodeCtx,
                 ) -> Result<(), AudioNodeRunError> {
                     Ok(())
                 }
@@ -2205,8 +2204,7 @@ mod graph_tests {
                     &mut self,
                     _inputs: &[Option<A>],
                     _outputs: &mut [Option<M>],
-                    _block_size: BlockSize,
-                    _current_time: CurrentTime,
+                    _ctx: AudioNodeCtx,
                 ) -> Result<(), AudioNodeRunError> {
                     Ok(())
                 }
@@ -2259,7 +2257,7 @@ mod graph_tests {
         mod external_inputs {
             use core::ops::Deref;
 
-            use crate::primitives::CurrentTime;
+            use crate::primitives::{AudioNodeCtx, CurrentTime};
             use crate::test_utils::{
                 InputBufferKeyMapping, OutputBufferKeyMapping, inputs_from_buffer_mapping,
                 outputs_from_buffer_mapping,
@@ -2269,8 +2267,8 @@ mod graph_tests {
                 errors::AudioNodeRunError,
                 implementations::Graph,
                 primitives::{
-                    BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor,
-                    PortId, Priority, Sample,
+                    Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId,
+                    Priority, Sample,
                 },
                 traits::{
                     AudioNode, DescribePorts, GenerateId, GetNodeId, GetPortDescriptors,
@@ -2319,8 +2317,7 @@ mod graph_tests {
                     &mut self,
                     inputs: &[Option<A>],
                     outputs: &mut [Option<M>],
-                    _block_size: BlockSize,
-                    _current_time: CurrentTime,
+                    _ctx: AudioNodeCtx,
                 ) -> Result<(), AudioNodeRunError> {
                     let Some(out_buf) = outputs.get_mut(0).and_then(|o| o.as_mut()) else {
                         return Ok(());

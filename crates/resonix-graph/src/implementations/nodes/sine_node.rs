@@ -8,8 +8,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        BlockSize, CurrentTime, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor,
-        PortId, Priority, Sample,
+        AudioNodeCtx, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId,
+        Priority, Sample,
     },
     traits::{
         AudioBuffer, AudioBufferMut, AudioNode, DescribePorts, GenerateId, GetNodeId,
@@ -96,8 +96,7 @@ impl AudioNode for SineNode {
         &mut self,
         _inputs: &[Option<A>],
         outputs: &mut [Option<M>],
-        _block_size: BlockSize,
-        current_time: CurrentTime,
+        AudioNodeCtx { current_time, .. }: AudioNodeCtx,
     ) -> Result<(), AudioNodeRunError> {
         let output_port_slot = **SineNodePortDescriptors::OUTPUT_PORT_ID;
 
@@ -139,7 +138,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        primitives::{BlockSize, Sample},
+        primitives::{BlockSize, CurrentTime, Sample},
         test_utils::TestIdGenerator,
     };
 
@@ -163,8 +162,16 @@ mod tests {
             let inputs: &[Option<crate::implementations::AudioBufferMut<'_>>] = &[];
             let mut outputs: Vec<Option<crate::implementations::AudioBufferMut<'_>>> =
                 vec![Some(audio_buf_mut)];
-            node.process(inputs, outputs.as_mut_slice(), block_size, current_time)
-                .expect("process should not fail");
+
+            node.process(
+                inputs,
+                outputs.as_mut_slice(),
+                AudioNodeCtx {
+                    current_time,
+                    block_size,
+                },
+            )
+            .expect("process should not fail");
         }
         buf
     }
@@ -238,8 +245,10 @@ mod tests {
         let result = node.process(
             inputs,
             outputs.as_mut_slice(),
-            BlockSize::from(2048),
-            DEFAULT_CURRENT_TIME,
+            AudioNodeCtx {
+                block_size: BlockSize::from(2048),
+                current_time: DEFAULT_CURRENT_TIME,
+            },
         );
 
         assert!(result.is_ok());

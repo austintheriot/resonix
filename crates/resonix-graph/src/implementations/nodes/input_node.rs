@@ -6,8 +6,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        BlockSize, CurrentTime, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor,
-        PortId, Priority,
+        AudioNodeCtx, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId,
+        Priority,
     },
     traits::{
         AudioBuffer, AudioBufferMut, AudioNode, DescribePorts, GenerateId, GetNodeId,
@@ -63,8 +63,7 @@ impl AudioNode for InputNode {
         &mut self,
         inputs: &[Option<A>],
         outputs: &mut [Option<M>],
-        _block_size: BlockSize,
-        _current_time: CurrentTime,
+        _ctx: AudioNodeCtx,
     ) -> Result<(), AudioNodeRunError> {
         // no output buffer to write to, nothing to do
         let Some(output_buffer) = outputs
@@ -111,7 +110,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        primitives::Sample,
+        primitives::{CurrentTime, Sample},
         test_utils::{InputBufferKeyMapping, OutputBufferKeyMapping, TestIdGenerator, run_process},
     };
 

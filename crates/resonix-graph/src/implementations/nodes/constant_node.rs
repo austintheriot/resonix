@@ -8,8 +8,8 @@ use wasm_bindgen::prelude::wasm_bindgen;
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        BlockSize, CurrentTime, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor,
-        PortId, Priority, Sample,
+        AudioNodeCtx, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId,
+        Priority, Sample,
     },
     traits::{
         AudioBuffer, AudioBufferMut, AudioNode, DescribePorts, GenerateId, GetNodeId,
@@ -79,8 +79,7 @@ impl AudioNode for ConstantNode {
         &mut self,
         _inputs: &[Option<A>],
         outputs: &mut [Option<M>],
-        _block_size: BlockSize,
-        _current_time: CurrentTime,
+        _ctx: AudioNodeCtx,
     ) -> Result<(), AudioNodeRunError> {
         let output_port_slot = **ConstantNodePortDescriptors::OUTPUT_PORT_ID;
 
@@ -116,7 +115,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        primitives::{BlockSize, Sample},
+        primitives::{BlockSize, CurrentTime, Sample},
         test_utils::TestIdGenerator,
     };
 
@@ -133,8 +132,10 @@ mod tests {
             node.process(
                 inputs,
                 outputs.as_mut_slice(),
-                BlockSize::new(block_size),
-                CurrentTime::from(0.0),
+                AudioNodeCtx {
+                    current_time: CurrentTime::from(0.0),
+                    block_size: BlockSize::from(1),
+                },
             )
             .expect("process should not fail");
         }
@@ -183,8 +184,10 @@ mod tests {
         let result = node.process(
             inputs,
             outputs.as_mut_slice(),
-            BlockSize::new(1),
-            CurrentTime::from(0.0),
+            AudioNodeCtx {
+                current_time: CurrentTime::from(0.0),
+                block_size: BlockSize::from(1),
+            },
         );
         assert!(result.is_ok());
     }

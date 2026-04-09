@@ -1,3 +1,4 @@
+mod audio_node_ctx;
 mod block_size;
 mod buffer_pool;
 mod channel;
@@ -19,6 +20,7 @@ mod port_id;
 mod priority;
 mod sample;
 
+pub use audio_node_ctx::*;
 pub use block_size::*;
 pub use buffer_pool::*;
 pub use channel::*;

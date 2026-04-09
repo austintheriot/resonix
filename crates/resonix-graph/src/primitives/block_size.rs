@@ -2,7 +2,7 @@ use core::ops::Deref;
 
 use nohash_hasher::IsEnabled;
 
-#[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Default, Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BlockSize(usize);
 
 impl BlockSize {
