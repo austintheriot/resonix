@@ -12,6 +12,13 @@ use wasm_bindgen::{JsCast as _, prelude::wasm_bindgen};
 /// Web Audio API's AudioWorkletProcessor always delivers 128-sample blocks.
 const WEB_BLOCK_SIZE: usize = 128;
 
+struct JsRetainedGraphStorage {
+    input_storage: Vec<OwnedAudioBuffer>,
+    output_storage: Vec<OwnedAudioBuffer>,
+    inputs: Vec<Option<AudioBuffer<'static>>>,
+    outputs: Vec<Option<AudioBufferMut<'static>>>,
+}
+
 #[wasm_bindgen]
 pub struct JsRetainedGraph {
     graph: Graph,
@@ -45,12 +52,7 @@ impl JsRetainedGraph {
     fn create_storage(
         block_size: usize,
         mappings: &ExternalBufferMappings,
-    ) -> (
-        Vec<OwnedAudioBuffer>,
-        Vec<OwnedAudioBuffer>,
-        Vec<Option<AudioBuffer<'static>>>,
-        Vec<Option<AudioBufferMut<'static>>>,
-    ) {
+    ) -> JsRetainedGraphStorage {
         log::info!("Creating storage based on mapping: {:?}", mappings);
 
         let input_storage = Self::allocate_channel_buffers(block_size, mappings.external_inputs());
@@ -78,7 +80,12 @@ impl JsRetainedGraph {
             })
             .collect();
 
-        (input_storage, output_storage, inputs, outputs)
+        JsRetainedGraphStorage {
+            input_storage,
+            output_storage,
+            inputs,
+            outputs,
+        }
     }
 
     fn allocate_channel_buffers(
@@ -168,6 +175,7 @@ impl JsRetainedGraph {
 
 #[wasm_bindgen]
 impl JsRetainedGraph {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let mut graph = Graph::with_block_size(WEB_BLOCK_SIZE);
 
@@ -185,8 +193,12 @@ impl JsRetainedGraph {
             )
             .unwrap();
 
-        let (input_storage, output_storage, inputs, outputs) =
-            Self::create_storage(*graph.block_size(), &graph.external_buffer_mappings());
+        let JsRetainedGraphStorage {
+            input_storage,
+            output_storage,
+            inputs,
+            outputs,
+        } = Self::create_storage(*graph.block_size(), &graph.external_buffer_mappings());
 
         Self {
             graph,

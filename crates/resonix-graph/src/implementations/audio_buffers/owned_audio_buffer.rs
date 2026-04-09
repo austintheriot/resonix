@@ -153,8 +153,8 @@ mod tests {
 
     use alloc::vec::Vec;
 
-    use crate::test_utils::*;
     use crate::primitives::Sample;
+    use crate::test_utils::*;
 
     use super::OwnedAudioBuffer;
 
@@ -162,8 +162,7 @@ mod tests {
         let buf: Vec<Sample> = values.iter().map(|&v| Sample::from(v)).collect();
         let data = unsafe {
             alloc::boxed::Box::from_raw(
-                alloc::boxed::Box::into_raw(buf.into_boxed_slice())
-                    as *mut UnsafeCell<[Sample]>,
+                alloc::boxed::Box::into_raw(buf.into_boxed_slice()) as *mut UnsafeCell<[Sample]>
             )
         };
         OwnedAudioBuffer { channels, data }
