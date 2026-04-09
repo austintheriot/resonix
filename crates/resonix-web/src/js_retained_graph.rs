@@ -3,10 +3,8 @@ use core::ptr::NonNull;
 
 use js_sys::{Array, Float32Array};
 use resonix_graph::{
-    implementations::{AudioBuffer, AudioBufferMut, Graph, OutputNode, SineNode},
-    primitives::{
-        ChannelledBuffer, CurrentTime, ExternalBufferMappingData, ExternalBufferMappings, Sample,
-    },
+    implementations::{AudioBuffer, AudioBufferMut, Graph, OutputNode, OwnedAudioBuffer, SineNode},
+    primitives::{CurrentTime, ExternalBufferMappingData, ExternalBufferMappings, Sample},
     traits::Graph as _,
 };
 use wasm_bindgen::{JsCast as _, prelude::wasm_bindgen};
@@ -29,9 +27,9 @@ pub struct JsRetainedGraph {
     /// copy helpers also write to them directly — a plain `Box<[Sample]>` would
     /// give those pointers SRO provenance, which gets invalidated on the first
     /// mutable access.
-    input_storage: Vec<ChannelledBuffer>,
+    input_storage: Vec<OwnedAudioBuffer>,
     /// Same as `input_storage` but for external outputs.
-    output_storage: Vec<ChannelledBuffer>,
+    output_storage: Vec<OwnedAudioBuffer>,
     /// Pre-built, zero-allocation immutable views into `input_storage`.
     /// Valid for the lifetime of this struct; never reallocated after `new()`.
     inputs: Vec<Option<AudioBuffer<'static>>>,
@@ -48,8 +46,8 @@ impl JsRetainedGraph {
         block_size: usize,
         mappings: &ExternalBufferMappings,
     ) -> (
-        Vec<ChannelledBuffer>,
-        Vec<ChannelledBuffer>,
+        Vec<OwnedAudioBuffer>,
+        Vec<OwnedAudioBuffer>,
         Vec<Option<AudioBuffer<'static>>>,
         Vec<Option<AudioBufferMut<'static>>>,
     ) {
@@ -86,11 +84,11 @@ impl JsRetainedGraph {
     fn allocate_channel_buffers(
         block_size: usize,
         mappings: &[ExternalBufferMappingData],
-    ) -> Vec<ChannelledBuffer> {
+    ) -> Vec<OwnedAudioBuffer> {
         // Size the slot Vec so that id == index (ids are contiguous from 0).
         let capacity = mappings.iter().map(|m| **m.id + 1).max().unwrap_or(0);
 
-        let mut slots: Vec<Option<ChannelledBuffer>> = Vec::with_capacity(capacity);
+        let mut slots: Vec<Option<OwnedAudioBuffer>> = Vec::with_capacity(capacity);
         slots.resize_with(capacity, || None);
 
         for m in mappings {
@@ -105,7 +103,7 @@ impl JsRetainedGraph {
                 Box::from_raw(Box::into_raw(buf.into_boxed_slice()) as *mut UnsafeCell<[Sample]>)
             };
 
-            slots[**m.id] = Some(ChannelledBuffer {
+            slots[**m.id] = Some(OwnedAudioBuffer {
                 channels: m.channels,
                 data,
             });

@@ -1,0 +1,148 @@
+use core::cell::UnsafeCell;
+
+use alloc::boxed::Box;
+
+use crate::{
+    errors::AudioBufferError,
+    primitives::{Channel, Sample},
+    traits::AudioBuffer,
+};
+
+/// A pooled audio buffer with its channel count.
+///
+/// `data` holds `block_size * channels` samples in planar layout.
+/// The slice is wrapped in `UnsafeCell` so that raw pointers derived from
+/// `UnsafeCell::get()` carry SharedReadWrite (SRW) provenance under Stacked
+/// Borrows, preventing invalidation when the compiled plan holds both an
+/// input pointer (downstream node reads) and an output pointer (upstream
+/// node writes) to the same buffer simultaneously.
+#[derive(Debug)]
+pub struct OwnedAudioBuffer {
+    pub channels: usize,
+    pub data: Box<UnsafeCell<[Sample]>>,
+}
+
+impl crate::traits::AudioBuffer for OwnedAudioBuffer {
+    fn block_size(&self) -> usize {
+        self.as_slice().len() / self.channels
+    }
+
+    fn channels(&self) -> usize {
+        self.channels
+    }
+
+    /// Returns the samples for channel `c` (0-indexed).
+    ///
+    /// Returns `Err(ChannelOutOfRange)` if `c >= self.channels()`.
+    fn channel(&self, channel: impl Into<Channel>) -> Result<&[Sample], AudioBufferError> {
+        let channel = *channel.into();
+        if channel >= self.channels {
+            return Err(AudioBufferError::ChannelOutOfRange {
+                index: channel,
+                channels: self.channels,
+            });
+        }
+
+        let block_size = self.block_size();
+        let start = channel * block_size;
+        // SAFETY: ptr is valid for total_len samples; start..start+block_size is in range.
+        // Must not also mutably alias this same data at the same time
+        Ok(unsafe {
+            core::slice::from_raw_parts((self.data.get() as *const Sample).add(start), block_size)
+        })
+    }
+
+    fn channels_iter(&self) -> Result<impl Iterator<Item = &[Sample]>, AudioBufferError> {
+        if self.channels == 0 {
+            return Err(AudioBufferError::ZeroChannels);
+        }
+
+        Ok(self
+            .as_slice()
+            .chunks_exact(self.as_slice().len() / self.channels))
+    }
+
+    /// Returns the single channel's samples.
+    ///
+    /// Returns `Err(NotMono)` if `channels != 1`.
+    fn mono(&self) -> Result<&[Sample], AudioBufferError> {
+        if self.channels != 1 {
+            return Err(AudioBufferError::NotMono {
+                channels: self.channels,
+            });
+        }
+
+        let len = { self.data.get().len() };
+
+        // SAFETY: ptr is valid for ptr.len() samples.
+        // Must not also mutably alias this same data at the same time
+        Ok(unsafe { core::slice::from_raw_parts(self.data.get() as *const Sample, len) })
+    }
+
+    fn as_slice(&self) -> &[Sample] {
+        unsafe { &*self.data.get() }
+    }
+}
+
+impl crate::traits::AudioBufferMut for OwnedAudioBuffer {
+    /// Returns the mutable samples for channel `c` (0-indexed).
+    ///
+    /// Returns `Err(ChannelOutOfRange)` if `c >= self.channels()`.
+    fn channel_mut(
+        &mut self,
+        channel: impl Into<Channel>,
+    ) -> Result<&mut [Sample], AudioBufferError> {
+        let channel = *channel.into();
+        if channel >= self.channels {
+            return Err(AudioBufferError::ChannelOutOfRange {
+                index: channel,
+                channels: self.channels,
+            });
+        }
+
+        let block_size = self.block_size();
+        let start = channel * block_size;
+        // SAFETY: ptr is valid for total_len samples; start..start+block_size is in range.
+        Ok(unsafe {
+            core::slice::from_raw_parts_mut((self.data.get() as *mut Sample).add(start), block_size)
+        })
+    }
+
+    /// Returns mutable access to the single channel's samples.
+    ///
+    /// Returns `Err(NotMono)` if `channels != 1`.
+    fn mono_mut(&mut self) -> Result<&mut [Sample], AudioBufferError> {
+        if self.channels != 1 {
+            return Err(AudioBufferError::NotMono {
+                channels: self.channels,
+            });
+        }
+
+        let len = { self.data.get().len() };
+
+        // SAFETY: ptr is valid for ptr.len() samples.
+        Ok(unsafe { core::slice::from_raw_parts_mut(self.data.get() as *mut Sample, len) })
+    }
+
+    fn channels_iter_mut(
+        &mut self,
+    ) -> Result<impl Iterator<Item = &mut [Sample]>, AudioBufferError> {
+        if self.channels == 0 {
+            return Err(AudioBufferError::ZeroChannels);
+        }
+
+        let len = { self.data.get().len() };
+        let channels = self.channels;
+        let chunks_len = len / channels;
+
+        Ok(self.as_slice_mut().chunks_exact_mut(chunks_len))
+    }
+
+    /// SAFETY:
+    /// - self.ptr must point to a valid [Sample] slice
+    /// - The slice must live at least as long as &self (guaranteed by PhantomData)
+    /// - The memory is properly aligned and initialized
+    fn as_slice_mut(&mut self) -> &mut [Sample] {
+        self.data.get_mut()
+    }
+}

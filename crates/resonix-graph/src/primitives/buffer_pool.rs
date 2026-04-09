@@ -1,38 +1,17 @@
-use core::{
-    cell::UnsafeCell,
-    ops::{Deref, DerefMut},
-};
+use core::ops::{Deref, DerefMut};
 
-use alloc::boxed::Box;
-
-use crate::{primitives::ConnectionId, utils::IntMap};
-
-use super::Sample;
-
-/// A pooled audio buffer with its channel count.
-///
-/// `data` holds `block_size * channels` samples in planar layout.
-/// The slice is wrapped in `UnsafeCell` so that raw pointers derived from
-/// `UnsafeCell::get()` carry SharedReadWrite (SRW) provenance under Stacked
-/// Borrows, preventing invalidation when the compiled plan holds both an
-/// input pointer (downstream node reads) and an output pointer (upstream
-/// node writes) to the same buffer simultaneously.
-#[derive(Debug)]
-pub struct ChannelledBuffer {
-    pub channels: usize,
-    pub data: Box<UnsafeCell<[Sample]>>,
-}
+use crate::{implementations::OwnedAudioBuffer, primitives::ConnectionId, utils::IntMap};
 
 #[derive(Debug, Default)]
 pub struct BufferPool {
     // TODO: replace with a Vec for better caching/lookup speeds
     // but consider if this should be a pub struct or a pub(crate) struct:
     // `ConnectionId`s are guaranteed to be dense in THIS implementation
-    buffers: IntMap<ConnectionId, ChannelledBuffer>,
+    buffers: IntMap<ConnectionId, OwnedAudioBuffer>,
 }
 
 impl Deref for BufferPool {
-    type Target = IntMap<ConnectionId, ChannelledBuffer>;
+    type Target = IntMap<ConnectionId, OwnedAudioBuffer>;
 
     fn deref(&self) -> &Self::Target {
         &self.buffers

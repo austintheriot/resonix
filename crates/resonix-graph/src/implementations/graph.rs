@@ -1,13 +1,13 @@
 use core::{cell::UnsafeCell, mem::transmute, ops::Deref, ptr::NonNull};
 
-use crate::implementations::{AudioBuffer, AudioBufferMut, RawAudioBuffer};
+use crate::implementations::{AudioBuffer, AudioBufferMut, OwnedAudioBuffer, RawAudioBuffer};
 use crate::primitives::{CurrentTime, ExternalBufferMappingData, ExternalBufferMappings};
 use crate::traits::AudioNode;
 use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
     primitives::{
-        BlockSize, ChannelledBuffer, Connection, ConnectionId, ExternalConnectionId, Id,
-        NodeHandle, NodeId, PortAddress, PortAddressDirection, PortDescriptor, Sample,
+        BlockSize, Connection, ConnectionId, ExternalConnectionId, Id, NodeHandle, NodeId,
+        PortAddress, PortAddressDirection, PortDescriptor, Sample,
     },
     traits::{DescribePorts, GenerateId, GetPortDescriptors},
     utils::{IntMap, IntSet, compare_nodes_by_priority},
@@ -200,15 +200,15 @@ impl Graph {
             .iter()
             .map(|connection_id_opt| {
                 let connection_id = connection_id_opt.as_ref()?;
-                let cb: &ChannelledBuffer = buffer_pool.get(connection_id)?;
+                let owned_audio_buffer: &OwnedAudioBuffer = buffer_pool.get(connection_id)?;
                 // SAFETY: UnsafeCell::get() yields *mut [Sample] with SRW
                 // (SharedReadWrite) provenance, which lives at the base of the
                 // Stacked Borrows borrow stack and is never invalidated by Unique
                 // retags from mutable accesses in other nodes' process() calls.
-                let raw_ptr: *mut [Sample] = cb.data.get();
+                let raw_ptr: *mut [Sample] = owned_audio_buffer.data.get();
                 Some(RawAudioBuffer {
                     ptr: unsafe { NonNull::new_unchecked(raw_ptr) },
-                    channels: cb.channels,
+                    channels: owned_audio_buffer.channels,
                 })
             })
             .collect()
@@ -516,7 +516,7 @@ impl Graph {
 
         self.buffer_pool.insert(
             connection_id,
-            ChannelledBuffer {
+            OwnedAudioBuffer {
                 channels,
                 data: cell_box,
             },
