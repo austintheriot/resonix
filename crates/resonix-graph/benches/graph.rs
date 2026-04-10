@@ -3,7 +3,7 @@ use resonix_graph::{
     implementations::{
         AudioBuffer, AudioBufferMut, ConstantNode, Graph, OutputNode, OutputNodePortDescriptors,
     },
-    primitives::{CurrentTime, Sample},
+    primitives::{AudioNodeCtx, BlockSize, CurrentTime, Sample, SampleRate},
     traits::Graph as _,
 };
 
@@ -40,8 +40,14 @@ fn create_and_run_constant_to_external_graph() {
         .collect();
     outputs[**output_external_connection_id] = Some(output_audio_buffer);
 
+    let ctx = AudioNodeCtx::builder()
+        .block_size(BlockSize::from(block_size))
+        .sample_rate(SampleRate::default())
+        .current_time(CurrentTime::default())
+        .build();
+
     graph
-        .run(inputs, &mut outputs, CurrentTime::from(0.0))
+        .run(inputs, &mut outputs, ctx)
         .expect("should be able to run the graph without errors");
 }
 

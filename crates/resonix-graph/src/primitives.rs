@@ -42,4 +42,3 @@ pub use port_id::*;
 pub use priority::*;
 pub use sample::*;
 pub use sample_rate::*;
-
