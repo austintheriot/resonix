@@ -1,9 +1,7 @@
 use core::{cell::UnsafeCell, mem::transmute, ops::Deref, ptr::NonNull};
 
 use crate::implementations::{AudioBuffer, AudioBufferMut, OwnedAudioBuffer, RawAudioBuffer};
-use crate::primitives::{
-    AudioNodeCtx, CurrentTime, ExternalBufferMappingData, ExternalBufferMappings,
-};
+use crate::primitives::{AudioNodeCtx, ExternalBufferMappingData, ExternalBufferMappings};
 use crate::traits::AudioNode;
 use crate::{
     errors::{BufferAlreadyAllocated, GraphAddError, GraphConnectionError, GraphRunError},
@@ -445,7 +443,6 @@ impl Graph {
     /// (add/connect/disconnect/remove), which invalidates the plan.
     fn compile(&mut self) -> Vec<CompiledStep> {
         let visit_order = self.compute_new_visit_order();
-        let block_size = self.block_size;
 
         visit_order
             .iter()
@@ -483,7 +480,6 @@ impl Graph {
                     output_buffer_ptrs,
                     external_output_slots: connection_id_map.external_output_slots.clone(),
                     external_input_slots: connection_id_map.external_input_slots.clone(),
-                    block_size,
                 })
             })
             .collect()
@@ -773,7 +769,7 @@ impl crate::traits::Graph for Graph {
         &mut self,
         inputs: &[Option<A>],
         outputs: &mut [Option<M>],
-        current_time: CurrentTime,
+        ctx: AudioNodeCtx,
     ) -> Result<(), GraphRunError> {
         self.ensure_compiled_plan();
 
@@ -826,11 +822,6 @@ impl crate::traits::Graph for Graph {
                 unsafe { transmute(step.input_buffer_ptrs.as_ref()) };
             let output_buffers: &mut [Option<AudioBufferMut<'_>>] =
                 unsafe { transmute(step.output_buffer_ptrs.as_mut()) };
-
-            let ctx = AudioNodeCtx {
-                block_size: step.block_size,
-                current_time,
-            };
 
             // SAFETY: `step.node` points into the heap allocation of a `Box<dyn AudioNode>`
             // stored in `self.graph_items`. Moving the `Box` (e.g. on IntMap rehash) does not
@@ -1593,7 +1584,7 @@ mod graph_tests {
                     AudioBuffer, AudioBufferMut, ConstantNode, Graph, MultiplyNode, OutputNode,
                     OutputNodePortDescriptors, graph::graph_tests::audio_processing::samples,
                 },
-                primitives::{CurrentTime, Sample},
+                primitives::{AudioNodeCtx, BlockSize, CurrentTime, Sample, SampleRate},
                 test_utils::{OutputBufferKeyMapping, outputs_from_buffer_mapping},
                 traits::{AudioBuffer as _, Graph as GraphTrait},
             };
@@ -1619,7 +1610,15 @@ mod graph_tests {
                 let mut outputs = outputs_from_buffer_mapping(&mut output_mapping);
 
                 graph
-                    .run::<AudioBuffer<'_>, _>(&[], &mut outputs, CurrentTime::from(0.0))
+                    .run::<AudioBuffer<'_>, _>(
+                        &[],
+                        &mut outputs,
+                        AudioNodeCtx {
+                            current_time: CurrentTime::from(0.0),
+                            block_size: BlockSize::from(1),
+                            sample_rate: SampleRate::default(),
+                        },
+                    )
                     .unwrap();
 
                 assert_eq!(
@@ -1652,7 +1651,15 @@ mod graph_tests {
                 let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![];
 
                 graph
-                    .run::<AudioBuffer<'_>, _>(&[], &mut outputs, CurrentTime::default())
+                    .run::<AudioBuffer<'_>, _>(
+                        &[],
+                        &mut outputs,
+                        AudioNodeCtx {
+                            current_time: CurrentTime::default(),
+                            block_size: BlockSize::from(1),
+                            sample_rate: SampleRate::default(),
+                        },
+                    )
                     .unwrap();
 
                 assert!(outputs.is_empty());
@@ -1691,7 +1698,15 @@ mod graph_tests {
                 let mut outputs = outputs_from_buffer_mapping(&mut output_mapping);
 
                 graph
-                    .run::<AudioBuffer<'_>, _>(&[], &mut outputs, CurrentTime::default())
+                    .run::<AudioBuffer<'_>, _>(
+                        &[],
+                        &mut outputs,
+                        AudioNodeCtx {
+                            current_time: CurrentTime::default(),
+                            block_size: BlockSize::from(1),
+                            sample_rate: SampleRate::default(),
+                        },
+                    )
                     .unwrap();
 
                 assert_eq!(
@@ -1710,7 +1725,15 @@ mod graph_tests {
                 let mut outputs: Vec<Option<AudioBufferMut<'_>>> = vec![];
                 assert!(
                     graph
-                        .run::<AudioBuffer<'_>, _>(&[], &mut outputs, CurrentTime::default())
+                        .run::<AudioBuffer<'_>, _>(
+                            &[],
+                            &mut outputs,
+                            AudioNodeCtx {
+                                current_time: CurrentTime::default(),
+                                block_size: BlockSize::from(1),
+                                sample_rate: SampleRate::default(),
+                            }
+                        )
                         .is_ok()
                 );
             }
@@ -1762,7 +1785,15 @@ mod graph_tests {
                 let mut outputs = outputs_from_buffer_mapping(&mut output_mapping);
 
                 graph
-                    .run::<AudioBuffer<'_>, _>(&[], &mut outputs, CurrentTime::default())
+                    .run::<AudioBuffer<'_>, _>(
+                        &[],
+                        &mut outputs,
+                        AudioNodeCtx {
+                            current_time: CurrentTime::default(),
+                            block_size: BlockSize::from(1),
+                            sample_rate: SampleRate::default(),
+                        },
+                    )
                     .unwrap();
 
                 assert_eq!(
@@ -1829,7 +1860,15 @@ mod graph_tests {
                 ]);
 
                 graph
-                    .run::<AudioBuffer<'_>, _>(&[], &mut outputs, CurrentTime::default())
+                    .run::<AudioBuffer<'_>, _>(
+                        &[],
+                        &mut outputs,
+                        AudioNodeCtx {
+                            current_time: CurrentTime::default(),
+                            block_size: BlockSize::from(1),
+                            sample_rate: SampleRate::default(),
+                        },
+                    )
                     .unwrap();
 
                 assert_eq!(
@@ -1888,7 +1927,15 @@ mod graph_tests {
                 let mut outputs = outputs_from_buffer_mapping(&mut output_mapping);
 
                 graph
-                    .run::<AudioBuffer<'_>, _>(&[], &mut outputs, CurrentTime::default())
+                    .run::<AudioBuffer<'_>, _>(
+                        &[],
+                        &mut outputs,
+                        AudioNodeCtx {
+                            current_time: CurrentTime::default(),
+                            block_size: BlockSize::from(block_size),
+                            sample_rate: SampleRate::default(),
+                        },
+                    )
                     .unwrap();
 
                 assert_eq!(
@@ -1931,7 +1978,15 @@ mod graph_tests {
                     let mut outputs = outputs_from_buffer_mapping(&mut output_mapping);
 
                     graph
-                        .run::<AudioBuffer<'_>, _>(&[], &mut outputs, CurrentTime::default())
+                        .run::<AudioBuffer<'_>, _>(
+                            &[],
+                            &mut outputs,
+                            AudioNodeCtx {
+                                current_time: CurrentTime::default(),
+                                block_size: BlockSize::from(1),
+                                sample_rate: SampleRate::default(),
+                            },
+                        )
                         .unwrap();
 
                     assert_eq!(
@@ -2002,7 +2057,15 @@ mod graph_tests {
                 let mut outputs = vec![Some(AudioBufferMut::new(&mut out_buf, 1).unwrap())];
 
                 graph
-                    .run::<AudioBuffer<'_>, _>(&[], &mut outputs, CurrentTime::default())
+                    .run::<AudioBuffer<'_>, _>(
+                        &[],
+                        &mut outputs,
+                        AudioNodeCtx {
+                            current_time: CurrentTime::default(),
+                            block_size: BlockSize::from(1),
+                            sample_rate: SampleRate::default(),
+                        },
+                    )
                     .unwrap();
 
                 assert_eq!(
@@ -2037,7 +2100,15 @@ mod graph_tests {
                 let mut outputs = vec![Some(AudioBufferMut::new(&mut out_buf, 1).unwrap())];
 
                 graph
-                    .run::<AudioBuffer<'_>, _>(&[], &mut outputs, CurrentTime::default())
+                    .run::<AudioBuffer<'_>, _>(
+                        &[],
+                        &mut outputs,
+                        AudioNodeCtx {
+                            current_time: CurrentTime::default(),
+                            block_size: BlockSize::from(1),
+                            sample_rate: SampleRate::default(),
+                        },
+                    )
                     .unwrap();
 
                 assert_eq!(
@@ -2257,7 +2328,7 @@ mod graph_tests {
         mod external_inputs {
             use core::ops::Deref;
 
-            use crate::primitives::{AudioNodeCtx, CurrentTime};
+            use crate::primitives::{AudioNodeCtx, BlockSize, CurrentTime, SampleRate};
             use crate::test_utils::{
                 InputBufferKeyMapping, OutputBufferKeyMapping, inputs_from_buffer_mapping,
                 outputs_from_buffer_mapping,
@@ -2425,7 +2496,15 @@ mod graph_tests {
                 let mut outputs = outputs_from_buffer_mapping(&mut output_mapping);
 
                 graph
-                    .run(&inputs, &mut outputs, CurrentTime::default())
+                    .run(
+                        &inputs,
+                        &mut outputs,
+                        AudioNodeCtx {
+                            current_time: CurrentTime::default(),
+                            block_size: BlockSize::from(block_size),
+                            sample_rate: SampleRate::default(),
+                        },
+                    )
                     .unwrap();
 
                 assert_eq!(output_buffer, input_buffer.as_slice());

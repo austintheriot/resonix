@@ -102,7 +102,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        primitives::{BlockSize, CurrentTime, Sample},
+        primitives::{BlockSize, CurrentTime, Sample, SampleRate},
         test_utils::TestIdGenerator,
     };
 
@@ -123,6 +123,7 @@ mod tests {
                 AudioNodeCtx {
                     block_size: BlockSize::new(block_size),
                     current_time: CurrentTime::from(0.0),
+                    sample_rate: SampleRate::default(),
                 },
             )
             .expect("process should not fail");
@@ -176,6 +177,7 @@ mod tests {
             AudioNodeCtx {
                 block_size: BlockSize::new(1),
                 current_time: CurrentTime::from(0.0),
+                sample_rate: SampleRate::default(),
             },
         );
 

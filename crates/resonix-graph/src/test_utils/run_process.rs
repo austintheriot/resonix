@@ -1,6 +1,6 @@
 use crate::{
     errors::AudioNodeRunError,
-    primitives::{AudioNodeCtx, BlockSize, CurrentTime, PortId},
+    primitives::{AudioNodeCtx, BlockSize, CurrentTime, PortId, SampleRate},
     test_utils::{
         InputBufferKeyMapping, OutputBufferKeyMapping, inputs_from_buffer_mapping,
         outputs_from_buffer_mapping,
@@ -34,6 +34,7 @@ pub(crate) fn run_process<'mapping, 'buffer: 'mapping, N: AudioNode, Id: Into<us
     let ctx = AudioNodeCtx {
         block_size: block_size.into(),
         current_time: current_time.into(),
+        sample_rate: SampleRate::default(),
     };
 
     node.process(inputs, outputs, ctx)?;

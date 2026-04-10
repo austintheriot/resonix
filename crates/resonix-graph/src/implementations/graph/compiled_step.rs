@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 
 use crate::{
     implementations::{RawAudioBuffer, graph::ErasedAudioNode},
-    primitives::{BlockSize, ExternalConnectionId},
+    primitives::ExternalConnectionId,
 };
 
 /// One entry in the compiled execution plan produced by `Graph::compile`.
@@ -25,5 +25,4 @@ pub(in crate::implementations::graph) struct CompiledStep {
     pub external_output_slots: Box<[Option<ExternalConnectionId>]>,
     /// Indexed by PortId. `Some(ext_id)` marks an external input slot; patched each `run` call.
     pub external_input_slots: Box<[Option<ExternalConnectionId>]>,
-    pub block_size: BlockSize,
 }

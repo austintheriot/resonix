@@ -19,6 +19,7 @@ mod port_descriptor;
 mod port_id;
 mod priority;
 mod sample;
+mod sample_rate;
 
 pub use audio_node_ctx::*;
 pub use block_size::*;
@@ -40,3 +41,5 @@ pub use port_descriptor::*;
 pub use port_id::*;
 pub use priority::*;
 pub use sample::*;
+pub use sample_rate::*;
+

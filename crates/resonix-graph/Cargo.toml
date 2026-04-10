@@ -13,6 +13,7 @@ wasm = ["dep:wasm-bindgen"]
 hashbrown = "0.15.3"
 nohash-hasher = "0.2.0"
 petgraph = "0.8.1"
+bon = "3.9.1"
 thiserror.workspace = true
 wasm-bindgen = { workspace = true, optional = true }
 

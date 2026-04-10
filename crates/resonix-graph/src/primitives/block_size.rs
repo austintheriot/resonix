@@ -2,8 +2,17 @@ use core::ops::Deref;
 
 use nohash_hasher::IsEnabled;
 
-#[derive(Default, Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BlockSize(usize);
+
+impl Default for BlockSize {
+    fn default() -> Self {
+        // TODO: consider what default value makes the most sense
+        // web default is 128. I believe some other realtime DSPs
+        // use `64`?
+        Self(128)
+    }
+}
 
 impl BlockSize {
     pub const fn new(id: usize) -> Self {

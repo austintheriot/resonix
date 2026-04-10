@@ -1,7 +1,10 @@
 use js_sys::{Array, Float32Array};
 use resonix_graph::{
     implementations::{Graph, OutputNode, OwnedAudioBuffer, SineNode},
-    primitives::{CurrentTime, ExternalBufferMappingData, ExternalBufferMappings, Sample},
+    primitives::{
+        AudioNodeCtx, BlockSize, CurrentTime, ExternalBufferMappingData, ExternalBufferMappings,
+        Sample, SampleRate,
+    },
     traits::Graph as _,
 };
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -160,14 +163,21 @@ impl JsRetainedGraph {
         inputs: Array<Array<Float32Array>>,
         outputs: Array<Array<Float32Array>>,
         current_time: f64,
+        sample_rate: u32,
     ) -> bool {
         self.copy_input_buffer_data_into_wasm(inputs);
+
+        let ctx = AudioNodeCtx::builder()
+            .sample_rate(SampleRate::from(sample_rate))
+            .current_time(CurrentTime::from(current_time))
+            .block_size(BlockSize::from(WEB_BLOCK_SIZE))
+            .build();
 
         self.graph
             .run(
                 self.storage.inputs.as_slice(),
                 self.storage.outputs.as_mut_slice(),
-                CurrentTime::from(current_time),
+                ctx,
             )
             .unwrap();
 

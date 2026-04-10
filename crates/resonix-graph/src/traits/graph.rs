@@ -1,6 +1,6 @@
 use crate::{
     errors::{GraphAddError, GraphConnectionError, GraphRunError},
-    primitives::{BlockSize, CurrentTime, ExternalBufferMappings, NodeHandle, PortAddress},
+    primitives::{AudioNodeCtx, BlockSize, ExternalBufferMappings, NodeHandle, PortAddress},
     traits::{AudioBuffer, AudioBufferMut, DescribePorts, GetPortDescriptors},
 };
 
@@ -24,7 +24,7 @@ pub trait Graph {
         &mut self,
         inputs: &[Option<A>],
         outputs: &mut [Option<M>],
-        current_time: CurrentTime,
+        ctx: AudioNodeCtx,
     ) -> Result<(), GraphRunError>;
 
     fn block_size(&self) -> BlockSize;
