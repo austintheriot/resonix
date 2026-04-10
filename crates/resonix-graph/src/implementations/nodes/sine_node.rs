@@ -96,7 +96,11 @@ impl AudioNode for SineNode {
         &mut self,
         _inputs: &[Option<A>],
         outputs: &mut [Option<M>],
-        AudioNodeCtx { current_time, .. }: AudioNodeCtx,
+        AudioNodeCtx {
+            current_time,
+            sample_rate,
+            ..
+        }: AudioNodeCtx,
     ) -> Result<(), AudioNodeRunError> {
         let output_port_slot = **SineNodePortDescriptors::OUTPUT_PORT_ID;
 
@@ -109,13 +113,17 @@ impl AudioNode for SineNode {
             // channel length match is checked at `connect` time
             let frequency = **self.frequencies.get(i).unwrap();
 
-            // output = A * sin(2PI * frequency * time)
-            // where A is amplitude
-            // frequency is number of oscillations per second
-            // and time is the current time
-            let value = f32::sin(2.0 * core::f32::consts::PI * frequency * (*current_time as f32));
+            for (sample_i, sample) in channel.iter_mut().enumerate() {
+                // we must project ahead a bit per-sample based on
+                // the sample rate to get correct values
+                let sample_time = *current_time as f32 + sample_i as f32 / *sample_rate as f32;
 
-            for sample in channel.iter_mut() {
+                // output = A * sin(2PI * frequency * time)
+                // where A is amplitude
+                // frequency is number of oscillations per second
+                // and time is the current time
+                let value = f32::sin(2.0 * core::f32::consts::PI * frequency * sample_time);
+
                 *sample = Sample::from(value);
             }
         }

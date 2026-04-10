@@ -168,8 +168,9 @@ impl JsRetainedGraph {
         self.copy_input_buffer_data_into_wasm(inputs);
 
         let ctx = AudioNodeCtx::builder()
-            .sample_rate(SampleRate::from(sample_rate))
             .current_time(CurrentTime::from(current_time))
+            // TODO: bake sample rate & block size at graph instantiation
+            .sample_rate(SampleRate::from(sample_rate))
             .block_size(BlockSize::from(WEB_BLOCK_SIZE))
             .build();
 

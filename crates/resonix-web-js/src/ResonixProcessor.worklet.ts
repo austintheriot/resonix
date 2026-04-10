@@ -9,7 +9,7 @@ import {
   type ResonixProcesorOutgoingMessage,
 } from "./common.js";
 
-// TODO: move logic of `ResonixProcessor` into a 
+// TODO: move logic of `ResonixProcessor` into a
 // `ResonixProcessorCore` struct for easier/env-agnostic testing,
 // then just call it into it from here
 class ResonixProcessor
@@ -18,7 +18,6 @@ class ResonixProcessor
 {
   private _jsRetainedGraph: JsRetainedGraph | undefined;
   private _frequency: number | undefined;
-  private _hasRunWasmProcess = false;
 
   constructor() {
     super();
@@ -79,7 +78,12 @@ class ResonixProcessor
       return true;
     }
 
-    return this._jsRetainedGraph.process(inputs, outputs, currentTime);
+    return this._jsRetainedGraph.process(
+      inputs,
+      outputs,
+      currentTime,
+      sampleRate,
+    );
   }
 }
 
