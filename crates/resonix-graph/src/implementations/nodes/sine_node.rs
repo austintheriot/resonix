@@ -143,6 +143,7 @@ impl Deref for SineNode {
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
+    use approx::assert_abs_diff_eq;
 
     use super::*;
     use crate::{
@@ -199,10 +200,10 @@ mod tests {
 
         let result = process_sine(&mut node, BlockSize::from(1), DEFAULT_CURRENT_TIME);
 
-        assert_eq!(
-            result,
-            vec![expected_sine_value(frequency, DEFAULT_CURRENT_TIME)]
-        );
+        result
+            .into_iter()
+            .zip(vec![expected_sine_value(frequency, DEFAULT_CURRENT_TIME)])
+            .for_each(|(result, expected)| assert_abs_diff_eq!(*result, *expected));
     }
 
     #[test]
@@ -212,10 +213,13 @@ mod tests {
 
         let result = process_sine(&mut node, BlockSize::from(1), DEFAULT_CURRENT_TIME);
 
-        assert_eq!(
-            result,
-            vec![expected_sine_value(DEFAULT_FREQUENCY, DEFAULT_CURRENT_TIME)]
-        );
+        result
+            .into_iter()
+            .zip(vec![expected_sine_value(
+                DEFAULT_FREQUENCY,
+                DEFAULT_CURRENT_TIME,
+            )])
+            .for_each(|(result, expected)| assert_abs_diff_eq!(*result, *expected));
     }
 
     #[test]
@@ -232,15 +236,15 @@ mod tests {
 
         let result = process_sine(&mut node, BlockSize::from(1), DEFAULT_CURRENT_TIME);
 
-        assert_eq!(
-            result,
-            vec![
+        result
+            .into_iter()
+            .zip(vec![
                 expected_sine_value(frequencies[0], DEFAULT_CURRENT_TIME),
                 expected_sine_value(frequencies[1], DEFAULT_CURRENT_TIME),
                 expected_sine_value(frequencies[2], DEFAULT_CURRENT_TIME),
                 expected_sine_value(frequencies[3], DEFAULT_CURRENT_TIME),
-            ]
-        );
+            ])
+            .for_each(|(result, expected)| assert_abs_diff_eq!(*result, *expected));
     }
 
     #[test]
