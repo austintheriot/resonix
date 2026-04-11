@@ -1,0 +1,30 @@
+---
+config:
+  layout: dagre
+---
+flowchart TB
+ subgraph rg["Retained Graph"]
+        n1["Graph"]
+  end
+ subgraph s1["Processor (Audio Thread)"]
+        n11["Input Rx"]
+        n12["Output Tx"]
+        rg
+  end
+    n7["On native systems, the processor runs a tight, synchonrous loop in a dedicated thread. Checks for under/overruns and runs the DSP as necessary. The DSP thread runs at a fixed sample rate/block size (configured by user), and resamples input/output as needed in the loop. On web, this dedicated audio thread loop is handled automatically by the AudioWorklet. All the Processor in the worklet has to worry about is copying input data in and copying output data out."] --- s1
+    n8["Library Code (GraphBuilder)"] --> n9["Emitted Graph JSON"]
+    n10["GUI Editor"] --> n9
+    n11 --> rg
+    s1 -- Events, Node State for Rendering --> n13["Controller (Main Thread)"]
+    n13 -- Graph JSON, Control Values, Audio Channel Ports, External/Plugin Binaries --> s1
+    n9 --> n13
+    rg --> n12
+
+    n1@{ shape: rect}
+    n11@{ shape: rect}
+    n7@{ shape: text}
+    n8@{ shape: rect}
+    n9@{ shape: rect}
+    n10@{ shape: rect}
+    n13@{ shape: rect}
+    linkStyle 0 stroke:#BBDEFB,fill:none
