@@ -1,6 +1,8 @@
 # Development
 
-For building all wasm targets & js examples:
+# Production build
+
+For building all wasm targets in production mode, all js libraries that depend on that wasm output, and also all examples that consume the build packages:
 
 ```sh
 yarn build
@@ -11,15 +13,19 @@ yarn build
 Rebuild Rust & Wasm library code on Rust code changes:
 
 ```sh
-# ignore JS-only crates, only build `bundler` target (the only one we consume in the js library for now)
-cargo watch -w ./crates -i ./crates/resonix-web-js \
-    -- cargo run -p build-wasm \
-    -- --target bundler
+yarn dev:rust
 ```
 
 Rebuild JS library wrapper code around Rust/Wasm on changes:
 
 ```
 cd crates/resonix-web-js
-yarn dev
+yarn dev:js
+```
+
+Run local dev server for web vite example app
+
+```
+cd crates/resonix-web-js
+yarn dev:js
 ```
