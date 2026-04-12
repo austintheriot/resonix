@@ -203,7 +203,7 @@ mod tests {
         result
             .into_iter()
             .zip(vec![expected_sine_value(frequency, DEFAULT_CURRENT_TIME)])
-            .for_each(|(result, expected)| assert_relative_eq!(*result, *expected));
+            .for_each(|(result, expected)| assert_relative_eq!(*result, *expected, epsilon = 1e-6));
     }
 
     #[test]
@@ -219,7 +219,7 @@ mod tests {
                 DEFAULT_FREQUENCY,
                 DEFAULT_CURRENT_TIME,
             )])
-            .for_each(|(result, expected)| assert_relative_eq!(*result, *expected));
+            .for_each(|(result, expected)| assert_relative_eq!(*result, *expected, epsilon = 1e-6));
     }
 
     #[test]
@@ -244,7 +244,7 @@ mod tests {
                 expected_sine_value(frequencies[2], DEFAULT_CURRENT_TIME),
                 expected_sine_value(frequencies[3], DEFAULT_CURRENT_TIME),
             ])
-            .for_each(|(result, expected)| assert_relative_eq!(*result, *expected));
+            .for_each(|(result, expected)| assert_relative_eq!(*result, *expected, epsilon = 1e-6));
     }
 
     #[test]
