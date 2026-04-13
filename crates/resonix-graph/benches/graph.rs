@@ -4,7 +4,7 @@ use resonix_graph::{
         AudioBuffer, AudioBufferMut, ConstantNode, Graph, OutputNode, OutputNodePortDescriptors,
     },
     primitives::{AudioNodeCtx, BlockSize, CurrentTime, Sample, SampleRate},
-    traits::Graph as _,
+    traits::{Graph as _, ModifyGraph},
 };
 
 fn create_and_run_constant_to_external_graph() {

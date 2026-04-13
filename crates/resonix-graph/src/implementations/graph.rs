@@ -530,7 +530,7 @@ impl GenerateId for Graph {
     }
 }
 
-impl crate::traits::Graph for Graph {
+impl crate::traits::ModifyGraph for Graph {
     fn block_size(&self) -> BlockSize {
         self.block_size
     }
@@ -768,7 +768,9 @@ impl crate::traits::Graph for Graph {
 
         Ok(self)
     }
+}
 
+impl crate::traits::Graph for Graph {
     fn run<A: crate::traits::AudioBuffer, M: crate::traits::AudioBufferMut>(
         &mut self,
         inputs: &[Option<A>],
@@ -876,7 +878,7 @@ mod graph_tests {
 
             use crate::{
                 implementations::{ConstantNode, Graph, MultiplyNode},
-                traits::Graph as GraphTrait,
+                traits::ModifyGraph,
             };
 
             use super::assert_visit_order_matches_handles;
@@ -922,7 +924,7 @@ mod graph_tests {
             use super::assert_visit_order_matches_handles;
             use crate::{
                 implementations::{ConstantNode, Graph, MultiplyNode, OutputNode},
-                traits::Graph as GraphTrait,
+                traits::ModifyGraph,
             };
 
             // ┌────────────────────┐
@@ -1088,7 +1090,7 @@ mod graph_tests {
 
             use crate::{
                 implementations::{ConstantNode, Graph, MultiplyNode, OutputNode},
-                traits::Graph as GraphTrait,
+                traits::ModifyGraph,
             };
 
             use super::assert_visit_order_matches_handles;
@@ -1460,7 +1462,7 @@ mod graph_tests {
 
             use crate::{
                 implementations::{ConstantNode, Graph, MultiplyNode, OutputNode},
-                traits::Graph as GraphTrait,
+                traits::ModifyGraph,
             };
 
             use super::assert_visit_order_matches_handles;
@@ -1590,7 +1592,7 @@ mod graph_tests {
                 },
                 primitives::{AudioNodeCtx, BlockSize, CurrentTime, Sample, SampleRate},
                 test_utils::{OutputBufferKeyMapping, outputs_from_buffer_mapping},
-                traits::{AudioBuffer as _, Graph as GraphTrait},
+                traits::{AudioBuffer as _, Graph as GraphTrait, ModifyGraph},
             };
             use alloc::vec::Vec;
 
@@ -2129,7 +2131,7 @@ mod graph_tests {
         mod channel_count_validation {
             use crate::errors::AudioNodeRunError;
             use crate::primitives::{AudioNodeCtx, Id, Priority};
-            use crate::traits::Graph as GraphTrait;
+            use crate::traits::ModifyGraph;
             use crate::{
                 errors::GraphConnectionError,
                 implementations::{ConstantNode, Graph, OutputNode},
@@ -2337,7 +2339,7 @@ mod graph_tests {
                 InputBufferKeyMapping, OutputBufferKeyMapping, inputs_from_buffer_mapping,
                 outputs_from_buffer_mapping,
             };
-            use crate::traits::Graph as GraphTrait;
+            use crate::traits::{Graph as _, ModifyGraph};
             use crate::{
                 errors::AudioNodeRunError,
                 implementations::Graph,

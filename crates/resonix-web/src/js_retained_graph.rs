@@ -1,11 +1,8 @@
 use js_sys::{Array, Float32Array};
 use resonix_graph::{
-    implementations::{Graph, OutputNode, OwnedAudioBuffer, SineNode},
-    primitives::{
-        AudioNodeCtx, BlockSize, CurrentTime, ExternalBufferMappingData, ExternalBufferMappings,
-        Sample, SampleRate,
-    },
-    traits::Graph as _,
+    implementations::{Graph, OutputNode, OwnedAudioBuffer, RetainedGraph, SineNode},
+    primitives::{AudioNodeCtx, BlockSize, CurrentTime, SampleRate},
+    traits::{ModifyGraph as _, RetainedGraph as _},
 };
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -15,62 +12,12 @@ use wasm_bindgen::prelude::wasm_bindgen;
 /// This is subject to change in the future.
 const WEB_BLOCK_SIZE: usize = 128;
 
-struct JsRetainedGraphStorage {
-    inputs: Vec<Option<OwnedAudioBuffer>>,
-    outputs: Vec<Option<OwnedAudioBuffer>>,
-}
-
+/// Thin wrapper over the base `RetainedGraph` for copying
+/// web-format-specific inputs/outputs into/out of wasm linear memory.
 #[wasm_bindgen]
-pub struct JsRetainedGraph {
-    graph: Graph,
-    storage: JsRetainedGraphStorage,
-}
+pub struct JsRetainedGraph(RetainedGraph<Graph>);
 
 impl JsRetainedGraph {
-    /// Allocate zeroed, heap-stable planar buffers for every external input and
-    /// output declared in `mappings`, then build the pre-baked
-    /// `AudioBuffer`/`AudioBufferMut` views that `Graph::run` will consume.
-    fn create_storage(
-        block_size: usize,
-        mappings: &ExternalBufferMappings,
-    ) -> JsRetainedGraphStorage {
-        log::info!("Creating storage based on mapping: {:?}", mappings);
-
-        let inputs = Self::allocate_audio_buffers(block_size, mappings.external_inputs());
-        let outputs = Self::allocate_audio_buffers(block_size, mappings.external_outputs());
-
-        JsRetainedGraphStorage { inputs, outputs }
-    }
-
-    fn allocate_audio_buffers(
-        block_size: usize,
-        mappings: &[ExternalBufferMappingData],
-    ) -> Vec<Option<OwnedAudioBuffer>> {
-        // Size the slot Vec so that id == index (ids are contiguous from 0).
-        let storage_capacity = mappings
-            .iter()
-            .map(|mapping| **mapping.id + 1)
-            .max()
-            .unwrap_or(0);
-
-        let mut buffers: Vec<Option<OwnedAudioBuffer>> = Vec::with_capacity(storage_capacity);
-        buffers.resize_with(storage_capacity, || None);
-
-        for mapping in mappings {
-            let total_samples = mapping.channels * block_size;
-
-            let mut buffer: Vec<Sample> = Vec::with_capacity(total_samples);
-            buffer.resize(total_samples, Sample::default());
-
-            buffers[**mapping.id] = Some(OwnedAudioBuffer::from_sample_buffer(
-                buffer.into_boxed_slice(),
-                mapping.channels,
-            ));
-        }
-
-        buffers
-    }
-
     /// Aligns the web's list of input/output buffer channel with the corresponding portion
     /// of this Graph's retained input/output storage and iterates over them, for easy
     /// copying into/out of Wasm.
@@ -106,7 +53,7 @@ impl JsRetainedGraph {
     fn copy_input_buffer_data_into_wasm(&mut self, inputs: Array<Array<Float32Array>>) {
         Self::iter_aligned_web_and_internal_buffers(
             inputs,
-            self.storage.inputs.as_mut_slice(),
+            self.0.get_inputs_mut(),
             |web_buffer, internal_slice| {
                 web_buffer.copy_to(internal_slice);
             },
@@ -120,7 +67,7 @@ impl JsRetainedGraph {
     fn copy_output_buffer_data_out_of_wasm(&mut self, outputs: Array<Array<Float32Array>>) {
         Self::iter_aligned_web_and_internal_buffers(
             outputs,
-            self.storage.outputs.as_mut_slice(),
+            self.0.get_outputs_mut(),
             |web_buffer, internal_slice| {
                 web_buffer.copy_from(internal_slice);
             },
@@ -130,8 +77,9 @@ impl JsRetainedGraph {
 
 #[wasm_bindgen]
 impl JsRetainedGraph {
+    // TODO: delete
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    pub fn create_test_graph() -> Self {
         let mut graph = Graph::with_block_size(WEB_BLOCK_SIZE);
 
         // TODO: remove this. Pre-initializing is just for testing on web
@@ -148,23 +96,18 @@ impl JsRetainedGraph {
             )
             .unwrap();
 
-        let storage = Self::create_storage(*graph.block_size(), &graph.external_buffer_mappings());
+        let retained_graph = RetainedGraph::from(graph);
 
-        Self { graph, storage }
+        Self(retained_graph)
     }
 
-    pub fn print_external_buffer_mappings(&mut self) {
-        let mappings = self.graph.external_buffer_mappings();
-        log::info!("Mappings! {:#?}", mappings);
-    }
-
-    pub fn process(
+    pub fn run(
         &mut self,
         inputs: Array<Array<Float32Array>>,
         outputs: Array<Array<Float32Array>>,
         current_time: f64,
         sample_rate: u32,
-    ) -> bool {
+    ) -> Result<bool, String> {
         self.copy_input_buffer_data_into_wasm(inputs);
 
         let ctx = AudioNodeCtx::builder()
@@ -174,16 +117,11 @@ impl JsRetainedGraph {
             .block_size(BlockSize::from(WEB_BLOCK_SIZE))
             .build();
 
-        self.graph
-            .run(
-                self.storage.inputs.as_slice(),
-                self.storage.outputs.as_mut_slice(),
-                ctx,
-            )
-            .unwrap();
+        // the raw error is not wasm-compatible
+        self.0.run(ctx).map_err(|e| e.to_string())?;
 
         self.copy_output_buffer_data_out_of_wasm(outputs);
 
-        true
+        Ok(true)
     }
 }
