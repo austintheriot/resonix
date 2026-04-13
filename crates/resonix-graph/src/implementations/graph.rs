@@ -535,6 +535,10 @@ impl crate::traits::Graph for Graph {
         self.block_size
     }
 
+    fn compile(&mut self) {
+        self.ensure_compiled_plan();
+    }
+
     fn external_buffer_mappings(&mut self) -> ExternalBufferMappings {
         self.ensure_compiled_plan();
 
