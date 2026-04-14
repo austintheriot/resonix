@@ -1,6 +1,7 @@
 {
   "name": "resonix",
   "version": "0.0.1",
+  "type": "module",
   "main": "dist/web/resonix.js",
   "types": "dist/web/resonix.d.ts",
   "files": [
