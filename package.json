@@ -7,8 +7,9 @@
   ],
   "scripts": {
     "build": "cargo run -p build-wasm -- --profile release && yarn workspace resonix-web-js build && yarn workspace web-frontend-vite build",
-    "dev:rs": "cargo watch -w ./crates -i ./crates/resonix-web-js -- cargo run -p build-wasm  -- --target bundler",
+    "dev:rs": "cargo watch -w ./crates -i ./crates/resonix-web-js -- cargo run -p build-wasm  -- --target web",
     "dev:js": "yarn workspace resonix-web-js run dev",
+    "check:js": "yarn workspace resonix-web-js run check",
     "dev:example": "yarn workspace web-frontend-vite run dev"
   }
 }

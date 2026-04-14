@@ -37,8 +37,7 @@ class ResonixProcessor
   // TODO: strongly type these messages
   private async _init(initMessage: ResonixInitMessage): Promise<void> {
     await init(initMessage.wasmInitSource);
-    this._jsRetainedGraph = JsRetainedGraph.new();
-    this._jsRetainedGraph.print_external_buffer_mappings();
+    this._jsRetainedGraph = JsRetainedGraph.create_test_graph();
     this._frequency = initMessage.frequency;
     this._postMessage({ tag: "ready" });
   }
@@ -78,7 +77,7 @@ class ResonixProcessor
       return true;
     }
 
-    return this._jsRetainedGraph.process(
+    return this._jsRetainedGraph.run(
       inputs,
       outputs,
       currentTime,
