@@ -14,7 +14,7 @@
     "dist"
   ],
   "scripts": {
-    "check": "yarn tsc --noEmit && yarn tsc -p tsconfig.worklet.json --noEmit",
+    "check": "yarn tsc -p src/worklet --noEmit && yarn tsc --noEmit",
     "dev": "tsdown --watch ../resonix/dist/",
     "build": "tsdown"
   },

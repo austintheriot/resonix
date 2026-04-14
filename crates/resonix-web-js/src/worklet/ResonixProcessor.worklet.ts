@@ -1,13 +1,13 @@
 // Wasm assumes a `TextEncoder` / `TextDecoder` implementation,
 // but none is available in the `AudioWorkletGlobalScope`
-import "./polyfillTextEncoder.js";
+import "../polyfillTextEncoder.js";
 import init, { JsRetainedGraph } from "resonix";
 import {
   RESONIX_PROCESSOR_NAME,
   type ResonixInitMessage,
   type ResonixProcesorIncomingMessage,
   type ResonixProcesorOutgoingMessage,
-} from "./common.js";
+} from "../common.js";
 
 // TODO: move logic of `ResonixProcessor` into a
 // `ResonixProcessorCore` struct for easier/env-agnostic testing,

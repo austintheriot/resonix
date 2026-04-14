@@ -35,7 +35,7 @@ export default defineConfig({
   // TODO: eventually, if/when `tsdown` supports `?url` loaders,
   // just fetch it directly
   // TODO: could try using Worker loaders as well or inlining script
-  entry: ["src/index.ts", "src/ResonixProcessor.worklet.ts"],
+  entry: ["src/index.ts", "src/worklet/ResonixProcessor.worklet.ts"],
 
   plugins: [copyResonixWasmFileToBundle()],
 
