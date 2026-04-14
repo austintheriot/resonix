@@ -6,7 +6,7 @@
     "examples/web-frontend-vite"
   ],
   "scripts": {
-    "build": "yarn build:rs && yarn build:js && yarn:example",
+    "build": "yarn build:rs && yarn build:js && yarn build:example",
     "build:rs": "cargo run -p build-wasm -- --profile release",
     "build:js": "yarn workspace resonix-web-js build",
     "build:example": "yarn workspace web-frontend-vite build",

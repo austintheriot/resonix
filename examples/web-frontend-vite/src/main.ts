@@ -1,6 +1,6 @@
 import "./style.css";
 import { ResonixNode } from "resonix-web-js";
-import processorUrl from "resonix-web-js/ResonixProcessor.worklet?url";
+import processorUrl from "resonix-web-js/worklet/ResonixProcessor.worklet?url";
 import wasmUrl from "resonix-web-js/resonix.wasm?url";
 
 async function main() {
