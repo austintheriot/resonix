@@ -20,19 +20,22 @@ bon = "3.9.1"
 thiserror.workspace = true
 wasm-bindgen = { workspace = true, optional = true }
 
-# wasmer itself gates by compile target
+# wasmer itself gates by compile target, so we need to enable
+# different features depending on if compiling for wasm32 or not
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+wasmer = { version = "7.1.0" }
+
+# wasmer itself gates by compile target, so we need to enable
+# different features depending on if compiling for wasm32 or not
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # TODO: may be able to get a slimmer build by disabling the js default feautures
-wasmer = { version = "7.1.0", optional = true, default-features = false, features = [
+wasmer = { version = "7.1.0", default-features = false, features = [
 	"js-default",
 ] }
 
-# wasmer itself gates by compile target
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+
 # TODO: may be able to get a slimmer build by disabling the some default feautures
 # TODO maybe should enable production-grade compilers (like `llvm`)
-wasmer = { version = "7.1.0", optional = true }
-
 [dev-dependencies]
 criterion = { version = "0.8", features = ["html_reports"] }
 approx = "0.5.1"

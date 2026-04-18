@@ -9,7 +9,7 @@ crate-type = ["cdylib", "rlib"]
 [features]
 cpal = ["resonix-audio/cpal"]
 mock = ["resonix-audio/mock"]
-wasm = ["dep:resonix-web"]
+js = ["dep:resonix-web"]
 
 [dependencies]
 resonix-graph = { path = "../resonix-graph/" }
