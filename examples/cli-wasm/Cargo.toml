@@ -1,7 +1,0 @@
-[package]
-name = "cli-wasm"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-resonix = { path = "../../crates/resonix/", features = ["cpal"] }
