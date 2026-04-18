@@ -31,10 +31,10 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use hashbrown::{HashMap, HashSet};
 use petgraph::algo::tarjan_scc;
 
-#[cfg(feature = "wasm")]
+#[cfg(feature = "js")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "js", wasm_bindgen)]
 pub struct Graph {
     id_generator: GraphIdGenerator,
     graph_items: IntMap<Id, GraphItem>,
@@ -56,7 +56,7 @@ pub struct Graph {
 }
 
 // TODO: delete. Just using to test wasm imports for now on web
-#[cfg(feature = "wasm")]
+#[cfg(feature = "js")]
 #[wasm_bindgen]
 impl Graph {
     #[wasm_bindgen]

@@ -1,4 +1,4 @@
-#[cfg(feature = "wasm")]
+#[cfg(feature = "js")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 /// Indicates which direction a port can give/receive information
@@ -6,7 +6,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 /// If Input, the port accepts data at that location, if Output,
 /// the Node sends out information at that location.
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "js", wasm_bindgen)]
 pub enum PortAddressDirection {
     /// Node accepts data from other Nodes at this port location
     Input,

@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-#[cfg(feature = "wasm")]
+#[cfg(feature = "js")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::{
 
 /// A node with one internal input and one internal output that copies
 /// the graph-supplied input buffer to the graph-supplied output buffer.
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "js", wasm_bindgen)]
 pub struct PassthroughNode {
     node_id: NodeId,
     port_descriptors: PassthroughPortDescriptors,

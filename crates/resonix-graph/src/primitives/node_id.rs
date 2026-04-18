@@ -2,14 +2,14 @@ use core::ops::Deref;
 
 use nohash_hasher::IsEnabled;
 
-#[cfg(feature = "wasm")]
+#[cfg(feature = "js")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::primitives::Id;
 
 /// Strongly typed wrapper around the Id primitive for strong type-checking
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "js", wasm_bindgen)]
 pub struct NodeId(Id);
 
 impl NodeId {

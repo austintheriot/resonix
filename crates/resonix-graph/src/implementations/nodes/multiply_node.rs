@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-#[cfg(feature = "wasm")]
+#[cfg(feature = "js")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
@@ -16,7 +16,7 @@ use crate::{
 };
 
 // TODO: update to support multi-channel audio
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "js", wasm_bindgen)]
 pub struct MultiplyNode {
     node_id: NodeId,
     left_operand_value: Sample,

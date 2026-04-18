@@ -1,6 +1,6 @@
 use core::ops::Deref;
 
-#[cfg(feature = "wasm")]
+#[cfg(feature = "js")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use crate::{
@@ -15,7 +15,7 @@ use crate::{
     },
 };
 
-#[cfg_attr(feature = "wasm", wasm_bindgen)]
+#[cfg_attr(feature = "js", wasm_bindgen)]
 pub struct InputNode {
     node_id: NodeId,
     port_descriptors: InputNodePortDescriptors,

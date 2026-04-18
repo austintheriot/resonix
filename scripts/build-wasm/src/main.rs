@@ -113,7 +113,7 @@ fn cargo_build(args: &Args) -> Result<()> {
         "--target",
         "wasm32-unknown-unknown",
         "--features",
-        "wasm",
+        "js",
         "--profile",
         profile,
     ])

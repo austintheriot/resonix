@@ -7,7 +7,7 @@ edition = "2024"
 wasm-bindgen = { version = "0.2.100" }
 js-sys = { version = "0.3.77" }
 web-sys = { version = "0.3.77", features = [] }
-resonix-graph = { path = "../resonix-graph/", features = ["wasm"] }
+resonix-graph = { path = "../resonix-graph/", features = ["js"] }
 wasm-logger = "0.2.0"
 log = "0.4.29"
 console_error_panic_hook = "0.1.7"

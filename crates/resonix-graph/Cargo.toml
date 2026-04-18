@@ -7,7 +7,7 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-wasm = ["dep:wasm-bindgen"]
+js = ["dep:wasm-bindgen"]
 
 [dependencies]
 hashbrown = "0.15.3"
