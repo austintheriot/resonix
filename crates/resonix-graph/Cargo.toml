@@ -7,20 +7,10 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-# enables the ability to create WebAssembly-based audio nodes
-wasm = ["dep:wasmer"]
+# TODO: maybe replace with a compile-target-specific config (like wasmer)
+# Enables outputting JS-env-specific dependencies (browser, node, deno, etc.)
+js = ["dep:wasm-bindgen"]
 
-# native-env-specific dependencies--enables wasmer default engine configuration
-sys = ["wasmer/default"]
-
-# JS-env-specific dependencies (browser, node, deno, etc.)
-# TODO: may be able to get a slimmer build by disabling the js default feautures
-js = [
-	"dep:wasm-bindgen",
-	"dep:serde",
-	"dep:serde-wasm-bindgen",
-	"wasmer/js-default",
-]
 
 [dependencies]
 hashbrown = "0.15.3"
@@ -28,12 +18,20 @@ nohash-hasher = "0.2.0"
 petgraph = "0.8.1"
 bon = "3.9.1"
 thiserror.workspace = true
-
-# optional dependencies
-wasmer = { version = "7.1.0", default-features = false, optional = true }
 wasm-bindgen = { workspace = true, optional = true }
-serde-wasm-bindgen = { version = "0.6.5", optional = true }
-serde = { version = "1.0.228", optional = true }
+
+# wasmer itself gates by compile target
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# TODO: may be able to get a slimmer build by disabling the js default feautures
+wasmer = { version = "7.1.0", optional = true, default-features = false, features = [
+	"js-default",
+] }
+
+# wasmer itself gates by compile target
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# TODO: may be able to get a slimmer build by disabling the some default feautures
+# TODO maybe should enable production-grade compilers (like `llvm`)
+wasmer = { version = "7.1.0", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["html_reports"] }

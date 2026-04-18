@@ -1971,8 +1971,6 @@ dependencies = [
  "hashbrown 0.15.3",
  "nohash-hasher",
  "petgraph",
- "serde",
- "serde-wasm-bindgen",
  "thiserror 2.0.18",
  "wasm-bindgen",
  "wasmer",
