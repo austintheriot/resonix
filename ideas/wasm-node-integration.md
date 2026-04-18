@@ -17,19 +17,21 @@ The central challenge: WASM runs in its own linear memory. Rust audio buffers li
 
 Regardless of approach, we need a **convention** for what a WASM audio module exposes. Three values are needed at instantiation time:
 
-| Export                                                           | Type                   | Purpose                                                    |
-| ---------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------- |
-| `resonix_input_count`                                            | `i32` (global or func) | Number of input ports                                      |
-| `resonix_output_count`                                           | `i32` (global or func) | Number of output ports                                     |
-| `resonix_get_channel_count_for_input_port(port_id: i32) -> i32`  | `func`                 | Channel count for a given port                             |
-| `resonix_get_channel_count_for_output_port(port_id: i32) -> i32` | `func`                 | Channel count for a given port                             |
-| `resonix_get_input_buffer_ptr(port_id: i32) -> i32`              | `func`                 | WASM linear memory offset for input port's staging buffer  |
-| `resonix_get_output_buffer_ptr(port_id: i32) -> i32`             | `func`                 | WASM linear memory offset for output port's staging buffer |
-| `resonix_process(block_size: i32, current_time: f64)`            | `func`                 | Main DSP callback                                          |
+| Export                                                                    | Type   | Purpose                                                           |
+| ------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------- |
+| `resonix_input_count() -> i32`                                            | `func` | Number of input ports                                             |
+| `resonix_output_count() -> i32`                                           | `func` | Number of output ports                                            |
+| `resonix_get_input_channel_count(port_id: i32) -> i32`                   | `func` | Channel count for input port                                      |
+| `resonix_get_output_channel_count(port_id: i32) -> i32`                  | `func` | Channel count for output port                                     |
+| `resonix_get_input_channel_buffer_ptr(port_id: i32, ch: i32) -> i32`     | `func` | WASM byte offset for input port's per-channel staging buffer      |
+| `resonix_get_output_channel_buffer_ptr(port_id: i32, ch: i32) -> i32`    | `func` | WASM byte offset for output port's per-channel staging buffer     |
+| `resonix_process(block_size: i32, current_time: f64)`                    | `func` | Main DSP callback                                                 |
 
-Port descriptors are populated at `new()` time by reading these exports. The graph's dense-port invariant is satisfied automatically since ports 0..input_count and 0..output_count are contiguous.
+All counts and pointers are queried at `new()` time and cached. Port descriptors are populated from the count/channel queries. The graph's dense-port invariant is satisfied automatically since ports 0..input_count and 0..output_count are contiguous.
 
-Separate `get_input_buffer_ptr` / `get_output_buffer_ptr` functions (rather than a single `get_buffer_ptr`) let the module place input and output buffers independently in its linear memory — the host doesn't need to know or enforce any layout convention. Each is called once per port at `new()` time and the result cached.
+**Per-channel buffer pointers** (rather than a per-port base + stride) let the WASM module lay out its memory however it wants — the host doesn't need to know the inter-channel stride. Each `(port, channel)` offset is queried once at instantiation and stored in `Box<[u64]>`.
+
+**Note on Rust `static` globals vs WASM globals:** A Rust `pub static X: i32 = N` compiles to a WASM global whose value is the *address* of the static in linear memory, not the constant value. Use exported functions (zero-arg, returning i32) for count queries to avoid this footgun.
 
 ---
 
@@ -39,21 +41,13 @@ Separate `get_input_buffer_ptr` / `get_output_buffer_ptr` functions (rather than
 
 **How it works:**
 
-At `new()`, call `resonix_get_input_buffer_ptr(port_id)` and `resonix_get_output_buffer_ptr(port_id)` once per port and cache the offsets. Also call `resonix_get_channel_count_for_input_port` and `resonix_get_channel_count_for_output_port(port_id: i32)` per port to know how many channels each staging buffer spans.
+At `new()`, for each port call `resonix_get_input/output_channel_count(port)` and then `resonix_get_input/output_channel_buffer_ptr(port, ch)` for every channel. Cache the resulting byte offsets in `Box<[u64]>` per port. At `process()`:
 
-At `process()`:
-
-1. Copy each input buffer from host memory → WASM linear memory at cached offsets.
+1. For each connected input port, for each channel: `MemoryView::write(cached_offset, samples_as_bytes)`.
 2. Call `resonix_process(block_size, current_time)`.
-3. Copy each output slice from WASM linear memory → host output buffers.
+3. For each connected output port, for each channel: `MemoryView::read(cached_offset, out_bytes)`.
 
-The WASM module owns its own staging buffers (allocated at WASM startup). The host never dictates their layout — it only reads/writes the offsets it was given. Each port's staging buffer is `channel_count × block_size × sizeof(f32)` bytes, planar by channel:
-
-```
-port N buffer: [ch0_s0..ch0_sB | ch1_s0..ch1_sB | ...]
-```
-
-The host-side `WasmNode` stores pre-computed byte offsets and channel counts per port at `new()` time.
+The WASM module owns its staging buffers (allocated at startup, sized for `max_block_size`). The host copies exactly `block_size * 4` bytes per channel per port — it doesn't need to know the stride between channels since each channel has its own cached pointer.
 
 **Pros:**
 
@@ -159,7 +153,7 @@ This is essentially Option A but lets the WASM module decide where to place its 
 
 - Correctness is straightforward.
 - Memcpy cost is bounded and predictable; at typical block sizes it is negligible compared to DSP computation.
-- Module authoring is simple: export `resonix_input_count`, `resonix_output_count`, `resonix_get_buffer_ptr`, `resonix_process`.
+- Module authoring is simple: export the seven functions listed above.
 - No new Wasmer features needed beyond what is already configured.
 - Option B can be layered on later if benchmarks show copy cost is a bottleneck.
 
@@ -170,45 +164,37 @@ This is essentially Option A but lets the WASM module decide where to place its 
 ### Module-Side Convention (WASM)
 
 ```wasm
-;; counts — globals or zero-arg funcs returning i32
-(export "resonix_input_count"  (global i32))
-(export "resonix_output_count" (global i32))
+;; counts — zero-arg functions (NOT globals: Rust statics export as address globals, not value globals)
+(export "resonix_input_count"  (func))  ;; () -> i32
+(export "resonix_output_count" (func))  ;; () -> i32
 
-;; per-port queries, called once at instantiation time
-(export "resonix_get_channel_count_for_port" (func))  ;; (port_id: i32, is_input: i32) -> i32
-(export "resonix_get_input_buffer_ptr"       (func))  ;; (port_id: i32) -> i32
-(export "resonix_get_output_buffer_ptr"      (func))  ;; (port_id: i32) -> i32
+;; per-port queries, called once per (port, channel) at instantiation time
+(export "resonix_get_input_channel_count"         (func))  ;; (port_id: i32) -> i32
+(export "resonix_get_output_channel_count"        (func))  ;; (port_id: i32) -> i32
+(export "resonix_get_input_channel_buffer_ptr"    (func))  ;; (port_id: i32, ch: i32) -> i32
+(export "resonix_get_output_channel_buffer_ptr"   (func))  ;; (port_id: i32, ch: i32) -> i32
 
 ;; hot-path callback
 (export "resonix_process" (func))  ;; (block_size: i32, current_time: f64) -> ()
 ```
 
-Buffer layout for each port's staging region (planar by channel):
-
-```
-ptr + 0                       : channel 0 samples [f32 × block_size]
-ptr + block_size*4            : channel 1 samples
-ptr + (ch * block_size) * 4  : channel ch samples
-```
-
-The module allocates these regions however it likes (static data, custom allocator, etc.). The host only uses the pointer it received from `get_input/output_buffer_ptr`.
+Each channel buffer must be sized for `MAX_BLOCK_SIZE * sizeof(f32)` bytes. The host copies exactly `block_size * 4` bytes per channel per call — it doesn't need to know the stride between channels.
 
 ### Host-Side `WasmNode`
 
 ```rust
+struct PortInfo {
+    channel_count: usize,
+    channel_offsets: Box<[u64]>,  // one WASM byte offset per channel
+}
+
 pub struct WasmNode {
     node_id: NodeId,
     store: Store,
     instance: Instance,
     port_descriptors: WasmNodePortDescriptors,
-
-    // Pre-computed at new(): byte offsets into WASM linear memory per port
-    input_offsets: Box<[u64]>,        // len = input_count
-    output_offsets: Box<[u64]>,       // len = output_count
-    input_channel_counts: Box<[u32]>, // len = input_count
-    output_channel_counts: Box<[u32]>,// len = output_count
-
-    // Cached function handles (avoids repeated export lookup on hot path)
+    input_ports: Box<[PortInfo]>,
+    output_ports: Box<[PortInfo]>,
     process_fn: TypedFunction<(i32, f64), ()>,
 }
 ```
@@ -216,29 +202,28 @@ pub struct WasmNode {
 **`new()` steps:**
 
 1. Compile and instantiate module.
-2. Read `resonix_input_count` / `resonix_output_count` → build `PortDescriptor` arrays.
-3. For each input port `p`: call `resonix_get_channel_count_for_port(p, 1)` and `resonix_get_input_buffer_ptr(p)` → cache channel count and byte offset.
-4. For each output port `p`: call `resonix_get_channel_count_for_port(p, 0)` and `resonix_get_output_buffer_ptr(p)` → cache channel count and byte offset.
-5. Cache `process_fn` as a `TypedFunction<(i32, f64), ()>`.
+2. Call `resonix_input_count()` / `resonix_output_count()` → get port counts.
+3. For each input port `p`: call `resonix_get_input_channel_count(p)` → `channel_count`; then for each channel `ch` call `resonix_get_input_channel_buffer_ptr(p, ch)` → cache `PortInfo { channel_count, channel_offsets }`.
+4. Same for output ports using `resonix_get_output_channel_count` / `resonix_get_output_channel_buffer_ptr`.
+5. Build `WasmNodePortDescriptors` from the collected port infos.
+6. Cache `process_fn` as `TypedFunction<(i32, f64), ()>`.
 
 **`process()` steps:**
 
-1. Get `Memory` view from `instance`.
-2. For each connected input port: write `channel_count × block_size` f32 samples into WASM memory at cached offset (planar layout).
-3. Call `process_fn.call(&mut store, block_size as i32, current_time as f64)`.
-4. For each connected output port: read `channel_count × block_size` f32 samples from WASM memory at cached offset → write into host output buffers.
+1. Scope 1: borrow `instance` to get `Memory`, create `MemoryView`. For each connected input port, for each channel: `view.write(channel_offsets[ch], samples_as_bytes)`. Drop memory borrow.
+2. Call `process_fn.call(&mut self.store, block_size, current_time)`.
+3. Scope 2: borrow `instance` again for `Memory`. For each connected output port, for each channel: `view.read(channel_offsets[ch], out_bytes)`.
 
-**Open question:** `Store` must be mutably borrowed to call functions, but `WasmNode` must implement `&mut self` on `process()`. Store can live inside `WasmNode` since the node has exclusive `&mut self` access during `process()`. No borrow conflicts.
+The two-scope pattern is required because `instance.exports.get_memory()` borrows `self.instance`, which conflicts with the `&mut self.store` needed by `process_fn.call`. Scoping the memory borrow ends it before the call.
 
 ---
 
 ## Risks and Open Questions
 
-| Issue                    | Notes                                                                                                                                                                                                      |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `block_size` variability | WASM staging buffer is sized at `new()`. If block_size changes at runtime the buffer may be too small. Either cap at a max block size or re-allocate staging at process time (one-time realloc on change). |
-| Multi-channel buffers    | Current process signature uses `&[Sample]` slices per port, not per channel. If ports are multi-channel, need a layout decision (interleaved vs planar).                                                   |
-| `Memory::view()` cost    | Wasmer's `MemoryView` acquires a reference on each call. Cache the memory handle if the API allows, or measure whether it matters.                                                                         |
-| Error propagation        | WASM traps (divide by zero, OOB memory) must be caught and converted to `AudioNodeRunError`. `TypedFunction::call` returns `Result<_, RuntimeError>`.                                                      |
-| WASM module discovery    | How do users supply WASM bytes? File path, embedded bytes, URL? Out of scope for this layer but affects the `new()` API.                                                                                   |
-| `no_std` Wasmer          | Wasmer itself is `std`. `WasmNode` therefore cannot be used in a pure `no_std` context. This is acceptable — it already imports `wasmer` which requires std.                                               |
+| Issue                    | Notes                                                                                                                                                                                                |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `block_size` variability | WASM staging buffers are sized for `MAX_BLOCK_SIZE` by the module. If `block_size > MAX_BLOCK_SIZE` at runtime, WASM-side OOB access will trap. Module authors must size buffers appropriately.      |
+| `Memory::view()` cost    | Wasmer acquires a new `MemoryView` on each call. The cost is a single pointer read; negligible in practice but worth profiling if many ports/channels.                                               |
+| Error propagation        | WASM traps map to `RuntimeError`. Converted to `AudioNodeRunError::Wasm(String)` at the boundary.                                                                                                   |
+| WASM module discovery    | How do users supply WASM bytes? File path, embedded bytes, URL? Out of scope for this layer but affects the `new()` API.                                                                             |
+| `no_std` Wasmer          | Wasmer itself requires `std`. `WasmNode` cannot be used in a pure `no_std` context — acceptable since `wasmer` is already a dependency.                                                             |

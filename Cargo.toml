@@ -12,6 +12,7 @@ members = [
 	"crates/resonix-web",
 	"scripts/compare-benchmarks",
 	"scripts/build-wasm",
+	"examples/resonix-wasm-audio-node",
 ]
 
 resolver = "2"

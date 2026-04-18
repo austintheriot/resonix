@@ -1,3 +1,5 @@
+use alloc::string::String;
+
 use thiserror::Error;
 
 use crate::errors::AudioBufferError;
@@ -8,6 +10,8 @@ pub enum AudioNodeRunError {
     TooManyInputs { expected: usize, found: usize },
     #[error("audio buffer error: {0:?}")]
     AudioBuffer(AudioBufferError),
+    #[error("wasm node error: {0}")]
+    Wasm(String),
 }
 
 impl From<AudioBufferError> for AudioNodeRunError {

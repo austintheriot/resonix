@@ -1999,6 +1999,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "resonix-wasm-audio-node"
+version = "0.1.0"
+
+[[package]]
 name = "resonix-web"
 version = "0.1.0"
 dependencies = [
