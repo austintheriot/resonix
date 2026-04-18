@@ -3,14 +3,11 @@ use alloc::vec::Vec;
 use core::ops::Deref;
 
 use thiserror::Error;
-use wasmer::{CompileError, Instance, InstantiationError, Module, Store, Value, imports};
+use wasmer::{CompileError, Instance, InstantiationError, Module, Store, imports};
 
 use crate::{
     errors::AudioNodeRunError,
-    primitives::{
-        AudioNodeCtx, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId,
-        Priority, Sample,
-    },
+    primitives::{AudioNodeCtx, Id, NodeId, PortDescriptor, Priority},
     traits::{
         AudioBuffer, AudioBufferMut, AudioNode, DescribePorts, GenerateId, GetNodeId,
         GetPortDescriptors, GetPriority,
@@ -37,7 +34,7 @@ impl WasmNode {
         bytes: &[u8],
     ) -> Result<Self, WasmNodeCreationError> {
         let mut store = Store::default();
-        let module = Module::new(&store, &bytes)?;
+        let module = Module::new(&store, bytes)?;
         // The module doesn't import anything, so we create an empty import object.
         let import_object = imports! {};
         let instance = Instance::new(&mut store, &module, &import_object)?;
@@ -97,7 +94,8 @@ mod tests {
     use super::*;
     use crate::test_utils::TestIdGenerator;
 
-    #[test]
+    // miri cannot use the syscalls required for wasm compilation/instantiation
+    #[cfg_attr(not(miri), test)]
     fn compiles_wasm_module_without_throwing() {
         let mut test_id_generator = TestIdGenerator(0);
         // TODO: replace with real, compiled module
