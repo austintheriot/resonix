@@ -40,6 +40,8 @@ impl WasmNode {
         let instance = Instance::new(&mut store, &module, &import_object)?;
 
         let node_id = NodeId::from(id_generator.generate_id());
+
+        let port_descriptor_data = todo!("query wasm module for expected input/output descriptors");
         let port_descriptors = WasmNodePortDescriptors::new(node_id);
 
         Ok(Self {
