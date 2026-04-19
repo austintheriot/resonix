@@ -4,15 +4,15 @@ use core::{error::Error, ops::Deref};
 
 use thiserror::Error;
 use wasmer::{
-    CompileError, ExportError, Instance, InstantiationError, Memory, Module, RuntimeError, Store,
-    TypedFunction, imports, sys::instance,
+    CompileError, ExportError, Function, Instance, InstantiationError, Memory, Module,
+    RuntimeError, Store, TypedFunction, imports,
 };
 
 use crate::{
     errors::AudioNodeRunError,
     primitives::{
-        AudioNodeCtx, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId,
-        Priority,
+        AudioNodeCtx, BlockSize, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor,
+        PortId, Priority, SampleRate,
     },
     traits::{
         AudioBuffer, AudioBufferMut, AudioNode, DescribePorts, GenerateId, GetNodeId,
@@ -23,8 +23,9 @@ use crate::{
 /// Per-port metadata cached at instantiation time.
 struct PortInfo {
     channel_count: usize,
-    /// One WASM linear memory byte offset per channel.
-    channel_offsets: Box<[u64]>,
+    /// WASM linear memory byte offset for the start of the contiguous planar buffer.
+    /// Channel `ch` starts at `buffer_offset + ch * block_size * 4`.
+    buffer_offset: u64,
 }
 
 struct PortInfoData {
@@ -58,11 +59,29 @@ impl WasmNode {
     pub fn new<G: GenerateId>(
         id_generator: &mut G,
         bytes: &[u8],
+        block_size: BlockSize,
+        sample_rate: SampleRate,
     ) -> Result<Self, WasmNodeCreationError> {
         let mut store = Store::default();
         let module = Module::new(&store, bytes)?;
-        let import_object = imports! {};
+        let block_size_val = *block_size as i32;
+        let sample_rate_val = *sample_rate as i32;
+        let import_object = imports! {
+            "resonix" => {
+                "get_block_size" => Function::new_typed(&mut store, move || block_size_val),
+                "get_sample_rate" => Function::new_typed(&mut store, move || sample_rate_val),
+            }
+        };
         let instance = Instance::new(&mut store, &module, &import_object)?;
+
+        // Call optional init export so the module can do one-time allocation work.
+        if let Ok(init_fn) = instance
+            .exports
+            .get_typed_function::<(), ()>(&store, "init")
+        {
+            init_fn.call(&mut store)?;
+        }
+
         let node_id = NodeId::from(id_generator.generate_id());
         let port_info_data = Self::build_port_info(&mut store, &instance)?;
         let port_descriptors = WasmNodePortDescriptors::new(
@@ -72,7 +91,7 @@ impl WasmNode {
         );
         let process_fn: TypedFunction<(i32, f64), ()> = instance
             .exports
-            .get_typed_function(&store, "resonix_process")?;
+            .get_typed_function(&store, "process")?;
 
         Ok(Self {
             node_id,
@@ -90,11 +109,11 @@ impl WasmNode {
     ) -> Result<PortInfoData, WasmNodeCreationError> {
         let get_input_count: TypedFunction<(), i32> = instance
             .exports
-            .get_typed_function(&store, "resonix_input_count")?;
+            .get_typed_function(&store, "get_input_count")?;
 
         let get_output_count: TypedFunction<(), i32> = instance
             .exports
-            .get_typed_function(&store, "resonix_output_count")?;
+            .get_typed_function(&store, "get_output_count")?;
 
         let get_input_channel_count: TypedFunction<i32, i32> = instance
             .exports
@@ -104,11 +123,11 @@ impl WasmNode {
             .exports
             .get_typed_function(&store, "get_output_channel_count")?;
 
-        let get_input_buffer_ptr: TypedFunction<(i32, i32), i32> = instance
+        let get_input_buffer_ptr: TypedFunction<i32, i32> = instance
             .exports
             .get_typed_function(&store, "get_input_buffer_ptr")?;
 
-        let get_output_buffer_ptr: TypedFunction<(i32, i32), i32> = instance
+        let get_output_buffer_ptr: TypedFunction<i32, i32> = instance
             .exports
             .get_typed_function(&store, "get_output_buffer_ptr")?;
 
@@ -118,29 +137,15 @@ impl WasmNode {
         let mut input_ports = Vec::with_capacity(input_count);
         for port in 0..input_count {
             let channel_count = get_input_channel_count.call(&mut store, port as i32)? as usize;
-            let mut channel_offsets = Vec::with_capacity(channel_count);
-            for ch in 0..channel_count {
-                let offset = get_input_buffer_ptr.call(&mut store, port as i32, ch as i32)? as u64;
-                channel_offsets.push(offset);
-            }
-            input_ports.push(PortInfo {
-                channel_count,
-                channel_offsets: channel_offsets.into_boxed_slice(),
-            });
+            let buffer_offset = get_input_buffer_ptr.call(&mut store, port as i32)? as u64;
+            input_ports.push(PortInfo { channel_count, buffer_offset });
         }
 
         let mut output_ports = Vec::with_capacity(output_count);
         for port in 0..output_count {
             let channel_count = get_output_channel_count.call(&mut store, port as i32)? as usize;
-            let mut channel_offsets = Vec::with_capacity(channel_count);
-            for ch in 0..channel_count {
-                let offset = get_output_buffer_ptr.call(&mut store, port as i32, ch as i32)? as u64;
-                channel_offsets.push(offset);
-            }
-            output_ports.push(PortInfo {
-                channel_count,
-                channel_offsets: channel_offsets.into_boxed_slice(),
-            });
+            let buffer_offset = get_output_buffer_ptr.call(&mut store, port as i32)? as u64;
+            output_ports.push(PortInfo { channel_count, buffer_offset });
         }
 
         Ok(PortInfoData {
@@ -162,17 +167,13 @@ impl WasmNode {
                 continue;
             };
             let view = memory.view(&self.store);
-            let channels = buf.channels().min(port_info.channel_count);
-            for ch in 0..channels {
-                let samples = buf.channel(ch).map_err(|e| Box::new(e) as Box<dyn Error>)?;
-                let byte_offset = port_info.channel_offsets[ch];
-                // SAFETY: Sample is #[repr(transparent)] over f32.
-                let bytes: &[u8] = unsafe {
-                    core::slice::from_raw_parts(samples.as_ptr().cast::<u8>(), samples.len() * 4)
-                };
-                view.write(byte_offset, bytes)
-                    .map_err(|e| Box::new(e) as Box<dyn Error>)?;
-            }
+            let samples = buf.as_slice();
+            // SAFETY: Sample is #[repr(transparent)] over f32.
+            let bytes: &[u8] = unsafe {
+                core::slice::from_raw_parts(samples.as_ptr().cast::<u8>(), samples.len() * 4)
+            };
+            view.write(port_info.buffer_offset, bytes)
+                .map_err(|e| Box::new(e) as Box<dyn Error>)?;
         }
 
         Ok(())
@@ -189,22 +190,16 @@ impl WasmNode {
                 continue;
             };
             let view = memory.view(&self.store);
-            let channels = buf.channels().min(port_info.channel_count);
-            for ch in 0..channels {
-                let out_slice = buf
-                    .channel_mut(ch)
-                    .map_err(|e| Box::new(e) as Box<dyn Error>)?;
-                let byte_offset = port_info.channel_offsets[ch];
-                // SAFETY: Sample is #[repr(transparent)] over f32.
-                let bytes: &mut [u8] = unsafe {
-                    core::slice::from_raw_parts_mut(
-                        out_slice.as_mut_ptr().cast::<u8>(),
-                        out_slice.len() * 4,
-                    )
-                };
-                view.read(byte_offset, bytes)
-                    .map_err(|e| Box::new(e) as Box<dyn Error>)?;
-            }
+            let out_slice = buf.as_slice_mut();
+            // SAFETY: Sample is #[repr(transparent)] over f32.
+            let bytes: &mut [u8] = unsafe {
+                core::slice::from_raw_parts_mut(
+                    out_slice.as_mut_ptr().cast::<u8>(),
+                    out_slice.len() * 4,
+                )
+            };
+            view.read(port_info.buffer_offset, bytes)
+                .map_err(|e| Box::new(e) as Box<dyn Error>)?;
         }
 
         Ok(())
@@ -345,19 +340,30 @@ mod tests {
     static GAIN_NODE_WASM: &[u8] =
         include_bytes!(concat!(env!("OUT_DIR"), "/resonix_wasm_audio_node.wasm"));
 
+    const TEST_BLOCK_SIZE: usize = 4;
+
+    fn make_node() -> WasmNode {
+        let mut id_gen = TestIdGenerator(0);
+        WasmNode::new(
+            &mut id_gen,
+            GAIN_NODE_WASM,
+            BlockSize::from(TEST_BLOCK_SIZE),
+            SampleRate::default(),
+        )
+        .expect("should instantiate")
+    }
+
     // miri cannot use the syscalls required for wasm compilation/instantiation
     #[cfg_attr(miri, ignore)]
     #[test]
     fn instantiates_from_wasm_bytes() {
-        let mut id_gen = TestIdGenerator(0);
-        WasmNode::new(&mut id_gen, GAIN_NODE_WASM).expect("should instantiate");
+        make_node();
     }
 
     #[cfg_attr(miri, ignore)]
     #[test]
     fn reports_correct_port_counts() {
-        let mut id_gen = TestIdGenerator(0);
-        let node = WasmNode::new(&mut id_gen, GAIN_NODE_WASM).unwrap();
+        let node = make_node();
         assert_eq!(node.port_info_data.input_ports.len(), 1);
         assert_eq!(node.port_info_data.output_ports.len(), 1);
     }
@@ -365,8 +371,7 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     #[test]
     fn reports_correct_channel_counts() {
-        let mut id_gen = TestIdGenerator(0);
-        let node = WasmNode::new(&mut id_gen, GAIN_NODE_WASM).unwrap();
+        let node = make_node();
         assert_eq!(node.port_info_data.input_ports[0].channel_count, 2);
         assert_eq!(node.port_info_data.output_ports[0].channel_count, 2);
     }
@@ -374,8 +379,7 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     #[test]
     fn port_descriptors_have_correct_channel_counts() {
-        let mut id_gen = TestIdGenerator(0);
-        let node = WasmNode::new(&mut id_gen, GAIN_NODE_WASM).unwrap();
+        let node = make_node();
         let desc = node.get_port_descriptors();
         assert_eq!(desc.input_port_descriptors[0].channels, 2);
         assert_eq!(desc.output_port_descriptors[0].channels, 2);
@@ -384,10 +388,9 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     #[test]
     fn applies_gain_to_stereo_input() {
-        let mut id_gen = TestIdGenerator(0);
-        let mut node = WasmNode::new(&mut id_gen, GAIN_NODE_WASM).unwrap();
+        let mut node = make_node();
 
-        let block_size = 4usize;
+        let block_size = TEST_BLOCK_SIZE;
         let channels = 2usize;
 
         // Input planar: ch0 = [1, 2, 3, 4], ch1 = [5, 6, 7, 8]
@@ -423,10 +426,9 @@ mod tests {
     #[cfg_attr(miri, ignore)]
     #[test]
     fn does_nothing_when_output_slot_disconnected() {
-        let mut id_gen = TestIdGenerator(0);
-        let mut node = WasmNode::new(&mut id_gen, GAIN_NODE_WASM).unwrap();
+        let mut node = make_node();
 
-        let block_size = 4usize;
+        let block_size = TEST_BLOCK_SIZE;
         let channels = 2usize;
         let input_data: Vec<Sample> = (1..=8).map(|x: i32| Sample::from(x as f32)).collect();
         let input_buf = crate::implementations::AudioBuffer::new(&input_data, channels).unwrap();

@@ -23,13 +23,13 @@ Regardless of approach, we need a **convention** for what a WASM audio module ex
 | `resonix_output_count() -> i32`                                           | `func` | Number of output ports                                            |
 | `get_input_channel_count(port_id: i32) -> i32`                   | `func` | Channel count for input port                                      |
 | `get_output_channel_count(port_id: i32) -> i32`                  | `func` | Channel count for output port                                     |
-| `get_input_buffer_ptr(port_id: i32, ch: i32) -> i32`     | `func` | WASM byte offset for input port's per-channel staging buffer      |
-| `get_output_buffer_ptr(port_id: i32, ch: i32) -> i32`    | `func` | WASM byte offset for output port's per-channel staging buffer     |
+| `get_input_buffer_ptr(port_id: i32) -> i32`               | `func` | WASM byte offset for the start of the input port's contiguous planar buffer |
+| `get_output_buffer_ptr(port_id: i32) -> i32`              | `func` | WASM byte offset for the start of the output port's contiguous planar buffer |
 | `resonix_process(block_size: i32, current_time: f64)`                    | `func` | Main DSP callback                                                 |
 
 All counts and pointers are queried at `new()` time and cached. Port descriptors are populated from the count/channel queries. The graph's dense-port invariant is satisfied automatically since ports 0..input_count and 0..output_count are contiguous.
 
-**Per-channel buffer pointers** (rather than a per-port base + stride) let the WASM module lay out its memory however it wants — the host doesn't need to know the inter-channel stride. Each `(port, channel)` offset is queried once at instantiation and stored in `Box<[u64]>`.
+**Per-port buffer base pointer**: channels in the buffer are laid out contiguously (planar), so the host derives channel `ch`'s offset as `buffer_offset + ch * block_size * sizeof(f32)`. One pointer per port is queried at instantiation and stored in `PortInfo`.
 
 **Note on Rust `static` globals vs WASM globals:** A Rust `pub static X: i32 = N` compiles to a WASM global whose value is the *address* of the static in linear memory, not the constant value. Use exported functions (zero-arg, returning i32) for count queries to avoid this footgun.
 
@@ -168,24 +168,24 @@ This is essentially Option A but lets the WASM module decide where to place its 
 (export "resonix_input_count"  (func))  ;; () -> i32
 (export "resonix_output_count" (func))  ;; () -> i32
 
-;; per-port queries, called once per (port, channel) at instantiation time
-(export "get_input_channel_count"         (func))  ;; (port_id: i32) -> i32
-(export "get_output_channel_count"        (func))  ;; (port_id: i32) -> i32
-(export "get_input_buffer_ptr"    (func))  ;; (port_id: i32, ch: i32) -> i32
-(export "get_output_buffer_ptr"   (func))  ;; (port_id: i32, ch: i32) -> i32
+;; per-port queries, called once per port at instantiation time
+(export "get_input_channel_count"  (func))  ;; (port_id: i32) -> i32
+(export "get_output_channel_count" (func))  ;; (port_id: i32) -> i32
+(export "get_input_buffer_ptr"     (func))  ;; (port_id: i32) -> i32  — base of contiguous planar buffer
+(export "get_output_buffer_ptr"    (func))  ;; (port_id: i32) -> i32  — base of contiguous planar buffer
 
 ;; hot-path callback
 (export "resonix_process" (func))  ;; (block_size: i32, current_time: f64) -> ()
 ```
 
-Each channel buffer must be sized for `MAX_BLOCK_SIZE * sizeof(f32)` bytes. The host copies exactly `block_size * 4` bytes per channel per call — it doesn't need to know the stride between channels.
+The staging buffer for each port is a contiguous planar array: all samples for channel 0, then channel 1, etc. The host derives channel `ch`'s offset as `buffer_ptr + ch * block_size * 4`. The buffer must be sized for `channels * MAX_BLOCK_SIZE * sizeof(f32)` bytes.
 
 ### Host-Side `WasmNode`
 
 ```rust
 struct PortInfo {
     channel_count: usize,
-    channel_offsets: Box<[u64]>,  // one WASM byte offset per channel
+    buffer_offset: u64,  // WASM byte offset for the start of the contiguous planar buffer
 }
 
 pub struct WasmNode {
@@ -203,16 +203,16 @@ pub struct WasmNode {
 
 1. Compile and instantiate module.
 2. Call `resonix_input_count()` / `resonix_output_count()` → get port counts.
-3. For each input port `p`: call `get_input_channel_count(p)` → `channel_count`; then for each channel `ch` call `get_input_buffer_ptr(p, ch)` → cache `PortInfo { channel_count, channel_offsets }`.
+3. For each input port `p`: call `get_input_channel_count(p)` → `channel_count`; call `get_input_buffer_ptr(p)` → cache `PortInfo { channel_count, buffer_offset }`.
 4. Same for output ports using `get_output_channel_count` / `get_output_buffer_ptr`.
 5. Build `WasmNodePortDescriptors` from the collected port infos.
 6. Cache `process_fn` as `TypedFunction<(i32, f64), ()>`.
 
 **`process()` steps:**
 
-1. Scope 1: borrow `instance` to get `Memory`, create `MemoryView`. For each connected input port, for each channel: `view.write(channel_offsets[ch], samples_as_bytes)`. Drop memory borrow.
+1. Scope 1: borrow `instance` to get `Memory`, create `MemoryView`. For each connected input port: `view.write(buffer_offset, all_samples_as_bytes)` — writes entire contiguous planar buffer in one call. Drop memory borrow.
 2. Call `process_fn.call(&mut self.store, block_size, current_time)`.
-3. Scope 2: borrow `instance` again for `Memory`. For each connected output port, for each channel: `view.read(channel_offsets[ch], out_bytes)`.
+3. Scope 2: borrow `instance` again for `Memory`. For each connected output port: `view.read(buffer_offset, out_bytes)` — reads entire contiguous planar buffer in one call.
 
 The two-scope pattern is required because `instance.exports.get_memory()` borrows `self.instance`, which conflicts with the `&mut self.store` needed by `process_fn.call`. Scoping the memory borrow ends it before the call.
 
