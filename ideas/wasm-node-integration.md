@@ -21,10 +21,10 @@ Regardless of approach, we need a **convention** for what a WASM audio module ex
 | ------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------- |
 | `resonix_input_count() -> i32`                                            | `func` | Number of input ports                                             |
 | `resonix_output_count() -> i32`                                           | `func` | Number of output ports                                            |
-| `resonix_get_input_channel_count(port_id: i32) -> i32`                   | `func` | Channel count for input port                                      |
-| `resonix_get_output_channel_count(port_id: i32) -> i32`                  | `func` | Channel count for output port                                     |
-| `resonix_get_input_channel_buffer_ptr(port_id: i32, ch: i32) -> i32`     | `func` | WASM byte offset for input port's per-channel staging buffer      |
-| `resonix_get_output_channel_buffer_ptr(port_id: i32, ch: i32) -> i32`    | `func` | WASM byte offset for output port's per-channel staging buffer     |
+| `get_input_channel_count(port_id: i32) -> i32`                   | `func` | Channel count for input port                                      |
+| `get_output_channel_count(port_id: i32) -> i32`                  | `func` | Channel count for output port                                     |
+| `get_input_buffer_ptr(port_id: i32, ch: i32) -> i32`     | `func` | WASM byte offset for input port's per-channel staging buffer      |
+| `get_output_buffer_ptr(port_id: i32, ch: i32) -> i32`    | `func` | WASM byte offset for output port's per-channel staging buffer     |
 | `resonix_process(block_size: i32, current_time: f64)`                    | `func` | Main DSP callback                                                 |
 
 All counts and pointers are queried at `new()` time and cached. Port descriptors are populated from the count/channel queries. The graph's dense-port invariant is satisfied automatically since ports 0..input_count and 0..output_count are contiguous.
@@ -169,10 +169,10 @@ This is essentially Option A but lets the WASM module decide where to place its 
 (export "resonix_output_count" (func))  ;; () -> i32
 
 ;; per-port queries, called once per (port, channel) at instantiation time
-(export "resonix_get_input_channel_count"         (func))  ;; (port_id: i32) -> i32
-(export "resonix_get_output_channel_count"        (func))  ;; (port_id: i32) -> i32
-(export "resonix_get_input_channel_buffer_ptr"    (func))  ;; (port_id: i32, ch: i32) -> i32
-(export "resonix_get_output_channel_buffer_ptr"   (func))  ;; (port_id: i32, ch: i32) -> i32
+(export "get_input_channel_count"         (func))  ;; (port_id: i32) -> i32
+(export "get_output_channel_count"        (func))  ;; (port_id: i32) -> i32
+(export "get_input_buffer_ptr"    (func))  ;; (port_id: i32, ch: i32) -> i32
+(export "get_output_buffer_ptr"   (func))  ;; (port_id: i32, ch: i32) -> i32
 
 ;; hot-path callback
 (export "resonix_process" (func))  ;; (block_size: i32, current_time: f64) -> ()
@@ -203,8 +203,8 @@ pub struct WasmNode {
 
 1. Compile and instantiate module.
 2. Call `resonix_input_count()` / `resonix_output_count()` → get port counts.
-3. For each input port `p`: call `resonix_get_input_channel_count(p)` → `channel_count`; then for each channel `ch` call `resonix_get_input_channel_buffer_ptr(p, ch)` → cache `PortInfo { channel_count, channel_offsets }`.
-4. Same for output ports using `resonix_get_output_channel_count` / `resonix_get_output_channel_buffer_ptr`.
+3. For each input port `p`: call `get_input_channel_count(p)` → `channel_count`; then for each channel `ch` call `get_input_buffer_ptr(p, ch)` → cache `PortInfo { channel_count, channel_offsets }`.
+4. Same for output ports using `get_output_channel_count` / `get_output_buffer_ptr`.
 5. Build `WasmNodePortDescriptors` from the collected port infos.
 6. Cache `process_fn` as `TypedFunction<(i32, f64), ()>`.
 

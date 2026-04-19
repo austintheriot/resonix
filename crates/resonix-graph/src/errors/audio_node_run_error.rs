@@ -1,4 +1,5 @@
-use alloc::string::String;
+use alloc::boxed::Box;
+use core::error::Error;
 
 use thiserror::Error;
 
@@ -9,15 +10,9 @@ pub enum AudioNodeRunError {
     #[error("too many inputs (expected {expected:?}, found {found:?})")]
     TooManyInputs { expected: usize, found: usize },
     #[error("audio buffer error: {0:?}")]
-    AudioBuffer(AudioBufferError),
-    #[error("wasm node error: {0}")]
-    Wasm(String),
-}
-
-impl From<AudioBufferError> for AudioNodeRunError {
-    fn from(e: AudioBufferError) -> Self {
-        Self::AudioBuffer(e)
-    }
+    AudioBuffer(#[from] AudioBufferError),
+    #[error("unknown node error: {0:?}")]
+    Unknown(#[from] Box<dyn Error>),
 }
 
 #[cfg(test)]

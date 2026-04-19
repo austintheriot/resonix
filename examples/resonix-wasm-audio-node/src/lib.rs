@@ -3,10 +3,10 @@
 //! Exports required by WasmNode:
 //!   resonix_input_count() -> i32
 //!   resonix_output_count() -> i32
-//!   resonix_get_input_channel_count(port_id: i32) -> i32
-//!   resonix_get_output_channel_count(port_id: i32) -> i32
-//!   resonix_get_input_channel_buffer_ptr(port_id: i32, channel_id: i32) -> i32
-//!   resonix_get_output_channel_buffer_ptr(port_id: i32, channel_id: i32) -> i32
+//!   get_input_channel_count(port_id: i32) -> i32
+//!   get_output_channel_count(port_id: i32) -> i32
+//!   get_input_buffer_ptr(port_id: i32, channel_id: i32) -> i32
+//!   get_output_buffer_ptr(port_id: i32, channel_id: i32) -> i32
 //!   resonix_process(block_size: i32, current_time: f64)
 //!
 //! Ports:
@@ -42,23 +42,23 @@ pub extern "C" fn resonix_output_count() -> i32 {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn resonix_get_input_channel_count(_port_id: i32) -> i32 {
+pub extern "C" fn get_input_channel_count(_port_id: i32) -> i32 {
     CHANNELS as i32
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn resonix_get_output_channel_count(_port_id: i32) -> i32 {
+pub extern "C" fn get_output_channel_count(_port_id: i32) -> i32 {
     CHANNELS as i32
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn resonix_get_input_channel_buffer_ptr(_port_id: i32, channel_id: i32) -> i32 {
+pub extern "C" fn get_input_buffer_ptr(_port_id: i32, channel_id: i32) -> i32 {
     let base = core::ptr::addr_of!(INPUT_BUF) as usize;
     (base + channel_id as usize * MAX_BLOCK_SIZE * 4) as i32
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn resonix_get_output_channel_buffer_ptr(_port_id: i32, channel_id: i32) -> i32 {
+pub extern "C" fn get_output_buffer_ptr(_port_id: i32, channel_id: i32) -> i32 {
     let base = core::ptr::addr_of!(OUTPUT_BUF) as usize;
     (base + channel_id as usize * MAX_BLOCK_SIZE * 4) as i32
 }
