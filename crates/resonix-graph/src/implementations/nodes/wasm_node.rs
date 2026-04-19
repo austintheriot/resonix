@@ -177,11 +177,12 @@ impl WasmNode {
             .map_err(|e| AudioNodeRunError::Unknown(Box::new(e)))?;
 
         for (port_idx, port_info) in self.port_info_data.input_ports.iter().enumerate() {
-            let Some(Some(buf)) = inputs.get(port_idx) else {
+            let Some(Some(input_buffer)) = inputs.get(port_idx) else {
                 continue;
             };
             let view = memory.view(&self.store);
-            let samples = buf.as_slice();
+            let samples = input_buffer.as_slice();
+
             // SAFETY: Sample is #[repr(transparent)] over f32.
             let bytes: &[u8] = unsafe {
                 core::slice::from_raw_parts(
@@ -189,6 +190,7 @@ impl WasmNode {
                     core::mem::size_of_val(samples),
                 )
             };
+
             view.write(port_info.buffer_offset, bytes)
                 .map_err(|e| Box::new(e) as Box<dyn Error>)?;
         }
@@ -203,11 +205,12 @@ impl WasmNode {
         let memory = self.memory().map_err(|e| Box::new(e) as Box<dyn Error>)?;
 
         for (port_idx, port_info) in self.port_info_data.output_ports.iter().enumerate() {
-            let Some(Some(buf)) = outputs.get_mut(port_idx) else {
+            let Some(Some(output_buffer)) = outputs.get_mut(port_idx) else {
                 continue;
             };
             let view = memory.view(&self.store);
-            let out_slice = buf.as_slice_mut();
+            let out_slice = output_buffer.as_slice_mut();
+
             // SAFETY: Sample is #[repr(transparent)] over f32.
             let bytes: &mut [u8] = unsafe {
                 core::slice::from_raw_parts_mut(
@@ -215,6 +218,7 @@ impl WasmNode {
                     core::mem::size_of_val(out_slice),
                 )
             };
+
             view.read(port_info.buffer_offset, bytes)
                 .map_err(|e| Box::new(e) as Box<dyn Error>)?;
         }

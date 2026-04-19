@@ -38,6 +38,9 @@ unsafe extern "C" {
 const CHANNELS: usize = 2;
 const MAX_BLOCK_SIZE: usize = 2048;
 
+// TODO: fix this -- we don't need to use `max block size` here -- we can just
+// initialize buffers in the `init` function
+
 // Contiguous planar staging buffers. Channel stride = block_size (set at init).
 static mut INPUT_BUF: [f32; CHANNELS * MAX_BLOCK_SIZE] = [0.0; CHANNELS * MAX_BLOCK_SIZE];
 static mut OUTPUT_BUF: [f32; CHANNELS * MAX_BLOCK_SIZE] = [0.0; CHANNELS * MAX_BLOCK_SIZE];
