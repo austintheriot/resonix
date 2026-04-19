@@ -184,7 +184,10 @@ impl WasmNode {
             let samples = buf.as_slice();
             // SAFETY: Sample is #[repr(transparent)] over f32.
             let bytes: &[u8] = unsafe {
-                core::slice::from_raw_parts(samples.as_ptr().cast::<u8>(), samples.len() * 4)
+                core::slice::from_raw_parts(
+                    samples.as_ptr().cast::<u8>(),
+                    core::mem::size_of_val(samples),
+                )
             };
             view.write(port_info.buffer_offset, bytes)
                 .map_err(|e| Box::new(e) as Box<dyn Error>)?;
@@ -209,7 +212,7 @@ impl WasmNode {
             let bytes: &mut [u8] = unsafe {
                 core::slice::from_raw_parts_mut(
                     out_slice.as_mut_ptr().cast::<u8>(),
-                    out_slice.len() * 4,
+                    core::mem::size_of_val(out_slice),
                 )
             };
             view.read(port_info.buffer_offset, bytes)
