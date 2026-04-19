@@ -72,15 +72,9 @@ impl WasmNode {
                 "get_sample_rate" => Function::new_typed(&mut store, move || sample_rate_val),
             }
         };
-        let instance = Instance::new(&mut store, &module, &import_object)?;
 
-        // Call optional init export so the module can do one-time allocation work.
-        if let Ok(init_fn) = instance
-            .exports
-            .get_typed_function::<(), ()>(&store, "init")
-        {
-            init_fn.call(&mut store)?;
-        }
+        let instance = Instance::new(&mut store, &module, &import_object)?;
+        Self::try_init_instance(&mut store, &instance)?;
 
         let node_id = NodeId::from(id_generator.generate_id());
         let port_info_data = Self::build_port_info(&mut store, &instance)?;
@@ -89,9 +83,8 @@ impl WasmNode {
             &port_info_data.input_ports,
             &port_info_data.output_ports,
         );
-        let process_fn: TypedFunction<(i32, f64), ()> = instance
-            .exports
-            .get_typed_function(&store, "process")?;
+        let process_fn: TypedFunction<(i32, f64), ()> =
+            instance.exports.get_typed_function(&store, "process")?;
 
         Ok(Self {
             node_id,
@@ -101,6 +94,21 @@ impl WasmNode {
             port_info_data,
             process_fn,
         })
+    }
+
+    /// allows wasm module to one-time allocation work
+    fn try_init_instance(
+        mut store: &mut Store,
+        instance: &Instance,
+    ) -> Result<(), WasmNodeCreationError> {
+        if let Ok(init_fn) = instance
+            .exports
+            .get_typed_function::<(), ()>(&store, "init")
+        {
+            init_fn.call(&mut store)?;
+        }
+
+        Ok(())
     }
 
     fn build_port_info(
@@ -138,14 +146,20 @@ impl WasmNode {
         for port in 0..input_count {
             let channel_count = get_input_channel_count.call(&mut store, port as i32)? as usize;
             let buffer_offset = get_input_buffer_ptr.call(&mut store, port as i32)? as u64;
-            input_ports.push(PortInfo { channel_count, buffer_offset });
+            input_ports.push(PortInfo {
+                channel_count,
+                buffer_offset,
+            });
         }
 
         let mut output_ports = Vec::with_capacity(output_count);
         for port in 0..output_count {
             let channel_count = get_output_channel_count.call(&mut store, port as i32)? as usize;
             let buffer_offset = get_output_buffer_ptr.call(&mut store, port as i32)? as u64;
-            output_ports.push(PortInfo { channel_count, buffer_offset });
+            output_ports.push(PortInfo {
+                channel_count,
+                buffer_offset,
+            });
         }
 
         Ok(PortInfoData {
