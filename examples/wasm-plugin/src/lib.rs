@@ -32,6 +32,8 @@ fn panic(_info: &PanicInfo) -> ! {
 #[link(wasm_import_module = "resonix")]
 unsafe extern "C" {
     fn get_block_size() -> i32;
+
+    #[allow(dead_code)]
     fn get_sample_rate() -> i32;
 }
 

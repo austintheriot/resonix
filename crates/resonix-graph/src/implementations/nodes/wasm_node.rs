@@ -33,6 +33,10 @@ struct PortInfoData {
     output_ports: Box<[PortInfo]>,
 }
 
+/// Audio graph wrapper around a wasm module, implementing the
+/// wasm-audio-node interface
+///
+/// Allows users to provide arbitrary audio node implementations.
 pub struct WasmNode {
     node_id: NodeId,
     store: Store,
@@ -359,7 +363,7 @@ mod tests {
     // cargo build -p resonix-wasm-audio-node --target wasm32-unknown-unknown --release
     // and copied to OUT_DIR by build.rs.
     static GAIN_NODE_WASM: &[u8] =
-        include_bytes!(concat!(env!("OUT_DIR"), "/resonix_wasm_audio_node.wasm"));
+        include_bytes!(concat!(env!("OUT_DIR"), "/wasm_plugin.wasm"));
 
     const TEST_BLOCK_SIZE: usize = 4;
 
