@@ -1,7 +1,7 @@
 use alloc::boxed::Box;
 use core::error::Error;
 
-use thiserror::Error;
+use thiserror_no_std::Error;
 
 use crate::errors::AudioBufferError;
 

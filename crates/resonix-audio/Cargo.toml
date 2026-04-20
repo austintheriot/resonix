@@ -12,5 +12,5 @@ mock = []
 
 [dependencies]
 ringbuf = { version = "0.4.8" }
-thiserror.workspace = true
+thiserror-no-std.workspace = true
 cpal = { version = "0.15.3", optional = true }

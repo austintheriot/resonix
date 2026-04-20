@@ -1,4 +1,4 @@
-use thiserror::Error;
+use thiserror_no_std::Error;
 
 #[derive(Debug, Error)]
 #[error("Internal error: buffer already allocated")]

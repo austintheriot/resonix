@@ -8,3 +8,4 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+resonix-graph = { path = "../resonix-graph/" }

@@ -9,3 +9,6 @@ crate-type = ["cdylib"]
 [profile.release]
 opt-level = "s"
 lto = true
+
+[dependencies]
+resonix-wasm-audio-node = { path = "../../crates/resonix-wasm-audio-node/" }

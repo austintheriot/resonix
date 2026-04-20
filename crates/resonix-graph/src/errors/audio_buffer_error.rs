@@ -1,4 +1,4 @@
-use thiserror::Error;
+use thiserror_no_std::Error;
 
 #[derive(Debug, Error, Clone, PartialEq, Eq)]
 pub enum AudioBufferError {

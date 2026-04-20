@@ -22,12 +22,7 @@
 
 #![no_std]
 
-use core::panic::PanicInfo;
-
-#[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-    loop {}
-}
+use resonix_wasm_audio_node::*;
 
 #[link(wasm_import_module = "resonix")]
 unsafe extern "C" {

@@ -2,7 +2,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::{error::Error, ops::Deref};
 
-use thiserror::Error;
+use thiserror_no_std::Error;
 use wasmer::{
     CompileError, ExportError, Function, Instance, InstantiationError, Memory, Module,
     RuntimeError, Store, TypedFunction, imports,
