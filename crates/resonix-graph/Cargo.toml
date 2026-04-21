@@ -13,6 +13,7 @@ js = ["dep:wasm-bindgen"]
 
 
 [dependencies]
+resonix-core = { path = "../resonix-core" }
 hashbrown = "0.15.3"
 nohash-hasher = "0.2.0"
 petgraph = "0.8.1"
@@ -37,6 +38,7 @@ wasmer = { version = "7.1.0", default-features = false, features = [
 # TODO: may be able to get a slimmer build by disabling the some default feautures
 # TODO maybe should enable production-grade compilers (like `llvm`)
 [dev-dependencies]
+resonix-core = { path = "../resonix-core", features = ["test-utils"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 approx = "0.5.1"
 

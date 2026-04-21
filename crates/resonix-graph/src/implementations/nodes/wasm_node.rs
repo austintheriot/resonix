@@ -362,8 +362,7 @@ mod tests {
     // The WASM fixture is built by:
     // cargo build -p resonix-wasm-audio-node --target wasm32-unknown-unknown --release
     // and copied to OUT_DIR by build.rs.
-    static GAIN_NODE_WASM: &[u8] =
-        include_bytes!(concat!(env!("OUT_DIR"), "/wasm_plugin.wasm"));
+    static GAIN_NODE_WASM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/wasm_plugin.wasm"));
 
     const TEST_BLOCK_SIZE: usize = 4;
 

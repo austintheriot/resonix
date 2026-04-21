@@ -309,12 +309,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6bd91ee7b2422bcb158d90ef4d14f75ef67f340943fc4149891dcce8f8b972a3"
 
 [[package]]
-name = "cargo-husky"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b02b629252fe8ef6460461409564e2c21d0c8e77e0944f3d189ff06c4e932ad"
-
-[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1956,9 +1950,10 @@ dependencies = [
 name = "resonix-core"
 version = "0.1.0"
 dependencies = [
- "cargo-husky",
+ "bon",
+ "nohash-hasher",
+ "thiserror-no-std",
  "wasm-bindgen",
- "wasm-bindgen-test",
 ]
 
 [[package]]
@@ -1971,6 +1966,7 @@ dependencies = [
  "hashbrown 0.15.3",
  "nohash-hasher",
  "petgraph",
+ "resonix-core",
  "thiserror-no-std",
  "wasm-bindgen",
  "wasmer",
@@ -1999,7 +1995,7 @@ version = "0.1.0"
 name = "resonix-wasm-audio-node"
 version = "0.1.0"
 dependencies = [
- "resonix-graph",
+ "resonix-core",
 ]
 
 [[package]]

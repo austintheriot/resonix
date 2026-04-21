@@ -1,16 +1,14 @@
-use resonix_graph::{
+use resonix_core::{
     errors::AudioNodeRunError,
     primitives::AudioNodeCtx,
     traits::{AudioNode, DescribePorts, GetNodeId, GetPriority},
 };
 
-pub(in crate::implementations::graph) trait ErasedAudioNode:
-    GetNodeId + GetPriority + DescribePorts
-{
+pub trait ErasedAudioNode: GetNodeId + GetPriority + DescribePorts {
     fn process<'buf>(
         &mut self,
-        inputs: &[Option<resonix_graph::implementations::OwnedAudioBuffer>],
-        outputs: &mut [Option<resonix_graph::implementations::OwnedAudioBuffer>],
+        inputs: &[Option<resonix_core::implementations::AudioBuffer<'buf>>],
+        outputs: &mut [Option<resonix_core::implementations::AudioBufferMut<'buf>>],
         ctx: AudioNodeCtx,
     ) -> Result<(), AudioNodeRunError>;
 }
@@ -18,8 +16,8 @@ pub(in crate::implementations::graph) trait ErasedAudioNode:
 impl<T: AudioNode> ErasedAudioNode for T {
     fn process<'buf>(
         &mut self,
-        inputs: &[Option<resonix_graph::implementations::OwnedAudioBuffer>],
-        outputs: &mut [Option<resonix_graph::implementations::OwnedAudioBuffer>],
+        inputs: &[Option<resonix_core::implementations::AudioBuffer<'buf>>],
+        outputs: &mut [Option<resonix_core::implementations::AudioBufferMut<'buf>>],
         ctx: AudioNodeCtx,
     ) -> Result<(), AudioNodeRunError> {
         self.process(inputs, outputs, ctx)

@@ -18,6 +18,16 @@ pub struct ExternalBufferMappings {
 }
 
 impl ExternalBufferMappings {
+    pub fn new(
+        external_inputs: Box<[ExternalBufferMappingData]>,
+        external_outputs: Box<[ExternalBufferMappingData]>,
+    ) -> Self {
+        Self {
+            external_inputs,
+            external_outputs,
+        }
+    }
+
     pub fn external_inputs(&self) -> &[ExternalBufferMappingData] {
         &self.external_inputs
     }

@@ -22,8 +22,6 @@
 
 #![no_std]
 
-use resonix_wasm_audio_node::*;
-
 #[link(wasm_import_module = "resonix")]
 unsafe extern "C" {
     fn get_block_size() -> i32;

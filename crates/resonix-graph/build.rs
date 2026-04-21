@@ -20,7 +20,9 @@ fn main() {
         // Create an empty file so include_bytes! compiles even before the WASM is built.
         // Tests that require real WASM will be gated with #[cfg_attr(not(miri), test)].
         std::fs::write(&wasm_dst, b"").expect("failed to write placeholder wasm");
-        println!("cargo:warning=wasm_plugin.wasm not found at {wasm_src:?}; run `cargo build -p resonix-wasm-audio-node --target wasm32-unknown-unknown --release` first");
+        println!(
+            "cargo:warning=wasm_plugin.wasm not found at {wasm_src:?}; run `cargo build -p resonix-wasm-audio-node --target wasm32-unknown-unknown --release` first"
+        );
     }
 
     // Re-run if the wasm binary changes.

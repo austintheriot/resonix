@@ -4,11 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["rlib"]
+
+[features]
+js = ["dep:wasm-bindgen"]
+test-utils = []
 
 [dependencies]
-wasm-bindgen = { workspace = true }
-
-[dev-dependencies]
-wasm-bindgen-test = { workspace = true }
-cargo-husky = { version = "1", features = ["user-hooks"] }
+thiserror-no-std = { workspace = true }
+nohash-hasher = "0.2.0"
+bon = "3.9.1"
+wasm-bindgen = { workspace = true, optional = true }

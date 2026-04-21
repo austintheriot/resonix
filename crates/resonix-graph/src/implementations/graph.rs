@@ -609,10 +609,10 @@ impl crate::traits::ModifyGraph for Graph {
                 .map(|mapping| mapping.unwrap())
                 .collect();
 
-        ExternalBufferMappings {
-            external_inputs: external_input_buffer_mappings.into_boxed_slice(),
-            external_outputs: external_output_buffer_mappings.into_boxed_slice(),
-        }
+        ExternalBufferMappings::new(
+            external_input_buffer_mappings.into_boxed_slice(),
+            external_output_buffer_mappings.into_boxed_slice(),
+        )
     }
 
     fn add_audio_node<P: DescribePorts, N: AudioNode + GetPortDescriptors<P> + 'static>(

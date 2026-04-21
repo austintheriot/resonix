@@ -1,8 +1,15 @@
 #![no_std]
-pub mod audio_core;
-pub mod audio_frame_inputs;
-pub mod audio_frame_result;
 
-pub use audio_core::*;
-pub use audio_frame_inputs::*;
-pub use audio_frame_result::*;
+extern crate alloc;
+
+#[cfg(any(test, feature = "test-utils"))]
+#[macro_use]
+extern crate std;
+
+pub mod errors;
+pub mod implementations;
+pub mod primitives;
+pub mod traits;
+
+#[cfg(any(test, feature = "test-utils"))]
+pub mod test_utils;
