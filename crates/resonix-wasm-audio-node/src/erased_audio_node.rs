@@ -7,8 +7,8 @@ use resonix_core::{
 pub trait ErasedAudioNode: GetNodeId + GetPriority + DescribePorts {
     fn process<'buf>(
         &mut self,
-        inputs: &[Option<resonix_core::implementations::AudioBuffer<'buf>>],
-        outputs: &mut [Option<resonix_core::implementations::AudioBufferMut<'buf>>],
+        inputs: &[Option<resonix_core::implementations::OwnedAudioBuffer>],
+        outputs: &mut [Option<resonix_core::implementations::OwnedAudioBuffer>],
         ctx: AudioNodeCtx,
     ) -> Result<(), AudioNodeRunError>;
 }
@@ -16,8 +16,8 @@ pub trait ErasedAudioNode: GetNodeId + GetPriority + DescribePorts {
 impl<T: AudioNode> ErasedAudioNode for T {
     fn process<'buf>(
         &mut self,
-        inputs: &[Option<resonix_core::implementations::AudioBuffer<'buf>>],
-        outputs: &mut [Option<resonix_core::implementations::AudioBufferMut<'buf>>],
+        inputs: &[Option<resonix_core::implementations::OwnedAudioBuffer>],
+        outputs: &mut [Option<resonix_core::implementations::OwnedAudioBuffer>],
         ctx: AudioNodeCtx,
     ) -> Result<(), AudioNodeRunError> {
         self.process(inputs, outputs, ctx)
