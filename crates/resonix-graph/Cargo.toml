@@ -15,9 +15,8 @@ js = ["dep:wasm-bindgen"]
 [dependencies]
 resonix-core = { path = "../resonix-core" }
 hashbrown = "0.15.3"
-nohash-hasher = "0.2.0"
 petgraph = "0.8.1"
-bon = "3.9.1"
+bon = { version = "3.9.1", default-features = false }
 thiserror-no-std.workspace = true
 wasm-bindgen = { workspace = true, optional = true }
 

@@ -12,6 +12,5 @@ test-utils = []
 
 [dependencies]
 thiserror-no-std = { workspace = true }
-nohash-hasher = "0.2.0"
-bon = "3.9.1"
+bon = { version = "3.9.1", default-features = false }
 wasm-bindgen = { workspace = true, optional = true }

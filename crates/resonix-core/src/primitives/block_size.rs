@@ -1,7 +1,5 @@
 use core::ops::Deref;
 
-use nohash_hasher::IsEnabled;
-
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BlockSize(usize);
 
@@ -22,8 +20,6 @@ impl BlockSize {
     // TODO: should this number be larger? = 2^16
     pub const MAX_BLOCK_SIZE: usize = 65536;
 }
-
-impl IsEnabled for BlockSize {}
 
 // other convenience implementations possible here
 

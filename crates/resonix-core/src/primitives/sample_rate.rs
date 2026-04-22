@@ -1,7 +1,5 @@
 use core::ops::Deref;
 
-use nohash_hasher::IsEnabled;
-
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SampleRate(u32);
 
@@ -16,8 +14,6 @@ impl SampleRate {
         Self(id)
     }
 }
-
-impl IsEnabled for SampleRate {}
 
 // other convenience implementations possible here
 

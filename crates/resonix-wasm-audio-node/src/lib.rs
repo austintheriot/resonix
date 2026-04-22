@@ -2,7 +2,19 @@
 
 extern crate alloc;
 
+use dlmalloc::GlobalDlmalloc;
+
+#[global_allocator]
+static ALLOC: GlobalDlmalloc = GlobalDlmalloc;
+
 mod erased_audio_node;
+
+use core::panic::PanicInfo;
+
+#[panic_handler]
+fn panic(_: &PanicInfo) -> ! {
+    loop {}
+}
 
 unsafe extern "C" {
     pub fn get_block_size() -> i32;

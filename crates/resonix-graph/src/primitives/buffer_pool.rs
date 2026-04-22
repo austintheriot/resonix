@@ -1,17 +1,19 @@
 use core::ops::{Deref, DerefMut};
 
-use crate::{implementations::OwnedAudioBuffer, primitives::ConnectionId, utils::IntMap};
+use hashbrown::HashMap;
+
+use crate::{implementations::OwnedAudioBuffer, primitives::ConnectionId};
 
 #[derive(Debug, Default)]
 pub struct BufferPool {
     // TODO: replace with a Vec for better caching/lookup speeds
     // but consider if this should be a pub struct or a pub(crate) struct:
     // `ConnectionId`s are guaranteed to be dense in THIS implementation
-    buffers: IntMap<ConnectionId, OwnedAudioBuffer>,
+    buffers: HashMap<ConnectionId, OwnedAudioBuffer>,
 }
 
 impl Deref for BufferPool {
-    type Target = IntMap<ConnectionId, OwnedAudioBuffer>;
+    type Target = HashMap<ConnectionId, OwnedAudioBuffer>;
 
     fn deref(&self) -> &Self::Target {
         &self.buffers

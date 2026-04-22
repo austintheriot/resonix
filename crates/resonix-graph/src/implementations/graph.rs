@@ -10,7 +10,7 @@ use crate::{
         PortAddress, PortAddressDirection, PortDescriptor, Sample,
     },
     traits::{DescribePorts, GenerateId, GetPortDescriptors},
-    utils::{IntMap, IntSet, compare_nodes_by_priority},
+    utils::compare_nodes_by_priority,
 };
 
 mod compiled_step;
@@ -37,17 +37,17 @@ use wasm_bindgen::prelude::wasm_bindgen;
 #[cfg_attr(feature = "js", wasm_bindgen)]
 pub struct Graph {
     id_generator: GraphIdGenerator,
-    graph_items: IntMap<Id, GraphItem>,
-    node_connection_id_map: IntMap<NodeId, NodeConnectionIdMap>,
+    graph_items: HashMap<Id, GraphItem>,
+    node_connection_id_map: HashMap<NodeId, NodeConnectionIdMap>,
     node_id_to_petgraph_index: HashMap<Id, petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>>,
     petgraph_index_to_node_id: HashMap<petgraph::graph::NodeIndex<petgraph::graph::DefaultIx>, Id>,
     port_address_to_connection_id_map: HashMap<PortAddress, ConnectionId>,
     /// Channel counts for all registered port addresses (both internal and external).
     port_address_to_channel_count: HashMap<PortAddress, usize>,
     /// Channel counts keyed by ExternalConnectionId, populated when external ports are registered.
-    external_connection_channel_counts: IntMap<ExternalConnectionId, usize>,
+    external_connection_channel_counts: HashMap<ExternalConnectionId, usize>,
     graph: petgraph::Graph<NodeId, ConnectionId>,
-    leaf_nodes: IntSet<NodeId>,
+    leaf_nodes: HashSet<NodeId>,
     block_size: BlockSize,
     buffer_pool: crate::primitives::BufferPool,
     /// Lazily compiled flat execution plan. Set to `None` whenever the graph topology changes
@@ -67,19 +67,17 @@ impl Graph {
 
 impl Graph {
     pub fn with_block_size(block_size: impl Into<BlockSize>) -> Self {
-        use crate::utils::IntMap;
-
         Graph {
             id_generator: GraphIdGenerator::default(),
-            graph_items: IntMap::default(),
-            node_connection_id_map: IntMap::default(),
+            graph_items: HashMap::default(),
+            node_connection_id_map: HashMap::default(),
             node_id_to_petgraph_index: HashMap::new(),
             graph: petgraph::Graph::<NodeId, ConnectionId>::new(),
-            leaf_nodes: IntSet::default(),
+            leaf_nodes: HashSet::default(),
             petgraph_index_to_node_id: HashMap::new(),
             port_address_to_connection_id_map: HashMap::new(),
             port_address_to_channel_count: HashMap::new(),
-            external_connection_channel_counts: IntMap::default(),
+            external_connection_channel_counts: HashMap::default(),
             block_size: block_size.into(),
             buffer_pool: crate::primitives::BufferPool::default(),
             compiled_plan: None,

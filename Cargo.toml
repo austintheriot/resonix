@@ -1,4 +1,6 @@
 [workspace]
+
+
 members = [
 	"crates/resonix",
 	"crates/resonix-audio",
@@ -15,7 +17,22 @@ members = [
 	"examples/wasm-plugin",
 	"crates/resonix-wasm-audio-node",
 ]
-
+default-members = [
+	"crates/resonix",
+	"crates/resonix-audio",
+	"crates/resonix-cli-tests",
+	"crates/resonix-core",
+	"crates/resonix-graph",
+	"crates/resonix-gui",
+	"crates/resonix-native",
+	"crates/resonix-primitives",
+	"crates/resonix-types",
+	"crates/resonix-web",
+	"scripts/compare-benchmarks",
+	"scripts/build-wasm",
+	# exclude wasm crates from bare `cargo check` runs,
+	# since they depend on target=wasm32-unknown-unknown configuration
+]
 resolver = "2"
 
 [workspace.dependencies]

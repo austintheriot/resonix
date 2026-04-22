@@ -9,3 +9,4 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 resonix-core = { path = "../resonix-core" }
+dlmalloc = { version = "0.2.13", features = ["global"] }

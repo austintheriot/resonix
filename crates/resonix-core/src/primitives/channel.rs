@@ -1,7 +1,5 @@
 use core::ops::Deref;
 
-use nohash_hasher::IsEnabled;
-
 /// Strongly-typed wrapper
 /// Functions as an indexer for the channels of an audio buffer
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -12,8 +10,6 @@ impl Channel {
         Self(id)
     }
 }
-
-impl IsEnabled for Channel {}
 
 // other convenience implementations possible here
 

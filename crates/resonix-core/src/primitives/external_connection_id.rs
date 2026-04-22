@@ -1,7 +1,5 @@
 use core::ops::Deref;
 
-use nohash_hasher::IsEnabled;
-
 #[cfg(feature = "js")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -16,8 +14,6 @@ use crate::primitives::Id;
 #[derive(Copy, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "js", wasm_bindgen)]
 pub struct ExternalConnectionId(Id);
-
-impl IsEnabled for ExternalConnectionId {}
 
 impl ExternalConnectionId {
     pub const fn new(id: usize) -> Self {

@@ -1,7 +1,5 @@
 use core::ops::Deref;
 
-use nohash_hasher::IsEnabled;
-
 #[cfg(feature = "js")]
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -19,8 +17,6 @@ impl NodeId {
 }
 
 // other convenience implementations possible here
-
-impl IsEnabled for NodeId {}
 
 impl Deref for NodeId {
     type Target = Id;

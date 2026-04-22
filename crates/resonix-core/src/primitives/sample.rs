@@ -1,7 +1,5 @@
 use core::ops::Deref;
 
-use nohash_hasher::IsEnabled;
-
 /// All Graph-internal audio is computed with `f32`s.
 ///
 /// Conversion to other sample formats takes place on the
@@ -19,8 +17,6 @@ impl Sample {
         Self(id)
     }
 }
-
-impl IsEnabled for Sample {}
 
 // other convenience implementations possible here
 

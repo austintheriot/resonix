@@ -903,6 +903,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "dlmalloc"
+version = "0.2.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f5b01c17f85ee988d832c40e549a64bd89ab2c9f8d8a613bdf5122ae507e294"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1471,12 +1482,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nohash-hasher"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
-
-[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1951,7 +1956,6 @@ name = "resonix-core"
 version = "0.1.0"
 dependencies = [
  "bon",
- "nohash-hasher",
  "thiserror-no-std",
  "wasm-bindgen",
 ]
@@ -1964,7 +1968,6 @@ dependencies = [
  "bon",
  "criterion",
  "hashbrown 0.15.3",
- "nohash-hasher",
  "petgraph",
  "resonix-core",
  "thiserror-no-std",
@@ -1995,6 +1998,7 @@ version = "0.1.0"
 name = "resonix-wasm-audio-node"
 version = "0.1.0"
 dependencies = [
+ "dlmalloc",
  "resonix-core",
 ]
 
