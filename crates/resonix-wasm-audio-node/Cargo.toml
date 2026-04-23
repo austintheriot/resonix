@@ -11,3 +11,4 @@ crate-type = ["cdylib", "rlib"]
 resonix-core = { path = "../resonix-core" }
 dlmalloc = { version = "0.2.13", features = ["global"] }
 spin = { version = "0.10.0", features = ["once", "mutex"] }
+resonix-wasm-audio-node-macros = { path = "../resonix-wasm-audio-node-macros/" }

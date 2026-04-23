@@ -2000,7 +2000,17 @@ version = "0.1.0"
 dependencies = [
  "dlmalloc",
  "resonix-core",
+ "resonix-wasm-audio-node-macros",
  "spin",
+]
+
+[[package]]
+name = "resonix-wasm-audio-node-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]

@@ -1,0 +1,12 @@
+[package]
+name = "resonix-wasm-audio-node-macros"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "2.0.117"
+quote = "1.0.45"
+proc-macro2 = "1.0.106"

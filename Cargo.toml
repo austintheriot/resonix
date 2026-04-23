@@ -15,7 +15,7 @@ members = [
 	"scripts/compare-benchmarks",
 	"scripts/build-wasm",
 	"examples/wasm-plugin",
-	"crates/resonix-wasm-audio-node",
+	"crates/resonix-wasm-audio-node", "crates/resonix-wasm-audio-node-macros",
 ]
 default-members = [
 	"crates/resonix",

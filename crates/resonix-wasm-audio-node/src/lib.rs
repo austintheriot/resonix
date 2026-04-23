@@ -262,6 +262,7 @@ pub extern "C" fn process(current_time: f64) {
         .expect("audio node `process` threw error internally");
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! export_wasm_api {
     () => {
@@ -275,3 +276,5 @@ macro_rules! export_wasm_api {
         pub use $crate::process;
     };
 }
+
+pub use resonix_wasm_audio_node_macros::*;
