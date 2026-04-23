@@ -22,15 +22,9 @@
 
 #![no_std]
 
-use resonix_wasm_audio_node::*;
+use resonix_wasm_audio_node::export_wasm_api;
 
-#[link(wasm_import_module = "resonix")]
-unsafe extern "C" {
-    fn get_block_size() -> i32;
-
-    #[allow(dead_code)]
-    fn get_sample_rate() -> i32;
-}
+export_wasm_api!();
 
 const CHANNELS: usize = 2;
 const MAX_BLOCK_SIZE: usize = 2048;

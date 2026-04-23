@@ -14,6 +14,7 @@ use resonix_core::{
 use spin::{Mutex, Once};
 
 // TODO: remove mention of `init()` from spec--it isn't needed
+// TODO: add __ to function exports to prevent name collisions
 
 #[global_allocator]
 static ALLOC: GlobalDlmalloc = GlobalDlmalloc;
@@ -28,8 +29,18 @@ fn panic(_: &PanicInfo) -> ! {
 }
 
 unsafe extern "C" {
-    pub fn get_block_size() -> i32;
-    pub fn get_sample_rate() -> i32;
+    pub fn _get_block_size() -> i32;
+    pub fn _get_sample_rate() -> i32;
+}
+
+pub fn get_block_size() -> BlockSize {
+    let block_size = unsafe { _get_block_size() };
+    BlockSize::from(block_size)
+}
+
+pub fn get_sample_rate() -> SampleRate {
+    let sample_rate = unsafe { _get_sample_rate() };
+    SampleRate::from(sample_rate)
 }
 
 // SAFETY: our graph execution & wasm execution
@@ -93,6 +104,7 @@ struct InstanceStorage {
 // a thread_local storage
 static INSTANCE: Once<Mutex<InstanceStorage>> = Once::new();
 
+#[doc(hidden)]
 pub fn register_audio_node<
     P: DescribePorts + 'static,
     A: AudioNode + GetPortDescriptors<P> + 'static,
@@ -100,9 +112,9 @@ pub fn register_audio_node<
     audio_node: A,
 ) {
     let port_descriptors = audio_node.get_port_descriptors();
-    let block_size = unsafe { get_block_size() };
+    let block_size = get_block_size();
     let audio_buffers = create_storage(
-        block_size as usize,
+        *block_size,
         port_descriptors.input_ports().unwrap_or(&[]),
         port_descriptors.output_ports().unwrap_or(&[]),
     );
@@ -120,6 +132,7 @@ pub fn register_audio_node<
     });
 }
 
+#[doc(hidden)]
 #[unsafe(no_mangle)]
 pub extern "C" fn get_input_count() -> i32 {
     let instance = INSTANCE.get().expect("Instance must be initialized");
@@ -135,6 +148,7 @@ pub extern "C" fn get_input_count() -> i32 {
     input_ports.len() as i32
 }
 
+#[doc(hidden)]
 #[unsafe(no_mangle)]
 pub extern "C" fn get_output_count() -> i32 {
     let instance = INSTANCE.get().expect("Instance must be initialized");
@@ -150,6 +164,7 @@ pub extern "C" fn get_output_count() -> i32 {
     output_ports.len() as i32
 }
 
+#[doc(hidden)]
 #[unsafe(no_mangle)]
 pub extern "C" fn get_input_channel_count(port_id: i32) -> i32 {
     let instance = INSTANCE.get().expect("Instance must be initialized");
@@ -169,6 +184,7 @@ pub extern "C" fn get_input_channel_count(port_id: i32) -> i32 {
     input_port_descriptor.channels as i32
 }
 
+#[doc(hidden)]
 #[unsafe(no_mangle)]
 pub extern "C" fn get_output_channel_count(port_id: i32) -> i32 {
     let instance = INSTANCE.get().expect("Instance must be initialized");
@@ -188,6 +204,7 @@ pub extern "C" fn get_output_channel_count(port_id: i32) -> i32 {
     output_port_descriptor.channels as i32
 }
 
+#[doc(hidden)]
 #[unsafe(no_mangle)]
 pub extern "C" fn get_input_buffer_ptr(port_id: i32) -> i32 {
     let instance = INSTANCE.get().expect("Instance must be initialized");
@@ -204,6 +221,7 @@ pub extern "C" fn get_input_buffer_ptr(port_id: i32) -> i32 {
         .as_ptr() as i32
 }
 
+#[doc(hidden)]
 #[unsafe(no_mangle)]
 pub extern "C" fn get_output_buffer_ptr(port_id: i32) -> i32 {
     let instance = INSTANCE.get().expect("Instance must be initialized");
@@ -220,6 +238,7 @@ pub extern "C" fn get_output_buffer_ptr(port_id: i32) -> i32 {
         .as_ptr() as i32
 }
 
+#[doc(hidden)]
 #[unsafe(no_mangle)]
 pub extern "C" fn process(current_time: f64) {
     let instance = INSTANCE.get().expect("Instance must be initialized");
@@ -230,8 +249,8 @@ pub extern "C" fn process(current_time: f64) {
         ..
     } = &mut *instance;
 
-    let block_size = unsafe { get_block_size() };
-    let sample_rate = unsafe { get_sample_rate() };
+    let block_size = get_block_size();
+    let sample_rate = get_sample_rate();
     let ctx = AudioNodeCtx::builder()
         .block_size(BlockSize::from(block_size))
         .current_time(CurrentTime::from(current_time))
@@ -241,4 +260,18 @@ pub extern "C" fn process(current_time: f64) {
     audio_node
         .process(&audio_buffers.inputs, &mut audio_buffers.outputs, ctx)
         .expect("audio node `process` threw error internally");
+}
+
+#[macro_export]
+macro_rules! export_wasm_api {
+    () => {
+        pub use $crate::get_input_buffer_ptr;
+        pub use $crate::get_input_channel_count;
+        pub use $crate::get_input_count;
+        pub use $crate::get_output_buffer_ptr;
+        pub use $crate::get_output_channel_count;
+        pub use $crate::get_output_count;
+        pub use $crate::process;
+        pub use $crate::process;
+    };
 }
