@@ -24,6 +24,7 @@ impl Parse for ExportArgs {
     }
 }
 
+// TODO: allow not passing in an `init` function, just allow a ZST if desired
 #[proc_macro_attribute]
 pub fn wasm_audio_node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args = parse_macro_input!(attr as ExportArgs);
@@ -34,7 +35,7 @@ pub fn wasm_audio_node(attr: TokenStream, item: TokenStream) -> TokenStream {
     let expanded = quote! {
         #input
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub extern "C" fn init() {
             resonix_wasm_audio_node::register_audio_node(#init_expr);
         }

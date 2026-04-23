@@ -29,7 +29,10 @@ fn panic(_: &PanicInfo) -> ! {
 }
 
 unsafe extern "C" {
+    #[doc(hidden)]
     pub fn _get_block_size() -> i32;
+
+    #[doc(hidden)]
     pub fn _get_sample_rate() -> i32;
 }
 
@@ -272,7 +275,6 @@ macro_rules! export_wasm_api {
         pub use $crate::get_output_buffer_ptr;
         pub use $crate::get_output_channel_count;
         pub use $crate::get_output_count;
-        pub use $crate::process;
         pub use $crate::process;
     };
 }

@@ -2695,6 +2695,7 @@ dependencies = [
 name = "wasm-plugin"
 version = "0.1.0"
 dependencies = [
+ "resonix-core",
  "resonix-wasm-audio-node",
 ]
 

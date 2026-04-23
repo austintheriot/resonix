@@ -1,89 +1,112 @@
-//! Example resonix WASM audio node: a stereo gain node.
-//!
-//! Host imports (namespace "resonix"):
-//!   get_block_size() -> i32
-//!   get_sample_rate() -> i32
-//!
-//! Exports:
-//!   init()                              — optional; called once after instantiation
-//!   get_input_count() -> i32
-//!   get_output_count() -> i32
-//!   get_input_channel_count(port_id: i32) -> i32
-//!   get_output_channel_count(port_id: i32) -> i32
-//!   get_input_buffer_ptr(port_id: i32) -> i32
-//!   get_output_buffer_ptr(port_id: i32) -> i32
-//!   process(block_size: i32, current_time: f64)
-//!
-//! Ports:
-//!   input  0: audio in  (CHANNELS channels)
-//!   output 0: audio out (CHANNELS channels)
-//!
-//! DSP: applies a fixed gain of 0.5 to each sample.
-
 #![no_std]
 
-use resonix_wasm_audio_node::export_wasm_api;
-
-export_wasm_api!();
+use resonix_core::{
+    errors::AudioNodeRunError,
+    primitives::{
+        AudioNodeCtx, Id, NodeId, PortAddress, PortAddressDirection, PortDescriptor, PortId,
+        Priority, Sample,
+    },
+    traits::{
+        AudioBuffer, AudioBufferMut, DescribePorts, GetNodeId, GetPortDescriptors, GetPriority,
+    },
+};
+use resonix_wasm_audio_node::wasm_audio_node;
 
 const CHANNELS: usize = 2;
-const MAX_BLOCK_SIZE: usize = 2048;
 
-// TODO: fix this -- we don't need to use `max block size` here -- we can just
-// initialize buffers in the `init` function
+struct ExamplePorts {
+    inputs: [PortDescriptor; 1],
+    outputs: [PortDescriptor; 1],
+}
 
-// Contiguous planar staging buffers. Channel stride = block_size (set at init).
-static mut INPUT_BUF: [f32; CHANNELS * MAX_BLOCK_SIZE] = [0.0; CHANNELS * MAX_BLOCK_SIZE];
-static mut OUTPUT_BUF: [f32; CHANNELS * MAX_BLOCK_SIZE] = [0.0; CHANNELS * MAX_BLOCK_SIZE];
+impl DescribePorts for ExamplePorts {
+    fn input_ports(&self) -> Option<&[PortDescriptor]> {
+        Some(&self.inputs)
+    }
 
-static mut BLOCK_SIZE: usize = 0;
-
-#[unsafe(no_mangle)]
-pub extern "C" fn init() {
-    unsafe {
-        BLOCK_SIZE = get_block_size() as usize;
+    fn output_ports(&self) -> Option<&[PortDescriptor]> {
+        Some(&self.outputs)
     }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn get_input_count() -> i32 {
-    1
+#[wasm_audio_node(init = Example::new())]
+struct Example;
+
+impl Example {
+    pub fn new() -> Self {
+        Example
+    }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn get_output_count() -> i32 {
-    1
+// TODO: must remove `GetNodeId` from AudioNode trait
+// This is ignored by the host
+impl GetNodeId for Example {
+    fn node_id(&self) -> Id {
+        Id::new(0)
+    }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn get_input_channel_count(_port_id: i32) -> i32 {
-    CHANNELS as i32
+impl GetPriority for Example {
+    fn get_priority(&self) -> Priority {
+        Priority::new(0)
+    }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn get_output_channel_count(_port_id: i32) -> i32 {
-    CHANNELS as i32
+impl DescribePorts for Example {
+    fn input_ports(&self) -> Option<&[PortDescriptor]> {
+        None
+    }
+
+    fn output_ports(&self) -> Option<&[PortDescriptor]> {
+        None
+    }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn get_input_buffer_ptr(_port_id: i32) -> i32 {
-    core::ptr::addr_of!(INPUT_BUF) as i32
+impl GetPortDescriptors<ExamplePorts> for Example {
+    fn get_port_descriptors(&self) -> ExamplePorts {
+        ExamplePorts {
+            inputs: [PortDescriptor {
+                address: PortAddress::new(
+                    NodeId::new(0),
+                    PortId::new(0),
+                    PortAddressDirection::Input,
+                ),
+                channels: CHANNELS,
+            }],
+            outputs: [PortDescriptor {
+                address: PortAddress::new(
+                    NodeId::new(0),
+                    PortId::new(0),
+                    PortAddressDirection::Output,
+                ),
+                channels: CHANNELS,
+            }],
+        }
+    }
 }
 
-#[unsafe(no_mangle)]
-pub extern "C" fn get_output_buffer_ptr(_port_id: i32) -> i32 {
-    core::ptr::addr_of!(OUTPUT_BUF) as i32
-}
+impl resonix_core::traits::AudioNode for Example {
+    fn process<A: AudioBuffer, M: AudioBufferMut>(
+        &mut self,
+        inputs: &[Option<A>],
+        outputs: &mut [Option<M>],
+        _ctx: AudioNodeCtx,
+    ) -> Result<(), AudioNodeRunError> {
+        let Some(input) = inputs.get(0).and_then(|o| o.as_ref()) else {
+            return Ok(());
+        };
+        let Some(output) = outputs.get_mut(0).and_then(|o| o.as_mut()) else {
+            return Ok(());
+        };
 
-#[unsafe(no_mangle)]
-pub extern "C" fn process(block_size: i32, _current_time: f64) {
-    let n = block_size as usize;
-    for ch in 0..CHANNELS {
-        let base = ch * n;
-        for i in 0..n {
-            unsafe {
-                OUTPUT_BUF[base + i] = INPUT_BUF[base + i] * 0.5;
+        for ch in 0..CHANNELS {
+            let in_ch = input.channel(ch)?;
+            let out_ch = output.channel_mut(ch)?;
+            for (o, i) in out_ch.iter_mut().zip(in_ch.iter()) {
+                *o = Sample::from(**i * 0.5);
             }
         }
+
+        Ok(())
     }
 }

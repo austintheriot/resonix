@@ -11,4 +11,5 @@ opt-level = "s"
 lto = true
 
 [dependencies]
+resonix-core = { path = "../../crates/resonix-core/" }
 resonix-wasm-audio-node = { path = "../../crates/resonix-wasm-audio-node/" }
