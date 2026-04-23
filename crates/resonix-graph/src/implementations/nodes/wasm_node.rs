@@ -44,7 +44,7 @@ pub struct WasmNode {
     port_descriptors: WasmNodePortDescriptors,
     port_info_data: PortInfoData,
     /// Cached handle — avoids repeated export lookup on the hot path.
-    process_fn: TypedFunction<(i32, f64), ()>,
+    process_fn: TypedFunction<(f64), ()>,
 }
 
 #[derive(Error, Debug)]
@@ -87,7 +87,7 @@ impl WasmNode {
             &port_info_data.input_ports,
             &port_info_data.output_ports,
         );
-        let process_fn: TypedFunction<(i32, f64), ()> =
+        let process_fn: TypedFunction<(f64), ()> =
             instance.exports.get_typed_function(&store, "process")?;
 
         Ok(Self {
@@ -260,13 +260,12 @@ impl AudioNode for WasmNode {
         outputs: &mut [Option<M>],
         ctx: AudioNodeCtx,
     ) -> Result<(), AudioNodeRunError> {
-        let block_size = *ctx.block_size as i32;
         let current_time = *ctx.current_time;
 
         self.copy_inputs_into_wasm_linear_memory(inputs)?;
 
         self.process_fn
-            .call(&mut self.store, block_size, current_time)
+            .call(&mut self.store, current_time)
             .map_err(|e| Box::new(e) as Box<dyn Error>)?;
 
         self.copy_outputs_out_of_wasm_linear_memory(outputs)?;

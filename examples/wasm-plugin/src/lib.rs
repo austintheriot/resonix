@@ -46,6 +46,8 @@ impl GetNodeId for Example {
     }
 }
 
+// TODO: must remove `GetNodeId` from AudioNode trait
+// This is ignored by the host
 impl GetPriority for Example {
     fn get_priority(&self) -> Priority {
         Priority::new(0)
