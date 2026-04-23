@@ -44,7 +44,7 @@ pub struct WasmNode {
     port_descriptors: WasmNodePortDescriptors,
     port_info_data: PortInfoData,
     /// Cached handle — avoids repeated export lookup on the hot path.
-    process_fn: TypedFunction<(f64), ()>,
+    process_fn: TypedFunction<f64, ()>,
 }
 
 #[derive(Error, Debug)]
@@ -72,8 +72,8 @@ impl WasmNode {
         let sample_rate_val = *sample_rate as i32;
         let import_object = imports! {
             "resonix" => {
-                "get_block_size" => Function::new_typed(&mut store, move || block_size_val),
-                "get_sample_rate" => Function::new_typed(&mut store, move || sample_rate_val),
+                "_get_block_size" => Function::new_typed(&mut store, move || block_size_val),
+                "_get_sample_rate" => Function::new_typed(&mut store, move || sample_rate_val),
             }
         };
 
@@ -87,7 +87,7 @@ impl WasmNode {
             &port_info_data.input_ports,
             &port_info_data.output_ports,
         );
-        let process_fn: TypedFunction<(f64), ()> =
+        let process_fn: TypedFunction<f64, ()> =
             instance.exports.get_typed_function(&store, "process")?;
 
         Ok(Self {
